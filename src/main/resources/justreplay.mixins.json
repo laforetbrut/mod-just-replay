@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.vyrriox.justreplay.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "ConnectionMixin",
+    "DeltaTrackerTimerMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

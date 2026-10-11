@@ -1,0 +1,297 @@
+package com.vyrriox.justreplay.replay;
+
+import com.vyrriox.justreplay.JustReplay;
+import com.vyrriox.justreplay.editor.ActorManager;
+import com.vyrriox.justreplay.editor.ReplayProject;
+import com.vyrriox.justreplay.export.VideoExporter;
+import com.vyrriox.justreplay.format.RecordedPacket;
+import com.vyrriox.justreplay.format.ReplayMeta;
+import com.vyrriox.justreplay.format.ReplayStorage;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.GenericMessageScreen;
+import net.minecraft.client.gui.screens.ReceivingLevelScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.Holder;
+import net.minecraft.core.HolderSet;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.network.Connection;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.biome.Biomes;
+import net.minecraft.world.level.levelgen.FlatLevelSource;
+import net.minecraft.world.level.levelgen.WorldDimensions;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.flat.FlatLevelGeneratorSettings;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.level.storage.LevelStorageSource;
+import net.minecraft.world.phys.Vec3;
+
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+/**
+ * A replay being watched. The client joins a throw-away void world hosted by the integrated server, so login,
+ * configuration and mod network negotiation happen exactly as in a normal game; once in, every packet from
+ * that server is blocked and the recorded packets are played instead.
+ *
+ * @author vyrriox
+ */
+public final class ReplaySession {
+    public static final String WORLD_NAME = "justreplay-session";
+
+    private static ReplaySession current;
+    private static boolean pendingWorldCleanup;
+
+    private enum State { WAITING_LOGIN, STARTING, RUNNING }
+
+    private final Path dir;
+    private final ReplayMeta meta;
+    private final ReplayProject project;
+    private final Playback playback;
+    private final ActorManager actors;
+    private final UUID actorUuid;
+    private volatile Connection connection;
+    private volatile boolean blocking;
+    private State state = State.WAITING_LOGIN;
+    private boolean cameraPath;
+    private boolean hudVisible = true;
+    private boolean cameraPlaced;
+
+    private ReplaySession(Path dir, ReplayMeta meta, ReplayProject project, List<RecordedPacket> packets) {
+        this.dir = dir;
+        this.meta = meta;
+        this.project = project;
+        this.playback = new Playback(packets, meta.durationTicks);
+        this.actors = new ActorManager(this);
+        UUID uuid = null;
+        try {
+            uuid = UUID.fromString(meta.actorUuid);
+        } catch (IllegalArgumentException ignored) {
+        }
+        this.actorUuid = uuid;
+    }
+
+    public static ReplaySession current() {
+        return current;
+    }
+
+    public static boolean isRunning() {
+        return current != null && current.state == State.RUNNING;
+    }
+
+    public static boolean isReplayConnection(Connection connection) {
+        ReplaySession s = current;
+        return s != null && connection != null && s.connection == connection;
+    }
+
+    /** True when a packet arriving on this connection comes from the host server and must be ignored. */
+    public static boolean shouldBlock(Connection connection) {
+        ReplaySession s = current;
+        return s != null && s.blocking && s.connection == connection;
+    }
+
+    public Path dir() {
+        return dir;
+    }
+
+    public ReplayMeta meta() {
+        return meta;
+    }
+
+    public ReplayProject project() {
+        return project;
+    }
+
+    public Playback playback() {
+        return playback;
+    }
+
+    public ActorManager actors() {
+        return actors;
+    }
+
+    public boolean isCameraPathActive() {
+        return cameraPath || VideoExporter.isActive();
+    }
+
+    public void setCameraPath(boolean active) {
+        this.cameraPath = active;
+    }
+
+    public boolean isHudVisible() {
+        return hudVisible;
+    }
+
+    public void setHudVisible(boolean visible) {
+        this.hudVisible = visible;
+    }
+
+    public void saveProject() {
+        project.sort();
+        ReplayStorage.writeProject(dir, project);
+    }
+
+    // ---------------------------------------------------------------- launch
+
+    public static void open(Path dir, Screen parent) {
+        Minecraft mc = Minecraft.getInstance();
+        if (current != null || mc.level != null) {
+            return;
+        }
+        mc.forceSetScreen(new GenericMessageScreen(Component.translatable("justreplay.loading")));
+        List<RecordedPacket> packets;
+        try {
+            packets = ReplayStorage.readStream(dir);
+        } catch (Exception e) {
+            JustReplay.LOGGER.error("Cannot read replay {}", dir, e);
+            mc.setScreen(parent);
+            return;
+        }
+        if (packets.isEmpty()) {
+            JustReplay.LOGGER.warn("Replay {} is empty", dir);
+            mc.setScreen(parent);
+            return;
+        }
+        current = new ReplaySession(dir, ReplayStorage.readMeta(dir), ReplayStorage.readProject(dir), packets);
+        JustReplay.LOGGER.info("Opening replay {} ({} packets)", dir.getFileName(), packets.size());
+        deleteSessionWorld(mc);
+
+        GameRules rules = new GameRules();
+        rules.getRule(GameRules.RULE_DAYLIGHT).set(false, null);
+        rules.getRule(GameRules.RULE_WEATHER_CYCLE).set(false, null);
+        rules.getRule(GameRules.RULE_DOMOBSPAWNING).set(false, null);
+        rules.getRule(GameRules.RULE_SPAWN_CHUNK_RADIUS).set(0, null);
+        LevelSettings settings = new LevelSettings(WORLD_NAME, GameType.SPECTATOR, false, Difficulty.PEACEFUL, true, rules,
+                WorldDataConfiguration.DEFAULT);
+        try {
+            mc.createWorldOpenFlows().createFreshLevel(WORLD_NAME, settings, new WorldOptions(0L, false, false),
+                    ReplaySession::voidDimensions, parent);
+        } catch (Throwable t) {
+            JustReplay.LOGGER.error("Cannot start the replay world", t);
+            current = null;
+            mc.setScreen(parent);
+        }
+    }
+
+    private static WorldDimensions voidDimensions(RegistryAccess access) {
+        WorldDimensions dimensions = access.registryOrThrow(Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT)
+                .value().createWorldDimensions();
+        Holder<Biome> voidBiome = access.registryOrThrow(Registries.BIOME).getHolderOrThrow(Biomes.THE_VOID);
+        FlatLevelGeneratorSettings flat = new FlatLevelGeneratorSettings(Optional.of(HolderSet.direct()), voidBiome, List.of());
+        return dimensions.replaceOverworldGenerator(access, new FlatLevelSource(flat));
+    }
+
+    private static void deleteSessionWorld(Minecraft mc) {
+        LevelStorageSource source = mc.getLevelSource();
+        if (!source.levelExists(WORLD_NAME)) {
+            return;
+        }
+        try (LevelStorageSource.LevelStorageAccess access = source.createAccess(WORLD_NAME)) {
+            access.deleteLevel();
+        } catch (Exception e) {
+            JustReplay.LOGGER.warn("Cannot delete the previous replay world", e);
+        }
+    }
+
+    // ---------------------------------------------------------------- events
+
+    public static void onLoggingIn(Connection connection) {
+        ReplaySession s = current;
+        JustReplay.LOGGER.debug("Login event, session={}, state={}", s, s == null ? null : s.state);
+        if (s != null && s.state == State.WAITING_LOGIN) {
+            s.connection = connection;
+            s.blocking = true;
+            s.state = State.STARTING;
+            JustReplay.LOGGER.info("Replay connection established, playback starts next tick");
+        }
+    }
+
+    public static void onLoggingOut() {
+        ReplaySession s = current;
+        if (s != null) {
+            VideoExporter.cancel();
+            s.saveProject();
+            current = null;
+            pendingWorldCleanup = true;
+        }
+    }
+
+    public static void clientTick(Minecraft mc) {
+        if (pendingWorldCleanup && mc.level == null && mc.getSingleplayerServer() == null) {
+            pendingWorldCleanup = false;
+            deleteSessionWorld(mc);
+        }
+        ReplaySession s = current;
+        if (s != null && s.state == State.RUNNING && mc.level == null) {
+            onLoggingOut();
+            return;
+        }
+        if (s == null || mc.player == null || mc.getConnection() == null) {
+            return;
+        }
+        if (s.state == State.STARTING) {
+            s.state = State.RUNNING;
+            s.playback.start(mc.getConnection());
+            JustReplay.LOGGER.info("Replay playback started: {} ticks", s.playback.duration());
+        }
+        if (s.state != State.RUNNING) {
+            return;
+        }
+        s.playback.tick(mc);
+        Playback.enforceCamera(mc);
+        if (mc.screen instanceof ReceivingLevelScreen) {
+            mc.setScreen(null);
+        }
+        s.playback.consumeWorldReset();
+        if (!s.cameraPlaced) {
+            s.placeCameraOnRecorder(mc);
+        }
+        s.actors.tick(mc);
+    }
+
+    private void placeCameraOnRecorder(Minecraft mc) {
+        LocalPlayer player = mc.player;
+        if (player == null || mc.level == null) {
+            return;
+        }
+        Entity recorder = findRecorder(mc);
+        if (recorder != null) {
+            Playback.placeCamera(player, recorder.position().add(0, recorder.getEyeHeight() - player.getEyeHeight(), 0),
+                    recorder.getYRot(), recorder.getXRot());
+            cameraPlaced = true;
+        } else if (playback.cursor() > 40) {
+            cameraPlaced = true;
+        }
+    }
+
+    public Entity findRecorder(Minecraft mc) {
+        if (actorUuid == null || mc.level == null) {
+            return null;
+        }
+        for (Entity entity : mc.level.entitiesForRendering()) {
+            if (actorUuid.equals(entity.getUUID())) {
+                return entity;
+            }
+        }
+        return null;
+    }
+
+    /** Moves the camera to the recording player's point of view. */
+    public void jumpToRecorder(Minecraft mc) {
+        Entity recorder = findRecorder(mc);
+        if (recorder != null && mc.player != null) {
+            Vec3 eye = recorder.position().add(0, recorder.getEyeHeight() - mc.player.getEyeHeight(), 0);
+            Playback.placeCamera(mc.player, eye, recorder.getYRot(), recorder.getXRot());
+        }
+    }
+}
