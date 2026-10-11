@@ -100,6 +100,11 @@ public final class ReplaySession {
         return s != null && s.blocking && s.connection == connection;
     }
 
+    /** True for the integrated server that hosts the replay's empty world. */
+    public static boolean isHostServer(net.minecraft.server.MinecraftServer server) {
+        return current != null && server != null && WORLD_NAME.equals(server.getWorldData().getLevelName());
+    }
+
     public Path dir() {
         return dir;
     }

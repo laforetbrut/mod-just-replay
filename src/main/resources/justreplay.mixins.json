@@ -5,7 +5,9 @@
   "compatibilityLevel": "JAVA_21",
   "client": [
     "ConnectionMixin",
-    "DeltaTrackerTimerMixin"
+    "DeltaTrackerTimerMixin",
+    "PlayerListMixin",
+    "IntegratedServerMixin"
   ],
   "injectors": {
     "defaultRequire": 1

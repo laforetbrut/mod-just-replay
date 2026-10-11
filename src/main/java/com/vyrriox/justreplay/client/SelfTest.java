@@ -27,14 +27,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * Development self test, enabled with {@code -Djustreplay.selftest=true}: records a short session, plays it
+ * Development self test, enabled with {@code -Djustreplay.selftest=true} or a {@code justreplay/selftest.flag} file: records a short session, plays it
  * back, seeks, adds actors and a camera path, exports a clip, then quits. Results go to the log with the
  * {@code SELFTEST} prefix and screenshots to the screenshots folder.
  *
  * @author vyrriox
  */
 public final class SelfTest {
-    private static final boolean ENABLED = Boolean.getBoolean("justreplay.selftest");
+    private static final Path FLAG = net.neoforged.fml.loading.FMLPaths.GAMEDIR.get().resolve("justreplay").resolve("selftest.flag");
+    private static final boolean ENABLED = Boolean.getBoolean("justreplay.selftest") || Files.exists(FLAG);
     private static final String WORLD = "justreplay-selftest";
 
     private static int step;
@@ -221,6 +222,7 @@ public final class SelfTest {
             }
             case 14 -> {
                 log("DONE");
+                Files.deleteIfExists(FLAG);
                 step = 100;
                 mc.stop();
             }

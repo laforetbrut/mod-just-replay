@@ -31,6 +31,7 @@ neoForge {
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
             if (project.hasProperty('selftest')) {
                 systemProperty 'justreplay.selftest', 'true'
+                jvmArgument '-Xmx8G'
             }
         }
         server {
