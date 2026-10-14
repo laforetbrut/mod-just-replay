@@ -14,7 +14,7 @@
 - Editor: timeline, markers, camera keyframes with roll and FOV, Catmull-Rom camera path, draggable
   keyframes.
 - Actors: players with any skin and any entity type, equipment, pose, visibility, keyframed motion.
-- Video export to MP4 through FFmpeg with a fixed time step.
+- Video export to MP4 through FFmpeg with a fixed time step, with an audio track: the sounds of the replay are logged during the export and mixed in stereo relative to the camera, in sync with every frame.
 - Camera path shapes: Curve (through every keyframe), Bezier (rounded corners, smoothest) and Linear.
 - Constant speed camera paths with optional smooth start and stop: only the first and last keyframe times matter.
 - The camera path and its keyframes are drawn in the world while editing.
@@ -50,7 +50,7 @@
   déplaçables.
 - Acteurs : joueurs avec n'importe quel skin et n'importe quel type d'entité, équipement, posture,
   visibilité, mouvement par keyframes.
-- Export vidéo MP4 via FFmpeg avec un pas de temps fixe.
+- Export vidéo MP4 via FFmpeg avec un pas de temps fixe, avec une piste audio : les sons du replay sont relevés pendant l'export et mixés en stéréo selon la position de la caméra, synchronisés à chaque image.
 - Formes de chemin de caméra : Courbe (passe par chaque keyframe), Bézier (angles arrondis, le plus fluide) et Linéaire.
 - Chemins de caméra à vitesse constante avec départ et arrêt en douceur : seuls les temps du premier et du dernier keyframe comptent.
 - Le chemin de caméra et ses keyframes sont dessinés dans le monde pendant l'édition.

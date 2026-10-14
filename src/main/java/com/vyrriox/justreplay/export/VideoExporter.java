@@ -7,6 +7,7 @@ import com.vyrriox.justreplay.config.JRConfig;
 import com.vyrriox.justreplay.editor.CameraController;
 import com.vyrriox.justreplay.format.ReplayStorage;
 import com.vyrriox.justreplay.replay.ReplaySession;
+import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.components.toasts.SystemToast;
@@ -49,6 +50,7 @@ public final class VideoExporter {
     private int warmup;
     private boolean capturing;
     private int frames;
+    private final ExportAudio audio;
     private volatile boolean failed;
     private boolean finished;
 
@@ -66,6 +68,7 @@ public final class VideoExporter {
         this.warmup = JRConfig.EXPORT_WARMUP_FRAMES.get();
         this.previousHideGui = mc.options.hideGui;
         this.previousPauseOnLostFocus = mc.options.pauseOnLostFocus;
+        this.audio = new ExportAudio(fps);
         this.writerThread = new Thread(this::pump, "JustReplay export");
         this.writerThread.setDaemon(true);
     }
@@ -138,6 +141,7 @@ public final class VideoExporter {
         VideoExporter exporter = new VideoExporter(session, startTick, endTick, fps, output, process, width, height);
         current = exporter;
         exporter.writerThread.start();
+        mc.getSoundManager().stop(); // live sounds would be heard out of sync; the track is rebuilt offline
         mc.options.hideGui = true;
         mc.options.pauseOnLostFocus = false;
         mc.setScreen(null);
@@ -191,6 +195,8 @@ public final class VideoExporter {
             return;
         }
         frames++;
+        Camera camera = mc.gameRenderer.getMainCamera();
+        audio.onFrame(camera.getPosition().x, camera.getPosition().y, camera.getPosition().z, camera.getYRot());
         if (CameraController.frameTime(session, partialTick) >= endTick || session.playback().cursor() >= session.playback().duration()) {
             finish(true);
         }
@@ -244,6 +250,9 @@ public final class VideoExporter {
                     ok = false;
                 }
                 ok = ok && process.exitValue() == 0;
+                if (ok && !audio.isEmpty()) {
+                    ok = addAudio();
+                }
             } catch (InterruptedException e) {
                 ok = false;
             }
@@ -255,6 +264,45 @@ public final class VideoExporter {
         }, "JustReplay export finisher");
         waiter.setDaemon(true);
         waiter.start();
+    }
+
+    /** Mixes the logged sounds and muxes them into the finished video (video stream copied, AAC audio). */
+    private boolean addAudio() {
+        Path wav = output.resolveSibling(output.getFileName() + ".wav");
+        Path muxed = output.resolveSibling(output.getFileName() + ".tmp.mp4");
+        try {
+            audio.writeWav(wav, frames);
+            Process mux = new ProcessBuilder(JRConfig.FFMPEG_PATH.get(), "-y", "-i", output.toString(), "-i", wav.toString(),
+                    "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart", muxed.toString())
+                    .redirectErrorStream(true)
+                    .redirectOutput(output.resolveSibling(output.getFileName() + ".audio.log").toFile())
+                    .start();
+            if (!mux.waitFor(10, TimeUnit.MINUTES) || mux.exitValue() != 0) {
+                JustReplay.LOGGER.warn("Could not add the audio track, the video is kept without sound");
+                return true;
+            }
+            java.nio.file.Files.move(muxed, output, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            return true;
+        } catch (Exception e) {
+            JustReplay.LOGGER.warn("Could not add the audio track, the video is kept without sound", e);
+            return true;
+        } finally {
+            try {
+                java.nio.file.Files.deleteIfExists(wav);
+                java.nio.file.Files.deleteIfExists(muxed);
+            } catch (IOException ignored) {
+            }
+        }
+    }
+
+    /** Sounds never play live during an export; they are logged for the audio track instead. */
+    public static void onSound(net.neoforged.neoforge.client.event.sound.PlaySoundEvent event) {
+        VideoExporter e = current;
+        if (e == null || event.getSound() == null) {
+            return;
+        }
+        e.audio.onSound(event.getSound(), e.frames, e.capturing);
+        event.setSound(null);
     }
 
     public static void cancel() {

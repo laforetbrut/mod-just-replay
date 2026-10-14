@@ -166,6 +166,11 @@ public final class JustReplayClient {
         }
 
         @SubscribeEvent
+        public static void onPlaySound(net.neoforged.neoforge.client.event.sound.PlaySoundEvent event) {
+            VideoExporter.onSound(event);
+        }
+
+        @SubscribeEvent
         public static void onScreenInit(ScreenEvent.Init.Post event) {
             Minecraft mc = Minecraft.getInstance();
             if (event.getScreen() instanceof TitleScreen title) {
