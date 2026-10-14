@@ -44,6 +44,8 @@ public final class Playback {
     private boolean worldReset;
     private int handledInLastFlush;
     private static boolean dispatching;
+    private float speedAccumulator;
+    private int lastStep = 1;
 
     public Playback(List<RecordedPacket> packets, int durationTicks) {
         this.packets = packets;
@@ -65,6 +67,11 @@ public final class Playback {
 
     public void setPaused(boolean paused) {
         this.paused = paused;
+    }
+
+    /** Recorded ticks played during the last client tick (0 when paused). */
+    public int lastStep() {
+        return lastStep;
     }
 
     public float speed() {
@@ -91,10 +98,18 @@ public final class Playback {
         if (codec == null) {
             return;
         }
+        lastStep = 0;
         if (!paused && !mc.isPaused()) {
             if (cursor < duration) {
-                cursor++;
-                flushTo(cursor);
+                // The client never ticks faster than 20 TPS: above x1, several recorded ticks run per client tick.
+                speedAccumulator += Math.max(1.0F, speed());
+                int steps = (int) speedAccumulator;
+                speedAccumulator -= steps;
+                for (int i = 0; i < steps && cursor < duration; i++) {
+                    cursor++;
+                    flushTo(cursor);
+                    lastStep++;
+                }
             } else {
                 paused = true;
             }
@@ -241,7 +256,7 @@ public final class Playback {
             return;
         }
         TickRateManager manager = mc.level.tickRateManager();
-        float rate = 20.0F * speed();
+        float rate = 20.0F * Math.min(1.0F, speed());
         if (manager.tickrate() != rate || manager.isFrozen() != paused) {
             try {
                 new ClientboundTickingStatePacket(rate, paused).handle(mc.getConnection());

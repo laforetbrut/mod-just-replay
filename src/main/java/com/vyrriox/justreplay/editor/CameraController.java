@@ -24,7 +24,8 @@ public final class CameraController {
         if (playback.isPaused()) {
             return playback.cursor();
         }
-        return Math.max(0, playback.cursor() - 1 + partialTick);
+        int step = Math.max(1, playback.lastStep());
+        return Math.max(0, playback.cursor() - step + partialTick * step);
     }
 
     public static void onRenderFrame(float partialTick) {

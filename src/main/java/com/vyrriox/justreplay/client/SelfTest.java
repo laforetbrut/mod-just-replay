@@ -41,6 +41,7 @@ public final class SelfTest {
     private static int step;
     private static int wait;
     private static int settle;
+    private static int speedStart;
     private static Path replay;
 
     private SelfTest() {
@@ -190,6 +191,15 @@ public final class SelfTest {
                 ReplaySession s = ReplaySession.current();
                 logWorld(mc, s, "after backward seek");
                 shot(mc, "3-seek20");
+                speedStart = s.playback().cursor();
+                s.playback().changeSpeed(2);
+                next(10);
+            }
+            case 9 -> {
+                ReplaySession s = ReplaySession.current();
+                log("speed x{}: cursor advanced {} ticks in 10 client ticks", s.playback().speed(), s.playback().cursor() - speedStart);
+                s.playback().resetSpeed();
+                s.playback().seek(20);
                 s.jumpToRecorder(mc);
                 Vec3 c = p.position();
                 ReplayProject.ActorData player = new ReplayProject.ActorData();
@@ -211,7 +221,7 @@ public final class SelfTest {
                 s.playback().setPaused(false);
                 next(60);
             }
-            case 9 -> {
+            case 10 -> {
                 ReplaySession s = ReplaySession.current();
                 logWorld(mc, s, "camera path + actors");
                 for (ReplayProject.ActorData a : s.project().actors) {
@@ -222,11 +232,11 @@ public final class SelfTest {
                 mc.setScreen(new EditorScreen(s));
                 next(10);
             }
-            case 10 -> {
+            case 11 -> {
                 shot(mc, "5-editor");
                 next(5);
             }
-            case 11 -> {
+            case 12 -> {
                 mc.setScreen(null);
                 ReplaySession s = ReplaySession.current();
                 s.setCameraPath(false);
@@ -235,19 +245,19 @@ public final class SelfTest {
                 log("export start error={}", error == null ? "none" : error.getString());
                 next(1);
             }
-            case 12 -> {
+            case 13 -> {
                 if (!VideoExporter.isActive()) {
                     next(200);
                 }
             }
-            case 13 -> {
+            case 14 -> {
                 Path mp4 = ReplayStorage.exportRoot().resolve("selftest.mp4");
                 log("export file exists={} size={}", Files.exists(mp4), Files.exists(mp4) ? Files.size(mp4) : 0);
                 mc.level.disconnect();
                 mc.disconnect(new TitleScreen());
                 next(60);
             }
-            case 14 -> {
+            case 15 -> {
                 log("DONE");
                 Files.deleteIfExists(FLAG);
                 step = 100;
