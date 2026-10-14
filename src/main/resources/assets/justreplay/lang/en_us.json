@@ -22,6 +22,7 @@
   "justreplay.toast.started": "Recording started",
   "justreplay.toast.saved": "Replay saved",
   "justreplay.toast.failed": "Cannot start recording",
+  "justreplay.toast.open_failed": "Cannot open this replay",
   "justreplay.toast.keyframe": "Camera keyframe added",
 
   "justreplay.hud.hint": "G editor  J play  K keyframe  O path  H hide",

@@ -105,6 +105,28 @@ public final class PacketFilter {
     private PacketFilter() {
     }
 
+    private static final Set<Class<?>> TRANSIENT = Set.of(
+            net.minecraft.network.protocol.game.ClientboundSoundPacket.class,
+            net.minecraft.network.protocol.game.ClientboundSoundEntityPacket.class,
+            net.minecraft.network.protocol.game.ClientboundStopSoundPacket.class,
+            net.minecraft.network.protocol.game.ClientboundLevelParticlesPacket.class,
+            net.minecraft.network.protocol.game.ClientboundLevelEventPacket.class,
+            net.minecraft.network.protocol.game.ClientboundExplodePacket.class,
+            net.minecraft.network.protocol.game.ClientboundAnimatePacket.class,
+            net.minecraft.network.protocol.game.ClientboundHurtAnimationPacket.class,
+            net.minecraft.network.protocol.game.ClientboundDamageEventPacket.class,
+            net.minecraft.network.protocol.game.ClientboundBlockEventPacket.class,
+            net.minecraft.network.protocol.game.ClientboundBlockDestructionPacket.class,
+            net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket.class,
+            net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket.class,
+            net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket.class
+    );
+
+    /** Packets whose only effect is momentary (sound, particles, animations, titles): skipped while seeking. */
+    public static boolean isTransient(Packet<?> packet) {
+        return TRANSIENT.contains(packet.getClass());
+    }
+
     public static boolean shouldDrop(Packet<?> packet) {
         if (DROPPED.contains(packet.getClass())) {
             return true;

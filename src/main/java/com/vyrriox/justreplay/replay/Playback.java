@@ -45,6 +45,7 @@ public final class Playback {
     private int handledInLastFlush;
     private static boolean dispatching;
     private float speedAccumulator;
+    private int skippingTo = -1;
     private int lastStep = 1;
 
     public Playback(List<RecordedPacket> packets, int durationTicks) {
@@ -130,7 +131,12 @@ public final class Playback {
             cursor = 0;
             mc.gui.getChat().clearMessages(false);
         }
-        flushTo(target);
+        skippingTo = target;
+        try {
+            flushTo(target);
+        } finally {
+            skippingTo = -1;
+        }
         cursor = target;
         if (camPos != null && mc.player != null) {
             placeCamera(mc.player, camPos, yaw, pitch);
@@ -166,6 +172,10 @@ public final class Playback {
             if (packet == null) {
                 return;
             }
+        }
+        if (recorded.tick() < skippingTo && PacketFilter.isTransient(packet)) {
+            // Sounds and effects of skipped time would all fire at once.
+            return;
         }
         if (PacketFilter.shouldDrop(packet)) {
             return;

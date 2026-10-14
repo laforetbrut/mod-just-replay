@@ -153,15 +153,35 @@ public final class ReplaySession {
         if (current != null || mc.level != null) {
             return;
         }
-        mc.forceSetScreen(new GenericMessageScreen(Component.translatable("justreplay.loading")));
-        List<RecordedPacket> packets;
-        try {
-            packets = ReplayStorage.readStream(dir);
-        } catch (Exception e) {
-            JustReplay.LOGGER.error("Cannot read replay {}", dir, e);
-            mc.setScreen(parent);
+        if (loading) {
             return;
         }
+        loading = true;
+        mc.forceSetScreen(new GenericMessageScreen(Component.translatable("justreplay.loading")));
+        // Decompressing a long replay takes a while: do it off the render thread.
+        java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+            try {
+                return ReplayStorage.readStream(dir);
+            } catch (Exception e) {
+                throw new java.util.concurrent.CompletionException(e);
+            }
+        }, net.minecraft.Util.backgroundExecutor()).whenCompleteAsync((packets, error) -> {
+            loading = false;
+            if (error != null) {
+                JustReplay.LOGGER.error("Cannot read replay {}", dir, error);
+                net.minecraft.client.gui.components.toasts.SystemToast.add(mc.getToasts(),
+                        net.minecraft.client.gui.components.toasts.SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+                        Component.translatable("justreplay.toast.open_failed"), Component.literal(dir.getFileName().toString()));
+                mc.setScreen(parent);
+                return;
+            }
+            start(mc, dir, parent, packets);
+        }, mc);
+    }
+
+    private static boolean loading;
+
+    private static void start(Minecraft mc, Path dir, Screen parent, List<RecordedPacket> packets) {
         if (packets.isEmpty()) {
             JustReplay.LOGGER.warn("Replay {} is empty", dir);
             mc.setScreen(parent);
