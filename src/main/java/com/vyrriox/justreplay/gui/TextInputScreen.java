@@ -43,8 +43,11 @@ public class TextInputScreen extends Screen {
     }
 
     private void done() {
-        minecraft.setScreen(parent);
+        // Apply first so the parent screen rebuilds with the change.
         onDone.accept(box.getValue().trim());
+        if (minecraft.screen == this) {
+            minecraft.setScreen(parent);
+        }
     }
 
     @Override

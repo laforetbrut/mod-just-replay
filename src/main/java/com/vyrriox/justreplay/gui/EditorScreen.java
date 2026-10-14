@@ -38,6 +38,9 @@ public class EditorScreen extends Screen {
     private boolean scrubbing;
     private int ghostTick = -1;
     private Object dragging;
+    private boolean dragMoved;
+    private double pressX;
+    private double grabOffset;
 
     private Button playButton;
     private Button pathButton;
@@ -100,11 +103,12 @@ public class EditorScreen extends Screen {
         button(px + 3 * (quarter + 2), py, quarter, "FOV+", b -> adjust(5, 0));
         py += ROW;
         button(px, py, half, tr("justreplay.editor.camera.update"), b -> updateSelectedCamera());
-        button(px + half + 2, py, half, tr("justreplay.editor.clearpath"), b -> {
-            session.project().cameraKeyframes.clear();
-            selectedCamera = null;
-            session.saveProject();
-        });
+        button(px + half + 2, py, half, tr("justreplay.editor.clearpath"), b -> confirm(
+                Component.translatable("justreplay.editor.clearpath.confirm"), () -> {
+                    session.project().cameraKeyframes.clear();
+                    selectedCamera = null;
+                    session.saveProject();
+                }));
         cameraInfoY = py + ROW + 2;
 
         // Actor panel
@@ -119,7 +123,11 @@ public class EditorScreen extends Screen {
                 minecraft.setScreen(new ActorScreen(this, session, selectedActor));
             }
         });
-        button(ax + 2 * third + 4, ay, third, tr("justreplay.editor.actor.delete"), b -> deleteActor());
+        button(ax + 2 * third + 4, ay, third, tr("justreplay.editor.actor.delete"), b -> {
+            if (selectedActor != null) {
+                confirm(Component.translatable("justreplay.editor.actor.delete.confirm"), this::deleteActor);
+            }
+        });
         ay += ROW + 4;
         actorListY = ay;
         actorRows = Math.max(1, (height - 64 - ay) / ROW);
@@ -345,7 +353,7 @@ public class EditorScreen extends Screen {
                     if (Math.abs(Timeline.xOf(k.tick, tlX, tlW, duration) - mx) <= 4) {
                         selectedCamera = k;
                         selectedActorKey = null;
-                        dragging = k;
+                        startDrag(k, k.tick, mx, duration);
                         return true;
                     }
                 }
@@ -354,7 +362,15 @@ public class EditorScreen extends Screen {
                     if (Math.abs(Timeline.xOf(k.tick, tlX, tlW, duration) - mx) <= 4) {
                         selectedActorKey = k;
                         selectedCamera = null;
-                        dragging = k;
+                        startDrag(k, k.tick, mx, duration);
+                        return true;
+                    }
+                }
+            }
+            if (upper) {
+                for (ReplayProject.Marker marker : session.project().markers) {
+                    if (Math.abs(Timeline.xOf(marker.tick, tlX, tlW, duration) - mx) <= 3) {
+                        session.playback().seek(marker.tick);
                         return true;
                     }
                 }
@@ -368,15 +384,37 @@ public class EditorScreen extends Screen {
         return super.mouseClicked(mx, my, button);
     }
 
+    private void startDrag(Object keyframe, int tick, double mx, int duration) {
+        dragging = keyframe;
+        dragMoved = false;
+        pressX = mx;
+        grabOffset = mx - Timeline.xOf(tick, tlX, tlW, duration);
+    }
+
+    private void confirm(Component question, Runnable action) {
+        minecraft.setScreen(new net.minecraft.client.gui.screens.ConfirmScreen(ok -> {
+            if (ok) {
+                action.run();
+            }
+            minecraft.setScreen(this);
+        }, question, Component.translatable("justreplay.editor.cannot_undo")));
+    }
+
     @Override
     public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
         int duration = session.playback().duration();
-        if (dragging instanceof ReplayProject.CameraKeyframe k) {
-            k.tick = Timeline.tickAt(mx, tlX, tlW, duration);
-            return true;
-        }
-        if (dragging instanceof ReplayProject.ActorKeyframe k) {
-            k.tick = Timeline.tickAt(mx, tlX, tlW, duration);
+        if (dragging != null) {
+            // A plain click selects; the keyframe only moves once the mouse travelled a few pixels.
+            if (!dragMoved && Math.abs(mx - pressX) < 3) {
+                return true;
+            }
+            dragMoved = true;
+            int tick = Timeline.tickAt(mx - grabOffset, tlX, tlW, duration);
+            if (dragging instanceof ReplayProject.CameraKeyframe k) {
+                k.tick = tick;
+            } else if (dragging instanceof ReplayProject.ActorKeyframe k) {
+                k.tick = tick;
+            }
             return true;
         }
         if (scrubbing) {

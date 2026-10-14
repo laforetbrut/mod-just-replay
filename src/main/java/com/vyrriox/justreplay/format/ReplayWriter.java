@@ -25,7 +25,7 @@ public final class ReplayWriter implements AutoCloseable {
 
     public ReplayWriter(Path file) throws IOException {
         Files.createDirectories(file.getParent());
-        this.out = new DataOutputStream(new GZIPOutputStream(new BufferedOutputStream(Files.newOutputStream(file), 1 << 16), 1 << 16));
+        this.out = new DataOutputStream(new GZIPOutputStream(new BufferedOutputStream(Files.newOutputStream(file), 1 << 16), 1 << 16, true));
         this.executor = Executors.newSingleThreadExecutor(r -> {
             Thread t = new Thread(r, "JustReplay writer");
             t.setDaemon(true);
@@ -45,6 +45,21 @@ public final class ReplayWriter implements AutoCloseable {
             } catch (IOException e) {
                 failed = true;
                 JustReplay.LOGGER.error("Failed to write replay data", e);
+            }
+        });
+    }
+
+    /** Pushes buffered data to disk so a crash loses at most a few seconds. */
+    public void flush() {
+        if (failed) {
+            return;
+        }
+        executor.execute(() -> {
+            try {
+                out.flush();
+            } catch (IOException e) {
+                failed = true;
+                JustReplay.LOGGER.error("Failed to flush replay data", e);
             }
         });
     }

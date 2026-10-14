@@ -99,6 +99,8 @@ public final class ActorManager {
             GameProfile profile = resolveProfile(actor);
             ClientPacketListener listener = mc.getConnection();
             if (listener != null) {
+                // ADD_PLAYER keeps an existing entry, so drop it first to pick up the resolved skin.
+                listener.handlePlayerInfoRemove(new net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket(List.of(profile.getId())));
                 listener.handlePlayerInfoUpdate(PlayerInfoPackets.build(listener.registryAccess(), listener.getConnectionType(),
                         List.of(new PlayerInfoPackets.Info(profile.getId(), profile, GameType.SURVIVAL, false, 0, null))));
             }

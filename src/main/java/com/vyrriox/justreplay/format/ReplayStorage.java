@@ -124,8 +124,12 @@ public final class ReplayStorage {
                 in.readFully(data);
                 packets.add(new RecordedPacket(tick, data));
             }
-        } catch (EOFException truncated) {
-            JustReplay.LOGGER.warn("Replay stream in {} is truncated, keeping {} packets", dir, packets.size());
+        } catch (IOException damaged) {
+            // Crash while recording or damaged file: keep everything read so far.
+            if (packets.isEmpty()) {
+                throw damaged;
+            }
+            JustReplay.LOGGER.warn("Replay stream in {} is damaged ({}), keeping {} packets", dir, damaged.toString(), packets.size());
         }
         return packets;
     }

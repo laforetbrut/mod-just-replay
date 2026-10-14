@@ -118,6 +118,14 @@ public final class JustReplayClient {
             VideoExporter.onFrameRendered(event.getPartialTick().getGameTimeDeltaPartialTick(false));
         }
 
+        /** Spectator flying widens the view; keyframes store the configured FOV, so keep the camera at exactly that. */
+        @SubscribeEvent
+        public static void onFovModifier(net.neoforged.neoforge.client.event.ComputeFovModifierEvent event) {
+            if (ReplaySession.isRunning()) {
+                event.setNewFovModifier(1.0F);
+            }
+        }
+
         @SubscribeEvent
         public static void onCameraAngles(ViewportEvent.ComputeCameraAngles event) {
             Float roll = CameraController.roll();

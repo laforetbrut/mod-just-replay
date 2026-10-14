@@ -310,6 +310,12 @@ public final class Recorder {
             }
         }
         tick++;
+        if (tick % 200 == 0) {
+            // Crash safety: flush the stream and keep the duration in meta.json current.
+            writer.flush();
+            meta.durationTicks = tick;
+            ReplayStorage.writeMeta(dir, meta);
+        }
     }
 
     private void write(ClientPacketListener listener, Packet<?> packet) {

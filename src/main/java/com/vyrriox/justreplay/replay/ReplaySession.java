@@ -181,6 +181,12 @@ public final class ReplaySession {
         try {
             mc.createWorldOpenFlows().createFreshLevel(WORLD_NAME, settings, new WorldOptions(0L, false, false),
                     ReplaySession::voidDimensions, parent);
+            if (mc.getSingleplayerServer() == null) {
+                // World creation failed and returned to the menu: forget the session so the next open works.
+                current = null;
+                pendingWorldCleanup = true;
+                JustReplay.LOGGER.error("The replay world could not be started");
+            }
         } catch (Throwable t) {
             JustReplay.LOGGER.error("Cannot start the replay world", t);
             current = null;
