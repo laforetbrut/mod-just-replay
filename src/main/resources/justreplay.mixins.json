@@ -7,7 +7,8 @@
     "ConnectionMixin",
     "DeltaTrackerTimerMixin",
     "PlayerListMixin",
-    "IntegratedServerMixin"
+    "IntegratedServerMixin",
+    "PlayerInfoAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -134,6 +134,22 @@ public final class JustReplayClient {
             }
         }
 
+        /** Recorded packets must not change the screen: keeps the editor open across seeks and blocks mod GUIs. */
+        @SubscribeEvent
+        public static void onScreenOpening(ScreenEvent.Opening event) {
+            if (Playback.isDispatching()) {
+                event.setCanceled(true);
+            } else if (VideoExporter.isActive() && Minecraft.getInstance().level != null) {
+                // Esc cancels the export; any other screen would be burnt into the video.
+                if (event.getNewScreen() instanceof PauseScreen) {
+                    VideoExporter.cancel();
+                    toast("justreplay.export.cancelled", "");
+                } else if (event.getNewScreen() != null) {
+                    event.setCanceled(true);
+                }
+            }
+        }
+
         @SubscribeEvent
         public static void onScreenInit(ScreenEvent.Init.Post event) {
             Minecraft mc = Minecraft.getInstance();

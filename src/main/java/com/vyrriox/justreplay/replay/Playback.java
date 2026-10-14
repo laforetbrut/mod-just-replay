@@ -43,6 +43,7 @@ public final class Playback {
     private int speedIndex = 3;
     private boolean worldReset;
     private int handledInLastFlush;
+    private static boolean dispatching;
 
     public Playback(List<RecordedPacket> packets, int durationTicks) {
         this.packets = packets;
@@ -144,21 +145,48 @@ public final class Playback {
             logOnce(RecordedPacket.class, "Cannot decode a recorded packet (mod missing or changed?): " + t);
             return;
         }
+        if (packet instanceof net.minecraft.network.protocol.game.ClientboundPlayerChatPacket chat) {
+            // Signed chat cannot be validated in a replay (expired keys, missing signature cache); show it unsigned.
+            packet = unsign(chat);
+            if (packet == null) {
+                return;
+            }
+        }
         if (PacketFilter.shouldDrop(packet)) {
             return;
         }
         if (packet instanceof ClientboundLoginPacket login) {
             packet = rewriteLogin(login);
         }
+        dispatching = true;
         try {
             ((Packet<ClientGamePacketListener>) packet).handle(listener);
         } catch (Throwable t) {
             logOnce(packet.getClass(), "Packet " + packet.getClass().getSimpleName() + " failed during playback: " + t);
+        } finally {
+            dispatching = false;
         }
         if (packet instanceof ClientboundLoginPacket || packet instanceof ClientboundRespawnPacket) {
             worldReset = true;
             enforceCamera(mc);
         }
+    }
+
+    /** True while a recorded packet is being handled; screen openings and disconnects it causes are ignored. */
+    public static boolean isDispatching() {
+        return dispatching;
+    }
+
+    private static Packet<? super ClientGamePacketListener> unsign(net.minecraft.network.protocol.game.ClientboundPlayerChatPacket chat) {
+        net.minecraft.network.chat.FilterMask mask = chat.filterMask();
+        net.minecraft.network.chat.Component content;
+        if (mask.isEmpty()) {
+            content = chat.unsignedContent() != null ? chat.unsignedContent()
+                    : net.minecraft.network.chat.Component.literal(chat.body().content());
+        } else {
+            content = mask.applyWithFormatting(chat.body().content());
+        }
+        return content == null ? null : new net.minecraft.network.protocol.game.ClientboundDisguisedChatPacket(content, chat.chatType());
     }
 
     private static ClientboundLoginPacket rewriteLogin(ClientboundLoginPacket login) {
@@ -173,6 +201,13 @@ public final class Playback {
     public static void enforceCamera(Minecraft mc) {
         if (mc.gameMode != null && mc.gameMode.getPlayerMode() != GameType.SPECTATOR) {
             mc.gameMode.setLocalMode(GameType.SPECTATOR);
+        }
+        if (mc.player != null && mc.getConnection() != null) {
+            // The recorded tab list may carry the viewer's own UUID with another game mode.
+            net.minecraft.client.multiplayer.PlayerInfo info = mc.getConnection().getPlayerInfo(mc.player.getUUID());
+            if (info != null && info.getGameMode() != GameType.SPECTATOR) {
+                ((com.vyrriox.justreplay.mixin.PlayerInfoAccessor) info).justreplay$setGameMode(GameType.SPECTATOR);
+            }
         }
         if (mc.player != null) {
             mc.player.getAbilities().mayfly = true;

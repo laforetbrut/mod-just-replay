@@ -50,6 +50,7 @@ public final class VideoExporter {
     private boolean capturing;
     private int frames;
     private volatile boolean failed;
+    private boolean finished;
 
     private VideoExporter(ReplaySession session, int startTick, int endTick, int fps, Path output, Process process, int width, int height) {
         Minecraft mc = Minecraft.getInstance();
@@ -112,6 +113,12 @@ public final class VideoExporter {
             safeName += ".mp4";
         }
         Path output = ReplayStorage.exportRoot().resolve(safeName);
+        String base = safeName.substring(0, safeName.length() - 4);
+        for (int n = 2; java.nio.file.Files.exists(output); n++) {
+            // Never overwrite an earlier export.
+            output = ReplayStorage.exportRoot().resolve(base + "_" + n + ".mp4");
+        }
+        safeName = output.getFileName().toString();
         List<String> command = new ArrayList<>(List.of(
                 JRConfig.FFMPEG_PATH.get(), "-y",
                 "-f", "rawvideo", "-pix_fmt", "rgba", "-s", width + "x" + height, "-r", Integer.toString(fps), "-i", "-",
@@ -171,9 +178,17 @@ public final class VideoExporter {
             int[] pixels = image.getPixelsRGBA();
             ByteBuffer bytes = ByteBuffer.allocate(pixels.length * 4).order(ByteOrder.LITTLE_ENDIAN);
             bytes.asIntBuffer().put(pixels);
-            queue.put(bytes.array());
+            byte[] frame = bytes.array();
+            // Never block forever: if ffmpeg died the writer stops draining the queue.
+            while (!queue.offer(frame, 100, TimeUnit.MILLISECONDS)) {
+                if (failed || !process.isAlive()) {
+                    finish(false);
+                    return;
+                }
+            }
         } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
+            finish(false);
+            return;
         }
         frames++;
         if (CameraController.frameTime(session, partialTick) >= endTick || session.playback().cursor() >= session.playback().duration()) {
@@ -190,22 +205,35 @@ public final class VideoExporter {
                 }
                 stdin.write(frame);
             }
-            stdin.close();
         } catch (IOException | InterruptedException e) {
             failed = true;
             JustReplay.LOGGER.error("FFmpeg stopped accepting frames", e);
+            queue.clear();
+            process.destroyForcibly();
+        } finally {
+            try {
+                stdin.close();
+            } catch (IOException ignored) {
+            }
         }
     }
 
     private void finish(boolean success) {
+        if (finished) {
+            return;
+        }
+        finished = true;
         current = null;
         Minecraft mc = Minecraft.getInstance();
         mc.options.hideGui = previousHideGui;
         mc.options.pauseOnLostFocus = previousPauseOnLostFocus;
         session.playback().setPaused(true);
-        try {
-            queue.offer(END, 5, TimeUnit.SECONDS);
-        } catch (InterruptedException ignored) {
+        if (!queue.offer(END)) {
+            // Queue full and the writer is stuck: give up on this export instead of freezing the game.
+            failed = true;
+            queue.clear();
+            queue.offer(END);
+            process.destroyForcibly();
         }
         Thread waiter = new Thread(() -> {
             boolean ok = success;

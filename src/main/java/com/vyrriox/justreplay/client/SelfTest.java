@@ -230,6 +230,7 @@ public final class SelfTest {
                 mc.setScreen(null);
                 ReplaySession s = ReplaySession.current();
                 s.setCameraPath(false);
+                Files.deleteIfExists(ReplayStorage.exportRoot().resolve("selftest.mp4"));
                 var error = VideoExporter.start(s, 20, 80, "selftest");
                 log("export start error={}", error == null ? "none" : error.getString());
                 next(1);

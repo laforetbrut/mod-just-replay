@@ -17,6 +17,15 @@
 - Video export to MP4 through FFmpeg with a fixed time step.
 - Development self test (`./gradlew runClient -Pselftest`).
 
+#### Fixed
+- Signed player chat no longer breaks replays (expired keys, seeking back, manual recordings).
+- Mod GUIs and disconnect requests sent by recorded packets are ignored during playback; the editor stays open across seeks.
+- The camera stays a spectator even when the recorded tab list contains the viewer.
+- Mid-session recordings keep paintings, item frames, falling blocks and modded entities (original spawn packets are reused).
+- The recording player respawns correctly after death and stays seated in vehicles; singleplayer pauses are not recorded.
+- Video export never freezes the game when FFmpeg stops, Esc cancels it, screens cannot appear in the video, and exports never overwrite an earlier file.
+- Other mods' HUDs are hidden while watching a replay.
+
 ## Français
 
 ### [Non publié]
@@ -34,3 +43,12 @@
   visibilité, mouvement par keyframes.
 - Export vidéo MP4 via FFmpeg avec un pas de temps fixe.
 - Auto-test de développement (`./gradlew runClient -Pselftest`).
+
+#### Corrigé
+- Le chat signé des joueurs ne casse plus les replays (clés expirées, retour en arrière, enregistrements manuels).
+- Les interfaces de mods et les demandes de déconnexion venant des paquets enregistrés sont ignorées pendant la lecture ; l'éditeur reste ouvert lors des sauts.
+- La caméra reste en spectateur même si la liste des joueurs enregistrée contient le spectateur.
+- Les enregistrements lancés en cours de partie gardent les tableaux, cadres, blocs qui tombent et entités moddées (les paquets d'apparition d'origine sont réutilisés).
+- Le joueur enregistré réapparaît correctement après une mort et reste assis dans les véhicules ; les pauses en solo ne sont plus enregistrées.
+- L'export vidéo ne fige plus le jeu si FFmpeg s'arrête, Échap l'annule, aucun écran ne peut apparaître dans la vidéo, et un export n'écrase jamais un fichier existant.
+- Les HUD des autres mods sont masqués pendant la lecture d'un replay.

@@ -81,6 +81,7 @@ public final class Recorder {
 
     private UUID actorUuid;
     private ClientLevel lastLevel;
+    private LocalPlayer lastPlayer;
     private int lastEntityId = Integer.MIN_VALUE;
     private Vec3 lastPos;
     private float lastYRot, lastXRot, lastHeadRot;
@@ -119,9 +120,42 @@ public final class Recorder {
                 startFromLogin(connection);
             }
         }
+        if (!ReplaySession.isReplayConnection(connection)) {
+            trackSpawns(connection, packet);
+        }
         Recorder recorder = active;
         if (recorder != null && recorder.connection == connection) {
             recorder.capture(packet);
+        }
+    }
+
+    // ---------------------------------------------------------------- spawn cache
+
+    /** Original spawn packets (with their bundle: NeoForge spawn data, entity data, attributes...) per entity id. */
+    private static final java.util.Map<Integer, List<Packet<?>>> SPAWNS = new ConcurrentHashMap<>();
+    private static volatile Connection spawnConnection;
+
+    private static void trackSpawns(Connection connection, Packet<?> packet) {
+        if (connection != spawnConnection) {
+            SPAWNS.clear();
+            spawnConnection = connection;
+        }
+        if (packet instanceof ClientboundLoginPacket || packet instanceof net.minecraft.network.protocol.game.ClientboundRespawnPacket) {
+            SPAWNS.clear();
+        } else if (packet instanceof net.minecraft.network.protocol.game.ClientboundBundlePacket bundle) {
+            List<Packet<?>> subs = new ArrayList<>();
+            bundle.subPackets().forEach(subs::add);
+            for (Packet<?> sub : subs) {
+                if (sub instanceof ClientboundAddEntityPacket add) {
+                    SPAWNS.put(add.getId(), subs);
+                } else if (sub instanceof net.minecraft.network.protocol.game.ClientboundRemoveEntitiesPacket remove) {
+                    remove.getEntityIds().forEach(SPAWNS::remove);
+                }
+            }
+        } else if (packet instanceof ClientboundAddEntityPacket add) {
+            SPAWNS.put(add.getId(), List.of(packet));
+        } else if (packet instanceof net.minecraft.network.protocol.game.ClientboundRemoveEntitiesPacket remove) {
+            remove.getEntityIds().forEach(SPAWNS::remove);
         }
     }
 
@@ -258,6 +292,10 @@ public final class Recorder {
         if (state != State.RUNNING) {
             return;
         }
+        if (connection.isMemoryConnection() && mc.isPaused()) {
+            // A paused singleplayer game sends nothing; do not record the pause as frozen footage.
+            return;
+        }
         LocalPlayer player = mc.player;
         ClientPacketListener listener = mc.getConnection();
         if (player != null && mc.level != null && listener != null && listener.getConnection() == connection) {
@@ -287,8 +325,9 @@ public final class Recorder {
     }
 
     private void recordLocalPlayer(Minecraft mc, ClientPacketListener listener, LocalPlayer player) {
-        boolean respawned = mc.level != lastLevel || player.getId() != lastEntityId;
+        boolean respawned = mc.level != lastLevel || player.getId() != lastEntityId || player != lastPlayer;
         if (respawned) {
+            lastPlayer = player;
             lastLevel = mc.level;
             lastEntityId = player.getId();
             lastData = null;
@@ -301,6 +340,9 @@ public final class Recorder {
                     new PlayerInfoPackets.Info(actorUuid, actorProfile, GameType.SURVIVAL, false, 0, null))));
             write(listener, new ClientboundAddEntityPacket(player.getId(), actorUuid, player.getX(), player.getY(), player.getZ(),
                     player.getXRot(), player.getYRot(), player.getType(), 0, Vec3.ZERO, player.getYHeadRot()));
+            if (player.getVehicle() != null) {
+                write(listener, new ClientboundSetPassengersPacket(player.getVehicle()));
+            }
         }
 
         Vec3 pos = player.position();
@@ -344,6 +386,20 @@ public final class Recorder {
         lastSwingTime = player.swingTime;
     }
 
+    /** The "data" field vanilla puts in an add-entity packet, rebuilt from client state. */
+    private static int spawnData(Entity entity) {
+        if (entity instanceof net.minecraft.world.entity.decoration.HangingEntity hanging) {
+            return hanging.getDirection().get3DDataValue();
+        }
+        if (entity instanceof net.minecraft.world.entity.item.FallingBlockEntity falling) {
+            return net.minecraft.world.level.block.Block.getId(falling.getBlockState());
+        }
+        if (entity instanceof net.minecraft.world.entity.projectile.Projectile projectile && projectile.getOwner() != null) {
+            return projectile.getOwner().getId();
+        }
+        return 0;
+    }
+
     /** Writes packets that rebuild the current client world: login, tab list, time, weather, chunks, entities. */
     private void writeSnapshot(Minecraft mc, ClientPacketListener listener) {
         ClientLevel level = mc.level;
@@ -385,7 +441,11 @@ public final class Recorder {
             for (int z = cz - radius; z <= cz + radius; z++) {
                 LevelChunk chunk = level.getChunkSource().getChunk(x, z, ChunkStatus.FULL, false);
                 if (chunk != null && !chunk.isEmpty()) {
-                    write(listener, new ClientboundLevelChunkWithLightPacket(chunk, level.getLightEngine(), null, null));
+                    try {
+                        write(listener, new ClientboundLevelChunkWithLightPacket(chunk, level.getLightEngine(), null, null));
+                    } catch (Throwable t) {
+                        JustReplay.LOGGER.warn("Skipping chunk {} in the snapshot: {}", chunk.getPos(), t.toString());
+                    }
                 }
             }
         }
@@ -396,8 +456,38 @@ public final class Recorder {
             if (entity == player) {
                 continue;
             }
-            write(listener, new ClientboundAddEntityPacket(entity.getId(), entity.getUUID(), entity.getX(), entity.getY(), entity.getZ(),
-                    entity.getXRot(), entity.getYRot(), entity.getType(), 0, entity.getDeltaMovement(), entity.getYHeadRot()));
+            try {
+                writeEntitySnapshot(listener, entity, withPassengers);
+            } catch (Throwable t) {
+                JustReplay.LOGGER.warn("Skipping entity {} in the snapshot: {}", entity, t.toString());
+            }
+        }
+        for (Entity vehicle : withPassengers) {
+            write(listener, new ClientboundSetPassengersPacket(vehicle));
+        }
+    }
+
+    private void writeEntitySnapshot(ClientPacketListener listener, Entity entity, List<Entity> withPassengers) {
+        {
+            List<Packet<?>> original = SPAWNS.get(entity.getId());
+            if (original != null) {
+                // The server's own spawn packets carry what client state cannot rebuild (spawn data, NeoForge payloads).
+                for (Packet<?> spawnPacket : original) {
+                    write(listener, spawnPacket);
+                }
+                write(listener, new ClientboundTeleportEntityPacket(entity));
+            } else {
+                write(listener, new ClientboundAddEntityPacket(entity.getId(), entity.getUUID(), entity.getX(), entity.getY(), entity.getZ(),
+                        entity.getXRot(), entity.getYRot(), entity.getType(), spawnData(entity), entity.getDeltaMovement(), entity.getYHeadRot()));
+                if (entity instanceof net.neoforged.neoforge.entity.IEntityWithComplexSpawn) {
+                    try {
+                        write(listener, new net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket(
+                                new net.neoforged.neoforge.network.payload.AdvancedAddEntityPayload(entity)));
+                    } catch (Throwable t) {
+                        JustReplay.LOGGER.debug("No spawn data for {}", entity, t);
+                    }
+                }
+            }
             List<SynchedEntityData.DataValue<?>> data = entity.getEntityData().getNonDefaultValues();
             if (data != null) {
                 write(listener, new ClientboundSetEntityDataPacket(entity.getId(), data));
@@ -417,9 +507,6 @@ public final class Recorder {
             if (!entity.getPassengers().isEmpty()) {
                 withPassengers.add(entity);
             }
-        }
-        for (Entity vehicle : withPassengers) {
-            write(listener, new ClientboundSetPassengersPacket(vehicle));
         }
     }
 }

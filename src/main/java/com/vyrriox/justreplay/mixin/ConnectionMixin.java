@@ -43,4 +43,15 @@ public abstract class ConnectionMixin {
             ci.cancel();
         }
     }
+
+    /** Mod handlers may disconnect on a payload they reject; during playback that would end the replay. */
+    @Inject(method = "disconnect(Lnet/minecraft/network/DisconnectionDetails;)V", at = @At("HEAD"), cancellable = true)
+    private void justreplay$onDisconnect(net.minecraft.network.DisconnectionDetails details, CallbackInfo ci) {
+        Connection self = (Connection) (Object) this;
+        if (com.vyrriox.justreplay.replay.Playback.isDispatching() && ReplaySession.isReplayConnection(self)) {
+            com.vyrriox.justreplay.JustReplay.LOGGER.warn("A recorded packet asked to disconnect the replay ({}), ignored",
+                    details.reason().getString());
+            ci.cancel();
+        }
+    }
 }

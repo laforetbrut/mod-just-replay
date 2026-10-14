@@ -98,7 +98,8 @@ public final class PacketFilter {
             ClientboundChunkBatchStartPacket.class,
             ClientboundChunkBatchFinishedPacket.class,
             ClientboundTickingStatePacket.class,
-            ClientboundTickingStepPacket.class
+            ClientboundTickingStepPacket.class,
+            net.minecraft.network.protocol.game.ClientboundDeleteChatPacket.class
     );
 
     private PacketFilter() {
@@ -106,6 +107,11 @@ public final class PacketFilter {
 
     public static boolean shouldDrop(Packet<?> packet) {
         if (DROPPED.contains(packet.getClass())) {
+            return true;
+        }
+        if (packet instanceof net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket custom
+                && (custom.payload() instanceof net.neoforged.neoforge.network.payload.AdvancedOpenScreenPayload
+                || custom.payload() instanceof net.neoforged.neoforge.network.payload.AdvancedContainerSetDataPayload)) {
             return true;
         }
         if (packet instanceof ClientboundGameEventPacket event) {
