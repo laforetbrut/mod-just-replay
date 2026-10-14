@@ -35,7 +35,7 @@ public final class CameraController {
         if (session == null || !ReplaySession.isRunning() || !session.isCameraPathActive() || mc.player == null) {
             return;
         }
-        double[] state = Interpolation.camera(session.project().cameraKeyframes, frameTime(session, partialTick));
+        double[] state = CameraPath.of(session.project()).sample(frameTime(session, partialTick));
         if (state == null) {
             return;
         }

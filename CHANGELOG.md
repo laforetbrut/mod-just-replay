@@ -15,6 +15,9 @@
   keyframes.
 - Actors: players with any skin and any entity type, equipment, pose, visibility, keyframed motion.
 - Video export to MP4 through FFmpeg with a fixed time step.
+- Camera path shapes: Curve (through every keyframe), Bezier (rounded corners, smoothest) and Linear.
+- Constant speed camera paths with optional smooth start and stop: only the first and last keyframe times matter.
+- The camera path and its keyframes are drawn in the world while editing.
 - Development self test (`./gradlew runClient -Pselftest`).
 
 #### Fixed
@@ -47,6 +50,9 @@
 - Acteurs : joueurs avec n'importe quel skin et n'importe quel type d'entité, équipement, posture,
   visibilité, mouvement par keyframes.
 - Export vidéo MP4 via FFmpeg avec un pas de temps fixe.
+- Formes de chemin de caméra : Courbe (passe par chaque keyframe), Bézier (angles arrondis, le plus fluide) et Linéaire.
+- Chemins de caméra à vitesse constante avec départ et arrêt en douceur : seuls les temps du premier et du dernier keyframe comptent.
+- Le chemin de caméra et ses keyframes sont dessinés dans le monde pendant l'édition.
 - Auto-test de développement (`./gradlew runClient -Pselftest`).
 
 #### Corrigé

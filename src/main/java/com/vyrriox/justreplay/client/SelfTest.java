@@ -229,6 +229,18 @@ public final class SelfTest {
                     log("actor {} -> {}", a.type, e == null ? "missing" : e.getClass().getSimpleName() + " @ " + e.position());
                 }
                 shot(mc, "4-path-actors");
+                // Every curve and timing must give a usable camera state; the free camera then shows the 3D path.
+                for (String curve : new String[]{"CATMULL_ROM", "BEZIER", "LINEAR"}) {
+                    for (String timing : new String[]{"CONSTANT_SPEED", "KEYFRAMES"}) {
+                        s.project().cameraCurve = curve;
+                        s.project().cameraTiming = timing;
+                        double[] a = com.vyrriox.justreplay.editor.CameraPath.of(s.project()).sample(50);
+                        log("path {} {} at t=50: {} {} {}", curve, timing, a[0], a[1], a[2]);
+                    }
+                }
+                s.project().cameraCurve = "BEZIER";
+                s.project().cameraTiming = "CONSTANT_SPEED";
+                s.setCameraPath(false);
                 mc.setScreen(new EditorScreen(s));
                 next(10);
             }

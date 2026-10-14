@@ -103,7 +103,14 @@ public final class JustReplayClient {
 
         @SubscribeEvent
         public static void onGuiLayer(net.neoforged.neoforge.client.event.RenderGuiLayerEvent.Pre event) {
-            if (ReplaySession.isRunning() && JRConfig.CLEAN_HUD.get() && !REPLAY_LAYERS.contains(event.getName())) {
+            if (!ReplaySession.isRunning()) {
+                return;
+            }
+            if (JRConfig.CLEAN_HUD.get() && !REPLAY_LAYERS.contains(event.getName())) {
+                event.setCanceled(true);
+            } else if (Minecraft.getInstance().screen instanceof EditorScreen && event.getName().equals(
+                    net.neoforged.neoforge.client.gui.VanillaGuiLayers.CHAT)) {
+                // The recorded chat would cover the editor panels.
                 event.setCanceled(true);
             }
         }

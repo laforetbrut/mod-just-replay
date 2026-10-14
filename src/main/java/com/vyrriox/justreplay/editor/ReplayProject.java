@@ -13,6 +13,14 @@ import java.util.UUID;
  */
 public final class ReplayProject {
     public List<CameraKeyframe> cameraKeyframes = new ArrayList<>();
+    /** Curve shape: CATMULL_ROM (through every keyframe), BEZIER (rounded, smoothest) or LINEAR. */
+    public String cameraCurve = "CATMULL_ROM";
+    /** CONSTANT_SPEED (only the first and last keyframe times matter) or KEYFRAMES (each keyframe at its tick). */
+    public String cameraTiming = "CONSTANT_SPEED";
+    /** Gentle acceleration at the start and deceleration at the end of a constant speed path. */
+    public boolean cameraEase = true;
+    /** Draw the camera path in the world while editing. */
+    public boolean showPath = true;
     public List<Marker> markers = new ArrayList<>();
     public List<ActorData> actors = new ArrayList<>();
 

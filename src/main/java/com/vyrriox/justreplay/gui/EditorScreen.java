@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.gui;
 
+import com.vyrriox.justreplay.editor.CameraPath;
 import com.vyrriox.justreplay.editor.ReplayProject;
 import com.vyrriox.justreplay.replay.Playback;
 import com.vyrriox.justreplay.replay.ReplaySession;
@@ -109,6 +110,30 @@ public class EditorScreen extends Screen {
                     selectedCamera = null;
                     session.saveProject();
                 }));
+        py += ROW;
+        ReplayProject project = session.project();
+        button(px, py, quarter, curveLabel(), b -> {
+            CameraPath.Curve[] all = CameraPath.Curve.values();
+            project.cameraCurve = all[(curve().ordinal() + 1) % all.length].name();
+            b.setMessage(Component.literal(curveLabel()));
+            session.saveProject();
+        }).setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("justreplay.editor.curve.tip")));
+        button(px + quarter + 2, py, quarter, timingLabel(), b -> {
+            project.cameraTiming = (timing() == CameraPath.Timing.CONSTANT_SPEED ? CameraPath.Timing.KEYFRAMES
+                    : CameraPath.Timing.CONSTANT_SPEED).name();
+            b.setMessage(Component.literal(timingLabel()));
+            session.saveProject();
+        }).setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("justreplay.editor.timing.tip")));
+        button(px + 2 * (quarter + 2), py, quarter, easeLabel(), b -> {
+            project.cameraEase = !project.cameraEase;
+            b.setMessage(Component.literal(easeLabel()));
+            session.saveProject();
+        }).setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("justreplay.editor.ease.tip")));
+        button(px + 3 * (quarter + 2), py, quarter, showPathLabel(), b -> {
+            project.showPath = !project.showPath;
+            b.setMessage(Component.literal(showPathLabel()));
+            session.saveProject();
+        }).setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("justreplay.editor.showpath.tip")));
         cameraInfoY = py + ROW + 2;
 
         // Actor panel
@@ -143,6 +168,30 @@ public class EditorScreen extends Screen {
             actorButtons.add(b);
             ay += ROW;
         }
+    }
+
+    private CameraPath.Curve curve() {
+        return CameraPath.parse(CameraPath.Curve.class, session.project().cameraCurve, CameraPath.Curve.CATMULL_ROM);
+    }
+
+    private CameraPath.Timing timing() {
+        return CameraPath.parse(CameraPath.Timing.class, session.project().cameraTiming, CameraPath.Timing.CONSTANT_SPEED);
+    }
+
+    private String curveLabel() {
+        return tr("justreplay.editor.curve." + curve().name().toLowerCase(java.util.Locale.ROOT));
+    }
+
+    private String timingLabel() {
+        return tr(timing() == CameraPath.Timing.CONSTANT_SPEED ? "justreplay.editor.timing.constant" : "justreplay.editor.timing.keyframes");
+    }
+
+    private String easeLabel() {
+        return tr(session.project().cameraEase ? "justreplay.editor.ease.on" : "justreplay.editor.ease.off");
+    }
+
+    private String showPathLabel() {
+        return tr(session.project().showPath ? "justreplay.editor.showpath.on" : "justreplay.editor.showpath.off");
     }
 
     private static String tr(String key) {
