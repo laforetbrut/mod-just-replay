@@ -21,6 +21,9 @@ public final class JustReplay {
 
     public JustReplay(IEventBus modEventBus, ModContainer container) {
         container.registerConfig(ModConfig.Type.CLIENT, JRConfig.SPEC);
+        if (net.neoforged.fml.loading.FMLEnvironment.dist.isClient()) {
+            com.vyrriox.justreplay.client.JustReplayClient.registerConfigScreen(container);
+        }
     }
 
     public static ResourceLocation id(String path) {

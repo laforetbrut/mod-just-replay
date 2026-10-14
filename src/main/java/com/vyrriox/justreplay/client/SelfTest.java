@@ -213,6 +213,10 @@ public final class SelfTest {
                 zombie.keyframes.add(new ReplayProject.ActorKeyframe(20, c.x - 2, c.y, c.z + 2, 0, 0));
                 s.project().actors.add(player);
                 s.project().actors.add(zombie);
+                ReplayProject.ActorData modded = new ReplayProject.ActorData();
+                modded.type = "mowziesmobs:foliaath";
+                modded.keyframes.add(new ReplayProject.ActorKeyframe(20, c.x, c.y, c.z + 4, 180, 0));
+                s.project().actors.add(modded);
                 s.project().cameraKeyframes.add(new ReplayProject.CameraKeyframe(20, c.x - 6, c.y + 3, c.z - 6, -45, 20, 0, 70));
                 s.project().cameraKeyframes.add(new ReplayProject.CameraKeyframe(80, c.x + 6, c.y + 4, c.z - 6, 45, 25, 10, 60));
                 s.project().cameraKeyframes.add(new ReplayProject.CameraKeyframe(140, c.x + 6, c.y + 2, c.z + 8, 160, 10, 0, 70));

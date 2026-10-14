@@ -28,6 +28,9 @@
 - The recording player respawns correctly after death and stays seated in vehicles; singleplayer pauses are not recorded.
 - Video export never freezes the game when FFmpeg stops, Esc cancels it, screens cannot appear in the video, and exports never overwrite an earlier file.
 - Other mods' HUDs are hidden while watching a replay.
+- Playback keys only act inside a replay, so they no longer clash with other mods' keys in a normal game.
+- Modded entities used as actors no longer run their own AI; an actor that cannot exist client side is reported once instead of crashing.
+- Settings screen in the mod list; replay sizes shown in KB or MB.
 - Playback speeds x2, x4 and x8 now work.
 - Replays recorded on a server keep the server's block, item and entity ids, so they show the right content.
 - Long replays no longer load entirely into memory: recordings are stored in five second segments read on demand (older replays still open).
@@ -64,6 +67,9 @@
 - Le joueur enregistré réapparaît correctement après une mort et reste assis dans les véhicules ; les pauses en solo ne sont plus enregistrées.
 - L'export vidéo ne fige plus le jeu si FFmpeg s'arrête, Échap l'annule, aucun écran ne peut apparaître dans la vidéo, et un export n'écrase jamais un fichier existant.
 - Les HUD des autres mods sont masqués pendant la lecture d'un replay.
+- Les touches de lecture n'agissent que dans un replay et n'entrent plus en conflit avec celles des autres mods en jeu normal.
+- Les entités moddées utilisées comme acteurs n'exécutent plus leur propre IA ; un acteur impossible à créer côté client est signalé une fois au lieu de faire planter le jeu.
+- Écran de réglages dans la liste des mods ; taille des replays affichée en Ko ou Mo.
 - Les vitesses x2, x4 et x8 fonctionnent.
 - Les replays enregistrés sur un serveur gardent les identifiants de blocs, objets et entités du serveur, et affichent donc le bon contenu.
 - Les longs replays ne sont plus chargés entièrement en mémoire : les enregistrements sont découpés en segments de cinq secondes lus à la demande (les anciens replays s'ouvrent toujours).

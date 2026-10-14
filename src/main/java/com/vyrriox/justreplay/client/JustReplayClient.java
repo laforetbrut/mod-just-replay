@@ -165,6 +165,16 @@ public final class JustReplayClient {
             }
         }
 
+        /** Actors are puppets: their own AI/tick code (often server-minded in mods) never runs. */
+        @SubscribeEvent
+        public static void onEntityTick(net.neoforged.neoforge.event.tick.EntityTickEvent.Pre event) {
+            if (event.getEntity().level().isClientSide() && ReplaySession.isRunning()
+                    && com.vyrriox.justreplay.editor.ActorManager.isActorEntity(event.getEntity())
+                    && !(event.getEntity() instanceof net.minecraft.client.player.RemotePlayer)) {
+                event.setCanceled(true);
+            }
+        }
+
         @SubscribeEvent
         public static void onPlaySound(net.neoforged.neoforge.client.event.sound.PlaySoundEvent event) {
             VideoExporter.onSound(event);
@@ -191,6 +201,12 @@ public final class JustReplayClient {
                 }
             }
         }
+    }
+
+    /** Config screen in the mod list; only called on the client. */
+    public static void registerConfigScreen(net.neoforged.fml.ModContainer container) {
+        container.registerExtensionPoint(net.neoforged.neoforge.client.gui.IConfigScreenFactory.class,
+                net.neoforged.neoforge.client.gui.ConfigurationScreen::new);
     }
 
     private static void toggleRecording() {

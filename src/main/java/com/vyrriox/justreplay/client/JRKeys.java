@@ -3,6 +3,7 @@ package com.vyrriox.justreplay.client;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
+import net.neoforged.neoforge.client.settings.IKeyConflictContext;
 import net.neoforged.neoforge.client.settings.KeyConflictContext;
 import org.lwjgl.glfw.GLFW;
 
@@ -14,7 +15,21 @@ import org.lwjgl.glfw.GLFW;
 public final class JRKeys {
     private static final String CATEGORY = "key.categories.justreplay";
 
-    public static final KeyMapping RECORD = key("record", GLFW.GLFW_KEY_F8);
+    /** Playback keys only act inside a replay, so they never steal keys from other mods in a normal game. */
+    public static final IKeyConflictContext IN_REPLAY = new IKeyConflictContext() {
+        @Override
+        public boolean isActive() {
+            return com.vyrriox.justreplay.replay.ReplaySession.isRunning() && KeyConflictContext.IN_GAME.isActive();
+        }
+
+        @Override
+        public boolean conflicts(IKeyConflictContext other) {
+            return this == other;
+        }
+    };
+
+    public static final KeyMapping RECORD = new KeyMapping("key.justreplay.record", KeyConflictContext.IN_GAME,
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_F8, CATEGORY);
     public static final KeyMapping EDITOR = key("editor", GLFW.GLFW_KEY_G);
     public static final KeyMapping PLAY_PAUSE = key("play_pause", GLFW.GLFW_KEY_J);
     public static final KeyMapping SEEK_BACK = key("seek_back", GLFW.GLFW_KEY_LEFT);
@@ -31,7 +46,7 @@ public final class JRKeys {
     }
 
     private static KeyMapping key(String name, int code) {
-        return new KeyMapping("key.justreplay." + name, KeyConflictContext.IN_GAME, InputConstants.Type.KEYSYM, code, CATEGORY);
+        return new KeyMapping("key.justreplay." + name, IN_REPLAY, InputConstants.Type.KEYSYM, code, CATEGORY);
     }
 
     public static void register(RegisterKeyMappingsEvent event) {

@@ -158,7 +158,7 @@ public class ReplayListScreen extends Screen {
                 String date = new SimpleDateFormat("yyyy-MM-dd HH:mm").format(new Date(meta.startedAt));
                 String where = meta.server == null || meta.server.isBlank() ? "" : "  " + meta.server;
                 g.drawString(font, Component.literal(date + where).withStyle(ChatFormatting.GRAY), left + 4, top + 13, 0xFFFFFF);
-                String info = Timeline.formatTicks(meta.durationTicks) + "  " + (entry.sizeBytes() / 1024 / 1024) + " MB  "
+                String info = Timeline.formatTicks(meta.durationTicks) + "  " + formatSize(entry.sizeBytes()) + "  "
                         + meta.mods.size() + " mods";
                 g.drawString(font, Component.literal(info).withStyle(ChatFormatting.DARK_GRAY), left + 4, top + 24, 0xFFFFFF);
             }
@@ -179,5 +179,12 @@ public class ReplayListScreen extends Screen {
                 return Component.literal(entry.meta().name);
             }
         }
+    }
+
+    static String formatSize(long bytes) {
+        if (bytes < 1024 * 1024) {
+            return String.format(java.util.Locale.ROOT, "%.0f KB", bytes / 1024.0);
+        }
+        return String.format(java.util.Locale.ROOT, "%.1f MB", bytes / 1024.0 / 1024.0);
     }
 }

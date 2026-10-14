@@ -43,9 +43,15 @@ public final class ActorManager {
     private final Map<String, CompletableFuture<Optional<GameProfile>>> lookups = new HashMap<>();
     private final Map<String, GameProfile> profiles = new HashMap<>();
     private int nextId = -1000;
+    private final java.util.Set<String> failed = new java.util.HashSet<>();
 
     public ActorManager(ReplaySession session) {
         this.session = session;
+    }
+
+    /** True for entities spawned as actors; their own tick is skipped, animate() drives them. */
+    public static boolean isActorEntity(Entity entity) {
+        return entity.getId() <= -1000;
     }
 
     public Entity entityOf(ReplayProject.ActorData actor) {
@@ -54,6 +60,7 @@ public final class ActorManager {
 
     /** Forces an actor to be rebuilt, after its type, skin or equipment changed. */
     public void refresh(ReplayProject.ActorData actor) {
+        failed.remove(actor.id);
         Entity entity = spawned.remove(actor.id);
         if (entity != null && Minecraft.getInstance().level != null) {
             Minecraft.getInstance().level.removeEntity(entity.getId(), Entity.RemovalReason.DISCARDED);
@@ -83,7 +90,17 @@ public final class ActorManager {
                 continue;
             }
             if (entity == null || entity.isRemoved() || entity.level() != level) {
-                entity = spawn(mc, level, actor);
+                if (failed.contains(actor.id)) {
+                    continue;
+                }
+                try {
+                    entity = spawn(mc, level, actor);
+                } catch (Throwable t) {
+                    // A modded entity that cannot live client side: report once, never retry every tick.
+                    failed.add(actor.id);
+                    JustReplay.LOGGER.warn("Actor {} ({}) cannot be spawned: {}", actor.name, actor.type, t.toString());
+                    entity = null;
+                }
                 if (entity == null) {
                     continue;
                 }
