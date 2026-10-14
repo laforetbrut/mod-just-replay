@@ -553,7 +553,8 @@ public class EditorScreen extends Screen {
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         int ax = width - 8 - panelW;
         g.fill(4, 2, 12 + panelW, cameraInfoY + 22, 0x99000000);
-        g.fill(ax - 4, 2, width - 4, actorListY + actorRows * ROW + 2, 0x99000000);
+        int shownActors = Math.min(actorRows, Math.max(1, session.project().actors.size() - actorScroll));
+        g.fill(ax - 4, 2, width - 4, actorListY + shownActors * ROW + 2, 0x99000000);
         g.fill(0, height - 56, width, height, 0xAA000000);
         g.drawString(font, Component.translatable("justreplay.editor.camera"), 8, 5, 0xFF4FC3F7, true);
         g.drawString(font, Component.translatable("justreplay.editor.actors"), ax, 5, 0xFF81C784, true);
