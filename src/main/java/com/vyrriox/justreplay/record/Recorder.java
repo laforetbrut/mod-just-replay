@@ -74,7 +74,7 @@ public final class Recorder {
     private final ReplayWriter writer;
     private final ReplayMeta meta;
     private final List<byte[]> pending = new ArrayList<>();
-    private final Set<Class<?>> failedTypes = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    private final Set<Object> failedTypes = Collections.newSetFromMap(new ConcurrentHashMap<>());
     private volatile State state;
     private volatile int tick;
     private volatile PacketCodec codec;
@@ -143,8 +143,11 @@ public final class Recorder {
         try {
             c.encode(packet, this::accept);
         } catch (Throwable t) {
-            if (failedTypes.add(packet.getClass())) {
-                JustReplay.LOGGER.warn("Cannot record packet {}, it will be skipped: {}", packet.getClass().getName(), t.toString());
+            Object type = packet instanceof net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket custom
+                    ? custom.payload().type().id() : packet.getClass();
+            if (failedTypes.add(type)) {
+                JustReplay.LOGGER.warn("Cannot record {}, it will be skipped: {}", type, t.toString(),
+                        t.getCause() != null ? t.getCause() : t);
             }
         }
     }

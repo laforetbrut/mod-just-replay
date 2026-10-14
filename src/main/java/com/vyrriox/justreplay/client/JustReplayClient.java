@@ -89,6 +89,25 @@ public final class JustReplayClient {
             }
         }
 
+        /** Recorded overlays stay; the camera's own HUD and other mods' HUDs would cover the timeline. */
+        private static final java.util.Set<net.minecraft.resources.ResourceLocation> REPLAY_LAYERS = java.util.Set.of(
+                net.neoforged.neoforge.client.gui.VanillaGuiLayers.CHAT,
+                net.neoforged.neoforge.client.gui.VanillaGuiLayers.TITLE,
+                net.neoforged.neoforge.client.gui.VanillaGuiLayers.SUBTITLE_OVERLAY,
+                net.neoforged.neoforge.client.gui.VanillaGuiLayers.BOSS_OVERLAY,
+                net.neoforged.neoforge.client.gui.VanillaGuiLayers.SCOREBOARD_SIDEBAR,
+                net.neoforged.neoforge.client.gui.VanillaGuiLayers.TAB_LIST,
+                net.neoforged.neoforge.client.gui.VanillaGuiLayers.OVERLAY_MESSAGE,
+                net.neoforged.neoforge.client.gui.VanillaGuiLayers.DEBUG_OVERLAY,
+                JustReplay.id("hud"));
+
+        @SubscribeEvent
+        public static void onGuiLayer(net.neoforged.neoforge.client.event.RenderGuiLayerEvent.Pre event) {
+            if (ReplaySession.isRunning() && JRConfig.CLEAN_HUD.get() && !REPLAY_LAYERS.contains(event.getName())) {
+                event.setCanceled(true);
+            }
+        }
+
         @SubscribeEvent
         public static void onRenderFramePre(RenderFrameEvent.Pre event) {
             CameraController.onRenderFrame(event.getPartialTick().getGameTimeDeltaPartialTick(false));

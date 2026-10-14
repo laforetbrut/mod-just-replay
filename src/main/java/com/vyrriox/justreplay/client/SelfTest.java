@@ -40,6 +40,7 @@ public final class SelfTest {
 
     private static int step;
     private static int wait;
+    private static int settle;
     private static Path replay;
 
     private SelfTest() {
@@ -47,6 +48,15 @@ public final class SelfTest {
 
     private static void log(String message, Object... args) {
         JustReplay.LOGGER.info("SELFTEST " + message, args);
+    }
+
+    /** Out of any world, on a menu (vanilla or customised title screen), with loading finished. */
+    private static boolean atMenu(Minecraft mc) {
+        return mc.level == null && mc.getOverlay() == null && mc.screen != null
+                && !(mc.screen instanceof net.minecraft.client.gui.screens.GenericMessageScreen)
+                && !(mc.screen instanceof net.minecraft.client.gui.screens.ProgressScreen)
+                && !(mc.screen instanceof net.minecraft.client.gui.screens.LevelLoadingScreen)
+                && !(mc.screen instanceof net.minecraft.client.gui.screens.ReceivingLevelScreen);
     }
 
     private static void next(int delay) {
@@ -61,6 +71,11 @@ public final class SelfTest {
     public static void tick(Minecraft mc) {
         if (!ENABLED) {
             return;
+        }
+        // The test must not stop when the window loses focus.
+        mc.options.pauseOnLostFocus = false;
+        if (mc.screen instanceof net.minecraft.client.gui.screens.PauseScreen) {
+            mc.setScreen(null);
         }
         if (wait > 0) {
             wait--;
@@ -78,7 +93,7 @@ public final class SelfTest {
         LocalPlayer p = mc.player;
         switch (step) {
             case 0 -> {
-                if (mc.screen instanceof TitleScreen) {
+                if (atMenu(mc)) {
                     LevelStorageSource source = mc.getLevelSource();
                     if (source.levelExists(WORLD)) {
                         try (var access = source.createAccess(WORLD)) {
@@ -97,15 +112,26 @@ public final class SelfTest {
                 }
             }
             case 1 -> {
-                if (p != null && mc.level != null && mc.screen == null) {
-                    log("in world at {}", p.position());
-                    next(60);
+                if (p != null && mc.level != null) {
+                    // Mods may open welcome screens on join; give the world time to settle, then close them.
+                    if (mc.screen != null && ++settle > 200) {
+                        log("closing screen {}", mc.screen.getClass().getName());
+                        mc.setScreen(null);
+                    }
+                    if (mc.screen == null) {
+                        log("in world at {}", p.position());
+                        next(60);
+                    }
                 }
             }
             case 2 -> {
                 p.connection.sendCommand("summon minecraft:pig ~4 ~ ~2");
                 p.connection.sendCommand("summon minecraft:villager ~-3 ~ ~3");
                 p.connection.sendCommand("setblock ~2 ~ ~ minecraft:gold_block");
+                // Modded content when available: an animated GeckoLib mob and a spinning Create motor.
+                p.connection.sendCommand("summon mowziesmobs:foliaath ~-4 ~ ~-3");
+                p.connection.sendCommand("setblock ~3 ~ ~-3 create:creative_motor[facing=up]");
+                p.connection.sendCommand("setblock ~3 ~1 ~-3 create:cogwheel");
                 boolean started = Recorder.startManual();
                 log("record started: {}", started);
                 next(5);
@@ -135,7 +161,7 @@ public final class SelfTest {
                 }
             }
             case 4 -> {
-                if (mc.screen instanceof TitleScreen && mc.level == null) {
+                if (atMenu(mc)) {
                     ReplaySession.open(replay, mc.screen);
                     log("replay opening");
                     next(40);

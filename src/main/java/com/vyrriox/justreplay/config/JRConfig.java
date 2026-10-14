@@ -13,6 +13,7 @@ public final class JRConfig {
     public static final ModConfigSpec.BooleanValue AUTO_RECORD_SINGLEPLAYER;
     public static final ModConfigSpec.BooleanValue SHOW_RECORDING_INDICATOR;
     public static final ModConfigSpec.IntValue SEEK_STEP_SECONDS;
+    public static final ModConfigSpec.BooleanValue CLEAN_HUD;
     public static final ModConfigSpec.ConfigValue<String> FFMPEG_PATH;
     public static final ModConfigSpec.IntValue EXPORT_FPS;
     public static final ModConfigSpec.IntValue EXPORT_CRF;
@@ -31,6 +32,9 @@ public final class JRConfig {
         b.push("playback");
         SEEK_STEP_SECONDS = b.comment("Seconds skipped by the seek keys.")
                 .defineInRange("seekStepSeconds", 5, 1, 600);
+        CLEAN_HUD = b.comment("Hide the hotbar, health, crosshair and every HUD added by other mods while watching a replay.",
+                        "Chat, titles, boss bars, scoreboard and the tab list stay visible since they are part of the recording.")
+                .define("cleanHud", true);
         b.pop();
         b.push("export");
         FFMPEG_PATH = b.comment("Path to the ffmpeg executable, or just 'ffmpeg' when it is on the PATH.")
