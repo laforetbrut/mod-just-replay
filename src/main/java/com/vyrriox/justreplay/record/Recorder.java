@@ -4,6 +4,7 @@ import com.mojang.authlib.GameProfile;
 import com.mojang.datafixers.util.Pair;
 import com.vyrriox.justreplay.JustReplay;
 import com.vyrriox.justreplay.config.JRConfig;
+import com.vyrriox.justreplay.format.RegistryIds;
 import com.vyrriox.justreplay.format.ReplayMeta;
 import com.vyrriox.justreplay.format.ReplayStorage;
 import com.vyrriox.justreplay.format.ReplayWriter;
@@ -224,6 +225,7 @@ public final class Recorder {
         UUID actor = UUID.nameUUIDFromBytes(("justreplay:actor:" + profile.getId()).getBytes(StandardCharsets.UTF_8));
         meta.actorUuid = actor.toString();
         ReplayStorage.writeMeta(dir, meta);
+        RegistryIds.save(dir);
         Recorder recorder = new Recorder(connection, dir, new ReplayWriter(dir.resolve(ReplayStorage.STREAM)), meta, state);
         recorder.actorUuid = actor;
         return recorder;

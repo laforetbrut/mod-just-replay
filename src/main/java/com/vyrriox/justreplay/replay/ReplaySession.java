@@ -246,6 +246,9 @@ public final class ReplaySession {
         }
         if (s.state == State.STARTING) {
             s.state = State.RUNNING;
+            // Recorded ids must be in place before the codec decodes anything.
+            boolean ids = com.vyrriox.justreplay.format.RegistryIds.apply(s.dir);
+            JustReplay.LOGGER.info("Registry ids from the recording: {}", ids ? "applied" : "none (older replay)");
             s.playback.start(mc.getConnection());
             JustReplay.LOGGER.info("Replay playback started: {} ticks", s.playback.duration());
         }

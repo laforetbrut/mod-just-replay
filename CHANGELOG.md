@@ -25,6 +25,8 @@
 - The recording player respawns correctly after death and stays seated in vehicles; singleplayer pauses are not recorded.
 - Video export never freezes the game when FFmpeg stops, Esc cancels it, screens cannot appear in the video, and exports never overwrite an earlier file.
 - Other mods' HUDs are hidden while watching a replay.
+- Playback speeds x2, x4 and x8 now work.
+- Replays recorded on a server keep the server's block, item and entity ids, so they show the right content.
 
 ## Français
 
@@ -52,3 +54,5 @@
 - Le joueur enregistré réapparaît correctement après une mort et reste assis dans les véhicules ; les pauses en solo ne sont plus enregistrées.
 - L'export vidéo ne fige plus le jeu si FFmpeg s'arrête, Échap l'annule, aucun écran ne peut apparaître dans la vidéo, et un export n'écrase jamais un fichier existant.
 - Les HUD des autres mods sont masqués pendant la lecture d'un replay.
+- Les vitesses x2, x4 et x8 fonctionnent.
+- Les replays enregistrés sur un serveur gardent les identifiants de blocs, objets et entités du serveur, et affichent donc le bon contenu.
