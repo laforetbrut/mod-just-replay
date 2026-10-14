@@ -67,7 +67,7 @@ public final class ReplaySession {
     private boolean hudVisible = true;
     private boolean cameraPlaced;
 
-    private ReplaySession(Path dir, ReplayMeta meta, ReplayProject project, List<RecordedPacket> packets) {
+    private ReplaySession(Path dir, ReplayMeta meta, ReplayProject project, com.vyrriox.justreplay.format.PacketStream packets) {
         this.dir = dir;
         this.meta = meta;
         this.project = project;
@@ -161,7 +161,9 @@ public final class ReplaySession {
         // Decompressing a long replay takes a while: do it off the render thread.
         java.util.concurrent.CompletableFuture.supplyAsync(() -> {
             try {
-                return ReplayStorage.readStream(dir);
+                com.vyrriox.justreplay.format.PacketStream stream = com.vyrriox.justreplay.format.PacketStream.open(dir);
+                stream.lastTick(); // reads the last segment here rather than on the render thread
+                return stream;
             } catch (Exception e) {
                 throw new java.util.concurrent.CompletionException(e);
             }
@@ -181,14 +183,14 @@ public final class ReplaySession {
 
     private static boolean loading;
 
-    private static void start(Minecraft mc, Path dir, Screen parent, List<RecordedPacket> packets) {
+    private static void start(Minecraft mc, Path dir, Screen parent, com.vyrriox.justreplay.format.PacketStream packets) {
         if (packets.isEmpty()) {
             JustReplay.LOGGER.warn("Replay {} is empty", dir);
             mc.setScreen(parent);
             return;
         }
         current = new ReplaySession(dir, ReplayStorage.readMeta(dir), ReplayStorage.readProject(dir), packets);
-        JustReplay.LOGGER.info("Opening replay {} ({} packets)", dir.getFileName(), packets.size());
+        JustReplay.LOGGER.info("Opening replay {} ({} ticks)", dir.getFileName(), packets.lastTick());
         deleteSessionWorld(mc);
 
         GameRules rules = new GameRules();

@@ -30,6 +30,7 @@
 - Other mods' HUDs are hidden while watching a replay.
 - Playback speeds x2, x4 and x8 now work.
 - Replays recorded on a server keep the server's block, item and entity ids, so they show the right content.
+- Long replays no longer load entirely into memory: recordings are stored in five second segments read on demand (older replays still open).
 - Recordings survive a game crash (the stream is flushed and the duration saved every 10 seconds); damaged replays open up to the damage.
 - Editor: clicking a keyframe no longer moves it, markers can be clicked to jump, clearing the path and deleting an actor ask for confirmation, new actors appear in the list at once.
 - Player actors get their skin, the camera field of view matches the keyframes, and a failed replay start no longer blocks later ones.
@@ -65,6 +66,7 @@
 - Les HUD des autres mods sont masqués pendant la lecture d'un replay.
 - Les vitesses x2, x4 et x8 fonctionnent.
 - Les replays enregistrés sur un serveur gardent les identifiants de blocs, objets et entités du serveur, et affichent donc le bon contenu.
+- Les longs replays ne sont plus chargés entièrement en mémoire : les enregistrements sont découpés en segments de cinq secondes lus à la demande (les anciens replays s'ouvrent toujours).
 - Les enregistrements survivent à un crash du jeu (flux vidé et durée sauvegardée toutes les 10 secondes) ; un replay endommagé s'ouvre jusqu'à l'endroit abîmé.
 - Éditeur : cliquer un keyframe ne le déplace plus, un clic sur un marqueur y saute, vider le chemin et supprimer un acteur demandent confirmation, les nouveaux acteurs apparaissent tout de suite dans la liste.
 - Les acteurs joueurs ont leur skin, le champ de vision de la caméra correspond aux keyframes, et un échec d'ouverture de replay ne bloque plus les suivants.

@@ -38,7 +38,7 @@ NeoForge 1.21.1, client side. Author: vyrriox. License: Apache-2.0.
 
 ### Where are the files
 
-- Replays: `.minecraft/justreplay/replays/<name>/` (`stream.bin.gz`, `meta.json`, `project.json`)
+- Replays: `.minecraft/justreplay/replays/<name>/` (`stream.bin.gz` + `index.bin`, `meta.json`, `project.json`, `registries.bin`)
 - Videos: `.minecraft/justreplay/exports/`
 
 Video export needs [FFmpeg](https://ffmpeg.org/download.html). Set its path in the export screen if it is

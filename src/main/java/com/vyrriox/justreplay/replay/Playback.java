@@ -1,6 +1,7 @@
 package com.vyrriox.justreplay.replay;
 
 import com.vyrriox.justreplay.JustReplay;
+import com.vyrriox.justreplay.format.PacketStream;
 import com.vyrriox.justreplay.format.RecordedPacket;
 import com.vyrriox.justreplay.record.PacketCodec;
 import net.minecraft.client.Minecraft;
@@ -33,11 +34,10 @@ public final class Playback {
     public static final int CAMERA_ENTITY_ID = -42;
     public static final float[] SPEEDS = {0.1F, 0.25F, 0.5F, 1.0F, 2.0F, 4.0F, 8.0F};
 
-    private final List<RecordedPacket> packets;
+    private final PacketStream packets;
     private final int duration;
     private final Set<Class<?>> failedTypes = Collections.synchronizedSet(new HashSet<>());
     private PacketCodec codec;
-    private int index;
     private int cursor;
     private boolean paused;
     private int speedIndex = 3;
@@ -48,9 +48,9 @@ public final class Playback {
     private int skippingTo = -1;
     private int lastStep = 1;
 
-    public Playback(List<RecordedPacket> packets, int durationTicks) {
+    public Playback(PacketStream packets, int durationTicks) {
         this.packets = packets;
-        int last = packets.isEmpty() ? 0 : packets.get(packets.size() - 1).tick();
+        int last = packets.lastTick();
         this.duration = Math.max(durationTicks, last);
     }
 
@@ -90,7 +90,7 @@ public final class Playback {
     /** Builds the codec from the replay connection and plays the first tick. */
     public void start(ClientPacketListener listener) {
         codec = PacketCodec.of(listener);
-        index = 0;
+        packets.rewind();
         cursor = 0;
         flushTo(0);
     }
@@ -127,7 +127,7 @@ public final class Playback {
         float yaw = player != null ? player.getYRot() : 0;
         float pitch = player != null ? player.getXRot() : 0;
         if (target < cursor) {
-            index = 0;
+            packets.rewind();
             cursor = 0;
             mc.gui.getChat().clearMessages(false);
         }
@@ -147,8 +147,10 @@ public final class Playback {
     private void flushTo(int tick) {
         Minecraft mc = Minecraft.getInstance();
         handledInLastFlush = 0;
-        while (index < packets.size() && packets.get(index).tick() <= tick) {
-            handle(mc, packets.get(index++));
+        RecordedPacket next;
+        while ((next = packets.peek()) != null && next.tick() <= tick) {
+            packets.advance();
+            handle(mc, next);
             handledInLastFlush++;
         }
     }
