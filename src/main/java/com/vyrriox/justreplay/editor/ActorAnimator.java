@@ -82,6 +82,8 @@ public final class ActorAnimator {
         int lastCursor = Integer.MIN_VALUE;
         boolean fallFlying;
         double[] anchor;
+        double[] follow;
+        int lastFollowCursor = Integer.MIN_VALUE;
     }
 
     /** Everything an actor shows at one tick. */
@@ -245,7 +247,11 @@ public final class ActorAnimator {
                 f.yaw = (float) (Mth.atan2(-dx, dz) * Mth.RAD_TO_DEG);
             }
         }
+        applyMoves(f, actor, t);
         f.headYaw = f.yaw;
+        if (shouldSnap(actor, entity, actions, t)) {
+            f.y = groundY(f.x, f.y, f.z);
+        }
 
         ReplayProject.ActorAction pose = activeState(actions, t, ActionType.DEATH, ActionType.SLEEP, ActionType.SWIM,
                 ActionType.ELYTRA, ActionType.SPIN_ATTACK, ActionType.SIT, ActionType.CROUCH);
@@ -370,6 +376,134 @@ public final class ActorAnimator {
         return f;
     }
 
+    // ---------------------------------------------------------------- movement
+
+    /** Blocks per tick: vanilla walking and sprinting speeds of a player. */
+    private static final double WALK_SPEED = 4.317 / 20.0;
+    private static final double RUN_SPEED = 5.612 / 20.0;
+
+    /**
+     * Applies every WALK_TO / RUN_TO action started before {@code t} in order. Each move goes from wherever the
+     * actor is when it starts to its destination, so moves chain into a route; keyframes keep adding their own
+     * motion underneath.
+     */
+    private static void applyMoves(Frame f, ReplayProject.ActorData actor, int t) {
+        double offX = 0;
+        double offY = 0;
+        double offZ = 0;
+        for (ReplayProject.ActorAction move : actor.actions) {
+            ActionType type = move.actionType();
+            if ((type != ActionType.WALK_TO && type != ActionType.RUN_TO) || move.tick > t) {
+                continue;
+            }
+            double[] dest = parseVector(move.param);
+            if (dest == null) {
+                continue;
+            }
+            double[] base = Interpolation.actor(actor.keyframes, move.tick);
+            double sx = (base != null ? base[0] : f.x) + offX;
+            double sy = (base != null ? base[1] : f.y) + offY;
+            double sz = (base != null ? base[2] : f.z) + offZ;
+            double dx = dest[0] - sx;
+            double dy = dest[1] - sy;
+            double dz = dest[2] - sz;
+            double distance = Math.sqrt(dx * dx + dz * dz);
+            double speed = type == ActionType.RUN_TO ? RUN_SPEED : WALK_SPEED;
+            int duration = move.duration > 0 ? move.duration : Math.max(1, (int) Math.ceil(distance / speed));
+            double progress = Math.min(1.0, (t - move.tick) / (double) duration);
+            offX += dx * progress;
+            offY += dy * progress;
+            offZ += dz * progress;
+            if (progress < 1.0 && distance > 1.0E-3) {
+                f.yaw = (float) (Mth.atan2(-dx, dz) * Mth.RAD_TO_DEG);
+                f.forcedWalk = type == ActionType.RUN_TO ? 1.0F : 0.7F;
+                f.sprint = type == ActionType.RUN_TO;
+            }
+        }
+        f.x += offX;
+        f.y += offY;
+        f.z += offZ;
+    }
+
+    public static double[] parseVector(String param) {
+        if (param == null) {
+            return null;
+        }
+        String[] parts = param.trim().split("[\\s,;]+");
+        if (parts.length < 3) {
+            return null;
+        }
+        try {
+            return new double[]{Double.parseDouble(parts[0]), Double.parseDouble(parts[1]), Double.parseDouble(parts[2])};
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static boolean shouldSnap(ReplayProject.ActorData actor, Entity entity, List<ReplayProject.ActorAction> actions, int t) {
+        if (!actor.groundSnap || isFlyer(entity)) {
+            return false;
+        }
+        return activeState(actions, t, ActionType.FLY, ActionType.ELYTRA, ActionType.SWIM, ActionType.SPIN_ATTACK) == null;
+    }
+
+    private static boolean isFlyer(Entity entity) {
+        return entity instanceof net.minecraft.world.entity.animal.FlyingAnimal
+                || entity instanceof net.minecraft.world.entity.FlyingMob
+                || entity instanceof net.minecraft.world.entity.ambient.Bat
+                || entity instanceof net.minecraft.world.entity.monster.Vex
+                || entity instanceof net.minecraft.world.entity.monster.Blaze
+                || entity instanceof net.minecraft.world.entity.boss.wither.WitherBoss
+                || entity instanceof net.minecraft.world.entity.boss.enderdragon.EnderDragon;
+    }
+
+    /** Height of the ground under a point: searches a little above (steps, slabs) and well below. */
+    public static double groundY(double x, double y, double z) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level == null) {
+            return y;
+        }
+        Vec3 from = new Vec3(x, y + 1.25, z);
+        Vec3 to = new Vec3(x, y - 8.0, z);
+        net.minecraft.world.phys.BlockHitResult hit = mc.level.clip(new net.minecraft.world.level.ClipContext(from, to,
+                net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE,
+                net.minecraft.world.phys.shapes.CollisionContext.empty()));
+        return hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK ? hit.getLocation().y : y;
+    }
+
+    /** Where a FOLLOW target is now, or null when it cannot be found in the replay world. */
+    static Vec3 followTarget(String name, ReplayProject project, ReplayProject.ActorData self) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level == null) {
+            return null;
+        }
+        String key = name == null ? "" : name.trim();
+        com.vyrriox.justreplay.replay.ReplaySession session = com.vyrriox.justreplay.replay.ReplaySession.current();
+        if (key.isEmpty() || key.equalsIgnoreCase("recorder")) {
+            Entity recorder = session == null ? null : session.findRecorder(mc);
+            return recorder == null ? null : recorder.position();
+        }
+        for (ReplayProject.ActorData other : project.actors) {
+            if (other != self && (other.name.equalsIgnoreCase(key) || other.id.equals(key)) && session != null) {
+                Entity e = session.actors().entityOf(other);
+                if (e != null) {
+                    return e.position();
+                }
+            }
+        }
+        for (Entity e : mc.level.entitiesForRendering()) {
+            if (ActorManager.isActorEntity(e) || e == mc.player) {
+                continue;
+            }
+            if (e.getUUID().toString().equalsIgnoreCase(key)
+                    || (e instanceof Player p && p.getGameProfile().getName().equalsIgnoreCase(key))
+                    || (e.hasCustomName() && e.getCustomName().getString().equalsIgnoreCase(key))) {
+                return e.position();
+            }
+        }
+        return null;
+    }
+
     private static Vec3 lookTarget(String param, ReplayProject project, ReplayProject.ActorData self, int t) {
         String name = param == null ? "" : param.trim();
         if (name.isEmpty() || name.equalsIgnoreCase("camera")) {
@@ -432,6 +566,7 @@ public final class ActorAnimator {
         double[] fallback = state.anchor;
         Frame now = frame(actor, project, cursor, entity, fallback);
         Frame before = paused ? now : frame(actor, project, cursor - 1, entity, fallback);
+        applyFollow(actor, project, cursor, paused, state, now, before);
 
         entity.setPose(now.pose);
         entity.setShiftKeyDown(now.crouch);
@@ -475,6 +610,59 @@ public final class ActorAnimator {
             fireCrossed(actor, entity, state.lastCursor, cursor);
         }
         state.lastCursor = cursor;
+    }
+
+    /**
+     * FOLLOW keeps a live position (targets are recorded entities, known only at the current tick): the actor
+     * walks towards its target, runs when far behind, stops at the requested distance and faces it.
+     */
+    private static void applyFollow(ReplayProject.ActorData actor, ReplayProject project, int cursor,
+                                    boolean paused, State state, Frame now, Frame before) {
+        ReplayProject.ActorAction follow = activeState(actor.actions, cursor, ActionType.FOLLOW);
+        if (follow == null) {
+            state.follow = null;
+            return;
+        }
+        String[] parts = (follow.param == null ? "" : follow.param).split("\\|");
+        double distance = parts.length > 1 ? parseDouble(parts[1], 2.5) : 2.5;
+        Vec3 target = followTarget(parts[0], project, actor);
+        if (state.follow == null) {
+            state.follow = new double[]{now.x, now.y, now.z, now.yaw};
+        }
+        double[] prev = state.follow.clone();
+        if (target != null && !paused && cursor != state.lastFollowCursor) {
+            double dx = target.x - state.follow[0];
+            double dz = target.z - state.follow[2];
+            double gap = Math.sqrt(dx * dx + dz * dz);
+            if (gap > 24.0) {
+                // Lost after a seek or a teleport: appear behind the target.
+                state.follow[0] = target.x - dx / gap * distance;
+                state.follow[2] = target.z - dz / gap * distance;
+            } else if (gap > distance) {
+                double step = Math.min(gap - distance, gap > distance + 4.0 ? RUN_SPEED : WALK_SPEED);
+                state.follow[0] += dx / gap * step;
+                state.follow[2] += dz / gap * step;
+            }
+            if (gap > 1.0E-3) {
+                state.follow[3] = (float) (Mth.atan2(-dx, dz) * Mth.RAD_TO_DEG);
+            }
+            state.follow[1] = actor.groundSnap ? groundY(state.follow[0], target.y, state.follow[2]) : target.y;
+            state.lastFollowCursor = cursor;
+        }
+        double moved = Math.hypot(state.follow[0] - prev[0], state.follow[2] - prev[2]);
+        now.x = state.follow[0];
+        now.y = state.follow[1];
+        now.z = state.follow[2];
+        now.yaw = (float) state.follow[3];
+        now.headYaw = now.yaw;
+        if (moved > 1.0E-3) {
+            now.forcedWalk = moved > WALK_SPEED * 1.1 ? 1.0F : 0.7F;
+            now.sprint = moved > WALK_SPEED * 1.1;
+        }
+        before.x = paused ? now.x : prev[0];
+        before.y = paused ? now.y : prev[1];
+        before.z = paused ? now.z : prev[2];
+        before.yaw = paused ? now.yaw : (float) prev[3];
     }
 
     private void applyLiving(LivingEntity living, Frame now, Frame before, State state, boolean paused) {

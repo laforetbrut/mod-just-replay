@@ -246,6 +246,8 @@ public final class ReplayProject {
         public String legs = "";
         public String feet = "";
         public String pose = "STANDING";
+        /** Keep the feet on the ground between keyframes (not for flying mobs or FLY actions). */
+        public boolean groundSnap = true;
         public List<ActorKeyframe> keyframes = new ArrayList<>();
         public List<ActorAction> actions = new ArrayList<>();
         /** Blockbench file name for model actors. */

@@ -40,6 +40,17 @@ public enum ActionType {
     LOOK_AROUND("LA", Kind.STATE, 0, ""),
     /** Strolls around the keyframed position; the parameter is the radius in blocks. */
     WANDER("WA", Kind.STATE, 0, "2"),
+    /**
+     * Walks in a straight line to a point, following the ground. The parameter is the destination "x y z"; left
+     * empty it is set to the camera position when the action is added. A duration of 0 uses the walking speed.
+     */
+    WALK_TO("WT", Kind.STATE, 0, ""),
+    /** Same as {@link #WALK_TO} at running speed. */
+    RUN_TO("RT", Kind.STATE, 0, ""),
+    /** Follows a target: "recorder", an actor or player name, or an entity UUID, then "|" and the distance. */
+    FOLLOW("FO", Kind.STATE, 0, "recorder|2.5"),
+    /** Lifts the actor off the ground: keyframe heights are used as they are. */
+    FLY("FL", Kind.STATE, 0, ""),
     /** Plays an animation of a model actor; the parameter is the animation name. */
     ANIMATION("AN", Kind.STATE, 0, ""),
     /** Sends a vanilla entity event byte (the parameter) to the entity when the play head passes it. */
