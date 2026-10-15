@@ -4,6 +4,8 @@
 
 ### [Unreleased]
 
+### [1.0.1] - 2026-10-15
+
 #### Added
 - Texts and images in the world: a new **Overlays** tab, in the Simple and Advanced modes, adds titles,
   labels and stickers anchored to an entity (the recording player, an actor or a recorded entity, followed
@@ -117,6 +119,8 @@
 ## Français
 
 ### [Non publié]
+
+### [1.0.1] - 2026-10-15
 
 #### Ajouté
 - Textes et images dans le monde : un nouvel onglet **Overlays**, en mode Simple et Avancé, ajoute des titres,
