@@ -16,6 +16,8 @@ NeoForge 1.21.1, client side. Author: vyrriox. License: Apache-2.0.
   entity and modded renderer follows the replay clock.
 - **Editor** (key **G**): timeline with markers, camera keyframes and actor keyframes, drag keyframes to
   retime them, smooth Catmull-Rom camera path with roll and field of view.
+- **Multi-camera editing**: static, path and follow cameras, a cut track with hard cuts or smooth blends,
+  and live switching with keys 1 to 9 while the replay plays, like a multi-camera editor.
 - **Actors**: add players (any skin, by name) or any entity, vanilla or modded, give them equipment and a
   pose, and animate them with keyframes. The recording is never modified, actors live in `project.json`.
 - **Video export**: renders the camera path frame by frame to MP4 through FFmpeg, every frame is exact
@@ -30,8 +32,9 @@ NeoForge 1.21.1, client side. Author: vyrriox. License: Apache-2.0.
 | J | Play / pause |
 | Left / Right | Seek backward / forward |
 | Up / Down | Faster / slower |
-| K | Add a camera keyframe |
-| O | Play the camera path |
+| K | Add a keyframe to the selected path camera |
+| O | Preview through the cut track (or the selected camera) |
+| 1 to 9 | Cut to camera 1 to 9 at the play head |
 | M | Add a marker |
 | H | Show / hide the timeline |
 | V | Jump to the recording player |
@@ -66,6 +69,8 @@ edit and export test in a development client.
   vanilla, donc toutes les entités et les rendus des mods suivent l'horloge du replay.
 - **Éditeur** (touche **G**) : timeline avec marqueurs, keyframes de caméra et d'acteurs, keyframes
   déplaçables à la souris, chemin de caméra lissé (Catmull-Rom) avec roulis et champ de vision.
+- **Montage multi-caméra** : caméras fixes, chemins et caméras de suivi, piste de coupes en coupe franche ou
+  en fondu de mouvement, et changement de caméra en direct avec les touches 1 à 9 pendant la lecture.
 - **Acteurs** : ajouter des joueurs (n'importe quel skin, par pseudo) ou n'importe quelle entité, vanilla ou
   moddée, leur donner un équipement et une posture, et les animer par keyframes. L'enregistrement n'est
   jamais modifié, les acteurs sont stockés dans `project.json`.

@@ -1,7 +1,6 @@
 package com.vyrriox.justreplay.gui;
 
 import com.vyrriox.justreplay.config.JRConfig;
-import com.vyrriox.justreplay.editor.ReplayProject;
 import com.vyrriox.justreplay.export.ExportRenderSize;
 import com.vyrriox.justreplay.export.ExportResolution;
 import com.vyrriox.justreplay.export.VideoExporter;
@@ -19,7 +18,8 @@ import net.minecraft.network.chat.Component;
 import java.util.List;
 
 /**
- * Video export settings. The exported range is the camera path, from its first to its last keyframe.
+ * Video export settings. The exported range is the cut track when it has cuts, else the selected camera path from
+ * its first to its last keyframe.
  *
  * @author vyrriox
  */
@@ -67,16 +67,21 @@ public class ExportScreen extends Screen {
     }
 
     private void start() {
-        List<ReplayProject.CameraKeyframe> keys = session.project().cameraKeyframes;
-        if (keys.size() < 2) {
-            error = Component.translatable("justreplay.export.error.keyframes");
+        int[] range = range();
+        if (range == null) {
+            error = Component.translatable("justreplay.export.error.nothing");
             return;
         }
         JRConfig.FFMPEG_PATH.set(ffmpeg.getValue().trim().isEmpty() ? "ffmpeg" : ffmpeg.getValue().trim());
         JRConfig.EXPORT_FPS.set(fps);
         JRConfig.EXPORT_RESOLUTION.set(resolution);
         JRConfig.SPEC.save();
-        error = VideoExporter.start(session, keys.get(0).tick, keys.get(keys.size() - 1).tick, fileName.getValue());
+        error = VideoExporter.start(session, range[0], range[1], fileName.getValue());
+    }
+
+    /** Ticks to export: the cut track, else the keyframes of the selected camera; null when there is nothing. */
+    private int[] range() {
+        return session.project().exportRange(session.playback().duration());
     }
 
     @Override
@@ -87,10 +92,10 @@ public class ExportScreen extends Screen {
         g.drawCenteredString(font, title, width / 2, y - 34, 0xFFFFFF);
         g.drawString(font, Component.translatable("justreplay.export.file"), x, y - 10, 0xA0A0A0);
         g.drawString(font, Component.translatable("justreplay.export.ffmpeg"), x, y + 26, 0xA0A0A0);
-        List<ReplayProject.CameraKeyframe> keys = session.project().cameraKeyframes;
-        Component range = keys.size() < 2 ? Component.translatable("justreplay.export.error.keyframes")
-                : Component.translatable("justreplay.export.range", Timeline.formatTicks(keys.get(0).tick),
-                Timeline.formatTicks(keys.get(keys.size() - 1).tick));
+        int[] ticks = range();
+        Component range = ticks == null ? Component.translatable("justreplay.export.error.nothing")
+                : Component.translatable(session.project().cuts.isEmpty() ? "justreplay.export.range" : "justreplay.export.range.cuts",
+                Timeline.formatTicks(ticks[0]), Timeline.formatTicks(ticks[1]));
         g.drawCenteredString(font, range, width / 2, y + 160, 0xFFFFFF);
         Component size;
         if (resolution.isWindow()) {

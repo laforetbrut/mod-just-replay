@@ -49,9 +49,14 @@ public final class CameraPath {
         }
     }
 
+    public static CameraPath of(ReplayProject.Camera camera) {
+        return new CameraPath(camera.keyframes, parse(Curve.class, camera.curve, Curve.CATMULL_ROM),
+                parse(Timing.class, camera.timing, Timing.CONSTANT_SPEED), camera.ease);
+    }
+
+    /** Path of the selected camera of a project. */
     public static CameraPath of(ReplayProject project) {
-        return new CameraPath(project.cameraKeyframes, parse(Curve.class, project.cameraCurve, Curve.CATMULL_ROM),
-                parse(Timing.class, project.cameraTiming, Timing.CONSTANT_SPEED), project.cameraEase);
+        return of(project.selected());
     }
 
     public static <E extends Enum<E>> E parse(Class<E> type, String name, E fallback) {
@@ -215,7 +220,7 @@ public final class CameraPath {
         return (lo + f) / SAMPLES_PER_SEGMENT;
     }
 
-    private static double[] clamp(double[] state) {
+    static double[] clamp(double[] state) {
         state[4] = Math.max(-90, Math.min(90, state[4]));
         state[6] = Math.max(1, Math.min(170, state[6]));
         return state;

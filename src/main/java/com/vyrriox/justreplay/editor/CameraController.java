@@ -7,8 +7,9 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Drives the camera along the keyframed path, every rendered frame, so the motion is as smooth as the frame
- * rate allows. Roll and field of view are applied through the NeoForge viewport events.
+ * Drives the camera every rendered frame, so the motion is as smooth as the frame rate allows, while the preview
+ * or an export is active: the cut track (with its blends) when it has cuts, else the selected camera. Roll and
+ * field of view are applied through the NeoForge viewport events.
  *
  * @author vyrriox
  */
@@ -35,7 +36,7 @@ public final class CameraController {
         if (session == null || !ReplaySession.isRunning() || !session.isCameraPathActive() || mc.player == null) {
             return;
         }
-        double[] state = CameraPath.of(session.project()).sample(frameTime(session, partialTick));
+        double[] state = CameraRig.sampleProject(session.project(), frameTime(session, partialTick), partialTick, true);
         if (state == null) {
             return;
         }

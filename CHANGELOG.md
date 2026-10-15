@@ -18,6 +18,11 @@
 - Camera path shapes: Curve (through every keyframe), Bezier (rounded corners, smoothest) and Linear.
 - Constant speed camera paths with optional smooth start and stop: only the first and last keyframe times matter.
 - The camera path and its keyframes are drawn in the world while editing.
+- Multi-camera editing: any number of named cameras, each static (one placement), path (keyframes with its own
+  curve, timing and ease) or follow (tracks an entity from behind, the side, the front or in orbit, smoothed).
+  A cut track says which camera is live from which tick, with hard cuts or smooth blends; keys 1 to 9 cut to
+  camera 1 to 9 at the play head, also while playing. The preview (O) and the export go through the cut track.
+  Older projects open with their camera path as the first camera.
 - Development self test (`./gradlew runClient -Pselftest`).
 
 #### Fixed
@@ -57,6 +62,12 @@
 - Formes de chemin de caméra : Courbe (passe par chaque keyframe), Bézier (angles arrondis, le plus fluide) et Linéaire.
 - Chemins de caméra à vitesse constante avec départ et arrêt en douceur : seuls les temps du premier et du dernier keyframe comptent.
 - Le chemin de caméra et ses keyframes sont dessinés dans le monde pendant l'édition.
+- Montage multi-caméra : autant de caméras nommées que voulu, chacune fixe (un seul placement), chemin
+  (keyframes avec sa propre courbe, son timing et son lissage) ou suivi (suit une entité de dos, de côté, de
+  face ou en orbite, avec lissage). Une piste de coupes indique quelle caméra est active à partir de quel tick,
+  en coupe franche ou en fondu de mouvement ; les touches 1 à 9 coupent vers la caméra 1 à 9 à la tête de
+  lecture, même pendant la lecture. L'aperçu (O) et l'export suivent la piste de coupes. Les anciens projets
+  s'ouvrent avec leur chemin de caméra comme première caméra.
 - Auto-test de développement (`./gradlew runClient -Pselftest`).
 
 #### Corrigé

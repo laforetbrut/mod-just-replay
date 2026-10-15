@@ -6,21 +6,33 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Everything the editor adds on top of a recording: camera path, markers and actors. Saved as
+ * Everything the editor adds on top of a recording: cameras, the cut track, markers and actors. Saved as
  * {@code project.json} beside the stream, the recording itself is never modified.
+ *
+ * <p>Projects written before multi-camera editing kept one camera path in {@link #cameraKeyframes},
+ * {@link #cameraCurve}, {@link #cameraTiming} and {@link #cameraEase}; {@link #normalize()} turns it into the first
+ * camera and clears those fields, so they are no longer written.
  *
  * @author vyrriox
  */
 public final class ReplayProject {
-    public List<CameraKeyframe> cameraKeyframes = new ArrayList<>();
-    /** Curve shape: CATMULL_ROM (through every keyframe), BEZIER (rounded, smoothest) or LINEAR. */
-    public String cameraCurve = "CATMULL_ROM";
-    /** CONSTANT_SPEED (only the first and last keyframe times matter) or KEYFRAMES (each keyframe at its tick). */
-    public String cameraTiming = "CONSTANT_SPEED";
-    /** Gentle acceleration at the start and deceleration at the end of a constant speed path. */
-    public boolean cameraEase = true;
-    /** Draw the camera path in the world while editing. */
+    /** Legacy single camera path, only read from older projects. */
+    public List<CameraKeyframe> cameraKeyframes;
+    /** Legacy curve of the single camera path. */
+    public String cameraCurve;
+    /** Legacy timing of the single camera path. */
+    public String cameraTiming;
+    /** Legacy ease of the single camera path. */
+    public Boolean cameraEase;
+    /** Draw the cameras in the world while editing. */
     public boolean showPath = true;
+    public List<Camera> cameras = new ArrayList<>();
+    /** Which camera is live from which tick, ordered by tick. Empty: the selected camera is used alone. */
+    public List<Cut> cuts = new ArrayList<>();
+    /** Last tick of the cut track, or -1 for the end of the replay. */
+    public int cutsEnd = -1;
+    /** Id of the camera being edited. */
+    public String selectedCamera;
     public List<Marker> markers = new ArrayList<>();
     public List<ActorData> actors = new ArrayList<>();
 
@@ -42,6 +54,116 @@ public final class ReplayProject {
             this.pitch = pitch;
             this.roll = roll;
             this.fov = fov;
+        }
+    }
+
+    /**
+     * One camera of the project. A STATIC camera holds a single placement, a PATH camera follows its keyframes,
+     * a FOLLOW camera tracks an entity from an offset. Roll and field of view of the placement also apply to
+     * FOLLOW cameras.
+     */
+    public static final class Camera {
+        public static final String STATIC = "STATIC";
+        public static final String PATH = "PATH";
+        public static final String FOLLOW = "FOLLOW";
+
+        public String id = UUID.randomUUID().toString();
+        public String name = "Camera";
+        public String type = PATH;
+
+        // PATH
+        public List<CameraKeyframe> keyframes = new ArrayList<>();
+        /** Curve shape: CATMULL_ROM (through every keyframe), BEZIER (rounded, smoothest) or LINEAR. */
+        public String curve = "CATMULL_ROM";
+        /** CONSTANT_SPEED (only the first and last keyframe times matter) or KEYFRAMES (each keyframe at its tick). */
+        public String timing = "CONSTANT_SPEED";
+        /** Gentle acceleration at the start and deceleration at the end of a constant speed path. */
+        public boolean ease = true;
+
+        // STATIC placement (feet position of the free camera); roll and fov are also used by FOLLOW
+        public double x, y, z;
+        public float yaw, pitch, roll;
+        public float fov = 70.0F;
+
+        // FOLLOW
+        /** UUID of the followed entity. */
+        public String target = "";
+        public String targetName = "";
+        /** BEHIND, SIDE, FRONT or ORBIT. */
+        public String followMode = "BEHIND";
+        /** Horizontal distance from the target, in blocks. */
+        public double distance = 4.0;
+        /** Height of the camera above the target's eyes, in blocks. */
+        public double height = 1.0;
+        /** Orbit speed in degrees per second, ORBIT mode only. */
+        public float orbitSpeed = 20.0F;
+        /** Smoothing time in seconds, 0 for a rigid follow. */
+        public float smoothing = 0.3F;
+
+        public Camera() {
+        }
+
+        public Camera(String name, String type) {
+            this.name = name;
+            this.type = type;
+        }
+
+        public boolean isStatic() {
+            return STATIC.equals(type);
+        }
+
+        public boolean isPath() {
+            return PATH.equals(type);
+        }
+
+        public boolean isFollow() {
+            return FOLLOW.equals(type);
+        }
+
+        public void sort() {
+            keyframes.sort(Comparator.comparingInt(k -> k.tick));
+        }
+
+        /** Deep copy with a new id. */
+        public Camera copy(String newName) {
+            Camera c = new Camera(newName, type);
+            for (CameraKeyframe k : keyframes) {
+                c.keyframes.add(new CameraKeyframe(k.tick, k.x, k.y, k.z, k.yaw, k.pitch, k.roll, k.fov));
+            }
+            c.curve = curve;
+            c.timing = timing;
+            c.ease = ease;
+            c.x = x;
+            c.y = y;
+            c.z = z;
+            c.yaw = yaw;
+            c.pitch = pitch;
+            c.roll = roll;
+            c.fov = fov;
+            c.target = target;
+            c.targetName = targetName;
+            c.followMode = followMode;
+            c.distance = distance;
+            c.height = height;
+            c.orbitSpeed = orbitSpeed;
+            c.smoothing = smoothing;
+            return c;
+        }
+    }
+
+    /** From {@link #tick}, {@link #camera} is live; the change is blended over {@link #blend} ticks (0: hard cut). */
+    public static final class Cut {
+        public int tick;
+        public String camera = "";
+        public int blend;
+
+        public Cut() {
+        }
+
+        public Cut(int tick, String camera, int blend) {
+            this.tick = tick;
+            this.camera = camera;
+            this.blend = blend;
         }
     }
 
@@ -105,19 +227,181 @@ public final class ReplayProject {
     }
 
     public void normalize() {
-        if (cameraKeyframes == null) cameraKeyframes = new ArrayList<>();
+        if (cameras == null) cameras = new ArrayList<>();
+        if (cuts == null) cuts = new ArrayList<>();
         if (markers == null) markers = new ArrayList<>();
         if (actors == null) actors = new ArrayList<>();
+        cameras.removeIf(c -> c == null);
+        if (cameras.isEmpty()) {
+            // Older project (or a new one): the single camera path becomes the first camera.
+            Camera first = new Camera("Camera 1", Camera.PATH);
+            if (cameraKeyframes != null) first.keyframes.addAll(cameraKeyframes);
+            if (cameraCurve != null) first.curve = cameraCurve;
+            if (cameraTiming != null) first.timing = cameraTiming;
+            if (cameraEase != null) first.ease = cameraEase;
+            cameras.add(first);
+        }
+        cameraKeyframes = null;
+        cameraCurve = null;
+        cameraTiming = null;
+        cameraEase = null;
+        for (Camera camera : cameras) {
+            if (camera.id == null || camera.id.isBlank()) camera.id = UUID.randomUUID().toString();
+            if (camera.name == null) camera.name = "Camera";
+            if (!Camera.STATIC.equals(camera.type) && !Camera.FOLLOW.equals(camera.type)) camera.type = Camera.PATH;
+            if (camera.keyframes == null) camera.keyframes = new ArrayList<>();
+            if (camera.target == null) camera.target = "";
+            if (camera.targetName == null) camera.targetName = "";
+            if (camera.followMode == null) camera.followMode = "BEHIND";
+        }
+        cuts.removeIf(c -> c == null || camera(c.camera) == null);
+        if (camera(selectedCamera) == null) selectedCamera = cameras.get(0).id;
         for (ActorData actor : actors) {
             if (actor.keyframes == null) actor.keyframes = new ArrayList<>();
             if (actor.pose == null) actor.pose = "STANDING";
             actor.sort();
         }
         sort();
+        mergeCuts();
     }
 
     public void sort() {
-        cameraKeyframes.sort(Comparator.comparingInt(k -> k.tick));
+        for (Camera camera : cameras) {
+            camera.sort();
+        }
+        cuts.sort(Comparator.comparingInt(c -> c.tick));
         markers.sort(Comparator.comparingInt(m -> m.tick));
+    }
+
+    // ---------------------------------------------------------------- cameras
+
+    public Camera camera(String id) {
+        if (id == null) {
+            return null;
+        }
+        for (Camera camera : cameras) {
+            if (id.equals(camera.id)) {
+                return camera;
+            }
+        }
+        return null;
+    }
+
+    /** The camera being edited; never null once normalized. */
+    public Camera selected() {
+        Camera camera = camera(selectedCamera);
+        if (camera == null && !cameras.isEmpty()) {
+            camera = cameras.get(0);
+            selectedCamera = camera.id;
+        }
+        return camera;
+    }
+
+    public void select(Camera camera) {
+        if (camera != null) {
+            selectedCamera = camera.id;
+        }
+    }
+
+    /** Next free default name, "Camera N". */
+    public String nextCameraName() {
+        for (int n = cameras.size() + 1; ; n++) {
+            String name = "Camera " + n;
+            boolean used = false;
+            for (Camera camera : cameras) {
+                used |= name.equals(camera.name);
+            }
+            if (!used) {
+                return name;
+            }
+        }
+    }
+
+    /** Removes a camera and every cut to it; the project always keeps at least one camera. */
+    public void removeCamera(Camera camera) {
+        if (cameras.size() <= 1 || !cameras.remove(camera)) {
+            return;
+        }
+        cuts.removeIf(c -> c.camera.equals(camera.id));
+        mergeCuts();
+        if (camera.id.equals(selectedCamera)) {
+            selectedCamera = cameras.get(0).id;
+        }
+    }
+
+    // ---------------------------------------------------------------- cuts
+
+    /** Index of the cut live at a time: the last cut at or before it, the first cut before the track starts, or -1. */
+    public int cutIndexAt(double time) {
+        if (cuts.isEmpty()) {
+            return -1;
+        }
+        int index = 0;
+        for (int i = 1; i < cuts.size(); i++) {
+            if (cuts.get(i).tick <= time) {
+                index = i;
+            } else {
+                break;
+            }
+        }
+        return index;
+    }
+
+    /**
+     * Makes {@code camera} live from {@code tick}: retargets a cut at that tick, or inserts one. Does nothing when
+     * the camera is already live there. Returns the cut now starting at that tick, or null.
+     */
+    public Cut cutTo(int tick, Camera camera, int blend) {
+        int index = cutIndexAt(tick);
+        if (index >= 0) {
+            Cut live = cuts.get(index);
+            if (live.tick == tick) {
+                live.camera = camera.id;
+                mergeCuts();
+                return cuts.contains(live) ? live : null;
+            }
+            if (live.tick < tick && live.camera.equals(camera.id)) {
+                return null;
+            }
+        }
+        Cut cut = new Cut(tick, camera.id, blend);
+        cuts.add(cut);
+        mergeCuts();
+        return cuts.contains(cut) ? cut : null;
+    }
+
+    /** Sorts the cuts and drops those switching to the camera already live, so no boundary is useless. */
+    public void mergeCuts() {
+        cuts.sort(Comparator.comparingInt(c -> c.tick));
+        for (int i = cuts.size() - 1; i > 0; i--) {
+            if (cuts.get(i).camera.equals(cuts.get(i - 1).camera)) {
+                cuts.remove(i);
+            }
+        }
+    }
+
+    /** Last tick covered by the cut track, given the replay duration, or -1 without cuts. */
+    public int cutTrackEnd(int duration) {
+        if (cuts.isEmpty()) {
+            return -1;
+        }
+        int last = cuts.get(cuts.size() - 1).tick;
+        int end = cutsEnd >= 0 ? cutsEnd : duration;
+        return Math.max(end, last + 1);
+    }
+
+    /**
+     * Ticks to export: the cut track when there is one, else the keyframes of the selected camera. Null when there
+     * is nothing to export.
+     */
+    public int[] exportRange(int duration) {
+        if (!cuts.isEmpty()) {
+            return new int[]{cuts.get(0).tick, cutTrackEnd(duration)};
+        }
+        Camera camera = selected();
+        if (camera == null || !camera.isPath() || camera.keyframes.size() < 2) {
+            return null;
+        }
+        return new int[]{camera.keyframes.get(0).tick, camera.keyframes.get(camera.keyframes.size() - 1).tick};
     }
 }

@@ -68,7 +68,13 @@ public final class JustReplayClient {
         }
 
         @SubscribeEvent
+        public static void onTickPre(ClientTickEvent.Pre event) {
+            suppressHotbarKeys(Minecraft.getInstance());
+        }
+
+        @SubscribeEvent
         public static void onLoggingIn(ClientPlayerNetworkEvent.LoggingIn event) {
+            com.vyrriox.justreplay.editor.CameraRig.reset();
             ReplaySession.onLoggingIn(event.getConnection());
         }
 
@@ -314,13 +320,42 @@ public final class JustReplayClient {
         }
         while (JRKeys.CAMERA_KEYFRAME.consumeClick()) {
             LocalPlayer p = mc.player;
-            if (p != null) {
+            ReplayProject.Camera camera = session.project().selected();
+            if (p != null && camera != null) {
+                if (!camera.isPath()) {
+                    toast("justreplay.editor.cam.not_path", camera.name);
+                    continue;
+                }
                 int tick = playback.cursor();
-                session.project().cameraKeyframes.removeIf(k -> k.tick == tick);
-                session.project().cameraKeyframes.add(new ReplayProject.CameraKeyframe(tick, p.getX(), p.getY(), p.getZ(),
+                camera.keyframes.removeIf(k -> k.tick == tick);
+                camera.keyframes.add(new ReplayProject.CameraKeyframe(tick, p.getX(), p.getY(), p.getZ(),
                         p.getYRot(), p.getXRot(), 0, mc.options.fov().get()));
                 session.saveProject();
-                toast("justreplay.toast.keyframe", com.vyrriox.justreplay.gui.Timeline.formatTicks(tick));
+                toast("justreplay.toast.keyframe", camera.name + "  " + com.vyrriox.justreplay.gui.Timeline.formatTicks(tick));
+            }
+        }
+        for (int i = 0; i < JRKeys.CUT_TO.length; i++) {
+            while (JRKeys.CUT_TO[i].consumeClick()) {
+                ReplayProject.Camera camera = com.vyrriox.justreplay.gui.CameraPanel.quickSwitch(session, i);
+                if (camera != null && playback.isPaused()) {
+                    // While playing the switch is visible at once; when paused, confirm it.
+                    toast("justreplay.toast.cut", camera.name);
+                }
+            }
+        }
+    }
+
+    /**
+     * The live switching keys default to 1-9, which also select hotbar slots; in a replay the free camera is a
+     * spectator, for which those keys would open the spectator menu over the view.
+     */
+    private static void suppressHotbarKeys(Minecraft mc) {
+        if (!ReplaySession.isRunning()) {
+            return;
+        }
+        for (net.minecraft.client.KeyMapping slot : mc.options.keyHotbarSlots) {
+            while (slot.consumeClick()) {
+                // Swallowed: hotbar keys have no use in a replay.
             }
         }
     }
@@ -331,6 +366,11 @@ public final class JustReplayClient {
                 JRKeys.RECORDER_VIEW, JRKeys.STOP_SPECTATING}) {
             while (key.consumeClick()) {
                 // Playback keys do nothing outside a replay.
+            }
+        }
+        for (var key : JRKeys.CUT_TO) {
+            while (key.consumeClick()) {
+                // Live switching only acts inside a replay.
             }
         }
     }

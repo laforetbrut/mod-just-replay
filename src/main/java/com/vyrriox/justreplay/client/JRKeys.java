@@ -43,6 +43,14 @@ public final class JRKeys {
     public static final KeyMapping RECORDER_VIEW = key("recorder_view", GLFW.GLFW_KEY_V);
     /** Unbound by default: sneaking already leaves the spectated entity. */
     public static final KeyMapping STOP_SPECTATING = key("stop_spectating", GLFW.GLFW_KEY_UNKNOWN);
+    /** Live switching: key N makes camera N live from the play head, like a multi-camera editor. */
+    public static final KeyMapping[] CUT_TO = new KeyMapping[9];
+
+    static {
+        for (int i = 0; i < CUT_TO.length; i++) {
+            CUT_TO[i] = key("cut_" + (i + 1), GLFW.GLFW_KEY_1 + i);
+        }
+    }
 
     private JRKeys() {
     }
@@ -56,5 +64,18 @@ public final class JRKeys {
                 CAMERA_KEYFRAME, CAMERA_PATH, MARKER, TOGGLE_HUD, RECORDER_VIEW, STOP_SPECTATING}) {
             event.register(key);
         }
+        for (KeyMapping key : CUT_TO) {
+            event.register(key);
+        }
+    }
+
+    /** Index of the live switching key matching a key press, or -1. */
+    public static int cutKeyIndex(int keyCode, int scanCode) {
+        for (int i = 0; i < CUT_TO.length; i++) {
+            if (CUT_TO[i].matches(keyCode, scanCode)) {
+                return i;
+            }
+        }
+        return -1;
     }
 }

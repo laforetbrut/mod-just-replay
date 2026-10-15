@@ -220,9 +220,9 @@ public final class SelfTest {
                 modded.type = "mowziesmobs:foliaath";
                 modded.keyframes.add(new ReplayProject.ActorKeyframe(20, c.x, c.y, c.z + 4, 180, 0));
                 s.project().actors.add(modded);
-                s.project().cameraKeyframes.add(new ReplayProject.CameraKeyframe(20, c.x - 6, c.y + 3, c.z - 6, -45, 20, 0, 70));
-                s.project().cameraKeyframes.add(new ReplayProject.CameraKeyframe(80, c.x + 6, c.y + 4, c.z - 6, 45, 25, 10, 60));
-                s.project().cameraKeyframes.add(new ReplayProject.CameraKeyframe(140, c.x + 6, c.y + 2, c.z + 8, 160, 10, 0, 70));
+                s.project().selected().keyframes.add(new ReplayProject.CameraKeyframe(20, c.x - 6, c.y + 3, c.z - 6, -45, 20, 0, 70));
+                s.project().selected().keyframes.add(new ReplayProject.CameraKeyframe(80, c.x + 6, c.y + 4, c.z - 6, 45, 25, 10, 60));
+                s.project().selected().keyframes.add(new ReplayProject.CameraKeyframe(140, c.x + 6, c.y + 2, c.z + 8, 160, 10, 0, 70));
                 s.saveProject();
                 s.setCameraPath(true);
                 s.playback().setPaused(false);
@@ -239,16 +239,41 @@ public final class SelfTest {
                 // Every curve and timing must give a usable camera state; the free camera then shows the 3D path.
                 for (String curve : new String[]{"CATMULL_ROM", "BEZIER", "LINEAR"}) {
                     for (String timing : new String[]{"CONSTANT_SPEED", "KEYFRAMES"}) {
-                        s.project().cameraCurve = curve;
-                        s.project().cameraTiming = timing;
+                        s.project().selected().curve = curve;
+                        s.project().selected().timing = timing;
                         double[] a = com.vyrriox.justreplay.editor.CameraPath.of(s.project()).sample(50);
                         log("path {} {} at t=50: {} {} {}", curve, timing, a[0], a[1], a[2]);
                     }
                 }
-                s.project().cameraCurve = "BEZIER";
-                s.project().cameraTiming = "CONSTANT_SPEED";
+                s.project().selected().curve = "BEZIER";
+                s.project().selected().timing = "CONSTANT_SPEED";
                 s.setCameraPath(false);
                 net.minecraft.world.entity.Entity recorder = s.findRecorder(mc);
+                // Multi-camera: a static and a follow camera, cut track path -> static (blended) -> follow.
+                ReplayProject.Camera path = s.project().selected();
+                ReplayProject.Camera fixed = new ReplayProject.Camera("Wide", ReplayProject.Camera.STATIC);
+                ReplayProject.CameraKeyframe first = path.keyframes.get(0);
+                fixed.x = first.x + 6;
+                fixed.y = first.y + 7;
+                fixed.z = first.z - 4;
+                fixed.pitch = 40;
+                s.project().cameras.add(fixed);
+                ReplayProject.Camera follow = new ReplayProject.Camera("Follow", ReplayProject.Camera.FOLLOW);
+                if (recorder != null) {
+                    follow.target = recorder.getUUID().toString();
+                }
+                s.project().cameras.add(follow);
+                s.project().cutTo(20, path, 0);
+                s.project().cutTo(45, fixed, 10);
+                s.project().cutTo(65, follow, 0);
+                s.project().cutsEnd = 80;
+                for (double t : new double[]{30, 50, 60, 70}) {
+                    double[] a = com.vyrriox.justreplay.editor.CameraRig.sampleProject(s.project(), t, 0.0F, false);
+                    log("cuts at t={}: {}", t, a == null ? "none" : a[0] + " " + a[1] + " " + a[2] + " yaw " + a[3]);
+                }
+                int[] range = s.project().exportRange(s.playback().duration());
+                log("cut track: {} cuts, export range {}..{}", s.project().cuts.size(), range[0], range[1]);
+                s.saveProject();
                 if (recorder != null) {
                     s.spectate().start(mc, recorder, true);
                 }

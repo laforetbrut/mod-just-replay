@@ -1,6 +1,5 @@
 package com.vyrriox.justreplay.gui;
 
-import com.vyrriox.justreplay.editor.CameraPath;
 import com.vyrriox.justreplay.editor.ReplayProject;
 import com.vyrriox.justreplay.replay.Playback;
 import com.vyrriox.justreplay.replay.ReplaySession;
@@ -15,27 +14,29 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The replay editor: transport, timeline with markers and keyframes, camera path and actors. The world keeps
- * running behind it, the screen does not pause the game.
+ * The replay editor: transport, laned timeline (cuts, camera keyframes, actor keyframes, markers), cameras and
+ * actors. The world keeps running behind it, the screen does not pause the game.
  *
  * @author vyrriox
  */
 public class EditorScreen extends Screen {
-    private static final int ROW = 18;
+    static final int ROW = 18;
+    /** Drag handle for the end of the cut track. */
+    private static final Object CUT_END = new Object();
 
     private int panelW = 170;
     private int speedX;
-    private int cameraInfoY;
+    private int cameraPanelBottom;
     private int actorListY;
     private int actorRows = 4;
 
     private final ReplaySession session;
-    private ReplayProject.CameraKeyframe selectedCamera;
+    private final CameraPanel cameras;
     private ReplayProject.ActorData selectedActor;
     private ReplayProject.ActorKeyframe selectedActorKey;
     private int actorScroll;
 
-    private int tlX, tlY, tlW, tlH;
+    private int tlX, tlY, tlW;
     private boolean scrubbing;
     private int ghostTick = -1;
     private Object dragging;
@@ -44,12 +45,12 @@ public class EditorScreen extends Screen {
     private double grabOffset;
 
     private Button playButton;
-    private Button pathButton;
     private final List<Button> actorButtons = new ArrayList<>();
 
     public EditorScreen(ReplaySession session) {
         super(Component.translatable("justreplay.editor.title"));
         this.session = session;
+        this.cameras = new CameraPanel(this, session);
     }
 
     @Override
@@ -58,11 +59,10 @@ public class EditorScreen extends Screen {
         panelW = Math.min(170, (width - 24) / 2 - 20);
         tlX = 8;
         tlW = width - 16;
-        tlH = 12;
-        tlY = height - 18;
+        tlY = height - 8 - Timeline.EDITOR_HEIGHT;
 
         // Transport row
-        int y = height - 40;
+        int y = tlY - 24;
         int x = 8;
         x = add(x, y, 18, "|<", b -> session.playback().seek(0));
         x = add(x, y, 26, "-" + stepSeconds() + "s", b -> seekRelative(-stepTicks()));
@@ -82,61 +82,12 @@ public class EditorScreen extends Screen {
         rx -= 40;
         button(rx, y, 38, tr("justreplay.editor.save"), b -> session.saveProject());
 
-        // Camera panel
-        int px = 8;
-        int py = 16;
-        int third = (panelW - 4) / 3;
-        int half = (panelW - 2) / 2;
-        int quarter = (panelW - 6) / 4;
-        button(px, py, third, tr("justreplay.editor.camera.add"), b -> addCameraKeyframe());
-        button(px + third + 2, py, third, tr("justreplay.editor.delete"), b -> deleteSelected());
-        button(px + 2 * third + 4, py, third, tr("justreplay.editor.goto"), b -> gotoSelected());
-        py += ROW;
-        pathButton = button(px, py, half, pathLabel(), b -> {
-            session.setCameraPath(!session.isCameraPathActive());
-            b.setMessage(Component.literal(pathLabel()));
-        });
-        button(px + half + 2, py, half, tr("justreplay.editor.camera.recorder"), b -> session.jumpToRecorder(minecraft));
-        py += ROW;
-        button(px, py, quarter, "Roll-", b -> adjust(0, -5));
-        button(px + quarter + 2, py, quarter, "Roll+", b -> adjust(0, 5));
-        button(px + 2 * (quarter + 2), py, quarter, "FOV-", b -> adjust(-5, 0));
-        button(px + 3 * (quarter + 2), py, quarter, "FOV+", b -> adjust(5, 0));
-        py += ROW;
-        button(px, py, half, tr("justreplay.editor.camera.update"), b -> updateSelectedCamera());
-        button(px + half + 2, py, half, tr("justreplay.editor.clearpath"), b -> confirm(
-                Component.translatable("justreplay.editor.clearpath.confirm"), () -> {
-                    session.project().cameraKeyframes.clear();
-                    selectedCamera = null;
-                    session.saveProject();
-                }));
-        py += ROW;
-        ReplayProject project = session.project();
-        button(px, py, quarter, curveLabel(), b -> {
-            CameraPath.Curve[] all = CameraPath.Curve.values();
-            project.cameraCurve = all[(curve().ordinal() + 1) % all.length].name();
-            b.setMessage(Component.literal(curveLabel()));
-            session.saveProject();
-        }).setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("justreplay.editor.curve.tip")));
-        button(px + quarter + 2, py, quarter, timingLabel(), b -> {
-            project.cameraTiming = (timing() == CameraPath.Timing.CONSTANT_SPEED ? CameraPath.Timing.KEYFRAMES
-                    : CameraPath.Timing.CONSTANT_SPEED).name();
-            b.setMessage(Component.literal(timingLabel()));
-            session.saveProject();
-        }).setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("justreplay.editor.timing.tip")));
-        button(px + 2 * (quarter + 2), py, quarter, easeLabel(), b -> {
-            project.cameraEase = !project.cameraEase;
-            b.setMessage(Component.literal(easeLabel()));
-            session.saveProject();
-        }).setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("justreplay.editor.ease.tip")));
-        button(px + 3 * (quarter + 2), py, quarter, showPathLabel(), b -> {
-            project.showPath = !project.showPath;
-            b.setMessage(Component.literal(showPathLabel()));
-            session.saveProject();
-        }).setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("justreplay.editor.showpath.tip")));
-        cameraInfoY = py + ROW + 2;
+        // Cameras panel
+        cameraPanelBottom = cameras.build(8, 16, panelW);
 
         // Actor panel
+        int third = (panelW - 4) / 3;
+        int half = (panelW - 2) / 2;
         int ax = width - 8 - panelW;
         int ay = 16;
         button(ax, ay, half, tr("justreplay.editor.actor.player"), b -> addPlayerActor());
@@ -155,7 +106,7 @@ public class EditorScreen extends Screen {
         });
         ay += ROW + 4;
         actorListY = ay;
-        actorRows = Math.max(1, (height - 64 - ay) / ROW);
+        actorRows = Math.max(1, (tlY - 40 - ay) / ROW);
         List<ReplayProject.ActorData> actors = session.project().actors;
         actorScroll = Math.max(0, Math.min(actorScroll, Math.max(0, actors.size() - actorRows)));
         for (int i = actorScroll; i < Math.min(actors.size(), actorScroll + actorRows); i++) {
@@ -170,30 +121,6 @@ public class EditorScreen extends Screen {
         }
     }
 
-    private CameraPath.Curve curve() {
-        return CameraPath.parse(CameraPath.Curve.class, session.project().cameraCurve, CameraPath.Curve.CATMULL_ROM);
-    }
-
-    private CameraPath.Timing timing() {
-        return CameraPath.parse(CameraPath.Timing.class, session.project().cameraTiming, CameraPath.Timing.CONSTANT_SPEED);
-    }
-
-    private String curveLabel() {
-        return tr("justreplay.editor.curve." + curve().name().toLowerCase(java.util.Locale.ROOT));
-    }
-
-    private String timingLabel() {
-        return tr(timing() == CameraPath.Timing.CONSTANT_SPEED ? "justreplay.editor.timing.constant" : "justreplay.editor.timing.keyframes");
-    }
-
-    private String easeLabel() {
-        return tr(session.project().cameraEase ? "justreplay.editor.ease.on" : "justreplay.editor.ease.off");
-    }
-
-    private String showPathLabel() {
-        return tr(session.project().showPath ? "justreplay.editor.showpath.on" : "justreplay.editor.showpath.off");
-    }
-
     private static String tr(String key) {
         return Component.translatable(key).getString();
     }
@@ -203,8 +130,17 @@ public class EditorScreen extends Screen {
         return x + w + 2;
     }
 
-    private Button button(int x, int y, int w, String label, Button.OnPress onPress) {
+    Button button(int x, int y, int w, String label, Button.OnPress onPress) {
         return addRenderableWidget(Button.builder(Component.literal(label), onPress).bounds(x, y, w, ROW - 2).build());
+    }
+
+    /** Rebuilds the widgets after a selection change. */
+    void refresh() {
+        rebuildWidgets();
+    }
+
+    void clearActorKey() {
+        selectedActorKey = null;
     }
 
     private String actorLabel(ReplayProject.ActorData actor) {
@@ -214,10 +150,6 @@ public class EditorScreen extends Screen {
 
     private String playLabel() {
         return session.playback().isPaused() ? "Play" : "Pause";
-    }
-
-    private String pathLabel() {
-        return Component.translatable(session.isCameraPathActive() ? "justreplay.editor.path.on" : "justreplay.editor.path.off").getString();
     }
 
     private static int stepSeconds() {
@@ -240,46 +172,6 @@ public class EditorScreen extends Screen {
         playback.setPaused(!playback.isPaused());
     }
 
-    // ---------------------------------------------------------------- camera
-
-    private void addCameraKeyframe() {
-        LocalPlayer p = minecraft.player;
-        if (p == null) {
-            return;
-        }
-        int tick = session.playback().cursor();
-        session.project().cameraKeyframes.removeIf(k -> k.tick == tick);
-        float roll = selectedCamera != null ? selectedCamera.roll : 0;
-        float fov = selectedCamera != null ? selectedCamera.fov : minecraft.options.fov().get();
-        ReplayProject.CameraKeyframe key = new ReplayProject.CameraKeyframe(tick, p.getX(), p.getY(), p.getZ(), p.getYRot(), p.getXRot(), roll, fov);
-        session.project().cameraKeyframes.add(key);
-        session.project().sort();
-        selectedCamera = key;
-        selectedActorKey = null;
-        session.saveProject();
-    }
-
-    private void updateSelectedCamera() {
-        LocalPlayer p = minecraft.player;
-        if (selectedCamera == null || p == null) {
-            return;
-        }
-        selectedCamera.x = p.getX();
-        selectedCamera.y = p.getY();
-        selectedCamera.z = p.getZ();
-        selectedCamera.yaw = p.getYRot();
-        selectedCamera.pitch = p.getXRot();
-        session.saveProject();
-    }
-
-    private void adjust(float fov, float roll) {
-        if (selectedCamera != null) {
-            selectedCamera.fov = Math.max(10, Math.min(150, selectedCamera.fov + fov));
-            selectedCamera.roll = selectedCamera.roll + roll;
-            session.saveProject();
-        }
-    }
-
     private void addMarker() {
         int tick = session.playback().cursor();
         minecraft.setScreen(new TextInputScreen(this, Component.translatable("justreplay.editor.marker"),
@@ -289,10 +181,15 @@ public class EditorScreen extends Screen {
         }));
     }
 
-    private void deleteSelected() {
-        if (selectedCamera != null) {
-            session.project().cameraKeyframes.remove(selectedCamera);
-            selectedCamera = null;
+    /** Deletes the selected cut, camera keyframe or actor keyframe, else the markers at the play head. */
+    void deleteSelected() {
+        if (cameras.selectedCut != null) {
+            cameras.deleteCut();
+            return;
+        }
+        if (cameras.selectedKey != null) {
+            session.project().selected().keyframes.remove(cameras.selectedKey);
+            cameras.selectedKey = null;
         } else if (selectedActor != null && selectedActorKey != null) {
             selectedActor.keyframes.remove(selectedActorKey);
             selectedActorKey = null;
@@ -301,18 +198,6 @@ public class EditorScreen extends Screen {
             session.project().markers.removeIf(m -> Math.abs(m.tick - cursor) <= 2);
         }
         session.saveProject();
-    }
-
-    private void gotoSelected() {
-        if (selectedCamera != null) {
-            session.playback().seek(selectedCamera.tick);
-            if (minecraft.player != null) {
-                Playback.placeCamera(minecraft.player, new net.minecraft.world.phys.Vec3(selectedCamera.x, selectedCamera.y, selectedCamera.z),
-                        selectedCamera.yaw, selectedCamera.pitch);
-            }
-        } else if (selectedActorKey != null) {
-            session.playback().seek(selectedActorKey.tick);
-        }
     }
 
     // ---------------------------------------------------------------- actors
@@ -360,7 +245,7 @@ public class EditorScreen extends Screen {
         selectedActor.keyframes.add(key);
         selectedActor.sort();
         selectedActorKey = key;
-        selectedCamera = null;
+        cameras.selectedKey = null;
         session.saveProject();
     }
 
@@ -387,20 +272,24 @@ public class EditorScreen extends Screen {
     // ---------------------------------------------------------------- input
 
     private boolean inTimeline(double mx, double my) {
-        return mx >= tlX - 3 && mx <= tlX + tlW + 3 && my >= tlY - 4 && my <= tlY + tlH + 4;
+        return mx >= tlX - 3 && mx <= tlX + tlW + 3 && my >= tlY - 4 && my <= tlY + Timeline.EDITOR_HEIGHT + 4;
     }
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
         if (button == 0 && inTimeline(mx, my)) {
             int duration = session.playback().duration();
-            int lane = tlH / 2;
-            boolean upper = my < tlY + lane;
+            ReplayProject project = session.project();
             dragging = null;
-            if (upper) {
-                for (ReplayProject.CameraKeyframe k : session.project().cameraKeyframes) {
+            if (my < tlY + Timeline.CUT_LANE) {
+                if (clickCuts(project, mx, duration)) {
+                    return true;
+                }
+            } else if (my < tlY + Timeline.CUT_LANE + Timeline.KEY_LANE) {
+                for (ReplayProject.CameraKeyframe k : project.selected().keyframes) {
                     if (Math.abs(Timeline.xOf(k.tick, tlX, tlW, duration) - mx) <= 4) {
-                        selectedCamera = k;
+                        cameras.selectedKey = k;
+                        cameras.selectedCut = null;
                         selectedActorKey = null;
                         startDrag(k, k.tick, mx, duration);
                         return true;
@@ -410,21 +299,23 @@ public class EditorScreen extends Screen {
                 for (ReplayProject.ActorKeyframe k : selectedActor.keyframes) {
                     if (Math.abs(Timeline.xOf(k.tick, tlX, tlW, duration) - mx) <= 4) {
                         selectedActorKey = k;
-                        selectedCamera = null;
+                        cameras.selectedKey = null;
+                        cameras.selectedCut = null;
                         startDrag(k, k.tick, mx, duration);
                         return true;
                     }
                 }
             }
-            if (upper) {
-                for (ReplayProject.Marker marker : session.project().markers) {
+            if (my >= tlY + Timeline.CUT_LANE) {
+                for (ReplayProject.Marker marker : project.markers) {
                     if (Math.abs(Timeline.xOf(marker.tick, tlX, tlW, duration) - mx) <= 3) {
                         session.playback().seek(marker.tick);
                         return true;
                     }
                 }
             }
-            selectedCamera = null;
+            cameras.selectedKey = null;
+            cameras.selectedCut = null;
             selectedActorKey = null;
             scrubbing = true;
             ghostTick = Timeline.tickAt(mx, tlX, tlW, duration);
@@ -433,14 +324,50 @@ public class EditorScreen extends Screen {
         return super.mouseClicked(mx, my, button);
     }
 
-    private void startDrag(Object keyframe, int tick, double mx, int duration) {
-        dragging = keyframe;
+    /** Cut lane: grab a boundary or the track end to drag it, or click a segment to select its cut and camera. */
+    private boolean clickCuts(ReplayProject project, double mx, int duration) {
+        if (project.cuts.isEmpty()) {
+            return false;
+        }
+        if (project.cutsEnd >= 0) {
+            int end = project.cutTrackEnd(duration);
+            if (Math.abs(Timeline.xOf(end, tlX, tlW, duration) - mx) <= 3) {
+                startDrag(CUT_END, end, mx, duration);
+                return true;
+            }
+        }
+        for (ReplayProject.Cut cut : project.cuts) {
+            if (Math.abs(Timeline.xOf(cut.tick, tlX, tlW, duration) - mx) <= 3) {
+                selectCut(project, cut);
+                startDrag(cut, cut.tick, mx, duration);
+                return true;
+            }
+        }
+        for (int i = 0; i < project.cuts.size(); i++) {
+            int[] seg = Timeline.segment(project, i, tlX, tlW, duration);
+            if (mx >= seg[0] && mx <= seg[1]) {
+                selectCut(project, project.cuts.get(i));
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void selectCut(ReplayProject project, ReplayProject.Cut cut) {
+        selectedActorKey = null;
+        cameras.select(project.camera(cut.camera));
+        cameras.selectedCut = cut;
+        cameras.selectedKey = null;
+    }
+
+    private void startDrag(Object item, int tick, double mx, int duration) {
+        dragging = item;
         dragMoved = false;
         pressX = mx;
         grabOffset = mx - Timeline.xOf(tick, tlX, tlW, duration);
     }
 
-    private void confirm(Component question, Runnable action) {
+    void confirm(Component question, Runnable action) {
         minecraft.setScreen(new net.minecraft.client.gui.screens.ConfirmScreen(ok -> {
             if (ok) {
                 action.run();
@@ -453,7 +380,7 @@ public class EditorScreen extends Screen {
     public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
         int duration = session.playback().duration();
         if (dragging != null) {
-            // A plain click selects; the keyframe only moves once the mouse travelled a few pixels.
+            // A plain click selects; the item only moves once the mouse travelled a few pixels.
             if (!dragMoved && Math.abs(mx - pressX) < 3) {
                 return true;
             }
@@ -463,6 +390,16 @@ public class EditorScreen extends Screen {
                 k.tick = tick;
             } else if (dragging instanceof ReplayProject.ActorKeyframe k) {
                 k.tick = tick;
+            } else if (dragging instanceof ReplayProject.Cut cut) {
+                // A cut boundary stays between its neighbours.
+                List<ReplayProject.Cut> cuts = session.project().cuts;
+                int i = cuts.indexOf(cut);
+                int min = i > 0 ? cuts.get(i - 1).tick + 1 : 0;
+                int max = i + 1 < cuts.size() ? cuts.get(i + 1).tick - 1 : duration;
+                cut.tick = Math.max(min, Math.min(max, tick));
+            } else if (dragging == CUT_END) {
+                List<ReplayProject.Cut> cuts = session.project().cuts;
+                session.project().cutsEnd = Math.max(cuts.get(cuts.size() - 1).tick + 1, Math.min(duration, tick));
             }
             return true;
         }
@@ -478,6 +415,7 @@ public class EditorScreen extends Screen {
         if (dragging != null) {
             dragging = null;
             session.project().sort();
+            session.project().mergeCuts();
             if (selectedActor != null) {
                 selectedActor.sort();
             }
@@ -523,7 +461,7 @@ public class EditorScreen extends Screen {
                 return true;
             }
             case GLFW.GLFW_KEY_K -> {
-                addCameraKeyframe();
+                cameras.addKeyframe();
                 return true;
             }
             default -> {
@@ -531,6 +469,15 @@ public class EditorScreen extends Screen {
         }
         if (com.vyrriox.justreplay.client.JRKeys.EDITOR.matches(keyCode, scanCode)) {
             onClose();
+            return true;
+        }
+        if (com.vyrriox.justreplay.client.JRKeys.CAMERA_PATH.matches(keyCode, scanCode)) {
+            session.setCameraPath(!session.isCameraPathActive());
+            return true;
+        }
+        int cut = com.vyrriox.justreplay.client.JRKeys.cutKeyIndex(keyCode, scanCode);
+        if (cut >= 0) {
+            CameraPanel.quickSwitch(session, cut);
             return true;
         }
         return super.keyPressed(keyCode, scanCode, modifiers);
@@ -546,17 +493,18 @@ public class EditorScreen extends Screen {
     @Override
     public void tick() {
         playButton.setMessage(Component.literal(playLabel()));
-        pathButton.setMessage(Component.literal(pathLabel()));
+        cameras.tick();
     }
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         int ax = width - 8 - panelW;
-        g.fill(4, 2, 12 + panelW, cameraInfoY + 22, 0x99000000);
+        int bottom = tlY - 40;
+        g.fill(4, 2, 12 + panelW, cameraPanelBottom, 0x99000000);
         int shownActors = Math.min(actorRows, Math.max(1, session.project().actors.size() - actorScroll));
         g.fill(ax - 4, 2, width - 4, actorListY + shownActors * ROW + 2, 0x99000000);
-        g.fill(0, height - 56, width, height, 0xAA000000);
-        g.drawString(font, Component.translatable("justreplay.editor.camera"), 8, 5, 0xFF4FC3F7, true);
+        g.fill(0, bottom, width, height, 0xAA000000);
+        g.drawString(font, Component.translatable("justreplay.editor.cameras"), 8, 5, 0xFF4FC3F7, true);
         g.drawString(font, Component.translatable("justreplay.editor.actors"), ax, 5, 0xFF81C784, true);
 
         super.render(g, mouseX, mouseY, partialTick);
@@ -564,25 +512,45 @@ public class EditorScreen extends Screen {
         Playback playback = session.playback();
         String info = session.meta().name + "   " + Timeline.formatTicks(playback.cursor()) + " / "
                 + Timeline.formatTicks(playback.duration());
-        g.drawString(font, info, 8, height - 52, 0xFFFFFFFF, true);
+        g.drawString(font, info, 8, bottom + 4, 0xFFFFFFFF, true);
         Component help = Component.translatable("justreplay.editor.help");
-        g.drawString(font, help, width - 8 - font.width(help), height - 52, 0xFF999999, true);
-        g.drawCenteredString(font, "x" + ReplayHud.trim(playback.speed()), speedX + 14, height - 36, 0xFFFFFF);
+        g.drawString(font, help, width - 8 - font.width(help), bottom + 4, 0xFF999999, true);
+        g.drawCenteredString(font, "x" + ReplayHud.trim(playback.speed()), speedX + 14, tlY - 20, 0xFFFFFF);
 
-        Component camInfo = selectedCamera != null
-                ? Component.literal("t " + Timeline.formatTicks(selectedCamera.tick) + "  roll " + Math.round(selectedCamera.roll)
-                + "  fov " + Math.round(selectedCamera.fov))
-                : Component.translatable("justreplay.editor.camera.count", session.project().cameraKeyframes.size());
-        g.drawString(font, camInfo, 8, cameraInfoY, 0xFFDDDDDD, true);
+        cameras.renderInfo(g, font, 8);
         if (selectedActorKey != null) {
-            g.drawString(font, "actor key t " + Timeline.formatTicks(selectedActorKey.tick), 8, cameraInfoY + 10, 0xFF81C784, true);
+            g.drawString(font, "actor key t " + Timeline.formatTicks(selectedActorKey.tick), ax, actorListY - 12, 0xFF81C784, true);
         }
 
-        Timeline.render(g, font, tlX, tlY, tlW, tlH, session, selectedCamera, selectedActor, selectedActorKey, ghostTick);
-        for (ReplayProject.Marker marker : session.project().markers) {
-            int mx = Timeline.xOf(marker.tick, tlX, tlW, Math.max(1, playback.duration()));
-            if (Math.abs(mouseX - mx) <= 3 && inTimeline(mouseX, mouseY)) {
+        Timeline.renderEditor(g, font, tlX, tlY, tlW, session, cameras.selectedKey, cameras.selectedCut, selectedActor,
+                selectedActorKey, ghostTick);
+        if (inTimeline(mouseX, mouseY) && dragging == null && !scrubbing) {
+            renderTimelineTooltip(g, mouseX, mouseY, playback);
+        }
+    }
+
+    private void renderTimelineTooltip(GuiGraphics g, int mouseX, int mouseY, Playback playback) {
+        int duration = Math.max(1, playback.duration());
+        ReplayProject project = session.project();
+        if (mouseY < tlY + Timeline.CUT_LANE) {
+            for (int i = 0; i < project.cuts.size(); i++) {
+                int[] seg = Timeline.segment(project, i, tlX, tlW, duration);
+                if (mouseX >= seg[0] && mouseX <= seg[1]) {
+                    ReplayProject.Cut cut = project.cuts.get(i);
+                    ReplayProject.Camera camera = project.camera(cut.camera);
+                    String name = camera == null ? "?" : (project.cameras.indexOf(camera) + 1) + " " + camera.name;
+                    g.renderTooltip(font, Component.literal(name + "  " + Timeline.formatTicks(cut.tick)
+                            + (cut.blend > 0 ? "  blend " + cut.blend + "t" : "")), mouseX, mouseY);
+                    return;
+                }
+            }
+            return;
+        }
+        for (ReplayProject.Marker marker : project.markers) {
+            int mx = Timeline.xOf(marker.tick, tlX, tlW, duration);
+            if (Math.abs(mouseX - mx) <= 3) {
                 g.renderTooltip(font, Component.literal(marker.name + "  " + Timeline.formatTicks(marker.tick)), mouseX, mouseY);
+                return;
             }
         }
     }
