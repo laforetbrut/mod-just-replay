@@ -44,7 +44,7 @@ import java.util.Map;
 public final class ActorAnimator {
     public enum Gesture { WAVE, POINT, CHEER, HANDS_UP }
 
-    public enum DanceStyle { BOUNCE, PUMP, HANDS, WAVE, SHUFFLE, HEADBANG, JUMP, DJ }
+    public enum DanceStyle { BOUNCE, PUMP, HANDS, WAVE, SHUFFLE, HEADBANG, JUMP, DJ, HAKKEN, JUMPSTYLE }
 
     /**
      * A dance on a beat grid: {@code origin} is the replay tick of a beat. {@code energy} and {@code lag} vary per
@@ -72,11 +72,33 @@ public final class ActorAnimator {
             return new Dance(style, Mth.clamp(bpm, 20.0, 300.0), origin, energy, lag);
         }
 
-        /** Height of a JUMP dancer above the ground: one hop every two beats, landing on the beat. */
+        /**
+         * Height of a hopping dancer above the ground, landing on the beat: JUMP hops every two beats, HAKKEN a little
+         * on every beat, JUMPSTYLE higher on every beat. Zero for the other styles.
+         */
         double hop(double time) {
-            double phase = beats(time) / 2.0;
+            double per;
+            double height;
+            switch (style) {
+                case JUMP -> {
+                    per = 2.0;
+                    height = 0.42;
+                }
+                case HAKKEN -> {
+                    per = 1.0;
+                    height = 0.16;
+                }
+                case JUMPSTYLE -> {
+                    per = 1.0;
+                    height = 0.3;
+                }
+                default -> {
+                    return 0.0;
+                }
+            }
+            double phase = beats(time) / per;
             double f = phase - Math.floor(phase);
-            return 0.42 * energy * Math.sin(Math.PI * f);
+            return height * energy * Math.sin(Math.PI * f);
         }
     }
 
@@ -184,10 +206,10 @@ public final class ActorAnimator {
             case HANDS_UP -> {
                 rightArm.xRot = (float) -Math.PI;
                 rightArm.yRot = 0.0F;
-                rightArm.zRot = 0.25F;
+                rightArm.zRot = -0.3F;
                 leftArm.xRot = (float) -Math.PI;
                 leftArm.yRot = 0.0F;
-                leftArm.zRot = -0.25F;
+                leftArm.zRot = 0.3F;
             }
         }
     }
@@ -228,8 +250,8 @@ public final class ActorAnimator {
             case PUMP -> {
                 drop = 1.3F * dip * e;
                 rightArm.xRot = -2.55F + 0.75F * dip * e;
-                rightArm.yRot = -0.15F;
-                rightArm.zRot = 0.1F;
+                rightArm.yRot = 0.0F;
+                rightArm.zRot = -0.25F;
                 leftArm.xRot = -0.35F - 0.25F * sway;
                 leftArm.zRot = -0.1F;
                 model.head.xRot += 0.22F * dip * e;
@@ -240,8 +262,9 @@ public final class ActorAnimator {
                 leftArm.xRot = -2.95F;
                 rightArm.yRot = 0.0F;
                 leftArm.yRot = 0.0F;
-                rightArm.zRot = 0.3F + 0.3F * twoBeat * e;
-                leftArm.zRot = -0.3F + 0.3F * twoBeat * e;
+                // Raised arms lean out to the sides and sway together, never across the head.
+                rightArm.zRot = -0.35F - 0.25F * (0.5F + 0.5F * twoBeat) * e;
+                leftArm.zRot = 0.35F + 0.25F * (0.5F - 0.5F * twoBeat) * e;
             }
             case WAVE -> {
                 drop = 0.6F * dip * e;
@@ -273,22 +296,61 @@ public final class ActorAnimator {
                 // The body hops in the frame; the arms go up and punch on the landing.
                 rightArm.xRot = -2.8F + 0.4F * dip * e;
                 leftArm.xRot = -2.8F + 0.4F * dip * e;
-                rightArm.zRot = 0.25F;
-                leftArm.zRot = -0.25F;
+                rightArm.yRot = 0.0F;
+                leftArm.yRot = 0.0F;
+                rightArm.zRot = -0.35F;
+                leftArm.zRot = 0.35F;
                 model.rightLeg.xRot = 0.25F * dip;
                 model.leftLeg.xRot = 0.25F * dip;
+            }
+            case HAKKEN -> {
+                // Hakken: a quick kick forward with one leg on every beat, the legs swapping each beat, the body leaning
+                // in and the bent arms pumping low in double time.
+                boolean right = ((long) Math.floor(beats)) % 2 == 0;
+                float kick = Mth.sin(p * Mth.PI) * e;
+                ModelPart kicking = right ? model.rightLeg : model.leftLeg;
+                ModelPart standing = right ? model.leftLeg : model.rightLeg;
+                kicking.xRot = -1.15F * kick;
+                kicking.zRot = right ? 0.08F : -0.08F;
+                standing.xRot = 0.3F * kick;
+                standing.zRot = 0.0F;
+                model.body.xRot = 0.22F;
+                model.head.xRot = 0.25F + 0.2F * dip;
+                float pump = Mth.sin((float) (beats * Math.PI * 2.0));
+                rightArm.xRot = -1.25F - 0.55F * pump * e;
+                leftArm.xRot = -1.25F + 0.55F * pump * e;
+                rightArm.yRot = 0.35F;
+                leftArm.yRot = -0.35F;
+                rightArm.zRot = 0.0F;
+                leftArm.zRot = 0.0F;
+                rightArm.z += 1.0F;
+                leftArm.z += 1.0F;
+            }
+            case JUMPSTYLE -> {
+                // Jumpstyle: a hop on every beat, one leg thrown forward and the other back, swapping each beat, arms
+                // swinging against the legs.
+                boolean right = ((long) Math.floor(beats)) % 2 == 0;
+                float throwLeg = Mth.sin(p * Mth.PI) * e;
+                model.rightLeg.xRot = (right ? -0.9F : 0.5F) * throwLeg;
+                model.leftLeg.xRot = (right ? 0.5F : -0.9F) * throwLeg;
+                rightArm.xRot = (right ? 0.7F : -1.4F) * throwLeg;
+                leftArm.xRot = (right ? -1.4F : 0.7F) * throwLeg;
+                rightArm.zRot = -0.15F;
+                leftArm.zRot = 0.15F;
+                model.body.xRot = 0.1F;
             }
             case DJ -> {
                 drop = 0.8F * dip * e;
                 model.head.xRot = 0.1F + 0.45F * dip * e;
-                // One hand on the headphones, the other on the decks, pumping every other eight beats.
-                rightArm.xRot = -2.6F;
-                rightArm.yRot = -0.55F;
-                rightArm.zRot = 0.0F;
+                // One hand up by the headphones (beside the head, not in it), the other on the decks, pumping every
+                // other eight beats.
+                rightArm.xRot = -2.2F;
+                rightArm.yRot = 0.0F;
+                rightArm.zRot = -0.45F;
                 boolean pump = ((long) Math.floor(beats / 8.0)) % 2 == 1;
                 leftArm.xRot = pump ? -2.6F + 0.7F * dip : -1.15F + 0.15F * sway;
-                leftArm.yRot = pump ? 0.1F : 0.3F;
-                leftArm.zRot = 0.0F;
+                leftArm.yRot = pump ? 0.0F : 0.3F;
+                leftArm.zRot = pump ? 0.3F : 0.0F;
                 model.body.yRot = 0.1F * sway;
             }
         }
@@ -504,7 +566,7 @@ public final class ActorAnimator {
         ReplayProject.ActorAction dance = activeState(actions, t, ActionType.DANCE);
         if (dance != null && isHumanoid(entity)) {
             f.dance = Dance.parse(dance.param, actor.id);
-            if (f.dance.style() == DanceStyle.JUMP && !f.sit && f.pose == Pose.STANDING) {
+            if (!f.sit && f.pose == Pose.STANDING) {
                 f.y += f.dance.hop(t);
             }
         }

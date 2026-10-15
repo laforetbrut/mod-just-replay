@@ -648,7 +648,7 @@
   "justreplay.audio.fade_curve.exponential": "Exponential",
   "justreplay.action.emote": "Emote",
   "justreplay.action.dance": "Dance",
-  "justreplay.action.hint.dance": "style|bpm|beat tick: bounce, pump, hands, wave, shuffle, headbang, jump, dj",
+  "justreplay.action.hint.dance": "style|bpm|beat tick: bounce, pump, hands, wave, shuffle, headbang, jump, dj, hakken, jumpstyle",
   "justreplay.editor.tab.overlays": "Overlays",
   "justreplay.overlay.section": "Texts and images",
   "justreplay.overlay.help": "Titles, labels and stickers that live in the world: hang them on a player, an actor, a block or a point in the air. They show in the preview and in video exports.",

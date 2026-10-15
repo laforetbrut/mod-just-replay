@@ -59,7 +59,7 @@ public enum ActionType {
     EMOTE("EM", Kind.STATE, 0, "waving"),
     /**
      * Dances on a beat: "style|bpm|origin", origin being the replay tick (decimals allowed) of a beat. Styles: bounce,
-     * pump, hands, wave, shuffle, headbang, jump, dj. Humanoid actors only.
+     * pump, hands, wave, shuffle, headbang, jump, dj, hakken, jumpstyle. Humanoid actors only.
      */
     DANCE("DA", Kind.STATE, 0, "bounce|128|0");
 
