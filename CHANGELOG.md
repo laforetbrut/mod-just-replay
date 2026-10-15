@@ -10,9 +10,12 @@
   while the replay is paused or away from x1, follows the game sound volume, mute and ducking of the project,
   and is part of the video export audio, placed relative to the camera. The tick where each song starts is
   logged and available to the editor.
-- **Dance** actor action: humanoid actors dance on a beat grid ("style|bpm|beat tick") in eight styles
-  (bounce, fist pump, hands up, wave, shuffle, headbang, jump, DJ), smooth between ticks and on the beat in
+- **Dance** actor action: humanoid actors dance on a beat grid ("style|bpm|beat tick") in ten styles
+  (bounce, fist pump, hands up, wave, shuffle, headbang, jump, DJ, hakken, jumpstyle), smooth between ticks and on the beat in
   exports, with a slightly different energy and timing per actor so a crowd never moves as one body.
+- Player actors can wear a skin file: drop PNG skins (64x64) in `.minecraft/justreplay/skins/`
+  and pick one in the actor screen, with a "Slim arms" switch for the arm model. No Mojang lookup is made for
+  such an actor. A missing or broken file logs one warning and the actor keeps the default skin.
 
 #### Fixed
 - With Drop the Beam's camera screens in view, a replay could crash on its first frame or show no terrain at all:
@@ -20,6 +23,9 @@
 - Colour grading no longer turns the darkest areas into bright noise when contrast or saturation and the
   temperature filter are combined.
 - Player actors with "Show name" switched off no longer show their name tag.
+- Projects with many named player actors no longer have their skin lookups refused by Mojang (HTTP 429): the
+  lookups are queued, two per tick, and a failed one is retried once after five seconds. Actors wear the
+  default skin until their turn.
 
 ### [1.0.2] - 2026-10-15
 
@@ -152,9 +158,13 @@
   exports vidéo, placée par rapport à la caméra. Le tick de début de chaque morceau est écrit dans le journal et
   disponible pour l'éditeur.
 - Action d'acteur **Danse** : les acteurs humanoïdes dansent sur une grille de temps (« style|bpm|tick d'un
-  temps ») dans huit styles (rebond, poing levé, mains en l'air, vague, shuffle, headbang, saut, DJ), fluides
+  temps ») dans dix styles (rebond, poing levé, mains en l'air, vague, shuffle, headbang, saut, DJ, hakken, jumpstyle), fluides
   entre les ticks et calés sur le temps dans les exports, avec une énergie et un timing un peu différents par
   acteur pour qu'une foule ne bouge jamais d'un seul bloc.
+- Les acteurs joueurs peuvent porter un fichier de skin : déposer des skins PNG (64x64)
+  dans `.minecraft/justreplay/skins/` et en choisir un dans l'écran de l'acteur, avec un interrupteur
+  "Slim arms" pour le modèle des bras. Aucune requête Mojang n'est faite pour un tel acteur. Un fichier absent ou
+  illisible écrit un seul avertissement et l'acteur garde le skin par défaut.
 
 #### Corrigé
 - Avec les écrans caméra de Drop the Beam en vue, un replay pouvait planter dès la première image ou n'afficher
@@ -163,6 +173,9 @@
 - L'étalonnage ne transforme plus les zones les plus sombres en bruit vif quand le contraste ou la saturation
   sont combinés au filtre de température.
 - Les acteurs joueurs dont « Afficher le nom » est désactivé n'affichent plus leur nom.
+- Les projets avec beaucoup d'acteurs joueurs nommés ne voient plus leurs requêtes de skin refusées par Mojang
+  (HTTP 429) : les requêtes passent dans une file, deux par tick, et une requête échouée est retentée une fois
+  après cinq secondes. Les acteurs portent le skin par défaut en attendant leur tour.
 
 ### [1.0.2] - 2026-10-15
 

@@ -1,16 +1,24 @@
 package com.vyrriox.justreplay.editor;
 
 import com.mojang.authlib.GameProfile;
+import com.mojang.authlib.GameProfileRepository;
+import com.mojang.authlib.ProfileLookupCallback;
+import com.mojang.authlib.minecraft.MinecraftSessionService;
+import com.mojang.authlib.yggdrasil.ProfileResult;
 import com.vyrriox.justreplay.JustReplay;
 import com.vyrriox.justreplay.record.PlayerInfoPackets;
 import com.vyrriox.justreplay.replay.ReplaySession;
+import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.player.RemotePlayer;
+import net.minecraft.client.resources.PlayerSkin;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.StringUtil;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -23,11 +31,13 @@ import net.minecraft.world.level.block.entity.SkullBlockEntity;
 
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Spawns the actors of the project as client side entities and moves them along their keyframes. Actors are
@@ -41,7 +51,14 @@ public final class ActorManager {
     /** Player actors whose name tag is hidden: players always show theirs, so the tag is cancelled when drawn. */
     private static final java.util.Set<Integer> HIDDEN_NAMES = new java.util.HashSet<>();
     private final Map<String, Integer> ids = new HashMap<>();
-    private final Map<String, CompletableFuture<Optional<GameProfile>>> lookups = new HashMap<>();
+    /** Player actors wearing a skin file, by entity id; read by the skin mixin. */
+    private static final Map<Integer, SkinRef> CUSTOM_SKINS = new HashMap<>();
+    /** At most this many Mojang profile lookups start per client tick: many at once get answered 429. */
+    private static final int LOOKUPS_PER_TICK = 2;
+    private static final long LOOKUP_RETRY_MS = 5000L;
+    private final Map<String, Lookup> lookups = new HashMap<>();
+    /** Lookups waiting for their turn (or for their retry delay), in request order. */
+    private final List<Lookup> lookupQueue = new java.util.ArrayList<>();
     private final Map<String, GameProfile> profiles = new HashMap<>();
     private int nextId = -1000;
     private final java.util.Set<String> failed = new java.util.HashSet<>();
@@ -49,6 +66,26 @@ public final class ActorManager {
     /** Actor shown at a placement preview instead of where its keyframes put it, or null. */
     private String previewId;
     private ActorPlacement.Spot preview;
+
+    private record SkinRef(String file, boolean slim) {
+    }
+
+    /** Profile lookup of a named player actor: queued, started when its turn comes, retried once on failure. */
+    private static final class Lookup {
+        final String actorId;
+        final String name;
+        int attempt;
+        long notBefore;
+        /** Account id learned by a first attempt that found the name but not the skin. */
+        UUID knownId;
+        boolean done;
+        Optional<GameProfile> result = Optional.empty();
+
+        Lookup(String actorId, String name) {
+            this.actorId = actorId;
+            this.name = name;
+        }
+    }
 
     public ActorManager(ReplaySession session) {
         this.session = session;
@@ -125,6 +162,10 @@ public final class ActorManager {
         profiles.remove(actor.id);
         lookups.remove(actor.id);
         animator.forget(actor);
+        if (actor.hasSkinFile()) {
+            // Picks up a skin file edited meanwhile.
+            SkinLibrary.reload(actor.skin);
+        }
         if (actor.isModel()) {
             // Picks up a model file edited in Blockbench meanwhile.
             com.vyrriox.justreplay.editor.model.ModelLibrary.reload(actor.model);
@@ -136,8 +177,36 @@ public final class ActorManager {
         return isActorEntity(entity) && HIDDEN_NAMES.contains(entity.getId());
     }
 
+    /**
+     * The skin of a player actor wearing a skin file, or null to keep the vanilla skin (not an actor, no skin file,
+     * or a file that cannot be loaded).
+     */
+    public static PlayerSkin customSkin(Entity entity) {
+        if (!isActorEntity(entity)) {
+            return null;
+        }
+        SkinRef ref = CUSTOM_SKINS.get(entity.getId());
+        if (ref == null) {
+            return null;
+        }
+        ResourceLocation texture = SkinLibrary.get(ref.file());
+        if (texture == null) {
+            return null;
+        }
+        return new PlayerSkin(texture, null, null, null, ref.slim() ? PlayerSkin.Model.SLIM : PlayerSkin.Model.WIDE, true);
+    }
+
+    static boolean hasCustomSkins() {
+        return !CUSTOM_SKINS.isEmpty();
+    }
+
+    static void clearCustomSkins() {
+        CUSTOM_SKINS.clear();
+    }
+
     private static void forgetEntity(Entity entity) {
         HIDDEN_NAMES.remove(entity.getId());
+        CUSTOM_SKINS.remove(entity.getId());
         ActorAnimator.forget(entity);
         com.vyrriox.justreplay.editor.model.ModelRenderer.unregister(entity.getId());
     }
@@ -152,6 +221,7 @@ public final class ActorManager {
         if (level == null) {
             return;
         }
+        pumpLookups();
         int cursor = session.playback().cursor();
         boolean paused = session.playback().isPaused();
         for (ReplayProject.ActorData actor : session.project().actors) {
@@ -237,6 +307,11 @@ public final class ActorManager {
         } else {
             HIDDEN_NAMES.remove(entity.getId());
         }
+        if (actor.hasSkinFile()) {
+            CUSTOM_SKINS.put(entity.getId(), new SkinRef(actor.skin, actor.slim));
+        } else {
+            CUSTOM_SKINS.remove(entity.getId());
+        }
         entity.setNoGravity(true);
         if (entity instanceof LivingEntity living && !actor.isModel()) {
             equip(living, EquipmentSlot.MAINHAND, actor.mainHand);
@@ -284,29 +359,129 @@ public final class ActorManager {
             name = name.substring(0, 16);
         }
         GameProfile profile = new GameProfile(uuid, name);
-        CompletableFuture<Optional<GameProfile>> lookup = lookups.get(actor.id);
-        if (lookup == null && !actor.name.isBlank()) {
-            lookup = SkullBlockEntity.fetchGameProfile(actor.name);
-            lookups.put(actor.id, lookup);
-            // Respawn the actor with its skin once the profile lookup completes.
-            String id = actor.id;
-            lookup.thenRun(() -> Minecraft.getInstance().execute(() -> {
-                Entity e = spawned.remove(id);
-                if (e != null) {
-                    forgetEntity(e);
-                }
-                if (e != null && Minecraft.getInstance().level != null) {
-                    Minecraft.getInstance().level.removeEntity(e.getId(), Entity.RemovalReason.DISCARDED);
-                }
-            }));
-        }
-        if (lookup == null) {
+        if (actor.hasSkinFile() || !StringUtil.isValidPlayerName(actor.name)) {
+            // A skin file needs no account; a name that cannot be an account has nothing to look up.
             profiles.put(actor.id, profile);
-        } else if (lookup.isDone()) {
-            lookup.getNow(Optional.empty()).ifPresent(p -> profile.getProperties().putAll(p.getProperties()));
+            return profile;
+        }
+        Lookup lookup = lookups.get(actor.id);
+        if (lookup == null) {
+            // Queued: the actor wears the default skin until its lookup had its turn.
+            lookup = new Lookup(actor.id, actor.name);
+            lookups.put(actor.id, lookup);
+            lookupQueue.add(lookup);
+        }
+        if (lookup.done) {
+            lookup.result.ifPresent(p -> profile.getProperties().putAll(p.getProperties()));
             profiles.put(actor.id, profile);
         }
         return profile;
+    }
+
+    /** Starts the queued profile lookups whose turn has come, at most {@link #LOOKUPS_PER_TICK} per tick. */
+    private void pumpLookups() {
+        if (lookupQueue.isEmpty()) {
+            return;
+        }
+        long now = Util.getMillis();
+        int started = 0;
+        Iterator<Lookup> it = lookupQueue.iterator();
+        while (it.hasNext() && started < LOOKUPS_PER_TICK) {
+            Lookup lookup = it.next();
+            if (lookups.get(lookup.actorId) != lookup) {
+                // The actor was refreshed or removed meanwhile.
+                it.remove();
+                continue;
+            }
+            if (lookup.notBefore > now) {
+                continue;
+            }
+            it.remove();
+            start(lookup);
+            started++;
+        }
+    }
+
+    private void start(Lookup lookup) {
+        CompletableFuture<Optional<GameProfile>> future;
+        try {
+            future = lookup.attempt == 0 ? SkullBlockEntity.fetchGameProfile(lookup.name) : retryLookup(lookup.name, lookup.knownId);
+        } catch (Throwable t) {
+            future = CompletableFuture.failedFuture(t);
+        }
+        future.whenComplete((result, error) -> Minecraft.getInstance().execute(() -> complete(lookup, result, error)));
+    }
+
+    /**
+     * Second attempt, past the caches of the first one (they keep a failed answer for minutes): the account id by
+     * name unless the first attempt found it, then the profile with its skin. Runs off the main thread.
+     */
+    private static CompletableFuture<Optional<GameProfile>> retryLookup(String name, UUID knownId) {
+        Minecraft mc = Minecraft.getInstance();
+        MinecraftServer server = mc.getSingleplayerServer();
+        GameProfileRepository repository = server == null ? null : server.getProfileRepository();
+        MinecraftSessionService sessions = mc.getMinecraftSessionService();
+        return CompletableFuture.supplyAsync(() -> {
+            UUID id = knownId;
+            if (id == null && repository != null) {
+                AtomicReference<GameProfile> found = new AtomicReference<>();
+                repository.findProfilesByNames(new String[]{name}, new ProfileLookupCallback() {
+                    @Override
+                    public void onProfileLookupSucceeded(GameProfile profile) {
+                        found.set(profile);
+                    }
+
+                    @Override
+                    public void onProfileLookupFailed(String profileName, Exception exception) {
+                        found.set(null);
+                    }
+                });
+                id = found.get() == null ? null : found.get().getId();
+            }
+            if (id == null) {
+                return Optional.<GameProfile>empty();
+            }
+            ProfileResult result = sessions.fetchProfile(id, true);
+            return Optional.ofNullable(result).map(ProfileResult::profile);
+        }, Util.backgroundExecutor());
+    }
+
+    /** Main thread: keeps the profile and respawns the actor with its skin, or schedules the retry. */
+    private void complete(Lookup lookup, Optional<GameProfile> result, Throwable error) {
+        if (lookups.get(lookup.actorId) != lookup) {
+            return;
+        }
+        boolean found = error == null && result != null && result.isPresent()
+                && result.get().getProperties().containsKey("textures");
+        if (!found && lookup.attempt == 0) {
+            lookup.attempt = 1;
+            lookup.notBefore = Util.getMillis() + LOOKUP_RETRY_MS;
+            if (error == null && result != null && result.isPresent() && result.get().getId().version() == 4) {
+                // The name was found (an offline profile has a version 3 id), only the skin request failed.
+                lookup.knownId = result.get().getId();
+            }
+            lookupQueue.add(lookup);
+            JustReplay.LOGGER.debug("Skin lookup of actor {} failed ({}), retrying in {} ms", lookup.name,
+                    error != null ? error.toString() : "no skin", LOOKUP_RETRY_MS);
+            return;
+        }
+        lookup.done = true;
+        if (!found) {
+            // The actor keeps the default skin it already wears: nothing to respawn.
+            JustReplay.LOGGER.warn("Cannot fetch the skin of {} for an actor, it keeps the default skin{}", lookup.name,
+                    error != null ? ": " + error : "");
+            return;
+        }
+        lookup.result = result;
+        profiles.remove(lookup.actorId);
+        // Respawn the actor with its skin.
+        Entity e = spawned.remove(lookup.actorId);
+        if (e != null) {
+            forgetEntity(e);
+            if (Minecraft.getInstance().level != null) {
+                Minecraft.getInstance().level.removeEntity(e.getId(), Entity.RemovalReason.DISCARDED);
+            }
+        }
     }
 
     private void animate(ReplayProject.ActorData actor, Entity entity, int cursor, boolean paused) {

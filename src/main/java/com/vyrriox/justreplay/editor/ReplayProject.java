@@ -301,6 +301,13 @@ public final class ReplayProject {
         public String modelAnimation = "";
         /** Model scale for model actors. */
         public float modelScale = 1.0F;
+        /**
+         * Skin file of a player actor, a PNG of the skins folder (64x64 or legacy 64x32). Empty: the skin of the
+         * Mojang account named by {@link #name}.
+         */
+        public String skin = "";
+        /** Slim (Alex) arms for a player actor wearing a skin file. */
+        public boolean slim;
 
         public boolean isPlayer() {
             return PLAYER.equals(type);
@@ -308,6 +315,11 @@ public final class ReplayProject {
 
         public boolean isModel() {
             return MODEL.equals(type);
+        }
+
+        /** True for a player actor wearing a skin file rather than the skin of an account. */
+        public boolean hasSkinFile() {
+            return isPlayer() && skin != null && !skin.isBlank();
         }
 
         public void sort() {
@@ -382,6 +394,7 @@ public final class ReplayProject {
             }
             if (actor.model == null) actor.model = "";
             if (actor.modelAnimation == null) actor.modelAnimation = "";
+            if (actor.skin == null) actor.skin = "";
             if (!(actor.modelScale > 0.01F && actor.modelScale < 100F)) actor.modelScale = 1.0F;
             actor.sort();
         }

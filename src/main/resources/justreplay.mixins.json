@@ -23,6 +23,7 @@
     "ZoglinAccessor",
     "HumanoidModelMixin",
     "ActorBedMixin",
+    "ActorSkinMixin",
     "GameRendererFxMixin",
     "VertexBufferAccessor",
     "LevelRendererSectionsAccessor",
