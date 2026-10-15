@@ -4,6 +4,8 @@
 
 ### [Unreleased]
 
+### [1.0.2] - 2026-10-15
+
 #### Fixed
 - An actor seated or laid in a bed after a "Walk to" or a "Follow" no longer ends up beside the seat or the
   bed: a placement keyframe now ends the moves and the follow started before it, and a seated actor is no
@@ -124,6 +126,8 @@
 ## Français
 
 ### [Non publié]
+
+### [1.0.2] - 2026-10-15
 
 #### Corrigé
 - Un acteur assis ou couché dans un lit après un « Marcher vers » ou un « Suivre » ne se retrouve plus à côté
