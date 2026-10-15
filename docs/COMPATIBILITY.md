@@ -20,6 +20,7 @@ Every integration is optional: it is reached by reflection or by optional mixins
 | **Mekanism** | Machines are block entities synced by update packets and chunk data: no dedicated code. | Machine placed in the self test, no error in the log; visuals not inspected. |
 | **Distant Horizons** | While a replay runs, through DH's public API (`DhApi.Delayed`): LOD rendering and distant generation are turned off with API overrides, and the DH world is set read only so no LOD of the throw-away replay world is saved. The overrides are cleared when the replay ends. | Tested with DH 3.3.3 alone in a development client: overrides applied and restored on every replay, full self test passes. |
 | **Bobby** | Bobby reports itself disabled while a replay runs (no cached chunks, nothing saved). | Unchanged. |
+| **Drop the Beam** | Lights, beams, moving heads, haze and particles follow the level game time and need nothing. Everything that follows a song (music, light desk cues, video screens, sound reactive signals) follows the server clock as `ServerClock` estimates it. **Clock:** the recorded `clock_pong` packets plus a clock sample the recorder writes every 2 s (a pong carrying a marker, with the server instant the recording client estimated) map each recorded tick to the server instant; they are read ahead in the background when a replay opens and while playing. During a replay `ServerClock` answers with that mapping at the frame's replay time (cursor and partial tick): it stops with the replay, follows its speed and jumps with seeks. Recorded pongs never reach Drop the Beam; its pings and requests are not sent to the replay host; its "pause with the single-player game" logic is off during a replay. **Recording:** the latest music state, mix and layers per turntable, song offers and analyses, shows per desk, features and libraries are kept per connection and written into every snapshot and checkpoint, so a recording started mid-session plays the music already running. **Live audio:** fed silence while the replay is paused, away from x1 (songs are rendered at their natural pitch) or its game sounds are muted; its volume follows the project's game volume and ducking. **Export:** its audio thread renders nothing during an export; every voice is rendered offline for each frame with the clock pinned to that frame, attenuated (linear to its range, jukebox volume) and panned relative to the camera, then mixed as a game sound (game volume, mute, ducking). **Song starts:** `DropTheBeamCompat.songStartTicks()` gives the replay tick (with decimals) where each song is heard from its start, and each repeat of a song looping on its own; they are logged as `Drop the Beam: turntable ... starts "title" at replay tick ...`. | Compiled against Drop the Beam 0.1.0 sources, not yet tested in game. |
 
 ### Known limits
 
@@ -28,6 +29,10 @@ Every integration is optional: it is reached by reflection or by optional mixins
 - WaterFrames in exports: WaterMedia seeks are asynchronous, so a video can lag a few frames behind the exported
   time on a fast export.
 - Create trains in a recording started mid-session depend on the kept train network packets; this path is untested.
+- Drop the Beam: song, video and image files come from the local caches (`dropthebeam/song-cache`, `video-cache`,
+  `image-cache`); a replay watched on another computer that lacks them stays silent or blank, since there is no
+  server to send them. A replay recorded before this integration has only the real pongs as clock (one every 2 s,
+  late by half a round trip). Music is muted at speeds other than x1.
 
 ### Tier 1: rendering pipeline (blocking for playback and export)
 
@@ -133,7 +138,21 @@ fait rien quand le mod est absent. Le code se trouve dans `com.vyrriox.justrepla
   coupés et le monde DH passe en lecture seule, donc rien n'est sauvegardé pour le monde jetable du replay.
   Les réglages reviennent à la fin du replay. Testé avec DH 3.3.3 seul dans un client de développement : le test complet passe.
 - **Bobby** : désactivé pendant un replay (inchangé).
+- **Drop the Beam** : les lumières, faisceaux, lyres, brouillard et particules suivent le temps de jeu du niveau
+  et n'ont besoin de rien. Tout ce qui suit un morceau (musique, cues de la console lumière, écrans vidéo, signaux
+  réactifs au son) suit l'horloge du serveur estimée par `ServerClock`. Les paquets `clock_pong` enregistrés et un
+  échantillon d'horloge écrit toutes les 2 s par l'enregistreur donnent l'instant serveur de chaque tick ; pendant
+  un replay, `ServerClock` répond avec cet instant au temps du replay : pause, vitesse et sauts dans le temps
+  suivis. L'état des platines, mixages, couches, morceaux proposés, shows et bibliothèques est conservé et réécrit
+  dans chaque instantané et point de reprise. En lecture, la musique se tait en pause, hors x1 ou quand les sons du
+  jeu sont coupés, et suit le volume des sons du jeu et l'atténuation du projet. En export, chaque voix est rendue
+  hors ligne pour chaque image, placée par rapport à la caméra et mixée comme un son du jeu.
+  `DropTheBeamCompat.songStartTicks()` donne le tick du replay où chaque morceau commence (et chaque répétition
+  d'un morceau en boucle), aussi écrit dans le journal (`Drop the Beam: turntable ...`). Compilé avec les sources
+  de Drop the Beam 0.1.0, pas encore testé en jeu.
 
 Limites connues : un bloc modifié dans le tick exact où un enregistrement démarre en cours de partie peut
 manquer ; en export, une vidéo WaterFrames peut avoir quelques images de retard ; les trains de Create dans un
-enregistrement démarré en cours de partie ne sont pas testés.
+enregistrement démarré en cours de partie ne sont pas testés ; Drop the Beam lit morceaux, vidéos et images
+dans ses caches locaux, un replay regardé sur un autre ordinateur qui ne les a pas reste muet ou vide, et sa
+musique est coupée hors x1.
