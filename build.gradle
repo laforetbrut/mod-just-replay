@@ -32,6 +32,7 @@ neoForge {
             if (project.hasProperty('selftest')) {
                 systemProperty 'justreplay.selftest', 'true'
                 jvmArgument '-Xmx8G'
+                systemProperty 'justreplay.checkpointTicks', '60'
             }
         }
         server {

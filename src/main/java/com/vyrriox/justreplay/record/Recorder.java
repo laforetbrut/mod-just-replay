@@ -90,7 +90,8 @@ public final class Recorder {
     private enum State { STARTING, RUNNING, STOPPED }
 
     /** Recorded ticks between two checkpoints (one minute). */
-    private static final int CHECKPOINT_INTERVAL_TICKS = 1200;
+    /** One checkpoint per minute; the property only exists to test checkpoints on short recordings. */
+    private static final int CHECKPOINT_INTERVAL_TICKS = Math.max(20, Integer.getInteger("justreplay.checkpointTicks", 1200));
 
     private final Connection connection;
     private final Path dir;
