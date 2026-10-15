@@ -11,7 +11,7 @@
   "key.justreplay.camera_path": "Play camera path",
   "key.justreplay.marker": "Add marker",
   "key.justreplay.toggle_hud": "Show / hide timeline",
-  "key.justreplay.recorder_view": "Jump to recording player",
+  "key.justreplay.recorder_view": "Follow recording player (first person)",
   "key.justreplay.stop_spectating": "Stop spectating",
 
   "justreplay.loading": "Loading replay...",
