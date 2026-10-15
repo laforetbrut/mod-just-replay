@@ -1,12 +1,14 @@
 package com.vyrriox.justreplay.editor;
 
+import com.vyrriox.justreplay.editor.audio.AudioTrack;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
 /**
- * Everything the editor adds on top of a recording: cameras, the cut track, markers and actors. Saved as
+ * Everything the editor adds on top of a recording: cameras, the cut track, markers, actors and audio tracks. Saved as
  * {@code project.json} beside the stream, the recording itself is never modified.
  *
  * <p>Projects written before multi-camera editing kept one camera path in {@link #cameraKeyframes},
@@ -37,6 +39,16 @@ public final class ReplayProject {
     public boolean voices = true;
     public List<Marker> markers = new ArrayList<>();
     public List<ActorData> actors = new ArrayList<>();
+    /** Music and sound design tracks, mixed over the game sounds. */
+    public List<AudioTrack> audioTracks = new ArrayList<>();
+    /** Volume of the recorded game sounds, 0 to 1. */
+    public float gameVolume = 1.0F;
+    /** Silence the recorded game sounds (the voices keep their own switch). */
+    public boolean muteGame;
+    /** Lower the game sounds and voices while an audio clip plays. */
+    public boolean ducking;
+    /** How much the ducking lowers them, 0 to 1. */
+    public float duckAmount = 0.5F;
 
     public static final class CameraKeyframe {
         public int tick;
@@ -276,6 +288,13 @@ public final class ReplayProject {
         if (cuts == null) cuts = new ArrayList<>();
         if (markers == null) markers = new ArrayList<>();
         if (actors == null) actors = new ArrayList<>();
+        if (audioTracks == null) audioTracks = new ArrayList<>();
+        audioTracks.removeIf(t -> t == null);
+        for (AudioTrack track : audioTracks) {
+            track.normalize();
+        }
+        if (!(gameVolume >= 0.0F && gameVolume <= 1.0F)) gameVolume = 1.0F;
+        if (!(duckAmount >= 0.0F && duckAmount <= 1.0F)) duckAmount = 0.5F;
         cameras.removeIf(c -> c == null);
         if (cameras.isEmpty()) {
             // Older project (or a new one): the single camera path becomes the first camera.
@@ -325,6 +344,9 @@ public final class ReplayProject {
         }
         cuts.sort(Comparator.comparingInt(c -> c.tick));
         markers.sort(Comparator.comparingInt(m -> m.tick));
+        for (AudioTrack track : audioTracks) {
+            track.sort();
+        }
     }
 
     // ---------------------------------------------------------------- cameras

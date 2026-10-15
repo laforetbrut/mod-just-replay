@@ -313,6 +313,7 @@ public final class SelfTest {
                 log("spectating recorder: {} camera entity={}", s.spectate().isActive(),
                         mc.getCameraEntity() == null ? "none" : mc.getCameraEntity().getClass().getSimpleName());
                 s.spectate().stop(mc);
+                addBeepClip(s);
                 mc.setScreen(new EditorScreen(s));
                 next(10);
             }
@@ -340,6 +341,8 @@ public final class SelfTest {
             case 14 -> {
                 Path mp4 = ReplayStorage.exportRoot().resolve("selftest.mp4");
                 log("export file exists={} size={}", Files.exists(mp4), Files.exists(mp4) ? Files.size(mp4) : 0);
+                log("export audio clips mixed={} (expected 2), audio mux log={}", com.vyrriox.justreplay.export.ExportAudio.lastMixedClips(),
+                        Files.exists(ReplayStorage.exportRoot().resolve("selftest.mp4.audio.log")));
                 mc.level.disconnect();
                 mc.disconnect(new TitleScreen());
                 next(60);
@@ -382,6 +385,51 @@ public final class SelfTest {
             default -> {
             }
         }
+    }
+
+    /**
+     * Writes a one second 440 Hz beep (44.1 kHz mono 16-bit WAV, so decoding resamples it) into the audio folder,
+     * then places it on a new audio track inside the export range, with fades and ducking.
+     */
+    private static void addBeepClip(ReplaySession s) throws java.io.IOException {
+        Path wav = com.vyrriox.justreplay.editor.audio.AudioLibrary.folder().resolve("selftest-beep.wav");
+        int rate = 44_100;
+        int frames = rate;
+        java.nio.ByteBuffer data = java.nio.ByteBuffer.allocate(44 + frames * 2).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+        data.put("RIFF".getBytes(java.nio.charset.StandardCharsets.US_ASCII)).putInt(36 + frames * 2)
+                .put("WAVEfmt ".getBytes(java.nio.charset.StandardCharsets.US_ASCII)).putInt(16).putShort((short) 1).putShort((short) 1)
+                .putInt(rate).putInt(rate * 2).putShort((short) 2).putShort((short) 16)
+                .put("data".getBytes(java.nio.charset.StandardCharsets.US_ASCII)).putInt(frames * 2);
+        for (int i = 0; i < frames; i++) {
+            data.putShort((short) Math.round(Math.sin(2 * Math.PI * 440 * i / rate) * 0.5 * 32767));
+        }
+        Files.write(wav, data.array());
+        com.vyrriox.justreplay.editor.audio.AudioPcm pcm = com.vyrriox.justreplay.editor.audio.AudioLibrary.getBlocking(wav.getFileName().toString());
+        log("beep decoded: {} frames at 48 kHz ({} ticks), peak {}", pcm == null ? -1 : pcm.frames, pcm == null ? 0 : pcm.lengthTicks(),
+                pcm == null ? 0 : pcm.peak(0, pcm.frames));
+        com.vyrriox.justreplay.editor.audio.AudioTrack track = new com.vyrriox.justreplay.editor.audio.AudioTrack("Selftest");
+        com.vyrriox.justreplay.editor.audio.AudioClip clip = new com.vyrriox.justreplay.editor.audio.AudioClip(wav.getFileName().toString(), 30,
+                pcm == null ? 20 : pcm.lengthTicks());
+        clip.fadeIn = 4;
+        clip.fadeOut = 6;
+        track.clips.add(clip);
+        s.project().audioTracks.removeIf(t -> "Selftest".equals(t.name));
+        s.project().audioTracks.add(track);
+        s.project().ducking = true;
+        s.project().gameVolume = 0.8F;
+        // Split and trim round trip: the two halves cover the same ticks as the clip.
+        com.vyrriox.justreplay.editor.audio.AudioClip right = clip.splitAt(40);
+        log("split at 40: left {}..{} right {}..{} (source {}..{})", clip.start, clip.end(), right == null ? -1 : right.start,
+                right == null ? -1 : right.end(), right == null ? -1 : right.in, right == null ? -1 : right.out);
+        if (right != null) {
+            track.clips.add(right);
+        }
+        int clips = 0;
+        for (com.vyrriox.justreplay.editor.audio.AudioTrack t : s.project().audioTracks) {
+            clips += t.clips.size();
+        }
+        s.saveProject();
+        log("audio clips in project: {} on {} tracks", clips, s.project().audioTracks.size());
     }
 
     /** Checks the saved instant replay opens like any replay: stream, first packet, checkpoints, duration. */

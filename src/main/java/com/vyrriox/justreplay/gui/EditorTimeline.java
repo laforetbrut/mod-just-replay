@@ -28,10 +28,10 @@ final class EditorTimeline {
     static final int MARKERS = 10;
     static final int BAR = 4;
     static final int LABELS = 14;
-    /** Ruler, lanes, scrollbar. */
+    /** Ruler, lanes, scrollbar; the audio lanes add {@link #audioHeight()} below the markers. */
     static final int HEIGHT = RULER + CUTS + CAMERA + ACTOR + MARKERS + 3 + BAR;
 
-    enum Lane { RULER, CUTS, CAMERA, ACTOR, MARKERS, BAR, NONE }
+    enum Lane { RULER, CUTS, CAMERA, ACTOR, MARKERS, AUDIO, BAR, NONE }
 
     private static final int[] STEPS = {1, 2, 5, 10, 20, 40, 100, 200, 400, 600, 1200, 2400, 6000, 12000, 24000, 72000};
     private static final int MIN_SPAN = 20;
@@ -49,6 +49,8 @@ final class EditorTimeline {
     private double barGrab;
     private String[] rulerLabels = new String[0];
     private int[] rulerTicks = new int[0];
+    /** Audio lanes drawn under the markers, or null. */
+    AudioLanes audio;
 
     void layout(int x, int top, int w) {
         this.x = x;
@@ -72,8 +74,22 @@ final class EditorTimeline {
         return actorY() + ACTOR + 1;
     }
 
+    /** Top of the audio lanes. */
+    int audioY() {
+        return markersY() + MARKERS + 1;
+    }
+
+    int audioHeight() {
+        return audio == null ? 0 : audio.height();
+    }
+
+    /** Bottom of the last lane. */
+    int lanesBottom() {
+        return audioHeight() > 0 ? audioY() + audioHeight() - 1 : markersY() + MARKERS;
+    }
+
     int barY() {
-        return markersY() + MARKERS + 2;
+        return markersY() + MARKERS + 2 + audioHeight();
     }
 
     int bottom() {
@@ -135,6 +151,11 @@ final class EditorTimeline {
         return x + (int) Math.round((tick - viewStart) / viewSpan * (w - 1));
     }
 
+    /** Fractional, unclamped time under an x coordinate. */
+    double timeAt(double mouseX) {
+        return viewStart + (mouseX - x) / Math.max(1, w - 1) * viewSpan;
+    }
+
     int tickAt(double mouseX) {
         double t = viewStart + (mouseX - x) / Math.max(1, w - 1) * viewSpan;
         return (int) Math.round(Math.max(0, Math.min(duration, t)));
@@ -160,8 +181,11 @@ final class EditorTimeline {
         if (my < markersY()) {
             return Lane.ACTOR;
         }
-        if (my < barY() - 1) {
+        if (my < audioY()) {
             return Lane.MARKERS;
+        }
+        if (my < barY() - 1) {
+            return audioHeight() > 0 ? Lane.AUDIO : Lane.MARKERS;
         }
         return Lane.BAR;
     }
@@ -225,12 +249,15 @@ final class EditorTimeline {
         g.enableScissor(x, top, x + w, barY());
         int played = Math.min(x + w, xOf(cursor));
         if (played > x) {
-            g.fill(x, cutsY(), played, markersY() + MARKERS, 0x145AB4FF);
+            g.fill(x, cutsY(), played, lanesBottom(), 0x145AB4FF);
         }
         cuts(g, font, project, selectedCut);
         cameraKeys(g, project, selectedKey);
         actorLane(g, font, actor, selectedActorKey, selectedAction);
         markers(g, font, project);
+        if (audio != null) {
+            audio.renderClips(g, font, this, session, mouseX, mouseY);
+        }
         g.disableScissor();
         scrollbar(g, mouseX, mouseY);
         playHead(g, font, cursor, ghostTick);
@@ -242,6 +269,9 @@ final class EditorTimeline {
         laneBack(g, lx, cameraY(), CAMERA, Icon.CAMERA);
         laneBack(g, lx, actorY(), ACTOR, Icon.PERSON);
         laneBack(g, lx, markersY(), MARKERS, Icon.FLAG);
+        if (audio != null) {
+            audio.renderBack(g, font, this);
+        }
     }
 
     private void laneBack(GuiGraphics g, int lx, int y, int h, Icon icon) {
@@ -424,12 +454,12 @@ final class EditorTimeline {
     private void playHead(GuiGraphics g, Font font, int cursor, int ghostTick) {
         int cx = xOf(cursor);
         if (cx >= x - 1 && cx <= x + w + 1) {
-            g.fill(cx, cutsY() - 2, cx + 1, markersY() + MARKERS, 0xFFFFFFFF);
+            g.fill(cx, cutsY() - 2, cx + 1, lanesBottom(), 0xFFFFFFFF);
             Paint.rect(g, cx - 3, top - 1, 7, 6, 2, 0xFFFFFFFF, 0xFFDDE6F0);
         }
         if (ghostTick >= 0) {
             int gx = xOf(ghostTick);
-            g.fill(gx, cutsY() - 2, gx + 1, markersY() + MARKERS, 0x99FFFFFF);
+            g.fill(gx, cutsY() - 2, gx + 1, lanesBottom(), 0x99FFFFFF);
             String time = Timeline.formatTicks(ghostTick);
             int tw = font.width(time) + 8;
             int bx = Math.max(x - LABELS, Math.min(x + w - tw, gx - tw / 2));

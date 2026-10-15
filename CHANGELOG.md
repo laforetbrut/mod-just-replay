@@ -31,6 +31,12 @@
 - Development self test (`./gradlew runClient -Pselftest`).
 - Chunks the client holds beyond the server view distance (for example cached by Bobby) are recorded too, a few per tick.
 - Replays keep chunks loaded up to the playback view distance (32 by default) instead of unloading them when the recording player walked away.
+- Audio editor: an Audio tab and audio lanes on the timeline for music clips and sound design. OGG and WAV
+  files from `justreplay/audio/` go on any number of tracks (volume, mute, solo) as clips that can be moved,
+  trimmed by their edges, split at the play head (S), duplicated (Ctrl + D), faded in and out, looped and sped
+  up or down, with a waveform preview and snapping to markers, cuts, the play head and other clips. The clips
+  play in sync with the replay (pause, speeds, seeks) and are mixed sample accurately into video exports, with
+  a game sound volume, a mute switch for the game sounds and ducking under the clips.
 - Simple Voice Chat support: voices heard and your own microphone are recorded into `voice.bin.gz`, played back at the speaker in sync with the replay clock and mixed into video exports; a Voices toggle in the editor turns them off.
 - Glass interface: every screen, the HUD and the menu buttons are redrawn in a clear glass style with rounded
   corners, crisp procedural icons at any GUI scale and smooth animations. The editor gets a top bar (replay
@@ -105,6 +111,13 @@
 - Auto-test de développement (`./gradlew runClient -Pselftest`).
 - Les chunks que le client garde au-delà de la distance de vue du serveur (par exemple en cache avec Bobby) sont aussi enregistrés, quelques-uns par tick.
 - Les replays gardent les chunks chargés jusqu'à la distance de vue de lecture (32 par défaut) au lieu de les décharger quand le joueur enregistré s'éloigne.
+- Éditeur audio : un onglet Audio et des pistes audio sur la timeline pour les clips musicaux et le sound
+  design. Les fichiers OGG et WAV de `justreplay/audio/` se placent sur autant de pistes que voulu (volume,
+  muet, solo) sous forme de clips que l'on déplace, coupe par les bords, scinde à la tête de lecture (S),
+  duplique (Ctrl + D), avec fondus d'entrée et de sortie, boucle et vitesse, aperçu de la forme d'onde et
+  aimantation aux marqueurs, coupes, tête de lecture et autres clips. Les clips suivent la lecture (pause,
+  vitesses, sauts) et sont mixés à l'échantillon près dans les exports vidéo, avec un volume des sons du jeu,
+  un bouton pour les couper et un ducking sous les clips.
 - Prise en charge de Simple Voice Chat : les voix entendues et votre micro sont enregistrés dans `voice.bin.gz`, rejoués à la position de la personne qui parle en suivant l'horloge du replay et mixés dans les exports vidéo ; un bouton Voix dans l'éditeur les coupe.
 - Interface en verre : tous les écrans, le HUD et les boutons des menus sont redessinés dans un style de verre
   clair aux coins arrondis, avec des icônes nettes à toutes les échelles d'interface et des animations

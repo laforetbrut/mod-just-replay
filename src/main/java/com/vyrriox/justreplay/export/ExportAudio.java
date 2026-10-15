@@ -1,6 +1,11 @@
 package com.vyrriox.justreplay.export;
 
 import com.vyrriox.justreplay.JustReplay;
+import com.vyrriox.justreplay.editor.ReplayProject;
+import com.vyrriox.justreplay.editor.audio.AudioLibrary;
+import com.vyrriox.justreplay.editor.audio.AudioMixer;
+import com.vyrriox.justreplay.editor.audio.AudioPcm;
+import com.vyrriox.justreplay.editor.audio.AudioTrack;
 import com.vyrriox.justreplay.replay.ReplaySession;
 import com.vyrriox.justreplay.voice.VoiceBridge;
 import com.vyrriox.justreplay.voice.VoiceTrack;
@@ -34,6 +39,10 @@ import java.util.Map;
  * The recorded voice chat (when the replay has one and the project enables voices) is mixed in the same way: frame
  * 0 shows the replay tick the capture started on, so a voice frame of tick {@code t} starts {@code (t - start) / 20}
  * seconds into the track, placed relative to the camera of the frame it starts on.
+ * <p>
+ * The audio tracks of the project are mixed last, sample accurately from the same start tick: the game sounds
+ * get the game sound volume of the project, then the ducking lowers them and the voices under the clips, then
+ * the clips are added. The tracks are frozen when capture starts, so later edits never change a running export.
  *
  * @author vyrriox
  */
@@ -53,6 +62,11 @@ public final class ExportAudio {
     private final ReplaySession session;
     private final VoiceTrack voices;
     private int voiceStartTick = -1;
+    private List<AudioTrack> tracks = List.of();
+    private float gameGain = 1.0F;
+    private boolean ducking;
+    private float duckAmount;
+    private static volatile int lastMixedClips;
 
     public ExportAudio(int fps) {
         this.fps = fps;
@@ -76,7 +90,10 @@ public final class ExportAudio {
             if (sound == null || sound == SoundManager.EMPTY_SOUND || sound == SoundManager.INTENTIONALLY_EMPTY_SOUND) {
                 return;
             }
-            float volume = Math.min(1.0F, instance.getVolume()) * mc.options.getSoundSourceVolume(instance.getSource());
+            float volume = Math.min(1.0F, instance.getVolume()) * mc.options.getSoundSourceVolume(instance.getSource()) * gameGain();
+            if (volume <= 0.0F) {
+                return;
+            }
             float range = Math.max(instance.getVolume(), 1.0F) * sound.getAttenuationDistance();
             boolean positional = !instance.isRelative() && instance.getAttenuation() != SoundInstance.Attenuation.NONE;
             events.add(new Event(frame, sound.getPath(), sound.shouldStream(), volume, instance.getPitch(), positional,
@@ -90,12 +107,53 @@ public final class ExportAudio {
     public void onFrame(double x, double y, double z, float yaw) {
         if (cameras.isEmpty() && session != null) {
             voiceStartTick = session.playback().cursor();
+            freezeTracks(session.project());
         }
         cameras.add(new CameraState(x, y, z, yaw));
     }
 
     public boolean isEmpty() {
-        return events.isEmpty() && !hasVoices(cameras.size());
+        return events.isEmpty() && !hasVoices(cameras.size()) && !hasMusic(cameras.size());
+    }
+
+    /** Copies the audio tracks and game sound settings the export mixes. */
+    private void freezeTracks(ReplayProject project) {
+        List<AudioTrack> copy = new ArrayList<>();
+        for (AudioTrack track : project.audioTracks) {
+            copy.add(track.copy());
+        }
+        tracks = copy;
+        gameGain = project.muteGame ? 0.0F : Math.max(0.0F, Math.min(1.0F, project.gameVolume));
+        ducking = project.ducking && project.duckAmount > 0.0F;
+        duckAmount = Math.max(0.0F, Math.min(1.0F, project.duckAmount));
+    }
+
+    /** Game sound volume of the project; before capture starts, read live. */
+    private float gameGain() {
+        if (!cameras.isEmpty() || session == null) {
+            return gameGain;
+        }
+        ReplayProject project = session.project();
+        return project.muteGame ? 0.0F : Math.max(0.0F, Math.min(1.0F, project.gameVolume));
+    }
+
+    /** True when an audio clip plays inside the captured frames. */
+    private boolean hasMusic(int frames) {
+        if (voiceStartTick < 0 || frames == 0 || !AudioMixer.hasClips(tracks)) {
+            return false;
+        }
+        int end = voiceEndTick(frames);
+        for (int tick = voiceStartTick; tick <= end; tick++) {
+            if (AudioMixer.activeAt(tracks, tick)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Clips mixed into the last exported audio track. */
+    public static int lastMixedClips() {
+        return lastMixedClips;
     }
 
     /** True when a recorded voice frame starts inside the captured frames. */
@@ -174,6 +232,11 @@ public final class ExportAudio {
             mixVoices(mc, left, right, frames);
         } catch (Throwable t) {
             JustReplay.LOGGER.warn("Cannot mix the recorded voice chat into the export: {}", t.toString());
+        }
+        try {
+            mixTracks(left, right);
+        } catch (Throwable t) {
+            JustReplay.LOGGER.warn("Cannot mix the audio tracks into the export: {}", t.toString());
         }
         write(wav, left, right);
     }
@@ -264,6 +327,30 @@ public final class ExportAudio {
         }
     }
 
+    /** Ducks the game sounds and voices under the clips, then adds the audio tracks. */
+    private void mixTracks(float[] left, float[] right) {
+        lastMixedClips = 0;
+        if (voiceStartTick < 0 || !AudioMixer.hasClips(tracks)) {
+            return;
+        }
+        long first = (long) voiceStartTick * AudioPcm.PER_TICK;
+        int samples = left.length;
+        if (ducking) {
+            float[] gains = AudioMixer.duckGains(tracks, duckAmount, first, samples);
+            for (int i = 0; i < samples; i++) {
+                left[i] *= gains[i];
+                right[i] *= gains[i];
+            }
+        }
+        // Decoded once each, on this thread: the export already waits for the audio.
+        Map<String, AudioPcm> files = new HashMap<>();
+        java.util.function.Function<String, AudioPcm> source = file -> files.computeIfAbsent(file, AudioLibrary::getBlocking);
+        int clips = AudioMixer.mix(tracks, source, first, left, right, 0, samples);
+        lastMixedClips = clips;
+        JustReplay.LOGGER.info("Export audio: {} clips mixed from {} tracks{}", clips, tracks.size(),
+                ducking ? ", ducking " + Math.round(duckAmount * 100) + "%" : "");
+    }
+
     private static float[][] decode(Minecraft mc, ResourceLocation file) {
         try (InputStream in = mc.getResourceManager().open(file); JOrbisAudioStream stream = new JOrbisAudioStream(in)) {
             FloatArrayList samples = new FloatArrayList();
@@ -305,7 +392,7 @@ public final class ExportAudio {
 
     private static short toPcm(float value) {
         // Soft limit so loud overlapping sounds do not clip harshly.
-        float v = (float) Math.tanh(value);
+        float v = AudioMixer.limit(value);
         return (short) Math.round(v * 32767.0F);
     }
 }
