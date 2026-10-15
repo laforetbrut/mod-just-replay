@@ -1,9 +1,16 @@
 package com.vyrriox.justreplay.gui;
 
 import com.vyrriox.justreplay.editor.model.ModelLibrary;
+import com.vyrriox.justreplay.gui.ui.Form;
+import com.vyrriox.justreplay.gui.ui.GlassButton;
+import com.vyrriox.justreplay.gui.ui.GlassScreen;
+import com.vyrriox.justreplay.gui.ui.Icon;
+import com.vyrriox.justreplay.gui.ui.ListRow;
+import com.vyrriox.justreplay.gui.ui.Paint;
+import com.vyrriox.justreplay.gui.ui.ScrollArea;
+import com.vyrriox.justreplay.gui.ui.Theme;
 import net.minecraft.Util;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
@@ -16,13 +23,11 @@ import java.util.function.Consumer;
  *
  * @author vyrriox
  */
-public class ModelPickScreen extends Screen {
-    private static final int ROW = 22;
-
+public class ModelPickScreen extends GlassScreen {
     private final Screen parent;
     private final Consumer<String> onPick;
     private List<String> files = List.of();
-    private int scroll;
+    private int boxX, boxY, boxW, boxH;
 
     public ModelPickScreen(Screen parent, Consumer<String> onPick) {
         super(Component.translatable("justreplay.model.pick.title"));
@@ -33,37 +38,49 @@ public class ModelPickScreen extends Screen {
     @Override
     protected void init() {
         files = ModelLibrary.list();
-        int rows = Math.max(1, (height - 90) / ROW);
-        scroll = Math.max(0, Math.min(scroll, files.size() - rows));
-        int y = 34;
-        for (int i = scroll; i < Math.min(files.size(), scroll + rows); i++) {
-            String file = files.get(i);
-            addRenderableWidget(Button.builder(Component.literal(file), b -> {
+        boxW = Math.min(300, width - 24);
+        boxH = Math.min(260, height - 24);
+        boxX = (width - boxW) / 2;
+        boxY = (height - boxH) / 2;
+        ScrollArea area = new ScrollArea(this, boxX + 8, boxY + 30, boxW - 16, boxH - 30 - 34);
+        Form form = new Form(area, boxW - 24);
+        for (String file : files) {
+            form.full(new ListRow(Component.literal(file), b -> {
                 onPick.accept(file);
                 if (minecraft.screen == this) {
                     minecraft.setScreen(parent);
                 }
-            }).bounds(width / 2 - 100, y, 200, 20).build());
-            y += ROW;
+            }).icon(Icon.CUBE));
         }
-        addRenderableWidget(Button.builder(Component.translatable("justreplay.model.pick.folder"),
-                b -> Util.getPlatform().openPath(ModelLibrary.folder())).bounds(width / 2 - 100, height - 28, 98, 20).build());
-        addRenderableWidget(Button.builder(CommonComponents.GUI_CANCEL, b -> onClose()).bounds(width / 2 + 2, height - 28, 98, 20).build());
+        form.end();
+        int bw = (boxW - 24 - Theme.GAP) / 2;
+        int by = boxY + boxH - 10 - 16;
+        addRenderableWidget(new GlassButton(boxX + 12, by, bw, 16, Component.translatable("justreplay.model.pick.folder"),
+                b -> Util.getPlatform().openPath(ModelLibrary.folder())).icon(Icon.FOLDER));
+        addRenderableWidget(new GlassButton(boxX + 12 + bw + Theme.GAP, by, bw, 16, CommonComponents.GUI_CANCEL, b -> onClose()));
     }
 
     @Override
-    public boolean mouseScrolled(double mx, double my, double sx, double sy) {
-        scroll = Math.max(0, scroll - (int) Math.signum(sy));
-        rebuildWidgets();
-        return true;
+    protected void renderPanels(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        float a = intro();
+        g.pose().pushPose();
+        g.pose().translate(0, (1.0F - a) * 6.0F, 0);
+        Paint.glass(g, boxX, boxY, boxW, boxH, Theme.RADIUS_L);
+        g.pose().popPose();
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        super.render(g, mouseX, mouseY, partialTick);
-        g.drawCenteredString(font, title, width / 2, 14, 0xFFFFFF);
+    protected void renderOverlay(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        Paint.icon(g, Icon.CUBE, boxX + 12, boxY + 10, 10, Theme.ACCENT);
+        g.drawString(font, Paint.ellipsize(font, title.getString(), boxW - 40), boxX + 27, boxY + 12, Theme.TEXT, false);
         if (files.isEmpty()) {
-            g.drawCenteredString(font, Component.translatable("justreplay.model.pick.empty"), width / 2, 50, 0xA0A0A0);
+            Component empty = Component.translatable("justreplay.model.pick.empty");
+            Paint.icon(g, Icon.FOLDER, width / 2.0F - 8, boxY + boxH / 2.0F - 22, 16, Theme.TEXT_MUTED);
+            int ly = boxY + boxH / 2 + 2;
+            for (var line : font.split(empty, boxW - 30)) {
+                g.drawString(font, line, width / 2 - font.width(line) / 2, ly, Theme.TEXT_DIM, false);
+                ly += 10;
+            }
         }
     }
 

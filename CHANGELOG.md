@@ -32,6 +32,14 @@
 - Chunks the client holds beyond the server view distance (for example cached by Bobby) are recorded too, a few per tick.
 - Replays keep chunks loaded up to the playback view distance (32 by default) instead of unloading them when the recording player walked away.
 - Simple Voice Chat support: voices heard and your own microphone are recorded into `voice.bin.gz`, played back at the speaker in sync with the replay clock and mixed into video exports; a Voices toggle in the editor turns them off.
+- Glass interface: every screen, the HUD and the menu buttons are redrawn in a clear glass style with rounded
+  corners, crisp procedural icons at any GUI scale and smooth animations. The editor gets a top bar (replay
+  name, save state, settings, help), a collapsible sidebar with Cameras, Actors, Scene and Export tabs that
+  scroll on small windows, and a bottom dock with icon transport controls, a speed selector and a laned
+  timeline (cuts, camera keys, actor keys and actions, markers) that zooms with Ctrl + wheel and scrolls.
+  F1 or ? shows the shortcuts, read from the current key bindings. The replay list shows cards with search
+  and sorting by date, name or size; the export screen has resolution and frame rate selectors and a quality
+  slider.
 
 #### Fixed
 - Signed player chat no longer breaks replays (expired keys, seeking back, manual recordings).
@@ -86,6 +94,15 @@
 - Les chunks que le client garde au-delà de la distance de vue du serveur (par exemple en cache avec Bobby) sont aussi enregistrés, quelques-uns par tick.
 - Les replays gardent les chunks chargés jusqu'à la distance de vue de lecture (32 par défaut) au lieu de les décharger quand le joueur enregistré s'éloigne.
 - Prise en charge de Simple Voice Chat : les voix entendues et votre micro sont enregistrés dans `voice.bin.gz`, rejoués à la position de la personne qui parle en suivant l'horloge du replay et mixés dans les exports vidéo ; un bouton Voix dans l'éditeur les coupe.
+- Interface en verre : tous les écrans, le HUD et les boutons des menus sont redessinés dans un style de verre
+  clair aux coins arrondis, avec des icônes nettes à toutes les échelles d'interface et des animations
+  fluides. L'éditeur a une barre du haut (nom du replay, état de la sauvegarde, réglages, aide), un panneau
+  latéral repliable avec les onglets Caméras, Acteurs, Scène et Export qui défilent sur les petites fenêtres,
+  et un dock en bas avec les commandes de lecture en icônes, un choix de vitesse et une timeline à pistes
+  (coupes, keyframes de caméra, keyframes et actions d'acteurs, marqueurs) qui zoome avec Ctrl + molette et
+  défile. F1 ou ? affiche les raccourcis, lus depuis les touches configurées. La liste des replays montre des
+  cartes avec recherche et tri par date, nom ou taille ; l'écran d'export a des sélecteurs de résolution et
+  d'images par seconde et un curseur de qualité.
 
 #### Corrigé
 - Le chat signé des joueurs ne casse plus les replays (clés expirées, retour en arrière, enregistrements manuels).

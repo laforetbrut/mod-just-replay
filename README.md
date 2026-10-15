@@ -28,6 +28,9 @@ NeoForge 1.21.1, client side. Author: vyrriox. License: Apache-2.0.
   looping default animation and play others from the timeline with the *Model animation* action.
 - **Video export**: renders the camera path frame by frame to MP4 through FFmpeg, every frame is exact
   whatever the speed of the machine.
+- **Glass interface**: a clear glass look with rounded corners and smooth animations. The editor has a
+  collapsible sidebar (Cameras, Actors, Scene, Export), a bottom dock with the transport controls and a
+  zoomable multi-lane timeline (Ctrl + wheel), and a shortcut overlay on **F1** or **?**.
 
 ### Keys
 
@@ -91,6 +94,9 @@ edit and export test in a development client.
   avec l'action *Model animation*.
 - **Export vidéo** : rend le chemin de caméra image par image en MP4 via FFmpeg, chaque image est exacte
   quelle que soit la puissance du PC.
+- **Interface en verre** : un style de verre clair aux coins arrondis et aux animations fluides. L'éditeur a
+  un panneau latéral repliable (Caméras, Acteurs, Scène, Export), un dock en bas avec les commandes de
+  lecture et une timeline à pistes zoomable (Ctrl + molette), et la liste des raccourcis sur **F1** ou **?**.
 
 ### Touches
 

@@ -1,27 +1,32 @@
 package com.vyrriox.justreplay.gui;
 
+import com.vyrriox.justreplay.gui.ui.GlassButton;
+import com.vyrriox.justreplay.gui.ui.GlassScreen;
+import com.vyrriox.justreplay.gui.ui.GlassTextField;
+import com.vyrriox.justreplay.gui.ui.Icon;
+import com.vyrriox.justreplay.gui.ui.Paint;
+import com.vyrriox.justreplay.gui.ui.Theme;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.CommonComponents;
+import net.minecraft.network.chat.Component;
 
 import java.util.function.Consumer;
 
 /**
- * Asks for one line of text, then returns to the parent screen.
+ * Asks for one line of text in a glass dialog, then returns to the parent screen.
  *
  * @author vyrriox
  */
-public class TextInputScreen extends Screen {
-    private final Screen parent;
+public class TextInputScreen extends GlassScreen {
+    private final net.minecraft.client.gui.screens.Screen parent;
     private final Component label;
     private final String initial;
     private final Consumer<String> onDone;
-    private EditBox box;
+    private GlassTextField box;
+    private int boxX, boxY, boxW, boxH;
 
-    public TextInputScreen(Screen parent, Component title, Component label, String initial, Consumer<String> onDone) {
+    public TextInputScreen(net.minecraft.client.gui.screens.Screen parent, Component title, Component label, String initial,
+                           Consumer<String> onDone) {
         super(title);
         this.parent = parent;
         this.label = label;
@@ -31,15 +36,22 @@ public class TextInputScreen extends Screen {
 
     @Override
     protected void init() {
-        box = new EditBox(font, width / 2 - 100, height / 2 - 10, 200, 20, label);
+        boxW = Math.min(240, width - 24);
+        boxH = 96;
+        boxX = (width - boxW) / 2;
+        boxY = (height - boxH) / 2;
+        String value = box != null ? box.getValue() : initial;
+        box = new GlassTextField(font, boxW - 24, label);
         box.setMaxLength(128);
-        box.setValue(initial);
+        box.setValue(value);
+        box.setPosition(boxX + 12, boxY + 42);
         addRenderableWidget(box);
         setInitialFocus(box);
-        addRenderableWidget(Button.builder(CommonComponents.GUI_DONE, b -> done())
-                .bounds(width / 2 - 100, height / 2 + 20, 98, 20).build());
-        addRenderableWidget(Button.builder(CommonComponents.GUI_CANCEL, b -> onClose())
-                .bounds(width / 2 + 2, height / 2 + 20, 98, 20).build());
+        int bw = (boxW - 24 - Theme.GAP) / 2;
+        int by = boxY + boxH - 12 - 16;
+        addRenderableWidget(new GlassButton(boxX + 12, by, bw, 16, CommonComponents.GUI_CANCEL, b -> onClose()));
+        addRenderableWidget(new GlassButton(boxX + 12 + bw + Theme.GAP, by, bw, 16, CommonComponents.GUI_DONE, b -> done())
+                .icon(Icon.CHECK).style(GlassButton.Style.PRIMARY));
     }
 
     private void done() {
@@ -60,10 +72,20 @@ public class TextInputScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        super.render(g, mouseX, mouseY, partialTick);
-        g.drawCenteredString(font, title, width / 2, height / 2 - 50, 0xFFFFFF);
-        g.drawString(font, label, width / 2 - 100, height / 2 - 22, 0xA0A0A0);
+    protected void renderPanels(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        float a = intro();
+        g.pose().pushPose();
+        g.pose().translate(0, (1.0F - a) * 6.0F, 0);
+        Paint.glass(g, boxX, boxY, boxW, boxH, Theme.RADIUS_L);
+        g.pose().popPose();
+    }
+
+    @Override
+    protected void renderOverlay(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        Paint.circle(g, boxX + 20, boxY + 18, 8, Theme.ACCENT_SOFT);
+        Paint.icon(g, Icon.EDIT, boxX + 16, boxY + 14, 8, Theme.ACCENT);
+        g.drawString(font, Paint.ellipsize(font, title.getString(), boxW - 44), boxX + 34, boxY + 14, Theme.TEXT, false);
+        g.drawString(font, Paint.ellipsize(font, label.getString(), boxW - 24), boxX + 13, boxY + 31, Theme.TEXT_DIM, false);
     }
 
     @Override

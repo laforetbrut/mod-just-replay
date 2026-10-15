@@ -2,24 +2,30 @@ package com.vyrriox.justreplay.gui;
 
 import com.vyrriox.justreplay.editor.CameraPath;
 import com.vyrriox.justreplay.editor.CameraRig;
+import com.vyrriox.justreplay.editor.PathRenderer;
 import com.vyrriox.justreplay.editor.ReplayProject;
+import com.vyrriox.justreplay.gui.ui.Dropdown;
+import com.vyrriox.justreplay.gui.ui.Form;
+import com.vyrriox.justreplay.gui.ui.GlassButton;
+import com.vyrriox.justreplay.gui.ui.GlassSwitch;
+import com.vyrriox.justreplay.gui.ui.Icon;
+import com.vyrriox.justreplay.gui.ui.ListRow;
+import com.vyrriox.justreplay.gui.ui.Stepper;
+import com.vyrriox.justreplay.gui.ui.Theme;
 import com.vyrriox.justreplay.replay.Playback;
 import com.vyrriox.justreplay.replay.ReplaySession;
 import com.vyrriox.justreplay.replay.SpectateCamera;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.List;
 import java.util.Locale;
 
 /**
- * The "Cameras" section of the editor: camera list and management, the controls of the selected camera (path
+ * The "Cameras" tab of the editor: camera list and management, the controls of the selected camera (path
  * keyframes, static placement or follow settings), roll and field of view, and the cut track.
  *
  * @author vyrriox
@@ -36,10 +42,8 @@ public final class CameraPanel {
     ReplayProject.CameraKeyframe selectedKey;
     /** Cut selected on the timeline, or null. */
     ReplayProject.Cut selectedCut;
-    private Button previewButton;
-    private Button blendButton;
+    private GlassButton blendButton;
     private Component status;
-    private int infoY;
 
     CameraPanel(EditorScreen screen, ReplaySession session) {
         this.screen = screen;
@@ -60,12 +64,8 @@ public final class CameraPanel {
 
     // ---------------------------------------------------------------- layout
 
-    /** Adds the widgets from (x, y) in a column of width w; returns the y below them. */
-    int build(int x, int y, int w) {
-        int row = EditorScreen.ROW;
-        int third = (w - 4) / 3;
-        int half = (w - 2) / 2;
-        int quarter = (w - 6) / 4;
+    /** Adds the controls of the tab to a form. */
+    void build(Form f) {
         ReplayProject.Camera camera = camera();
         if (selectedCut != null && !project().cuts.contains(selectedCut)) {
             selectedCut = null;
@@ -74,165 +74,193 @@ public final class CameraPanel {
             selectedKey = null;
         }
 
-        // Camera selector
-        screen.button(x, y, 16, "<", b -> cycle(-1));
-        int index = project().cameras.indexOf(camera);
-        screen.button(x + 18, y, w - 36, (index + 1) + ": " + camera.name + " (" + typeLabel(camera) + ")", b -> cycle(1));
-        screen.button(x + w - 16, y, 16, ">", b -> cycle(1));
-        y += row;
-        screen.button(x, y, quarter, tr("justreplay.editor.cam.new_path"), b -> addCamera(ReplayProject.Camera.PATH));
-        screen.button(x + quarter + 2, y, quarter, tr("justreplay.editor.cam.new_static"), b -> addCamera(ReplayProject.Camera.STATIC));
-        screen.button(x + 2 * (quarter + 2), y, quarter, tr("justreplay.editor.cam.new_follow"), b -> addCamera(ReplayProject.Camera.FOLLOW));
-        screen.button(x + 3 * (quarter + 2), y, quarter, tr("justreplay.editor.cam.duplicate"), b -> duplicate());
-        y += row;
-        screen.button(x, y, third, tr("justreplay.editor.cam.rename"), b -> rename());
-        screen.button(x + third + 2, y, third, tr("justreplay.editor.cam.delete"), b -> {
+        // Camera list
+        f.header(Component.translatable("justreplay.editor.cameras"), Icon.CAMERA);
+        List<ReplayProject.Camera> cameras = project().cameras;
+        for (int i = 0; i < cameras.size(); i++) {
+            ReplayProject.Camera c = cameras.get(i);
+            String detail = typeLabel(c) + (i < 9 ? "  " + (i + 1) : "");
+            ListRow row = new ListRow(Component.literal(c.name), b -> select(c));
+            row.dot(PathRenderer.cameraColor(i)).detail(detail).selected(() -> c == camera())
+                    .tip(Component.translatable("justreplay.editor.cam.row.tip", i + 1));
+            f.full(row);
+        }
+        f.caption(tc("justreplay.editor.cam.new"), 0, 1);
+        f.next(9);
+        f.put(new GlassButton(tc("justreplay.editor.cam.add.path"), b -> addCamera(ReplayProject.Camera.PATH))
+                .icon(Icon.PATH).tip(tc("justreplay.editor.cam.new_path.tip")), 0, 3);
+        f.put(new GlassButton(tc("justreplay.editor.cam.add.static"), b -> addCamera(ReplayProject.Camera.STATIC))
+                .icon(Icon.PIN).tip(tc("justreplay.editor.cam.new_static.tip")), 1, 3);
+        f.put(new GlassButton(tc("justreplay.editor.cam.add.follow"), b -> addCamera(ReplayProject.Camera.FOLLOW))
+                .icon(Icon.TARGET).tip(tc("justreplay.editor.cam.new_follow.tip")), 2, 3);
+        f.next();
+        f.put(new GlassButton(tc("justreplay.editor.cam.duplicate"), b -> duplicate()).icon(Icon.COPY), 0, 3);
+        f.put(new GlassButton(tc("justreplay.editor.cam.rename"), b -> rename()).icon(Icon.EDIT), 1, 3);
+        f.put(new GlassButton(tc("justreplay.editor.delete"), b -> {
             if (project().cameras.size() > 1) {
                 screen.confirm(Component.translatable("justreplay.editor.cam.delete.confirm"), this::deleteCamera);
             }
-        });
-        previewButton = screen.button(x + 2 * third + 4, y, third, previewLabel(), b -> {
-            session.setCameraPath(!session.isCameraPathActive());
-            b.setMessage(Component.literal(previewLabel()));
-        });
-        previewButton.setTooltip(Tooltip.create(Component.translatable("justreplay.editor.preview.tip")));
-        y += row;
+        }).icon(Icon.TRASH).style(GlassButton.Style.DANGER).enabled(cameras.size() > 1), 2, 3);
+        f.next();
+        f.full(new GlassSwitch(tc("justreplay.editor.preview"), session::isCameraPathActive,
+                () -> session.setCameraPath(!session.isCameraPathActive()))
+                .icon(Icon.EYE).tip(tc("justreplay.editor.preview.tip")));
 
         // Controls of the selected camera
+        f.header(Component.translatable("justreplay.editor.cam.settings", camera.name), Icon.EDIT);
         if (camera.isPath()) {
-            screen.button(x, y, third, tr("justreplay.editor.camera.add"), b -> addKeyframe());
-            screen.button(x + third + 2, y, third, tr("justreplay.editor.delete"), b -> screen.deleteSelected());
-            screen.button(x + 2 * third + 4, y, third, tr("justreplay.editor.goto"), b -> gotoSelected());
-            y += row;
-            screen.button(x, y, half, tr("justreplay.editor.camera.update"), b -> updateKeyframe());
-            screen.button(x + half + 2, y, half, tr("justreplay.editor.clearpath"), b -> screen.confirm(
+            f.put(new GlassButton(tc("justreplay.editor.camera.add"), b -> addKeyframe()).icon(Icon.KEY)
+                    .tip(tc("justreplay.editor.camera.add.tip")), 0, 2);
+            f.put(new GlassButton(tc("justreplay.editor.delete"), b -> screen.deleteSelected()).icon(Icon.TRASH)
+                    .tip(tc("justreplay.editor.delete.tip")), 1, 2);
+            f.next();
+            f.put(new GlassButton(tc("justreplay.editor.camera.update"), b -> updateKeyframe()).icon(Icon.CAMERA)
+                    .tip(tc("justreplay.editor.camera.update.tip")), 0, 2);
+            f.put(new GlassButton(tc("justreplay.editor.goto"), b -> gotoSelected()).icon(Icon.PIN)
+                    .tip(tc("justreplay.editor.goto.tip")), 1, 2);
+            f.next();
+            f.full(new GlassButton(tc("justreplay.editor.clearpath"), b -> screen.confirm(
                     Component.translatable("justreplay.editor.clearpath.confirm"), () -> {
                         camera().keyframes.clear();
                         selectedKey = null;
                         session.saveProject();
-                    }));
-            y += row;
-            screen.button(x, y, third, curveLabel(camera), b -> {
-                CameraPath.Curve[] all = CameraPath.Curve.values();
-                camera().curve = all[(curve(camera()).ordinal() + 1) % all.length].name();
-                b.setMessage(Component.literal(curveLabel(camera())));
+                    })).icon(Icon.TRASH).style(GlassButton.Style.DANGER));
+            f.full(new Dropdown<>(screen, tc("justreplay.editor.curve"), List.of(CameraPath.Curve.values()), curve(camera),
+                    v -> Component.translatable("justreplay.editor.curve." + v.name().toLowerCase(Locale.ROOT)), v -> {
+                camera().curve = v.name();
                 session.saveProject();
-            }).setTooltip(Tooltip.create(Component.translatable("justreplay.editor.curve.tip")));
-            screen.button(x + third + 2, y, third, timingLabel(camera), b -> {
-                camera().timing = (timing(camera()) == CameraPath.Timing.CONSTANT_SPEED ? CameraPath.Timing.KEYFRAMES
-                        : CameraPath.Timing.CONSTANT_SPEED).name();
-                b.setMessage(Component.literal(timingLabel(camera())));
+            }).icon(Icon.PATH).tip(tc("justreplay.editor.curve.tip")));
+            f.full(new Dropdown<>(screen, tc("justreplay.editor.timing"),
+                    List.of(CameraPath.Timing.CONSTANT_SPEED, CameraPath.Timing.KEYFRAMES), timing(camera),
+                    v -> Component.translatable(v == CameraPath.Timing.CONSTANT_SPEED ? "justreplay.editor.timing.constant"
+                            : "justreplay.editor.timing.keyframes"), v -> {
+                camera().timing = v.name();
                 session.saveProject();
-            }).setTooltip(Tooltip.create(Component.translatable("justreplay.editor.timing.tip")));
-            screen.button(x + 2 * third + 4, y, third, easeLabel(camera), b -> {
+            }).icon(Icon.CLOCK).tip(tc("justreplay.editor.timing.tip")));
+            f.full(new GlassSwitch(tc("justreplay.editor.ease"), () -> camera().ease, () -> {
                 camera().ease = !camera().ease;
-                b.setMessage(Component.literal(easeLabel(camera())));
                 session.saveProject();
-            }).setTooltip(Tooltip.create(Component.translatable("justreplay.editor.ease.tip")));
-            y += row;
+            }).icon(Icon.ROTATE).tip(tc("justreplay.editor.ease.tip")));
         } else if (camera.isStatic()) {
-            screen.button(x, y, half, tr("justreplay.editor.cam.set_view"), b -> placeAtView(camera()));
-            screen.button(x + half + 2, y, half, tr("justreplay.editor.goto"), b -> gotoSelected());
-            y += row;
+            f.put(new GlassButton(tc("justreplay.editor.cam.set_view"), b -> placeAtView(camera())).icon(Icon.CAMERA)
+                    .tip(tc("justreplay.editor.cam.set_view.tip")), 0, 2);
+            f.put(new GlassButton(tc("justreplay.editor.goto"), b -> gotoSelected()).icon(Icon.PIN)
+                    .tip(tc("justreplay.editor.goto.tip")), 1, 2);
+            f.next();
         } else {
-            screen.button(x, y, half, tr("justreplay.editor.cam.target"), b -> retarget())
-                    .setTooltip(Tooltip.create(Component.translatable("justreplay.editor.cam.target.tip")));
-            screen.button(x + half + 2, y, half, followModeLabel(camera), b -> {
-                ReplayProject.Camera c = camera();
-                c.followMode = FOLLOW_MODES[(indexOf(FOLLOW_MODES, c.followMode) + 1) % FOLLOW_MODES.length];
-                b.setMessage(Component.literal(followModeLabel(c)));
+            f.put(new GlassButton(tc("justreplay.editor.cam.target"), b -> retarget()).icon(Icon.TARGET)
+                    .tip(tc("justreplay.editor.cam.target.tip")), 0, 2);
+            f.put(new Dropdown<>(screen, Component.empty(), List.of(FOLLOW_MODES), camera.followMode,
+                    v -> Component.translatable("justreplay.editor.follow." + v.toLowerCase(Locale.ROOT)), v -> {
+                camera().followMode = v;
                 session.saveProject();
-            });
-            y += row;
-            screen.button(x, y, quarter, "Dist-", b -> follow(-0.5, 0));
-            screen.button(x + quarter + 2, y, quarter, "Dist+", b -> follow(0.5, 0));
-            screen.button(x + 2 * (quarter + 2), y, quarter, "High-", b -> follow(0, -0.5));
-            screen.button(x + 3 * (quarter + 2), y, quarter, "High+", b -> follow(0, 0.5));
-            y += row;
-            screen.button(x, y, half, smoothLabel(camera), b -> {
-                ReplayProject.Camera c = camera();
-                c.smoothing = SMOOTHING[(nearest(SMOOTHING, c.smoothing) + 1) % SMOOTHING.length];
-                b.setMessage(Component.literal(smoothLabel(c)));
+            }).tip(tc("justreplay.editor.follow.mode")), 1, 2);
+            f.next();
+            f.full(new Stepper(tc("justreplay.editor.follow.distance"), () -> camera().distance, "", 1,
+                    () -> follow(-0.5, 0), () -> follow(0.5, 0)).icon(Icon.FIT));
+            f.full(new Stepper(tc("justreplay.editor.follow.height"), () -> camera().height, "", 1,
+                    () -> follow(0, -0.5), () -> follow(0, 0.5)).icon(Icon.ARROW_UP));
+            f.full(new Dropdown<>(screen, tc("justreplay.editor.follow.smooth"), floats(SMOOTHING), SMOOTHING[nearest(SMOOTHING, camera.smoothing)],
+                    v -> Component.literal(trim(v) + "s"), v -> {
+                camera().smoothing = v;
                 session.saveProject();
-            });
-            screen.button(x + half + 2, y, half, orbitLabel(camera), b -> {
-                ReplayProject.Camera c = camera();
-                c.orbitSpeed = ORBIT_SPEEDS[(nearest(ORBIT_SPEEDS, c.orbitSpeed) + 1) % ORBIT_SPEEDS.length];
-                b.setMessage(Component.literal(orbitLabel(c)));
+            }).icon(Icon.CLOCK));
+            f.full(new Dropdown<>(screen, tc("justreplay.editor.follow.orbit_speed"), floats(ORBIT_SPEEDS),
+                    ORBIT_SPEEDS[nearest(ORBIT_SPEEDS, camera.orbitSpeed)], v -> Component.literal(Math.round(v) + "°/s"), v -> {
+                camera().orbitSpeed = v;
                 session.saveProject();
-            });
-            y += row;
+            }).icon(Icon.ROTATE));
         }
-        screen.button(x, y, quarter, "Roll-", b -> adjust(0, -5));
-        screen.button(x + quarter + 2, y, quarter, "Roll+", b -> adjust(0, 5));
-        screen.button(x + 2 * (quarter + 2), y, quarter, "FOV-", b -> adjust(-5, 0));
-        screen.button(x + 3 * (quarter + 2), y, quarter, "FOV+", b -> adjust(5, 0));
-        y += row;
+        f.full(new Stepper(tc("justreplay.editor.roll"), () -> rollValue(), "°", 0, () -> adjust(0, -5), () -> adjust(0, 5))
+                .icon(Icon.ROTATE).enabled(this::lensEditable).tip(tc("justreplay.editor.lens.tip")));
+        f.full(new Stepper(tc("justreplay.editor.fov"), () -> fovValue(), "°", 0, () -> adjust(-5, 0), () -> adjust(5, 0))
+                .icon(Icon.ANGLE).enabled(this::lensEditable).tip(tc("justreplay.editor.lens.tip")));
+        f.text(this::infoLine, Theme.TEXT_DIM);
 
         // Cut track
-        screen.button(x, y, quarter, tr("justreplay.editor.cut.add"), b -> cutHere())
-                .setTooltip(Tooltip.create(Component.translatable("justreplay.editor.cut.add.tip")));
-        blendButton = screen.button(x + quarter + 2, y, quarter, blendLabel(), b -> cycleBlend());
-        blendButton.setTooltip(Tooltip.create(Component.translatable("justreplay.editor.cut.blend.tip")));
-        screen.button(x + 2 * (quarter + 2), y, quarter, tr("justreplay.editor.cut.delete"), b -> deleteCut());
-        screen.button(x + 3 * (quarter + 2), y, quarter, tr("justreplay.editor.cut.end"), b -> toggleEnd())
-                .setTooltip(Tooltip.create(Component.translatable("justreplay.editor.cut.end.tip")));
-        y += row;
-        screen.button(x, y, half, tr("justreplay.editor.camera.recorder"), b -> session.jumpToRecorder(mc()));
-        screen.button(x + half + 2, y, half, showPathLabel(), b -> {
-            project().showPath = !project().showPath;
-            b.setMessage(Component.literal(showPathLabel()));
-            session.saveProject();
-        }).setTooltip(Tooltip.create(Component.translatable("justreplay.editor.showpath.tip")));
-        y += row;
-        infoY = y + 2;
-        return infoY + 22;
+        f.header(Component.translatable("justreplay.editor.cut.track"), Icon.CUT);
+        f.put(new GlassButton(tc("justreplay.editor.cut.add"), b -> cutHere()).icon(Icon.CUT)
+                .tip(tc("justreplay.editor.cut.add.tip")), 0, 2);
+        blendButton = f.put(new GlassButton(Component.literal(blendLabel()), b -> cycleBlend()), 1, 2);
+        blendButton.tip(tc("justreplay.editor.cut.blend.tip"));
+        f.next();
+        f.put(new GlassButton(tc("justreplay.editor.cut.end"), b -> toggleEnd()).icon(Icon.END)
+                .tip(tc("justreplay.editor.cut.end.tip")), 0, 2);
+        f.put(new GlassButton(tc("justreplay.editor.cut.delete"), b -> deleteCut()).icon(Icon.TRASH)
+                .style(GlassButton.Style.DANGER).tip(tc("justreplay.editor.cut.delete.tip")), 1, 2);
+        f.next();
+        f.text(this::cutLine, Theme.TEXT_MUTED);
+        f.text(() -> status, Theme.WARNING);
+        f.full(new GlassButton(tc("justreplay.editor.camera.recorder"), b -> session.jumpToRecorder(mc())).icon(Icon.PERSON)
+                .tip(tc("justreplay.editor.camera.recorder.tip")));
     }
 
     void tick() {
-        if (previewButton != null) {
-            previewButton.setMessage(Component.literal(previewLabel()));
-        }
         if (blendButton != null) {
-            blendButton.setMessage(Component.literal(blendLabel()));
+            String label = blendLabel();
+            if (!label.equals(blendButton.getMessage().getString())) {
+                blendButton.setMessage(Component.literal(label));
+            }
         }
     }
 
-    void renderInfo(GuiGraphics g, Font font, int x) {
+    private boolean lensEditable() {
+        return !camera().isPath() || selectedKey != null;
+    }
+
+    private double rollValue() {
         ReplayProject.Camera camera = camera();
-        Component line;
         if (camera.isPath()) {
-            line = selectedKey != null
-                    ? Component.literal("t " + Timeline.formatTicks(selectedKey.tick) + "  roll " + Math.round(selectedKey.roll)
-                    + "  fov " + Math.round(selectedKey.fov))
+            return selectedKey != null ? selectedKey.roll : Double.NaN;
+        }
+        return camera.roll;
+    }
+
+    private double fovValue() {
+        ReplayProject.Camera camera = camera();
+        if (camera.isPath()) {
+            return selectedKey != null ? selectedKey.fov : Double.NaN;
+        }
+        return camera.fov;
+    }
+
+    /** Summary of the selected camera. */
+    Component infoLine() {
+        ReplayProject.Camera camera = camera();
+        if (camera.isPath()) {
+            return selectedKey != null
+                    ? Component.translatable("justreplay.editor.camera.key_info", Timeline.formatTicks(selectedKey.tick))
                     : Component.translatable("justreplay.editor.camera.count", camera.keyframes.size());
         } else if (camera.isStatic()) {
-            line = Component.translatable("justreplay.editor.cam.static_info", Math.round(camera.roll), Math.round(camera.fov));
-        } else {
-            String target = camera.target.isEmpty() ? "-" : camera.targetName.isEmpty() ? camera.target : camera.targetName;
-            line = Component.translatable("justreplay.editor.cam.follow_info", target, trim(camera.distance), trim(camera.height));
+            return Component.translatable("justreplay.editor.cam.static_info", Math.round(camera.roll), Math.round(camera.fov));
         }
-        g.drawString(font, line, x, infoY, 0xFFDDDDDD, true);
-        Component cuts;
-        if (status != null) {
-            cuts = status;
-        } else if (project().cuts.isEmpty()) {
-            cuts = Component.translatable("justreplay.editor.cut.none");
-        } else {
-            int[] range = project().exportRange(session.playback().duration());
-            cuts = Component.translatable("justreplay.editor.cut.info", project().cuts.size(), Timeline.formatTicks(range[0]),
-                    Timeline.formatTicks(range[1]));
+        String target = camera.target.isEmpty() ? "-" : camera.targetName.isEmpty() ? camera.target : camera.targetName;
+        return Component.translatable("justreplay.editor.cam.follow_info", target, trim(camera.distance), trim(camera.height));
+    }
+
+    /** Summary of the cut track. */
+    Component cutLine() {
+        if (project().cuts.isEmpty()) {
+            return Component.translatable("justreplay.editor.cut.none");
         }
-        g.drawString(font, cuts, x, infoY + 10, status != null ? 0xFFFF8A65 : 0xFFAAAAAA, true);
+        int[] range = project().exportRange(session.playback().duration());
+        return Component.translatable("justreplay.editor.cut.info", project().cuts.size(), Timeline.formatTicks(range[0]),
+                Timeline.formatTicks(range[1]));
+    }
+
+    private static List<Float> floats(float[] values) {
+        Float[] boxed = new Float[values.length];
+        for (int i = 0; i < values.length; i++) {
+            boxed[i] = values[i];
+        }
+        return List.of(boxed);
+    }
+
+    private static Component tc(String key) {
+        return Component.translatable(key);
     }
 
     // ---------------------------------------------------------------- cameras
-
-    private void cycle(int direction) {
-        var cameras = project().cameras;
-        int index = Math.floorMod(cameras.indexOf(camera()) + direction, cameras.size());
-        select(cameras.get(index));
-    }
 
     void select(ReplayProject.Camera camera) {
         if (camera != camera()) {
@@ -411,7 +439,7 @@ public final class CameraPanel {
 
     // ---------------------------------------------------------------- cuts
 
-    private void cutHere() {
+    void cutHere() {
         ReplayProject.Cut cut = project().cutTo(session.playback().cursor(), camera(), 0);
         if (cut != null) {
             selectedCut = cut;
@@ -458,7 +486,6 @@ public final class CameraPanel {
         project().cutsEnd = project().cutsEnd == cursor ? -1 : cursor;
         session.saveProject();
     }
-
     // ---------------------------------------------------------------- labels
 
     private static String tr(String key) {
@@ -467,15 +494,6 @@ public final class CameraPanel {
 
     private static String trim(double value) {
         return String.format(Locale.ROOT, "%.1f", value);
-    }
-
-    private static int indexOf(String[] values, String value) {
-        for (int i = 0; i < values.length; i++) {
-            if (values[i].equals(value)) {
-                return i;
-            }
-        }
-        return 0;
     }
 
     private static int nearest(float[] values, float value) {
@@ -492,17 +510,10 @@ public final class CameraPanel {
         return tr("justreplay.editor.cam.type." + camera.type.toLowerCase(Locale.ROOT));
     }
 
-    private String previewLabel() {
-        return tr(session.isCameraPathActive() ? "justreplay.editor.preview.on" : "justreplay.editor.preview.off");
-    }
-
     private String blendLabel() {
         return selectedCut == null ? tr("justreplay.editor.cut.blend.none")
+                : selectedCut.blend == 0 ? tr("justreplay.editor.cut.blend.hard")
                 : Component.translatable("justreplay.editor.cut.blend", selectedCut.blend).getString();
-    }
-
-    private String showPathLabel() {
-        return tr(project().showPath ? "justreplay.editor.showpath.on" : "justreplay.editor.showpath.off");
     }
 
     private static CameraPath.Curve curve(ReplayProject.Camera camera) {
@@ -511,29 +522,5 @@ public final class CameraPanel {
 
     private static CameraPath.Timing timing(ReplayProject.Camera camera) {
         return CameraPath.parse(CameraPath.Timing.class, camera.timing, CameraPath.Timing.CONSTANT_SPEED);
-    }
-
-    private static String curveLabel(ReplayProject.Camera camera) {
-        return tr("justreplay.editor.curve." + curve(camera).name().toLowerCase(Locale.ROOT));
-    }
-
-    private static String timingLabel(ReplayProject.Camera camera) {
-        return tr(timing(camera) == CameraPath.Timing.CONSTANT_SPEED ? "justreplay.editor.timing.constant" : "justreplay.editor.timing.keyframes");
-    }
-
-    private static String easeLabel(ReplayProject.Camera camera) {
-        return tr(camera.ease ? "justreplay.editor.ease.on" : "justreplay.editor.ease.off");
-    }
-
-    private static String followModeLabel(ReplayProject.Camera camera) {
-        return tr("justreplay.editor.follow." + camera.followMode.toLowerCase(Locale.ROOT));
-    }
-
-    private static String smoothLabel(ReplayProject.Camera camera) {
-        return Component.translatable("justreplay.editor.cam.smooth", trim(camera.smoothing)).getString();
-    }
-
-    private static String orbitLabel(ReplayProject.Camera camera) {
-        return Component.translatable("justreplay.editor.cam.orbit", Math.round(camera.orbitSpeed)).getString();
     }
 }
