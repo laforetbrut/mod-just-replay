@@ -262,7 +262,7 @@ public final class ActorAnimator {
      */
     public static Frame frame(ReplayProject.ActorData actor, ReplayProject project, int t, Entity entity, double[] fallback) {
         Frame f = new Frame();
-        double[] base = Interpolation.actor(actor.keyframes, t);
+        double[] base = keyframeBase(actor, t);
         if (base == null) {
             base = fallback;
         }
@@ -287,7 +287,7 @@ public final class ActorAnimator {
                 f.yaw = (float) (Mth.atan2(-dx, dz) * Mth.RAD_TO_DEG);
             }
         }
-        applyMoves(f, actor, t);
+        applyMoves(f, actor, t, base);
         f.headYaw = f.yaw;
         if (shouldSnap(actor, entity, actions, t)) {
             f.y = groundY(f.x, f.y, f.z);
@@ -422,28 +422,81 @@ public final class ActorAnimator {
     private static final double WALK_SPEED = 4.317 / 20.0;
     private static final double RUN_SPEED = 5.612 / 20.0;
 
+    /** Tick of the last keyframe at or before {@code t}, or {@link Integer#MIN_VALUE} when there is none. */
+    static int lastKeyframeTick(ReplayProject.ActorData actor, int t) {
+        int last = Integer.MIN_VALUE;
+        for (ReplayProject.ActorKeyframe key : actor.keyframes) {
+            if (key.tick <= t && key.tick > last) {
+                last = key.tick;
+            }
+        }
+        return last;
+    }
+
+    private static boolean isMove(ActionType type) {
+        return type == ActionType.WALK_TO || type == ActionType.RUN_TO;
+    }
+
     /**
-     * Applies every WALK_TO / RUN_TO action started before {@code t} in order. Each move goes from wherever the
-     * actor is when it starts to its destination, so moves chain into a route; keyframes keep adding their own
-     * motion underneath.
+     * Keyframed position under the moves at {@code t}. A keyframe is an absolute placement: it ends the moves
+     * started before it. Once a move starts after the last keyframe, the keyframe motion holds where it was so
+     * the walk is not dragged towards the next keyframe; that keyframe then puts the actor exactly in place.
      */
-    private static void applyMoves(Frame f, ReplayProject.ActorData actor, int t) {
+    static double[] keyframeBase(ReplayProject.ActorData actor, int t) {
+        int key = lastKeyframeTick(actor, t);
+        for (ReplayProject.ActorAction move : actor.actions) {
+            if (move.tick > t) {
+                break;
+            }
+            if (isMove(move.actionType()) && move.tick >= key && parseVector(move.param) != null) {
+                return Interpolation.actor(actor.keyframes, move.tick);
+            }
+        }
+        return Interpolation.actor(actor.keyframes, t);
+    }
+
+    /**
+     * Where an actor stands at {@code t}, as a placement sees it: keyframes and moves, without wander, pose or
+     * jump offsets. Returns {x, y, z, yaw, pitch}, or null without keyframes nor fallback.
+     */
+    public static double[] placedState(ReplayProject.ActorData actor, int t, double[] fallback) {
+        double[] base = keyframeBase(actor, t);
+        if (base == null) {
+            base = fallback;
+        }
+        if (base == null) {
+            return null;
+        }
+        Frame f = new Frame();
+        f.x = base[0];
+        f.y = base[1];
+        f.z = base[2];
+        f.yaw = (float) base[3];
+        applyMoves(f, actor, t, base);
+        return new double[]{f.x, f.y, f.z, f.yaw, base[4]};
+    }
+
+    /**
+     * Applies every WALK_TO / RUN_TO action started since the last keyframe, up to {@code t}, in order. Each move
+     * goes from wherever the actor is when it starts to its destination, so moves chain into a route.
+     */
+    private static void applyMoves(Frame f, ReplayProject.ActorData actor, int t, double[] base) {
+        int key = lastKeyframeTick(actor, t);
         double offX = 0;
         double offY = 0;
         double offZ = 0;
         for (ReplayProject.ActorAction move : actor.actions) {
             ActionType type = move.actionType();
-            if ((type != ActionType.WALK_TO && type != ActionType.RUN_TO) || move.tick > t) {
+            if (!isMove(type) || move.tick > t || move.tick < key) {
                 continue;
             }
             double[] dest = parseVector(move.param);
             if (dest == null) {
                 continue;
             }
-            double[] base = Interpolation.actor(actor.keyframes, move.tick);
-            double sx = (base != null ? base[0] : f.x) + offX;
-            double sy = (base != null ? base[1] : f.y) + offY;
-            double sz = (base != null ? base[2] : f.z) + offZ;
+            double sx = base[0] + offX;
+            double sy = base[1] + offY;
+            double sz = base[2] + offZ;
             double dx = dest[0] - sx;
             double dy = dest[1] - sy;
             double dz = dest[2] - sz;
@@ -484,8 +537,10 @@ public final class ActorAnimator {
         if (!actor.groundSnap || isFlyer(entity)) {
             return false;
         }
-        // A sleeper keeps its keyframed height: a bed is lower than where a lying body rests on it.
-        return activeState(actions, t, ActionType.FLY, ActionType.ELYTRA, ActionType.SWIM, ActionType.SPIN_ATTACK, ActionType.SLEEP) == null;
+        // A sleeper keeps its keyframed height: a bed is lower than where a lying body rests on it. A sitter keeps
+        // its seat height: snapping casts down from above the seat and lands on a chair back, a table or a ceiling.
+        return activeState(actions, t, ActionType.FLY, ActionType.ELYTRA, ActionType.SWIM, ActionType.SPIN_ATTACK, ActionType.SLEEP,
+                ActionType.SIT) == null;
     }
 
     private static boolean isFlyer(Entity entity) {
@@ -668,6 +723,10 @@ public final class ActorAnimator {
     private static void applyFollow(ReplayProject.ActorData actor, ReplayProject project, int cursor,
                                     boolean paused, State state, Frame now, Frame before) {
         ReplayProject.ActorAction follow = activeState(actor.actions, cursor, ActionType.FOLLOW);
+        // A keyframe placed after the follow started (sitting down, going to bed, a move) ends it.
+        if (follow != null && lastKeyframeTick(actor, cursor) > follow.tick) {
+            follow = null;
+        }
         if (follow == null) {
             state.follow = null;
             return;
