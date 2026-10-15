@@ -105,6 +105,10 @@ public final class Recorder {
     /** Lowest tick a packet may be written with; raised past a checkpoint so later packets never share its tick. */
     private int floorTick;
     private volatile boolean checkpointPending;
+    /** Chunks the recorder builds itself: extra cached chunks and checkpoint chunks, a few per tick. */
+    private final ChunkCapture chunks = new ChunkCapture();
+    /** Incremented under the recorder lock by every login or respawn packet captured. */
+    private volatile int levelEpoch;
 
     private UUID actorUuid;
     private ClientLevel lastLevel;
@@ -135,6 +139,16 @@ public final class Recorder {
 
     public int tick() {
         return tick;
+    }
+
+    /** Folder the recording is written to. */
+    public Path dir() {
+        return dir;
+    }
+
+    /** UUID of the actor standing for the recording player in the replay. */
+    public UUID actorUuid() {
+        return actorUuid;
     }
 
     // ---------------------------------------------------------------- network thread
@@ -201,6 +215,12 @@ public final class Recorder {
         if (c == null || !c.matches(listener)) {
             c = codec = PacketCodec.of(listener);
         }
+        if (packet instanceof ClientboundLoginPacket || packet instanceof net.minecraft.network.protocol.game.ClientboundRespawnPacket) {
+            synchronized (this) {
+                levelEpoch++;
+            }
+        }
+        chunks.onPacket(packet);
         try {
             c.encode(packet, this::accept);
         } catch (Throwable t) {
@@ -219,6 +239,16 @@ public final class Recorder {
             case RUNNING -> writer.write(Math.max(tick, floorTick), data);
             case STOPPED -> {
             }
+        }
+    }
+
+    /**
+     * Writes data built on the client thread from the level of a given epoch; dropped when a login or respawn was
+     * captured since, so a chunk of the previous level never follows the packet that replaced it.
+     */
+    private synchronized void acceptIfEpoch(int epoch, byte[] data) {
+        if (levelEpoch == epoch) {
+            accept(data);
         }
     }
 
@@ -283,6 +313,8 @@ public final class Recorder {
             synchronized (recorder) {
                 recorder.codec = PacketCodec.of(listener);
                 recorder.writeSnapshot(mc, listener, recorder::accept);
+                recorder.chunkScanPlayer = mc.player;
+                recorder.chunkScanEpoch = recorder.levelEpoch;
                 for (byte[] data : recorder.pending) {
                     recorder.writer.write(0, data);
                 }
@@ -306,6 +338,12 @@ public final class Recorder {
         synchronized (recorder) {
             recorder.state = State.STOPPED;
         }
+        try {
+            recorder.chunks.cancel();
+        } catch (Throwable t) {
+            JustReplay.LOGGER.debug("Cannot cancel the pending checkpoint", t);
+        }
+        com.vyrriox.justreplay.voice.VoiceRecorder.onRecordingStopped(recorder);
         recorder.writer.close();
         recorder.meta.durationTicks = recorder.tick;
         ReplayStorage.writeMeta(recorder.dir, recorder.meta);
@@ -334,7 +372,15 @@ public final class Recorder {
                     JustReplay.LOGGER.warn("Cannot record the local player", t);
                 }
             }
+            try {
+                tickChunks(mc, listener, player);
+            } catch (Throwable t) {
+                if (failedTypes.add(ChunkCapture.class)) {
+                    JustReplay.LOGGER.warn("Cannot record extra chunks: {}", t.toString());
+                }
+            }
         }
+        com.vyrriox.justreplay.voice.VoiceRecorder.clientTick(mc, this);
         tick++;
         if (tick % 200 == 0) {
             // Crash safety: flush the stream and keep the duration in meta.json current.
@@ -380,30 +426,78 @@ public final class Recorder {
         }
     }
 
-    /** Snapshots the client state into {@code checkpoints/<tick>.bin.gz}; never touches the main stream. */
+    /**
+     * Snapshots the client state into {@code checkpoints/<tick>.bin.gz}; never touches the main stream. Everything
+     * but the chunks is taken at once; the chunks are built over the next ticks (see {@link ChunkCapture}) and the
+     * file is written when the last one is done.
+     */
     private void writeCheckpoint(Minecraft mc, int at) {
+        boolean started = false;
         try {
             ClientPacketListener listener = mc.getConnection();
             if (state != State.RUNNING || lastLogin == null || listener == null || listener.getConnection() != connection
                     || mc.level == null || mc.player == null) {
                 return;
             }
-            List<byte[]> records = new ArrayList<>();
-            Consumer<byte[]> sink = records::add;
-            writeSnapshot(mc, listener, sink);
-            writeActorState(listener, mc.player, sink);
-            Util.ioPool().execute(() -> {
-                try {
-                    Checkpoints.write(dir, at, records);
-                } catch (Throwable t) {
-                    JustReplay.LOGGER.warn("Cannot write the replay checkpoint at tick {}: {}", at, t.toString());
-                }
-            });
+            List<byte[]> head = new ArrayList<>();
+            writeSnapshotHead(mc, listener, head::add);
+            List<byte[]> tail = new ArrayList<>();
+            writeSnapshotTail(mc, listener, tail::add);
+            writeActorState(listener, mc.player, tail::add);
+            int radius = lastLogin.chunkRadius() + 1;
+            if (JRConfig.CAPTURE_EXTRA_CHUNKS.get()) {
+                radius = Math.max(radius, mc.options.renderDistance().get());
+            }
+            chunks.startCheckpoint(at, levelEpoch, mc.level, mc.player.chunkPosition().x, mc.player.chunkPosition().z, radius, head, tail,
+                    records -> {
+                        checkpointPending = false;
+                        if (records == null || state != State.RUNNING) {
+                            JustReplay.LOGGER.debug("Checkpoint at tick {} dropped (level changed or recording stopped)", at);
+                            return;
+                        }
+                        Util.ioPool().execute(() -> {
+                            try {
+                                Checkpoints.write(dir, at, records);
+                            } catch (Throwable t) {
+                                JustReplay.LOGGER.warn("Cannot write the replay checkpoint at tick {}: {}", at, t.toString());
+                            }
+                        });
+                    });
+            started = true;
         } catch (Throwable t) {
             JustReplay.LOGGER.warn("Cannot take a replay checkpoint at tick {}: {}", at, t.toString());
         } finally {
-            checkpointPending = false;
+            if (!started) {
+                checkpointPending = false;
+            }
         }
+    }
+
+    // ---------------------------------------------------------------- recorder-built chunks
+
+    private LocalPlayer chunkScanPlayer;
+    private int chunkScanEpoch = Integer.MIN_VALUE;
+
+    /**
+     * Runs the incremental chunk work of this tick. After a login or respawn is captured, nothing is built until the
+     * client has handled it (a new local player exists), so chunks always come from the level the stream describes.
+     */
+    private void tickChunks(Minecraft mc, ClientPacketListener listener, LocalPlayer player) {
+        int epoch = levelEpoch;
+        if (epoch != chunkScanEpoch) {
+            if (player == chunkScanPlayer) {
+                return;
+            }
+            chunkScanEpoch = epoch;
+        }
+        chunkScanPlayer = player;
+        ClientLevel level = mc.level;
+        if (level == null) {
+            return;
+        }
+        int scanRadius = JRConfig.CAPTURE_EXTRA_CHUNKS.get() ? mc.options.renderDistance().get() : -1;
+        chunks.tick(level, player.chunkPosition().x, player.chunkPosition().z, scanRadius, epoch,
+                (packet, sink) -> write(listener, packet, sink), data -> acceptIfEpoch(epoch, data));
     }
 
     /** The recording player's actor as a fresh spawn with its current state. */
@@ -528,6 +622,30 @@ public final class Recorder {
      * time, weather, chunks, entities. The recording player's own actor is not included.
      */
     private void writeSnapshot(Minecraft mc, ClientPacketListener listener, Consumer<byte[]> sink) {
+        writeSnapshotHead(mc, listener, sink);
+        ClientLevel level = mc.level;
+        LocalPlayer player = mc.player;
+        int radius = lastLogin.chunkRadius() + 1;
+        int cx = player.chunkPosition().x;
+        int cz = player.chunkPosition().z;
+        for (int x = cx - radius; x <= cx + radius; x++) {
+            for (int z = cz - radius; z <= cz + radius; z++) {
+                LevelChunk chunk = level.getChunkSource().getChunk(x, z, ChunkStatus.FULL, false);
+                if (chunk != null && !chunk.isEmpty()) {
+                    try {
+                        write(listener, new ClientboundLevelChunkWithLightPacket(chunk, level.getLightEngine(), null, null), sink);
+                        chunks.markWritten(x, z);
+                    } catch (Throwable t) {
+                        JustReplay.LOGGER.warn("Skipping chunk {} in the snapshot: {}", chunk.getPos(), t.toString());
+                    }
+                }
+            }
+        }
+        writeSnapshotTail(mc, listener, sink);
+    }
+
+    /** Snapshot packets that come before the chunks: login, tab list, scoreboard, boss bars, time, weather, chunk center. */
+    private void writeSnapshotHead(Minecraft mc, ClientPacketListener listener, Consumer<byte[]> sink) {
         ClientLevel level = mc.level;
         LocalPlayer player = mc.player;
         ClientboundLoginPacket login = lastLogin;
@@ -578,23 +696,14 @@ public final class Recorder {
             write(listener, new ClientboundGameEventPacket(ClientboundGameEventPacket.THUNDER_LEVEL_CHANGE, level.getThunderLevel(1.0F)), sink);
         }
 
-        int radius = login.chunkRadius() + 1;
-        int cx = player.chunkPosition().x;
-        int cz = player.chunkPosition().z;
         write(listener, new ClientboundSetChunkCacheRadiusPacket(login.chunkRadius()), sink);
-        write(listener, new ClientboundSetChunkCacheCenterPacket(cx, cz), sink);
-        for (int x = cx - radius; x <= cx + radius; x++) {
-            for (int z = cz - radius; z <= cz + radius; z++) {
-                LevelChunk chunk = level.getChunkSource().getChunk(x, z, ChunkStatus.FULL, false);
-                if (chunk != null && !chunk.isEmpty()) {
-                    try {
-                        write(listener, new ClientboundLevelChunkWithLightPacket(chunk, level.getLightEngine(), null, null), sink);
-                    } catch (Throwable t) {
-                        JustReplay.LOGGER.warn("Skipping chunk {} in the snapshot: {}", chunk.getPos(), t.toString());
-                    }
-                }
-            }
-        }
+        write(listener, new ClientboundSetChunkCacheCenterPacket(player.chunkPosition().x, player.chunkPosition().z), sink);
+    }
+
+    /** Snapshot packets that come after the chunks: end of the initial chunk load and every entity. */
+    private void writeSnapshotTail(Minecraft mc, ClientPacketListener listener, Consumer<byte[]> sink) {
+        ClientLevel level = mc.level;
+        LocalPlayer player = mc.player;
         write(listener, new ClientboundGameEventPacket(ClientboundGameEventPacket.LEVEL_CHUNKS_LOAD_START, 0.0F), sink);
 
         List<Entity> withPassengers = new ArrayList<>();

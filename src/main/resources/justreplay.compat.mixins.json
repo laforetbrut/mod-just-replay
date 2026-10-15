@@ -1,0 +1,12 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "com.vyrriox.justreplay.mixin.compat",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "BobbyMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}

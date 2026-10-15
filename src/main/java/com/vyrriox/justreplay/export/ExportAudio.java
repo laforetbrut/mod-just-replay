@@ -1,6 +1,9 @@
 package com.vyrriox.justreplay.export;
 
 import com.vyrriox.justreplay.JustReplay;
+import com.vyrriox.justreplay.replay.ReplaySession;
+import com.vyrriox.justreplay.voice.VoiceBridge;
+import com.vyrriox.justreplay.voice.VoiceTrack;
 import it.unimi.dsi.fastutil.floats.FloatArrayList;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.sounds.Sound;
@@ -27,6 +30,10 @@ import java.util.Map;
  * and logged with its frame, position and volume; when the video is done the sounds are decoded, placed in
  * stereo relative to the camera of that frame and mixed into a 48 kHz WAV that FFmpeg adds to the video. The
  * result is in sync with the frames whatever the export speed.
+ * <p>
+ * The recorded voice chat (when the replay has one and the project enables voices) is mixed in the same way: frame
+ * 0 shows the replay tick the capture started on, so a voice frame of tick {@code t} starts {@code (t - start) / 20}
+ * seconds into the track, placed relative to the camera of the frame it starts on.
  *
  * @author vyrriox
  */
@@ -43,9 +50,15 @@ public final class ExportAudio {
     private final int fps;
     private final List<Event> events = new ArrayList<>();
     private final List<CameraState> cameras = new ArrayList<>();
+    private final ReplaySession session;
+    private final VoiceTrack voices;
+    private int voiceStartTick = -1;
 
     public ExportAudio(int fps) {
         this.fps = fps;
+        this.session = ReplaySession.current();
+        VoiceTrack track = session != null && session.project().voices ? session.voices().track() : null;
+        this.voices = track != null && !track.isEmpty() ? track : null;
     }
 
     /** Called for every sound while exporting; returns true when the sound was logged (it is muted either way). */
@@ -75,11 +88,27 @@ public final class ExportAudio {
 
     /** Camera of a captured frame, used to place the sounds that start on it. */
     public void onFrame(double x, double y, double z, float yaw) {
+        if (cameras.isEmpty() && session != null) {
+            voiceStartTick = session.playback().cursor();
+        }
         cameras.add(new CameraState(x, y, z, yaw));
     }
 
     public boolean isEmpty() {
-        return events.isEmpty();
+        return events.isEmpty() && !hasVoices(cameras.size());
+    }
+
+    /** True when a recorded voice frame starts inside the captured frames. */
+    private boolean hasVoices(int frames) {
+        if (voices == null || voiceStartTick < 0 || frames == 0) {
+            return false;
+        }
+        int first = voices.firstAfter(voiceStartTick - 1);
+        return first < voices.frames().size() && voices.frames().get(first).tick() <= voiceEndTick(frames);
+    }
+
+    private int voiceEndTick(int frames) {
+        return voiceStartTick + (int) ((long) frames * 20 / fps);
     }
 
     /** Mixes the logged sounds into a WAV file covering {@code frames} video frames. */
@@ -141,7 +170,98 @@ public final class ExportAudio {
                 position += step;
             }
         }
+        try {
+            mixVoices(mc, left, right, frames);
+        } catch (Throwable t) {
+            JustReplay.LOGGER.warn("Cannot mix the recorded voice chat into the export: {}", t.toString());
+        }
         write(wav, left, right);
+    }
+
+    /**
+     * Adds the recorded voices to the mix. Frames of one speaker follow each other without gaps when they arrive
+     * within a quarter of a second, which absorbs the network jitter of the recording.
+     */
+    private void mixVoices(Minecraft mc, float[] left, float[] right, int frames) {
+        if (!hasVoices(frames)) {
+            return;
+        }
+        float master = mc.options.getSoundSourceVolume(SoundSource.VOICE);
+        if (master <= 0.0F) {
+            return;
+        }
+        int samples = left.length;
+        int endTick = voiceEndTick(frames);
+        Map<Integer, VoiceBridge.Codec> decoders = new HashMap<>();
+        Map<Integer, Long> speakerEnd = new HashMap<>();
+        boolean missingDecoder = false;
+        try {
+            for (int i = voices.firstAfter(voiceStartTick - 1); i < voices.frames().size(); i++) {
+                VoiceTrack.Frame frame = voices.frames().get(i);
+                if (frame.tick() > endTick) {
+                    break;
+                }
+                VoiceBridge.Codec decoder = decoders.computeIfAbsent(frame.speaker(), id -> VoiceBridge.newDecoder());
+                short[] pcm = VoiceTrack.decode(frame, decoder);
+                if (pcm == null) {
+                    missingDecoder |= frame.codec() == VoiceTrack.CODEC_OPUS;
+                    continue;
+                }
+                long start = (long) (frame.tick() - voiceStartTick) * RATE / 20;
+                Long end = speakerEnd.get(frame.speaker());
+                if (end != null && end > start && end - start < RATE / 4) {
+                    start = end;
+                }
+                speakerEnd.put(frame.speaker(), start + pcm.length);
+                if (start >= samples) {
+                    continue;
+                }
+                VoiceTrack.Speaker speaker = voices.speakers().get(frame.speaker());
+                float gainL = master;
+                float gainR = master;
+                if (speaker.positional() && frame.hasPosition()) {
+                    CameraState cam = cameras.get((int) Math.min(start * fps / RATE, cameras.size() - 1));
+                    double dx = frame.x() - cam.x();
+                    double dy = frame.y() - cam.y();
+                    double dz = frame.z() - cam.z();
+                    double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                    float range = frame.distance() > 0.0F ? frame.distance() : 48.0F;
+                    float attenuation = (float) Math.max(0.0, 1.0 - distance / range);
+                    double yaw = Math.toRadians(cam.yaw());
+                    double horizontal = Math.sqrt(dx * dx + dz * dz);
+                    double pan = horizontal < 1e-6 ? 0.0 : (dx * -Math.cos(yaw) + dz * -Math.sin(yaw)) / horizontal;
+                    gainL = (float) (master * attenuation * Math.sqrt((1.0 - pan) / 2.0) * Math.sqrt(2.0));
+                    gainR = (float) (master * attenuation * Math.sqrt((1.0 + pan) / 2.0) * Math.sqrt(2.0));
+                }
+                if (gainL <= 0.0001F && gainR <= 0.0001F) {
+                    continue;
+                }
+                for (int s = 0; s < pcm.length; s++) {
+                    long out = start + s;
+                    if (out < 0) {
+                        continue;
+                    }
+                    if (out >= samples) {
+                        break;
+                    }
+                    float value = pcm[s] / 32768.0F;
+                    left[(int) out] += value * gainL;
+                    right[(int) out] += value * gainR;
+                }
+            }
+        } finally {
+            for (VoiceBridge.Codec decoder : decoders.values()) {
+                if (decoder != null) {
+                    try {
+                        decoder.close();
+                    } catch (Throwable ignored) {
+                    }
+                }
+            }
+        }
+        if (missingDecoder) {
+            JustReplay.LOGGER.warn("The export skips the recorded voice chat: Simple Voice Chat is needed to decode it");
+        }
     }
 
     private static float[][] decode(Minecraft mc, ResourceLocation file) {

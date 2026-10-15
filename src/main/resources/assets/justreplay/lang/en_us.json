@@ -174,5 +174,11 @@
   "justreplay.editor.cut.end": "End",
   "justreplay.editor.cut.end.tip": "End the cut track at the play head; press again at the same time to end it with the replay.",
   "justreplay.editor.cut.none": "No cuts: the selected camera is used",
-  "justreplay.editor.cut.info": "%s cuts, %s to %s"
+  "justreplay.editor.cut.info": "%s cuts, %s to %s",
+  "justreplay.editor.voices.on": "Voices: on",
+  "justreplay.editor.voices.off": "Voices: off",
+  "justreplay.editor.voices.tip": "Play the recorded voice chat and include it in video exports.",
+  "justreplay.configuration.captureExtraChunks": "Record cached chunks",
+  "justreplay.configuration.captureVoiceChat": "Record voice chat",
+  "justreplay.configuration.viewDistance": "Replay view distance (chunks)"
 }

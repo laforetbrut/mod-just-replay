@@ -33,6 +33,8 @@ public final class ReplayProject {
     public int cutsEnd = -1;
     /** Id of the camera being edited. */
     public String selectedCamera;
+    /** Play the recorded voice chat and include it in video exports. */
+    public boolean voices = true;
     public List<Marker> markers = new ArrayList<>();
     public List<ActorData> actors = new ArrayList<>();
 

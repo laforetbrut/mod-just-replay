@@ -24,6 +24,9 @@
   camera 1 to 9 at the play head, also while playing. The preview (O) and the export go through the cut track.
   Older projects open with their camera path as the first camera.
 - Development self test (`./gradlew runClient -Pselftest`).
+- Chunks the client holds beyond the server view distance (for example cached by Bobby) are recorded too, a few per tick.
+- Replays keep chunks loaded up to the playback view distance (32 by default) instead of unloading them when the recording player walked away.
+- Simple Voice Chat support: voices heard and your own microphone are recorded into `voice.bin.gz`, played back at the speaker in sync with the replay clock and mixed into video exports; a Voices toggle in the editor turns them off.
 
 #### Fixed
 - Signed player chat no longer breaks replays (expired keys, seeking back, manual recordings).
@@ -69,6 +72,9 @@
   lecture, même pendant la lecture. L'aperçu (O) et l'export suivent la piste de coupes. Les anciens projets
   s'ouvrent avec leur chemin de caméra comme première caméra.
 - Auto-test de développement (`./gradlew runClient -Pselftest`).
+- Les chunks que le client garde au-delà de la distance de vue du serveur (par exemple en cache avec Bobby) sont aussi enregistrés, quelques-uns par tick.
+- Les replays gardent les chunks chargés jusqu'à la distance de vue de lecture (32 par défaut) au lieu de les décharger quand le joueur enregistré s'éloigne.
+- Prise en charge de Simple Voice Chat : les voix entendues et votre micro sont enregistrés dans `voice.bin.gz`, rejoués à la position de la personne qui parle en suivant l'horloge du replay et mixés dans les exports vidéo ; un bouton Voix dans l'éditeur les coupe.
 
 #### Corrigé
 - Le chat signé des joueurs ne casse plus les replays (clés expirées, retour en arrière, enregistrements manuels).

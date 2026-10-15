@@ -13,8 +13,11 @@ public final class JRConfig {
     public static final ModConfigSpec.BooleanValue AUTO_RECORD_MULTIPLAYER;
     public static final ModConfigSpec.BooleanValue AUTO_RECORD_SINGLEPLAYER;
     public static final ModConfigSpec.BooleanValue SHOW_RECORDING_INDICATOR;
+    public static final ModConfigSpec.BooleanValue CAPTURE_EXTRA_CHUNKS;
+    public static final ModConfigSpec.BooleanValue CAPTURE_VOICE_CHAT;
     public static final ModConfigSpec.IntValue SEEK_STEP_SECONDS;
     public static final ModConfigSpec.BooleanValue CLEAN_HUD;
+    public static final ModConfigSpec.IntValue PLAYBACK_VIEW_DISTANCE;
     public static final ModConfigSpec.ConfigValue<String> FFMPEG_PATH;
     public static final ModConfigSpec.IntValue EXPORT_FPS;
     public static final ModConfigSpec.IntValue EXPORT_CRF;
@@ -30,6 +33,11 @@ public final class JRConfig {
                 .define("autoRecordSingleplayer", false);
         SHOW_RECORDING_INDICATOR = b.comment("Show the REC indicator while recording.")
                 .define("showRecordingIndicator", true);
+        CAPTURE_EXTRA_CHUNKS = b.comment("Also record the chunks the client has beyond the server view distance (cached chunks of mods",
+                        "such as Bobby), a few per tick, so replays show the whole render distance.")
+                .define("captureExtraChunks", true);
+        CAPTURE_VOICE_CHAT = b.comment("Record Simple Voice Chat audio (other players and your microphone) when that mod is installed.")
+                .define("captureVoiceChat", true);
         b.pop();
         b.push("playback");
         SEEK_STEP_SECONDS = b.comment("Seconds skipped by the seek keys.")
@@ -37,6 +45,9 @@ public final class JRConfig {
         CLEAN_HUD = b.comment("Hide the hotbar, health, crosshair and every HUD added by other mods while watching a replay.",
                         "Chat, titles, boss bars, scoreboard and the tab list stay visible since they are part of the recording.")
                 .define("cleanHud", true);
+        PLAYBACK_VIEW_DISTANCE = b.comment("Chunks kept around the camera while watching a replay. Chunks the recording server unloaded",
+                        "stay visible up to this distance instead of disappearing.")
+                .defineInRange("viewDistance", 32, 8, 64);
         b.pop();
         b.push("export");
         FFMPEG_PATH = b.comment("Path to the ffmpeg executable, or just 'ffmpeg' when it is on the PATH.")

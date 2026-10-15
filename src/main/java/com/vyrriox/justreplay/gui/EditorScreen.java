@@ -81,6 +81,13 @@ public class EditorScreen extends Screen {
         button(rx, y, 46, tr("justreplay.editor.export"), b -> minecraft.setScreen(new ExportScreen(this, session)));
         rx -= 40;
         button(rx, y, 38, tr("justreplay.editor.save"), b -> session.saveProject());
+        rx -= 62;
+        button(rx, y, 60, tr(session.project().voices ? "justreplay.editor.voices.on" : "justreplay.editor.voices.off"), b -> {
+            ReplayProject p = session.project();
+            p.voices = !p.voices;
+            b.setMessage(Component.translatable(p.voices ? "justreplay.editor.voices.on" : "justreplay.editor.voices.off"));
+            session.saveProject();
+        }).setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("justreplay.editor.voices.tip")));
 
         // Cameras panel
         cameraPanelBottom = cameras.build(8, 16, panelW);
