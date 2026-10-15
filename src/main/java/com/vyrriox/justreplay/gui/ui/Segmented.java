@@ -27,6 +27,7 @@ public class Segmented<T> extends AbstractWidget implements Tipped {
     private int index;
     private final Anim.Value slide;
     private int hovered = -1;
+    private Component tip;
 
     public Segmented(List<T> values, T initial, Function<T, Component> labeler, Function<T, Icon> icons, Consumer<T> onChange) {
         super(0, 0, 0, Theme.ROW, Component.empty());
@@ -73,13 +74,19 @@ public class Segmented<T> extends AbstractWidget implements Tipped {
         return false;
     }
 
+    /** Tooltip of the whole control, shown when the hovered segment shows its label. */
+    public Segmented<T> tip(Component tip) {
+        this.tip = tip;
+        return this;
+    }
+
     @Override
     public Component tooltip() {
         Font font = Minecraft.getInstance().font;
         if (hovered >= 0 && iconsOnly(font, width / (float) values.size())) {
             return labels.get(hovered);
         }
-        return null;
+        return tip;
     }
 
     @Override

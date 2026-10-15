@@ -44,9 +44,61 @@ public final class ActorManager {
     private int nextId = -1000;
     private final java.util.Set<String> failed = new java.util.HashSet<>();
     private final ActorAnimator animator = new ActorAnimator();
+    /** Actor shown at a placement preview instead of where its keyframes put it, or null. */
+    private String previewId;
+    private ActorPlacement.Spot preview;
 
     public ActorManager(ReplaySession session) {
         this.session = session;
+    }
+
+    /** Shows an actor at a placement preview until {@link #clearPreview()}. */
+    public void setPreview(ReplayProject.ActorData actor, ActorPlacement.Spot spot) {
+        previewId = actor.id;
+        preview = spot;
+        showPreview();
+    }
+
+    public void clearPreview() {
+        previewId = null;
+        preview = null;
+    }
+
+    /** Puts the previewed actor at its preview spot; called every frame so the ghost follows the view smoothly. */
+    public void showPreview() {
+        if (previewId == null || preview == null) {
+            return;
+        }
+        Entity entity = spawned.get(previewId);
+        if (entity != null && !entity.isRemoved()) {
+            ActorAnimator.showPreview(entity, preview.x(), preview.y(), preview.z(), preview.yaw(), preview.pose());
+        }
+    }
+
+    /** The actor entity whose bounding box the ray crosses first, or null. */
+    public ReplayProject.ActorData pick(net.minecraft.world.phys.Vec3 from, net.minecraft.world.phys.Vec3 to) {
+        ReplayProject.ActorData best = null;
+        double bestDistance = Double.MAX_VALUE;
+        for (ReplayProject.ActorData actor : session.project().actors) {
+            Entity entity = spawned.get(actor.id);
+            if (entity == null || entity.isRemoved()) {
+                continue;
+            }
+            net.minecraft.world.phys.AABB box = entity.getBoundingBox().inflate(0.15);
+            if (actor.isModel()) {
+                // The invisible armor stand carries the model: grow its box with the model scale.
+                box = box.inflate(Math.max(0.0, actor.modelScale - 1.0) * 0.5, Math.max(0.0, actor.modelScale - 1.0), Math.max(0.0, actor.modelScale - 1.0) * 0.5);
+            }
+            var hit = box.contains(from) ? java.util.Optional.of(from) : box.clip(from, to);
+            if (hit.isPresent()) {
+                double d = hit.get().distanceToSqr(from);
+                if (d < bestDistance) {
+                    bestDistance = d;
+                    best = actor;
+                }
+            }
+        }
+        return best;
     }
 
     /** True for entities spawned as actors; their own tick is skipped, animate() drives them. */
@@ -127,6 +179,9 @@ public final class ActorManager {
             }
             fillMoveTargets(mc, actor);
             animate(actor, entity, cursor, paused);
+            if (actor.id.equals(previewId)) {
+                showPreview();
+            }
         }
     }
 

@@ -28,6 +28,15 @@ public final class JRConfig {
     public static final ModConfigSpec.IntValue EXPORT_CRF;
     public static final ModConfigSpec.IntValue EXPORT_WARMUP_FRAMES;
     public static final ModConfigSpec.EnumValue<ExportResolution> EXPORT_RESOLUTION;
+    public static final ModConfigSpec.EnumValue<EditorMode> EDITOR_MODE;
+
+    /** How much of the replay editor is shown. */
+    public enum EditorMode {
+        /** The essentials with big controls and plain words. */
+        SIMPLE,
+        /** Every tool: several cameras, cuts, blends, keyframe editing, models, voices. */
+        ADVANCED
+    }
 
     static {
         ModConfigSpec.Builder b = new ModConfigSpec.Builder();
@@ -80,6 +89,11 @@ public final class JRConfig {
         EXPORT_RESOLUTION = b.comment("Size of exported videos. WINDOW keeps the window size; the others render at that size",
                         "whatever the window, or are scaled by FFmpeg when the graphics card cannot render that large.")
                 .defineEnum("resolution", ExportResolution.WINDOW);
+        b.pop();
+        b.push("editor");
+        EDITOR_MODE = b.comment("SIMPLE shows the essentials of the replay editor with big controls; ADVANCED shows every tool.",
+                        "Switching keeps all the work done in either mode.")
+                .defineEnum("mode", EditorMode.SIMPLE);
         b.pop();
         SPEC = b.build();
     }

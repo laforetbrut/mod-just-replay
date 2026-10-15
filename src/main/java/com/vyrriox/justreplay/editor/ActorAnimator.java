@@ -165,6 +165,46 @@ public final class ActorAnimator {
         SITTING.clear();
     }
 
+    // ---------------------------------------------------------------- placement preview
+
+    /** Pose shown by a placement preview. KEEP leaves the pose the actions give at the play head. */
+    public enum PreviewPose { KEEP, STAND, SIT, SLEEP }
+
+    /**
+     * Shows an actor entity at a placement preview: position, facing and pose, with no motion to interpolate.
+     * {@code y} is the ground (or seat) height, like a keyframe.
+     */
+    public static void showPreview(Entity entity, double x, double y, double z, float yaw, PreviewPose pose) {
+        boolean sit = pose == PreviewPose.SIT || pose == PreviewPose.KEEP && isSitting(entity);
+        if (sit && isHumanoid(entity)) {
+            y -= SIT_OFFSET;
+        }
+        if (pose != PreviewPose.KEEP) {
+            entity.setPose(sit ? Pose.SITTING : pose == PreviewPose.SLEEP ? Pose.SLEEPING : Pose.STANDING);
+            if (sit && isHumanoid(entity)) {
+                SITTING.add(entity.getId());
+            } else {
+                SITTING.remove(entity.getId());
+            }
+            if (entity instanceof TamableAnimal tamable) {
+                tamable.setInSittingPose(sit);
+            }
+        }
+        entity.setPos(x, y, z);
+        entity.xo = entity.xOld = x;
+        entity.yo = entity.yOld = y;
+        entity.zo = entity.zOld = z;
+        entity.setYRot(yaw);
+        entity.yRotO = yaw;
+        entity.setXRot(0.0F);
+        entity.xRotO = 0.0F;
+        entity.setDeltaMovement(Vec3.ZERO);
+        if (entity instanceof LivingEntity living) {
+            living.yBodyRot = living.yBodyRotO = yaw;
+            living.yHeadRot = living.yHeadRotO = yaw;
+        }
+    }
+
     // ---------------------------------------------------------------- actions
 
     /** Ticks since the latest action of these types started at or before {@code t}, or -1. */
@@ -444,7 +484,8 @@ public final class ActorAnimator {
         if (!actor.groundSnap || isFlyer(entity)) {
             return false;
         }
-        return activeState(actions, t, ActionType.FLY, ActionType.ELYTRA, ActionType.SWIM, ActionType.SPIN_ATTACK) == null;
+        // A sleeper keeps its keyframed height: a bed is lower than where a lying body rests on it.
+        return activeState(actions, t, ActionType.FLY, ActionType.ELYTRA, ActionType.SWIM, ActionType.SPIN_ATTACK, ActionType.SLEEP) == null;
     }
 
     private static boolean isFlyer(Entity entity) {

@@ -16,6 +16,12 @@ NeoForge 1.21.1, client side. Author: vyrriox. License: Apache-2.0.
   entity and modded renderer follows the replay clock.
 - **Editor** (key **G**): timeline with markers, camera keyframes and actor keyframes, drag keyframes to
   retime them, smooth Catmull-Rom camera path with roll and field of view.
+- **Simple and Advanced modes**: the editor opens in Simple mode, with big buttons and plain words for a
+  first video (camera points, characters, markers, one-click export). Switch to Advanced in the top bar for
+  every tool; both modes work on the same project.
+- **Place actors in the world**: the actor follows the crosshair as a live preview, the wheel turns it and a
+  click places it at the play head. Seat it on stairs, slabs, carpets or mod chairs, lay it in a bed, send it
+  walking to a point, and click an actor in the world to select it.
 - **Multi-camera editing**: static, path and follow cameras, a cut track with hard cuts or smooth blends,
   and live switching with keys 1 to 9 while the replay plays, like a multi-camera editor.
 - **Actors**: add players (any skin, by name) or any entity, vanilla or modded, give them equipment and a
@@ -81,6 +87,13 @@ edit and export test in a development client.
   vanilla, donc toutes les entités et les rendus des mods suivent l'horloge du replay.
 - **Éditeur** (touche **G**) : timeline avec marqueurs, keyframes de caméra et d'acteurs, keyframes
   déplaçables à la souris, chemin de caméra lissé (Catmull-Rom) avec roulis et champ de vision.
+- **Modes Simple et Avancé** : l'éditeur s'ouvre en mode Simple, avec de grands boutons et des mots simples
+  pour une première vidéo (points de caméra, personnages, marqueurs, export en un clic). Passer en Avancé
+  dans la barre du haut pour tous les outils ; les deux modes travaillent sur le même projet.
+- **Placer les acteurs dans le monde** : l'acteur suit le viseur en aperçu direct, la molette le tourne et un
+  clic le place à la tête de lecture. L'asseoir sur un escalier, une dalle, un tapis ou une chaise de mod, le
+  coucher dans un lit, l'envoyer marcher vers un point, et cliquer sur un acteur dans le monde pour le
+  sélectionner.
 - **Montage multi-caméra** : caméras fixes, chemins et caméras de suivi, piste de coupes en coupe franche ou
   en fondu de mouvement, et changement de caméra en direct avec les touches 1 à 9 pendant la lecture.
 - **Acteurs** : ajouter des joueurs (n'importe quel skin, par pseudo) ou n'importe quelle entité, vanilla ou

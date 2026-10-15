@@ -43,6 +43,18 @@
 - Instant replay: with `recording.replayBuffer` on, the last minutes of play (`bufferMinutes`, 5 by default) stay in memory, compressed, and F7 saves them as a normal replay. Nothing is written to disk until you save.
 - "Record next minutes" key (unbound by default): records for `recording.nextMinutes` and stops by itself.
 - New settings `recording.checkpointMinutes` (5 by default) and `recording.extraChunkRadius` (16 by default).
+- Simple and Advanced editor modes, switched in the editor top bar and remembered (`editor.mode`, Simple by
+  default). Simple keeps the essentials with big buttons and plain words: play, seek and speed, "Add camera
+  point here", camera path on or off, Curve or Bezier smoothness with constant speed, characters (a player skin
+  or a mob) placed in the world that walk to a point, follow someone, sit, lie in bed or wave, markers, and a
+  one-click export. Advanced is the full editor. Switching keeps all the work.
+- In-world actor placement: adding or moving an actor shows it live under the crosshair (free camera, paused or
+  not); the wheel turns it (Shift: fine, right click: quarter turn), Ctrl snaps to the block center, a click
+  writes a keyframe at the play head and Esc cancels. "Sit here" seats it on the clicked block at the right
+  height (stairs on their low step, slabs, carpets and mod chairs on top of their collision shape, full blocks
+  on top), "Lie in bed" lays it in the clicked bed, "Walk to" picks a destination. "Move to crosshair" and
+  "Face the camera" act on the selected actor, and clicking an actor in the world selects it while the editor
+  is open. Works for players, mobs, modded entities and Blockbench model actors.
 
 #### Changed
 - Recording costs less on the client thread: no allocation per tick for an idle player, chunk building on a
@@ -118,6 +130,20 @@
 - Replay instantané : avec `recording.replayBuffer` activé, les dernières minutes de jeu (`bufferMinutes`, 5 par défaut) restent en mémoire, compressées, et F7 les enregistre comme un replay normal. Rien n'est écrit sur le disque avant la sauvegarde.
 - Touche "Enregistrer les prochaines minutes" (sans touche par défaut) : enregistre pendant `recording.nextMinutes` puis s'arrête seule.
 - Nouveaux réglages `recording.checkpointMinutes` (5 par défaut) et `recording.extraChunkRadius` (16 par défaut).
+- Modes Simple et Avancé de l'éditeur, choisis dans la barre du haut et mémorisés (`editor.mode`, Simple par
+  défaut). Simple garde l'essentiel avec de grands boutons et des mots simples : lecture, déplacement et
+  vitesse, "Ajouter un point de caméra ici", trajet de caméra activé ou non, douceur Courbe ou Bézier à vitesse
+  constante, personnages (un skin de joueur ou un mob) placés dans le monde qui marchent vers un point, suivent
+  quelqu'un, s'assoient, se couchent dans un lit ou saluent, marqueurs, et un export en un clic. Avancé est
+  l'éditeur complet. Changer de mode garde tout le travail.
+- Placement des acteurs dans le monde : ajouter ou déplacer un acteur le montre en direct sous le viseur
+  (caméra libre, en pause ou non) ; la molette le tourne (Maj : finement, clic droit : quart de tour), Ctrl le
+  centre sur le bloc, un clic écrit une keyframe à la tête de lecture et Échap annule. "S'asseoir ici" l'assoit
+  sur le bloc cliqué à la bonne hauteur (escaliers sur leur marche basse, dalles, tapis et chaises de mods sur
+  le haut de leur forme de collision, blocs pleins sur le dessus), "Se coucher" le couche dans le lit cliqué,
+  "Marcher vers" choisit une destination. "Aller au viseur" et "Regarder la caméra" agissent sur l'acteur
+  sélectionné, et cliquer sur un acteur dans le monde le sélectionne quand l'éditeur est ouvert. Fonctionne
+  pour les joueurs, les mobs, les entités de mods et les modèles Blockbench.
 
 #### Modifié
 - L'enregistrement coûte moins sur le thread client : aucune allocation par tick pour un joueur immobile,

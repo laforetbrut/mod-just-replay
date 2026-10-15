@@ -45,6 +45,10 @@ public final class SelfTest {
     private static Path replay;
     private static Path clip;
     private static java.util.concurrent.CompletableFuture<com.vyrriox.justreplay.format.ReplayBuffer.Saved> clipSave;
+    /** Blocks the placement steps seat and lay actors on: stairs and the head of a bed. */
+    private static net.minecraft.core.BlockPos stairPos;
+    private static net.minecraft.core.BlockPos bedPos;
+    private static ReplayProject.ActorData placed;
 
     private SelfTest() {
     }
@@ -64,6 +68,12 @@ public final class SelfTest {
 
     private static void next(int delay) {
         step++;
+        wait = delay;
+    }
+
+    /** Jumps to step {@code target} after {@code delay} ticks. */
+    private static void go(int target, int delay) {
+        step = target;
         wait = delay;
     }
 
@@ -138,6 +148,13 @@ public final class SelfTest {
                 p.connection.sendCommand("summon mowziesmobs:foliaath ~-4 ~ ~-3");
                 p.connection.sendCommand("setblock ~3 ~ ~-3 create:creative_motor[facing=up]");
                 p.connection.sendCommand("setblock ~3 ~1 ~-3 create:cogwheel");
+                // Furniture for the placement steps, out of the walking circle: stairs facing west, a bed facing south.
+                net.minecraft.core.BlockPos base = p.blockPosition();
+                stairPos = base.offset(9, 0, 0);
+                bedPos = base.offset(9, 0, -3);
+                p.connection.sendCommand(String.format("setblock %d %d %d minecraft:oak_stairs[facing=west]", stairPos.getX(), stairPos.getY(), stairPos.getZ()));
+                p.connection.sendCommand(String.format("setblock %d %d %d minecraft:red_bed[facing=south,part=head]", bedPos.getX(), bedPos.getY(), bedPos.getZ()));
+                p.connection.sendCommand(String.format("setblock %d %d %d minecraft:red_bed[facing=south,part=foot]", bedPos.getX(), bedPos.getY(), bedPos.getZ() - 1));
                 boolean started = Recorder.startManual();
                 log("record started: {}", started);
                 next(5);
@@ -313,12 +330,80 @@ public final class SelfTest {
                 log("spectating recorder: {} camera entity={}", s.spectate().isActive(),
                         mc.getCameraEntity() == null ? "none" : mc.getCameraEntity().getClass().getSimpleName());
                 s.spectate().stop(mc);
+                com.vyrriox.justreplay.config.JRConfig.EDITOR_MODE.set(com.vyrriox.justreplay.config.JRConfig.EditorMode.ADVANCED);
                 mc.setScreen(new EditorScreen(s));
                 next(10);
             }
             case 11 -> {
                 shot(mc, "5-editor");
-                next(5);
+                // The simple editor on the same project.
+                com.vyrriox.justreplay.config.JRConfig.EDITOR_MODE.set(com.vyrriox.justreplay.config.JRConfig.EditorMode.SIMPLE);
+                mc.setScreen(new EditorScreen(ReplaySession.current()));
+                go(30, 10);
+            }
+            case 30 -> {
+                shot(mc, "5b-editor-simple");
+                // Interactive placement: a new actor follows the crosshair, then the click is simulated.
+                ReplaySession s = ReplaySession.current();
+                s.playback().setPaused(true);
+                s.setCameraPath(false);
+                com.vyrriox.justreplay.replay.Playback.placeCamera(p, new Vec3(stairPos.getX() - 5.5, stairPos.getY() + 3.0, stairPos.getZ() + 0.5), -90.0F, 40.0F);
+                placed = new ReplayProject.ActorData();
+                placed.type = "minecraft:villager";
+                placed.name = "Placed";
+                s.project().actors.add(placed);
+                com.vyrriox.justreplay.gui.PlacementTool.start((EditorScreen) mc.screen, s, placed,
+                        com.vyrriox.justreplay.editor.ActorPlacement.Kind.PLACE, true);
+                log("placement started: active={} screen={}", com.vyrriox.justreplay.gui.PlacementTool.isActive(), mc.screen);
+                next(15);
+            }
+            case 31 -> {
+                ReplaySession s = ReplaySession.current();
+                var tool = com.vyrriox.justreplay.gui.PlacementTool.active();
+                Entity ghost = s.actors().entityOf(placed);
+                log("placement preview: spot={} ghost={}", tool == null ? "none" : tool.spot(), ghost == null ? "missing" : ghost.position());
+                shot(mc, "7-placement");
+                next(2);
+            }
+            case 32 -> {
+                ReplaySession s = ReplaySession.current();
+                var tool = com.vyrriox.justreplay.gui.PlacementTool.active();
+                if (tool != null) {
+                    tool.confirm();
+                }
+                log("placement confirmed: keyframes={} first={} screen={} selected={}", placed.keyframes.size(),
+                        placed.keyframes.isEmpty() ? "none" : placed.keyframes.get(0).x + " " + placed.keyframes.get(0).y + " " + placed.keyframes.get(0).z
+                                + " yaw " + placed.keyframes.get(0).yaw,
+                        mc.screen == null ? "none" : mc.screen.getClass().getSimpleName(),
+                        mc.screen instanceof EditorScreen e && e.selectedActor() != null ? e.selectedActor().name : "none");
+                // Seat one actor on the stairs and lay another in the bed with the placement API.
+                ReplayProject.ActorData sitter = new ReplayProject.ActorData();
+                sitter.name = "Notch";
+                ReplayProject.ActorData sleeper = new ReplayProject.ActorData();
+                sleeper.name = "jeb_";
+                s.project().actors.add(sitter);
+                s.project().actors.add(sleeper);
+                var stairHit = new net.minecraft.world.phys.BlockHitResult(Vec3.atCenterOf(stairPos).add(0, 0.5, 0), net.minecraft.core.Direction.UP, stairPos, false);
+                var bedHit = new net.minecraft.world.phys.BlockHitResult(Vec3.atCenterOf(bedPos).add(0, 0.06, 0), net.minecraft.core.Direction.UP, bedPos, false);
+                var seat = com.vyrriox.justreplay.gui.PlacementTool.placeAt(s, sitter, com.vyrriox.justreplay.editor.ActorPlacement.Kind.SIT, stairHit, 0.0F);
+                var bed = com.vyrriox.justreplay.gui.PlacementTool.placeAt(s, sleeper, com.vyrriox.justreplay.editor.ActorPlacement.Kind.BED, bedHit, 0.0F);
+                log("seat on {}: {} actions={}", mc.level.getBlockState(stairPos), seat, sitter.actions.size());
+                log("bed at {}: {} actions={}", mc.level.getBlockState(bedPos), bed, sleeper.actions.size());
+                mc.setScreen(null);
+                com.vyrriox.justreplay.replay.Playback.placeCamera(p, new Vec3(stairPos.getX() + 4.5, stairPos.getY() + 2.0, stairPos.getZ() + 2.0), 125.0F, 22.0F);
+                next(40);
+            }
+            case 33 -> {
+                ReplaySession s = ReplaySession.current();
+                for (ReplayProject.ActorData a : s.project().actors) {
+                    Entity e = s.actors().entityOf(a);
+                    if (a == placed || "Notch".equals(a.name) && !a.actions.isEmpty() && a.actions.get(0).actionType()
+                            == com.vyrriox.justreplay.editor.ActionType.SIT || "jeb_".equals(a.name)) {
+                        log("placed actor {} -> {}", a.name, e == null ? "missing" : e.getPose() + " @ " + e.position() + " yaw " + e.getYRot());
+                    }
+                }
+                shot(mc, "8-seat-bed");
+                go(12, 5);
             }
             case 12 -> {
                 mc.setScreen(null);
@@ -374,6 +459,7 @@ public final class SelfTest {
             }
             case 18 -> {
                 com.vyrriox.justreplay.config.JRConfig.REPLAY_BUFFER.set(false);
+                com.vyrriox.justreplay.config.JRConfig.EDITOR_MODE.set(com.vyrriox.justreplay.config.JRConfig.EditorMode.SIMPLE);
                 log("DONE");
                 Files.deleteIfExists(FLAG);
                 step = 100;

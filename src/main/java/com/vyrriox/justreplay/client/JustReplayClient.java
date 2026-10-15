@@ -52,6 +52,7 @@ public final class JustReplayClient {
         @SubscribeEvent
         public static void onLayers(RegisterGuiLayersEvent event) {
             event.registerAboveAll(JustReplay.id("hud"), ReplayHud::render);
+            event.registerAboveAll(JustReplay.id("placement"), com.vyrriox.justreplay.gui.PlacementTool::renderHud);
         }
     }
 
@@ -102,7 +103,8 @@ public final class JustReplayClient {
                 net.neoforged.neoforge.client.gui.VanillaGuiLayers.TAB_LIST,
                 net.neoforged.neoforge.client.gui.VanillaGuiLayers.OVERLAY_MESSAGE,
                 net.neoforged.neoforge.client.gui.VanillaGuiLayers.DEBUG_OVERLAY,
-                JustReplay.id("hud"));
+                JustReplay.id("hud"),
+                JustReplay.id("placement"));
 
         @SubscribeEvent
         public static void onGuiLayer(net.neoforged.neoforge.client.event.RenderGuiLayerEvent.Pre event) {
@@ -358,7 +360,12 @@ public final class JustReplayClient {
         Playback playback = session.playback();
         int step = JRConfig.SEEK_STEP_SECONDS.get() * 20;
         while (JRKeys.EDITOR.consumeClick()) {
-            mc.setScreen(new EditorScreen(session));
+            if (com.vyrriox.justreplay.gui.PlacementTool.isActive()) {
+                // The editor key while placing an actor goes back to the editor without placing it.
+                com.vyrriox.justreplay.gui.PlacementTool.active().cancel();
+            } else {
+                mc.setScreen(new EditorScreen(session));
+            }
         }
         while (JRKeys.PLAY_PAUSE.consumeClick()) {
             if (playback.cursor() >= playback.duration()) {

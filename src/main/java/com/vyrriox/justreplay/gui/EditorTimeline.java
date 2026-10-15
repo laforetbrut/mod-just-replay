@@ -16,28 +16,44 @@ import java.util.List;
 /**
  * The multi-lane timeline of the editor: time ruler, cut track, keyframes of the selected camera, keyframes and
  * actions of the selected actor, markers, play head. The view zooms and scrolls smoothly (Ctrl + wheel, wheel,
- * scrollbar) and follows the play head while playing.
+ * scrollbar) and follows the play head while playing. The track lanes shown are a list, so each editor mode (and
+ * each feature adding a lane) picks its own.
  *
  * @author vyrriox
  */
 final class EditorTimeline {
     static final int RULER = 10;
-    static final int CUTS = 13;
-    static final int CAMERA = 10;
-    static final int ACTOR = 12;
-    static final int MARKERS = 10;
     static final int BAR = 4;
     static final int LABELS = 14;
-    /** Ruler, lanes, scrollbar. */
-    static final int HEIGHT = RULER + CUTS + CAMERA + ACTOR + MARKERS + 3 + BAR;
 
-    enum Lane { RULER, CUTS, CAMERA, ACTOR, MARKERS, BAR, NONE }
+    /**
+     * Rows of the timeline. Track lanes are stacked in the order given to {@link #lanes(List)}; a new kind of
+     * track adds a constant here with its height and icon, and draws itself in {@link #renderLane}.
+     */
+    enum Lane {
+        RULER(10, null), CUTS(13, Icon.CUT), CAMERA(10, Icon.CAMERA), ACTOR(12, Icon.PERSON), MARKERS(10, Icon.FLAG),
+        BAR(4, null), NONE(0, null);
+
+        final int height;
+        final Icon icon;
+
+        Lane(int height, Icon icon) {
+            this.height = height;
+            this.icon = icon;
+        }
+    }
+
+    /** Every track lane, in display order: the advanced editor. */
+    static final List<Lane> ALL_LANES = List.of(Lane.CUTS, Lane.CAMERA, Lane.ACTOR, Lane.MARKERS);
+    /** The simple editor works with one camera, so it has no cut track. */
+    static final List<Lane> SIMPLE_LANES = List.of(Lane.CAMERA, Lane.ACTOR, Lane.MARKERS);
 
     private static final int[] STEPS = {1, 2, 5, 10, 20, 40, 100, 200, 400, 600, 1200, 2400, 6000, 12000, 24000, 72000};
     private static final int MIN_SPAN = 20;
 
     /** Lane area (without the label column). */
     int x, top, w;
+    private List<Lane> lanes = ALL_LANES;
     private int duration = 1;
     private final Anim.Value start = new Anim.Value(0.0F, 16.0F);
     private final Anim.Value span = new Anim.Value(1.0F, 16.0F);
@@ -56,24 +72,52 @@ final class EditorTimeline {
         this.w = Math.max(10, w);
     }
 
-    int cutsY() {
+    /** Track lanes shown, top to bottom. */
+    void lanes(List<Lane> lanes) {
+        this.lanes = List.copyOf(lanes);
+    }
+
+    List<Lane> lanes() {
+        return lanes;
+    }
+
+    /** Height of the timeline with these lanes: ruler, lanes, scrollbar. */
+    static int height(List<Lane> lanes) {
+        int h = RULER + BAR - 1;
+        for (Lane lane : lanes) {
+            h += lane.height + 1;
+        }
+        return h;
+    }
+
+    /** Top of the first lane. */
+    int lanesY() {
         return top + RULER;
     }
 
-    int cameraY() {
-        return cutsY() + CUTS + 1;
+    /** Top of a track lane, or -1 when it is not shown. */
+    int laneY(Lane lane) {
+        int y = lanesY();
+        for (Lane l : lanes) {
+            if (l == lane) {
+                return y;
+            }
+            y += l.height + 1;
+        }
+        return -1;
     }
 
-    int actorY() {
-        return cameraY() + CAMERA + 1;
-    }
-
-    int markersY() {
-        return actorY() + ACTOR + 1;
+    /** Bottom of the last lane. */
+    int lanesBottom() {
+        int y = lanesY();
+        for (Lane l : lanes) {
+            y += l.height + 1;
+        }
+        return y - 1;
     }
 
     int barY() {
-        return markersY() + MARKERS + 2;
+        return lanesBottom() + 2;
     }
 
     int bottom() {
@@ -148,20 +192,16 @@ final class EditorTimeline {
         if (my < top - 2 || my > bottom() + 2) {
             return Lane.NONE;
         }
-        if (my < cutsY()) {
+        if (my < lanesY()) {
             return Lane.RULER;
         }
-        if (my < cameraY()) {
-            return Lane.CUTS;
-        }
-        if (my < actorY()) {
-            return Lane.CAMERA;
-        }
-        if (my < markersY()) {
-            return Lane.ACTOR;
-        }
-        if (my < barY() - 1) {
-            return Lane.MARKERS;
+        int y = lanesY();
+        for (int i = 0; i < lanes.size(); i++) {
+            Lane lane = lanes.get(i);
+            y += lane.height + 1;
+            if (my < y || i == lanes.size() - 1 && my < barY() - 1) {
+                return lane;
+            }
         }
         return Lane.BAR;
     }
@@ -215,38 +255,53 @@ final class EditorTimeline {
 
     // ---------------------------------------------------------------- render
 
+    /** What the lanes draw this frame. */
+    record Selection(ReplayProject.CameraKeyframe cameraKey, ReplayProject.Cut cut, ReplayProject.ActorData actor,
+                     ReplayProject.ActorKeyframe actorKey, ReplayProject.ActorAction action) {
+    }
+
     void render(GuiGraphics g, Font font, ReplaySession session, ReplayProject.CameraKeyframe selectedKey, ReplayProject.Cut selectedCut,
                 ReplayProject.ActorData actor, ReplayProject.ActorKeyframe selectedActorKey, ReplayProject.ActorAction selectedAction,
                 int ghostTick, int mouseX, int mouseY) {
         ReplayProject project = session.project();
+        Selection selection = new Selection(selectedKey, selectedCut, actor, selectedActorKey, selectedAction);
         int cursor = session.playback().cursor();
-        lanes(g, font);
+        int lx = x - LABELS - 1;
+        for (Lane lane : lanes) {
+            laneBack(g, lx, laneY(lane), lane.height, lane.icon);
+        }
         ruler(g, font);
         g.enableScissor(x, top, x + w, barY());
         int played = Math.min(x + w, xOf(cursor));
         if (played > x) {
-            g.fill(x, cutsY(), played, markersY() + MARKERS, 0x145AB4FF);
+            g.fill(x, lanesY(), played, lanesBottom(), 0x145AB4FF);
         }
-        cuts(g, font, project, selectedCut);
-        cameraKeys(g, project, selectedKey);
-        actorLane(g, font, actor, selectedActorKey, selectedAction);
-        markers(g, font, project);
+        for (Lane lane : lanes) {
+            renderLane(g, font, lane, laneY(lane), session, selection);
+        }
         g.disableScissor();
         scrollbar(g, mouseX, mouseY);
         playHead(g, font, cursor, ghostTick);
     }
 
-    private void lanes(GuiGraphics g, Font font) {
-        int lx = x - LABELS - 1;
-        laneBack(g, lx, cutsY(), CUTS, Icon.CUT);
-        laneBack(g, lx, cameraY(), CAMERA, Icon.CAMERA);
-        laneBack(g, lx, actorY(), ACTOR, Icon.PERSON);
-        laneBack(g, lx, markersY(), MARKERS, Icon.FLAG);
+    /** Draws the content of one lane at {@code y}. */
+    private void renderLane(GuiGraphics g, Font font, Lane lane, int y, ReplaySession session, Selection s) {
+        ReplayProject project = session.project();
+        switch (lane) {
+            case CUTS -> cuts(g, font, project, y, s.cut());
+            case CAMERA -> cameraKeys(g, project, y, s.cameraKey());
+            case ACTOR -> actorLane(g, font, y, s.actor(), s.actorKey(), s.action());
+            case MARKERS -> markers(g, font, project, y);
+            default -> {
+            }
+        }
     }
 
     private void laneBack(GuiGraphics g, int lx, int y, int h, Icon icon) {
         Paint.rect(g, x, y, w, h, Theme.RADIUS_S, 0x24FFFFFF, 0x14FFFFFF);
-        Paint.iconCentered(g, icon, lx, y, LABELS, h, 7, 0x99B9C2CF);
+        if (icon != null) {
+            Paint.iconCentered(g, icon, lx, y, LABELS, h, 7, 0x99B9C2CF);
+        }
     }
 
     private void ruler(GuiGraphics g, Font font) {
@@ -261,14 +316,14 @@ final class EditorTimeline {
         int minor = step % 5 == 0 && step * pxPerTick / 5 >= 5 ? step / 5 : step % 4 == 0 && step * pxPerTick / 4 >= 5 ? step / 4 : step;
         int first = (int) Math.floor(viewStart / minor) * minor;
         int end = (int) Math.ceil(viewStart + viewSpan);
-        g.enableScissor(x - 2, top - 1, x + w + 30, cutsY());
+        g.enableScissor(x - 2, top - 1, x + w + 30, lanesY());
         for (int t = Math.max(0, first); t <= end; t += minor) {
             int tx = xOf(t);
             if (tx < x - 1 || tx > x + w) {
                 continue;
             }
             boolean major = t % step == 0;
-            g.fill(tx, cutsY() - (major ? 4 : 2), tx + 1, cutsY() - 1, major ? 0x8CFFFFFF : 0x33FFFFFF);
+            g.fill(tx, lanesY() - (major ? 4 : 2), tx + 1, lanesY() - 1, major ? 0x8CFFFFFF : 0x33FFFFFF);
             if (major && tx + 2 < x + w - 8) {
                 g.drawString(font, label(t, step), tx + 2, top, 0xFF8E98A6, false);
             }
@@ -293,8 +348,8 @@ final class EditorTimeline {
         return rulerLabels[slot];
     }
 
-    private void cuts(GuiGraphics g, Font font, ReplayProject project, ReplayProject.Cut selectedCut) {
-        int y = cutsY();
+    private void cuts(GuiGraphics g, Font font, ReplayProject project, int y, ReplayProject.Cut selectedCut) {
+        int h = Lane.CUTS.height;
         ReplayProject.Camera selectedCamera = project.selected();
         for (int i = 0; i < project.cuts.size(); i++) {
             ReplayProject.Cut cut = project.cuts.get(i);
@@ -307,35 +362,35 @@ final class EditorTimeline {
             int color = PathRenderer.cameraColor(index);
             boolean live = camera == selectedCamera;
             int sx = seg[0], sw = Math.max(2, seg[1] - seg[0] - 1);
-            Paint.rect(g, sx, y + 1, sw, CUTS - 2, Theme.RADIUS_S, Theme.withAlpha(color, live ? 0xF2 : 0xA6),
+            Paint.rect(g, sx, y + 1, sw, h - 2, Theme.RADIUS_S, Theme.withAlpha(color, live ? 0xF2 : 0xA6),
                     Theme.withAlpha(Theme.mix(color, 0xFF000000, 0.25F), live ? 0xF2 : 0xA6));
             if (cut.blend > 0 && i > 0) {
                 int bx = xOf(Math.min(duration, cut.tick + cut.blend));
-                Paint.rect(g, sx, y + CUTS - 4, Math.max(2, bx - sx), 2, 1, 0xD9FFFFFF);
+                Paint.rect(g, sx, y + h - 4, Math.max(2, bx - sx), 2, 1, 0xD9FFFFFF);
             }
             if (cut == selectedCut) {
-                Paint.outline(g, sx - 1, y, sw + 2, CUTS, Theme.RADIUS_S + 1, 0xFFFFFFFF);
+                Paint.outline(g, sx - 1, y, sw + 2, h, Theme.RADIUS_S + 1, 0xFFFFFFFF);
             }
             if (camera != null && sw > 12) {
                 String label = font.plainSubstrByWidth((index + 1) + " " + camera.name, sw - 5);
                 if (!label.isEmpty()) {
-                    g.drawString(font, label, Math.max(sx, x) + 3, y + (CUTS - 7) / 2, 0xFF0B0F16, false);
+                    g.drawString(font, label, Math.max(sx, x) + 3, y + (h - 7) / 2, 0xFF0B0F16, false);
                 }
             }
         }
         if (!project.cuts.isEmpty() && project.cutsEnd >= 0) {
             int ex = xOf(Math.min(duration, project.cutTrackEnd(duration)));
-            g.fill(ex, y - 1, ex + 1, y + CUTS + 1, Timeline.SELECTED_COLOR);
+            g.fill(ex, y - 1, ex + 1, y + h + 1, Timeline.SELECTED_COLOR);
             Paint.rect(g, ex - 2, y - 1, 5, 3, 1, Timeline.SELECTED_COLOR);
         }
     }
 
-    private void cameraKeys(GuiGraphics g, ReplayProject project, ReplayProject.CameraKeyframe selected) {
+    private void cameraKeys(GuiGraphics g, ReplayProject project, int y, ReplayProject.CameraKeyframe selected) {
         ReplayProject.Camera camera = project.selected();
         if (camera == null || camera.keyframes.isEmpty()) {
             return;
         }
-        int cy = cameraY() + CAMERA / 2;
+        int cy = y + Lane.CAMERA.height / 2;
         int color = PathRenderer.cameraColor(project.cameras.indexOf(camera));
         List<ReplayProject.CameraKeyframe> keys = camera.keyframes;
         if (keys.size() > 1) {
@@ -355,12 +410,12 @@ final class EditorTimeline {
         }
     }
 
-    private void actorLane(GuiGraphics g, Font font, ReplayProject.ActorData actor, ReplayProject.ActorKeyframe selectedKey,
+    private void actorLane(GuiGraphics g, Font font, int y, ReplayProject.ActorData actor, ReplayProject.ActorKeyframe selectedKey,
                            ReplayProject.ActorAction selectedAction) {
         if (actor == null) {
             return;
         }
-        int y = actorY();
+        int h = Lane.ACTOR.height;
         int lastLabel = -100000;
         for (ReplayProject.ActorAction action : actor.actions) {
             int ax = xOf(action.tick);
@@ -368,18 +423,18 @@ final class EditorTimeline {
             int color = sel ? Timeline.SELECTED_COLOR : 0xFFFFB74D;
             if (action.duration > 0 && action.actionType().kind == ActionType.Kind.STATE) {
                 int end = xOf(Math.min(duration, action.tick + action.duration));
-                Paint.rect(g, ax, y + ACTOR - 3, Math.max(2, end - ax), 2, 1, Theme.withAlpha(color, 0xCC));
+                Paint.rect(g, ax, y + h - 3, Math.max(2, end - ax), 2, 1, Theme.withAlpha(color, 0xCC));
             }
             if (ax < x - 20 || ax > x + w + 2) {
                 continue;
             }
-            g.fill(ax, y + 1, ax + 1, y + ACTOR - 1, color);
+            g.fill(ax, y + 1, ax + 1, y + h - 1, color);
             if (ax - lastLabel >= 16) {
                 g.drawString(font, action.actionType().shortLabel, ax + 2, y + 2, Theme.withAlpha(color, 0xE6), false);
                 lastLabel = ax;
             }
         }
-        int cy = y + ACTOR / 2;
+        int cy = y + h / 2;
         for (ReplayProject.ActorKeyframe key : actor.keyframes) {
             int kx = xOf(key.tick);
             if (kx < x - 5 || kx > x + w + 5) {
@@ -393,19 +448,19 @@ final class EditorTimeline {
         }
     }
 
-    private void markers(GuiGraphics g, Font font, ReplayProject project) {
-        int y = markersY();
+    private void markers(GuiGraphics g, Font font, ReplayProject project, int y) {
+        int h = Lane.MARKERS.height;
         int lastEnd = Integer.MIN_VALUE;
         for (ReplayProject.Marker marker : project.markers) {
             int mx = xOf(marker.tick);
             if (mx < x - 60 || mx > x + w + 2) {
                 continue;
             }
-            g.fill(mx, y + 1, mx + 1, y + MARKERS - 1, Timeline.MARKER_COLOR);
+            g.fill(mx, y + 1, mx + 1, y + h - 1, Timeline.MARKER_COLOR);
             Paint.rect(g, mx + 1, y + 1, 4, 3, 1, Timeline.MARKER_COLOR);
             if (mx + 7 > lastEnd) {
                 String name = font.plainSubstrByWidth(marker.name, 70);
-                g.drawString(font, name, mx + 7, y + (MARKERS - 7) / 2, 0xD9FFE082, false);
+                g.drawString(font, name, mx + 7, y + (h - 7) / 2, 0xD9FFE082, false);
                 lastEnd = mx + 7 + font.width(name) + 4;
             }
         }
@@ -424,12 +479,12 @@ final class EditorTimeline {
     private void playHead(GuiGraphics g, Font font, int cursor, int ghostTick) {
         int cx = xOf(cursor);
         if (cx >= x - 1 && cx <= x + w + 1) {
-            g.fill(cx, cutsY() - 2, cx + 1, markersY() + MARKERS, 0xFFFFFFFF);
+            g.fill(cx, lanesY() - 2, cx + 1, lanesBottom(), 0xFFFFFFFF);
             Paint.rect(g, cx - 3, top - 1, 7, 6, 2, 0xFFFFFFFF, 0xFFDDE6F0);
         }
         if (ghostTick >= 0) {
             int gx = xOf(ghostTick);
-            g.fill(gx, cutsY() - 2, gx + 1, markersY() + MARKERS, 0x99FFFFFF);
+            g.fill(gx, lanesY() - 2, gx + 1, lanesBottom(), 0x99FFFFFF);
             String time = Timeline.formatTicks(ghostTick);
             int tw = font.width(time) + 8;
             int bx = Math.max(x - LABELS, Math.min(x + w - tw, gx - tw / 2));
