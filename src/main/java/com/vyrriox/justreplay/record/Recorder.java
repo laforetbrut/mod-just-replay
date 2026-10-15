@@ -172,6 +172,8 @@ public final class Recorder {
     private final ItemStack[] lastEquipment = new ItemStack[SLOTS.length];
     private boolean lastSwinging;
     private int lastSwingTime;
+    private final com.vyrriox.justreplay.compat.EmotecraftCompat.LocalEmotes localEmotes =
+            new com.vyrriox.justreplay.compat.EmotecraftCompat.LocalEmotes();
 
     // Cost measurement: measured per second, logged once a minute at debug level through the logger only.
     private final LongAdder networkNanos = new LongAdder();
@@ -286,10 +288,26 @@ public final class Recorder {
     private static final java.util.Map<Integer, List<Packet<?>>> SPAWNS = new ConcurrentHashMap<>();
     private static volatile Connection spawnConnection;
 
+    /**
+     * Mod packets the server sends once per connection and then updates incrementally (Create's train network), in
+     * arrival order: snapshots and checkpoints replay them, since a stream starting later never sees them.
+     */
+    private static final List<Packet<?>> PERSISTENT = Collections.synchronizedList(new ArrayList<>());
+    private static final int MAX_PERSISTENT = 20000;
+    private static final Set<String> FAILED_GLOBAL = ConcurrentHashMap.newKeySet();
+
     private static void trackSpawns(Connection connection, Packet<?> packet) {
         if (connection != spawnConnection) {
             SPAWNS.clear();
+            PERSISTENT.clear();
             spawnConnection = connection;
+        }
+        if (com.vyrriox.justreplay.compat.CreateCompat.isPersistent(packet)) {
+            if (PERSISTENT.size() < MAX_PERSISTENT) {
+                PERSISTENT.add(packet);
+            } else if (PERSISTENT.size() == MAX_PERSISTENT && FAILED_GLOBAL.add("persistent")) {
+                JustReplay.LOGGER.warn("Too many train network packets on this connection; later snapshots may miss trains");
+            }
         }
         if (packet instanceof ClientboundLoginPacket || packet instanceof net.minecraft.network.protocol.game.ClientboundRespawnPacket) {
             SPAWNS.clear();
@@ -952,6 +970,7 @@ public final class Recorder {
             equipment.add(Pair.of(slot, player.getItemBySlot(slot).copy()));
         }
         write(listener, new ClientboundSetEquipmentPacket(player.getId(), equipment), sink);
+        com.vyrriox.justreplay.compat.EmotecraftCompat.writeCurrent(player, actorUuid, packet -> write(listener, packet, sink));
     }
 
     // ---------------------------------------------------------------- packet writing
@@ -1080,6 +1099,9 @@ public final class Recorder {
         }
         lastSwinging = player.swinging;
         lastSwingTime = player.swingTime;
+
+        // The server never sends a player its own emotes: they are written as another client receives them.
+        localEmotes.poll(player, actorUuid, respawned, packet -> write(listener, packet));
     }
 
     /** Tab list entry and entity of the actor standing for the recording player (vanilla never sends it its own). */
@@ -1198,6 +1220,13 @@ public final class Recorder {
     private void writeSnapshotTail(Minecraft mc, ClientPacketListener listener, Consumer<byte[]> sink) {
         ClientLevel level = mc.level;
         LocalPlayer player = mc.player;
+        List<Packet<?>> persistent;
+        synchronized (PERSISTENT) {
+            persistent = new ArrayList<>(PERSISTENT);
+        }
+        for (Packet<?> packet : persistent) {
+            write(listener, packet, sink);
+        }
         write(listener, new ClientboundGameEventPacket(ClientboundGameEventPacket.LEVEL_CHUNKS_LOAD_START, 0.0F), sink);
 
         List<Entity> withPassengers = new ArrayList<>();
@@ -1213,6 +1242,12 @@ public final class Recorder {
         }
         for (Entity vehicle : withPassengers) {
             write(listener, new ClientboundSetPassengersPacket(vehicle), sink);
+        }
+        // Emotes in progress: their start packets lie before the snapshot.
+        for (net.minecraft.world.entity.player.Player other : level.players()) {
+            if (other != player) {
+                com.vyrriox.justreplay.compat.EmotecraftCompat.writeCurrent(other, other.getUUID(), packet -> write(listener, packet, sink));
+            }
         }
     }
 

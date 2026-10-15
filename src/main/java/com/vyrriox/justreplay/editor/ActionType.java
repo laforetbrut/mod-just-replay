@@ -54,7 +54,9 @@ public enum ActionType {
     /** Plays an animation of a model actor; the parameter is the animation name. */
     ANIMATION("AN", Kind.STATE, 0, ""),
     /** Sends a vanilla entity event byte (the parameter) to the entity when the play head passes it. */
-    ENTITY_EVENT("EV", Kind.ONE_SHOT, 0, "4");
+    ENTITY_EVENT("EV", Kind.ONE_SHOT, 0, "4"),
+    /** Plays an Emotecraft emote on a player actor; the parameter is the emote name (or UUID). Needs Emotecraft. */
+    EMOTE("EM", Kind.STATE, 0, "waving");
 
     public enum Kind { ONE_SHOT, STATE, MARKER }
 

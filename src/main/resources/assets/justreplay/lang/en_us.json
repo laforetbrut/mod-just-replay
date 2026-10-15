@@ -645,5 +645,6 @@
   "justreplay.audio.fade_curve.tip": "Shape of the fade in and fade out",
   "justreplay.audio.fade_curve.linear": "Linear",
   "justreplay.audio.fade_curve.equal_power": "Equal power",
-  "justreplay.audio.fade_curve.exponential": "Exponential"
+  "justreplay.audio.fade_curve.exponential": "Exponential",
+  "justreplay.action.emote": "Emote"
 }

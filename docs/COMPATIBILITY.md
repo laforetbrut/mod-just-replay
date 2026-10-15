@@ -6,6 +6,29 @@ Reference pack: **Arcadia V2** (444 mods, NeoForge 1.21.1). Just Replay must rec
 export with every mod of this pack installed. Most mods work for free because recording captures every
 clientbound packet, custom payloads included. The mods below need dedicated work, ordered by risk.
 
+### Status of the dedicated integrations
+
+Every integration is optional: it is reached by reflection or by optional mixins
+(`justreplay.compat.mixins.json`, `require = 0`), and does nothing when its mod is absent. The code lives in
+`com.vyrriox.justreplay.compat`.
+
+| Mod | What Just Replay does | Status |
+|---|---|---|
+| **WaterFrames** (WaterMedia) | The play time of a display (`DisplayData.tick`) is rebuilt from the replay cursor: every time the stream loads display data (chunk, block entity update, WaterFrames control packet), the tick it carries is anchored to the recorded tick of that packet. The WaterMedia player then follows it: paused with the replay, played at the replay speed, moved after a seek or when it drifts by more than 1 s. During an export the video is held paused and moved to the exact time of every rendered frame, with its sound muted (the export sound track is built from game sounds only). | Code complete, partly tested: the Arcadia self test placed a frame, but it was placed in the same tick as the recording start and was missed by the recording (see "Known limits"); the self test now places it after the start. Video sync not yet observed in game. |
+| **Emotecraft** (player-animation-lib) | Emotes of other players are recorded as packets. The local player's own emotes (never sent back by the server) are polled every tick and written as the packets another client receives, aimed at the recording player's actor. Snapshots and checkpoints carry the emote each player is playing. A seek starts skipped emotes late by the time skipped, or drops them when they are over. The animation stack follows the replay clock (holds while paused, runs once per recorded tick above x1). Editor actors get an `EMOTE` action (parameter: emote name or UUID). | Tested in the Arcadia pack: the local emote is recorded (`"waving"@20` at recording tick 60), the recorder's actor plays an emote after a seek into it and while paused (its tick was not printed: the diagnostic failed on network emote names, now fixed), no emote after a seek past its end, the `EMOTE` action plays on an actor (`"waving"@11` 11 ticks after the action). |
+| **Create** (Flywheel, Ponder) | Create's animation clock (`AnimationTickHolder`) and the level renderer clock read by Flywheel's shaders are set to the replay cursor: kinetic visuals stop with the replay, follow its speed and show the same angles after a seek and in exports. The train network packets (track graphs, edge groups, trains, roll calls), sent once per connection, are kept and written again in every snapshot and checkpoint. Contraptions keep their original spawn packets through the existing spawn cache; block entity data travels in chunk packets. | Clock tested in the Arcadia pack (the counter equals the cursor, stays still while paused). Trains and moving contraptions untested. |
+| **Mekanism** | Machines are block entities synced by update packets and chunk data: no dedicated code. | Machine placed in the self test, no error in the log; visuals not inspected. |
+| **Distant Horizons** | While a replay runs, through DH's public API (`DhApi.Delayed`): LOD rendering and distant generation are turned off with API overrides, and the DH world is set read only so no LOD of the throw-away replay world is saved. The overrides are cleared when the replay ends. | Built against the API of DH 3.3.3 (class names checked in the jar), not run yet. |
+| **Bobby** | Bobby reports itself disabled while a replay runs (no cached chunks, nothing saved). | Unchanged. |
+
+### Known limits
+
+- A block changed in the very tick a recording starts in the middle of a session can be missed: the packet is
+  captured before the start but handled by the client after the snapshot.
+- WaterFrames in exports: WaterMedia seeks are asynchronous, so a video can lag a few frames behind the exported
+  time on a fast export.
+- Create trains in a recording started mid-session depend on the kept train network packets; this path is untested.
+
 ### Tier 1: rendering pipeline (blocking for playback and export)
 
 | Mod | Risk | Plan |
@@ -16,7 +39,7 @@ clientbound packet, custom payloads included. The mods below need dedicated work
 | ImmediatelyFast, EntityCulling, ModernFix, FerriteCore | Batching and culling may hide entities in free camera | Disable entity culling while a replay is open, check batching with frame capture |
 | Ixeris | Moves window and event handling off the render thread | Check input in the editor (ImGui) and frame pacing during export |
 | Bobby (reneoforged) | Serves cached chunks, would mix stale terrain into replays | Disable Bobby while a replay world is loaded |
-| Distant Horizons | Not in this pack | Planned later |
+| Distant Horizons | Not in this pack | LOD rendering, generation and saving turned off during a replay (see above) |
 
 ### Tier 2: animations driven by client time (must follow replay time, pause and speed)
 
@@ -81,3 +104,36 @@ personnalisés. Les mods ci-dessus demandent un traitement dédié, classés par
 Protocole de test : un environnement de développement avec les mods principaux, puis le pack complet sur un
 serveur (10 minutes enregistrées, relues, éditées et exportées). Chaque problème est consigné dans
 `ERROR_LOG.md`.
+
+### État des intégrations dédiées
+
+Chaque intégration est optionnelle (réflexion ou mixins optionnels de `justreplay.compat.mixins.json`) et ne
+fait rien quand le mod est absent. Le code se trouve dans `com.vyrriox.justreplay.compat`.
+
+- **WaterFrames** : le temps de lecture d'un écran est recalculé à partir du curseur du replay, ancré sur le
+  tick enregistré de chaque paquet qui charge ses données. Le lecteur WaterMedia suit : pause avec le replay,
+  vitesse du replay, repositionné après un saut dans le temps ou s'il dérive de plus d'une seconde. En export,
+  la vidéo reste en pause et est placée au temps exact de chaque image, son coupé. Code terminé, testé en
+  partie : la vidéo synchronisée n'a pas encore été observée en jeu (le cadre du test automatique était posé
+  trop tôt ; c'est corrigé dans le test).
+- **Emotecraft** : les emotes des autres joueurs sont enregistrées telles quelles ; celles du joueur local
+  (jamais renvoyées par le serveur) sont relevées à chaque tick et écrites comme les paquets reçus par un autre
+  client, sur l'acteur du joueur enregistré. Les instantanés et points de reprise contiennent les emotes en
+  cours, un saut dans le temps les démarre au bon moment, la pile d'animation suit l'horloge du replay. Les
+  acteurs de l'éditeur ont une action `EMOTE` (paramètre : nom ou UUID de l'emote). Testé dans le pack
+  Arcadia.
+- **Create** : l'horloge d'animation de Create et celle du rendu du niveau (lue par les shaders de Flywheel)
+  valent le curseur du replay : les éléments cinétiques s'arrêtent en pause, suivent la vitesse et retrouvent
+  le même angle après un saut et en export. Les paquets du réseau ferroviaire, envoyés une seule fois par
+  connexion, sont conservés et réécrits dans chaque instantané et point de reprise. Horloge testée dans le pack
+  Arcadia ; trains et contraptions en mouvement non testés.
+- **Mekanism** : aucune intégration nécessaire (données de blocs synchronisées par paquets). Machine posée dans
+  le test, aucune erreur ; rendu non vérifié.
+- **Distant Horizons** : pendant un replay, via l'API publique de DH, le rendu et la génération des LOD sont
+  coupés et le monde DH passe en lecture seule, donc rien n'est sauvegardé pour le monde jetable du replay.
+  Les réglages reviennent à la fin du replay. Écrit d'après l'API de DH 3.3.3, pas encore lancé.
+- **Bobby** : désactivé pendant un replay (inchangé).
+
+Limites connues : un bloc modifié dans le tick exact où un enregistrement démarre en cours de partie peut
+manquer ; en export, une vidéo WaterFrames peut avoir quelques images de retard ; les trains de Create dans un
+enregistrement démarré en cours de partie ne sont pas testés.

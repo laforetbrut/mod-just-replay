@@ -263,6 +263,7 @@ public final class ReplaySession {
             s.blocking = true;
             s.state = State.STARTING;
             JustReplay.LOGGER.info("Replay connection established, playback starts next tick");
+            com.vyrriox.justreplay.compat.ReplayCompat.onReplayStart(Minecraft.getInstance());
         }
     }
 
@@ -272,6 +273,7 @@ public final class ReplaySession {
             s.spectate.clear();
             VideoExporter.cancel();
             s.voices.close();
+            com.vyrriox.justreplay.compat.ReplayCompat.onReplayEnd();
             s.saveProject();
             current = null;
             pendingWorldCleanup = true;
@@ -303,6 +305,7 @@ public final class ReplaySession {
             return;
         }
         s.playback.tick(mc);
+        com.vyrriox.justreplay.compat.ReplayCompat.tick(mc, s);
         try {
             s.voices.tick(mc, s);
         } catch (Throwable t) {

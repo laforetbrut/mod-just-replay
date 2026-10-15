@@ -43,6 +43,8 @@ public final class SelfTest {
     private static int settle;
     private static int speedStart;
     private static Path replay;
+    /** Start position of the recording, around which the modded test content is placed. */
+    private static net.minecraft.core.BlockPos modsBase;
     private static Path clip;
     private static java.util.concurrent.CompletableFuture<com.vyrriox.justreplay.format.ReplayBuffer.Saved> clipSave;
     /** Blocks the placement steps seat and lay actors on: stairs and the head of a bed. */
@@ -151,6 +153,8 @@ public final class SelfTest {
                 p.connection.sendCommand("setblock ~3 ~1 ~-3 create:cogwheel");
                 // Furniture for the placement steps, out of the walking circle: stairs facing west, a bed facing south.
                 net.minecraft.core.BlockPos base = p.blockPosition();
+                modsBase = base;
+                Mods.prepare(mc);
                 stairPos = base.offset(9, 0, 0);
                 bedPos = base.offset(9, 0, -3);
                 p.connection.sendCommand(String.format("setblock %d %d %d minecraft:oak_stairs[facing=west]", stairPos.getX(), stairPos.getY(), stairPos.getZ()));
@@ -163,11 +167,26 @@ public final class SelfTest {
             case 3 -> {
                 // Walk in a circle for ~10 seconds, jumping and swinging.
                 int t = Recorder.active() != null ? Recorder.active().tick() : 0;
-                p.setYRot(p.getYRot() + 4);
-                p.setYHeadRot(p.getYRot());
-                Vec3 look = Vec3.directionFromRotation(0, p.getYRot()).scale(0.25);
-                p.setDeltaMovement(look.x, p.getDeltaMovement().y, look.z);
-                if (t % 40 == 0 && p.onGround()) {
+                // With Emotecraft the player stands still from tick 40 to 100 to wave (moving stops an emote).
+                boolean emoting = Mods.loaded("emotecraft") && t >= 40 && t < 100;
+                if (t == 5) {
+                    // Placed once the recording runs: a block changed in the same tick as the start could be missed.
+                    Mods.place(mc, p, modsBase);
+                }
+                if (t == 40 && Mods.loaded("emotecraft")) {
+                    p.setDeltaMovement(0, p.getDeltaMovement().y, 0);
+                    log("local emote started: {}", com.vyrriox.justreplay.compat.EmotecraftCompat.playLocal("waving"));
+                }
+                if (t == 60 && Mods.loaded("emotecraft")) {
+                    log("local emote at recording tick 60: {}", com.vyrriox.justreplay.compat.EmotecraftCompat.describe(p));
+                }
+                if (!emoting) {
+                    p.setYRot(p.getYRot() + 4);
+                    p.setYHeadRot(p.getYRot());
+                    Vec3 look = Vec3.directionFromRotation(0, p.getYRot()).scale(0.25);
+                    p.setDeltaMovement(look.x, p.getDeltaMovement().y, look.z);
+                }
+                if (t % 40 == 0 && p.onGround() && !emoting) {
                     p.jumpFromGround();
                 }
                 if (t % 15 == 0) {
@@ -213,18 +232,31 @@ public final class SelfTest {
             case 6 -> {
                 ReplaySession s = ReplaySession.current();
                 logWorld(mc, s, "playing");
+                log("mods while playing: {}", Mods.state(mc, s));
                 shot(mc, "1-playing");
-                s.playback().seek(150);
-                next(30);
+                // Mod clocks after a seek into the emote, then while paused: nothing may move.
+                s.playback().seek(60);
+                s.playback().setPaused(true);
+                log("mods after seek to 60, paused: {}", Mods.state(mc, s));
+                next(20);
             }
             case 7 -> {
                 ReplaySession s = ReplaySession.current();
+                log("mods 20 ticks later, still paused: {}", Mods.state(mc, s));
+                shot(mc, "1b-paused60");
+                s.playback().setPaused(false);
+                s.playback().seek(150);
+                next(30);
+            }
+            case 8 -> {
+                ReplaySession s = ReplaySession.current();
                 logWorld(mc, s, "after forward seek");
+                log("mods after forward seek: {}", Mods.state(mc, s));
                 shot(mc, "2-seek150");
                 s.playback().seek(20);
                 next(30);
             }
-            case 8 -> {
+            case 9 -> {
                 ReplaySession s = ReplaySession.current();
                 logWorld(mc, s, "after backward seek");
                 shot(mc, "3-seek20");
@@ -232,7 +264,7 @@ public final class SelfTest {
                 s.playback().changeSpeed(2);
                 next(10);
             }
-            case 9 -> {
+            case 10 -> {
                 ReplaySession s = ReplaySession.current();
                 log("speed x{}: cursor advanced {} ticks in 10 client ticks", s.playback().speed(), s.playback().cursor() - speedStart);
                 s.playback().resetSpeed();
@@ -261,6 +293,9 @@ public final class SelfTest {
                 zombie.actions.add(new ReplayProject.ActorAction(30, com.vyrriox.justreplay.editor.ActionType.AGGRESSIVE, 60, ""));
                 zombie.actions.add(new ReplayProject.ActorAction(50, com.vyrriox.justreplay.editor.ActionType.HURT, 0, ""));
                 player.actions.add(new ReplayProject.ActorAction(25, com.vyrriox.justreplay.editor.ActionType.WAVE, 40, ""));
+                if (Mods.loaded("emotecraft")) {
+                    player.actions.add(new ReplayProject.ActorAction(70, com.vyrriox.justreplay.editor.ActionType.EMOTE, 60, "waving"));
+                }
                 // Walk from the keyframe to a point 6 blocks away, and the zombie follows the recording player.
                 player.actions.add(new ReplayProject.ActorAction(30, com.vyrriox.justreplay.editor.ActionType.WALK_TO, 0,
                         String.format(java.util.Locale.ROOT, "%.2f %.2f %.2f", c.x + 2, c.y, c.z + 8)));
@@ -279,12 +314,16 @@ public final class SelfTest {
                 s.playback().setPaused(false);
                 next(60);
             }
-            case 10 -> {
+            case 11 -> {
                 ReplaySession s = ReplaySession.current();
                 logWorld(mc, s, "camera path + actors");
                 for (ReplayProject.ActorData a : s.project().actors) {
                     Entity e = s.actors().entityOf(a);
                     log("actor {} -> {}", a.type, e == null ? "missing" : e.getClass().getSimpleName() + " @ " + e.position());
+                    if (e instanceof net.minecraft.world.entity.player.Player) {
+                        log("actor {} emote at cursor {}: {}", a.name, s.playback().cursor(),
+                                com.vyrriox.justreplay.compat.EmotecraftCompat.describe(e));
+                    }
                 }
                 shot(mc, "4-path-actors");
                 // Every curve and timing must give a usable camera state; the free camera then shows the 3D path.
@@ -336,7 +375,7 @@ public final class SelfTest {
                 mc.setScreen(new EditorScreen(s));
                 next(10);
             }
-            case 11 -> {
+            case 12 -> {
                 shot(mc, "5-editor");
                 // The simple editor on the same project.
                 com.vyrriox.justreplay.config.JRConfig.EDITOR_MODE.set(com.vyrriox.justreplay.config.JRConfig.EditorMode.SIMPLE);
@@ -416,10 +455,10 @@ public final class SelfTest {
             case 34 -> {
                 // Transitions and filters: runs its own sub-steps, then the test goes on with the export.
                 if (effects(mc)) {
-                    go(12, 5);
+                    go(13, 5);
                 }
             }
-            case 12 -> {
+            case 13 -> {
                 mc.setScreen(null);
                 ReplaySession s = ReplaySession.current();
                 s.setCameraPath(false);
@@ -431,24 +470,25 @@ public final class SelfTest {
                 log("export start error={}", error == null ? "none" : error.getString());
                 next(1);
             }
-            case 13 -> {
+            case 14 -> {
                 if (!VideoExporter.isActive()) {
                     next(200);
                 }
             }
-            case 14 -> {
+            case 15 -> {
                 Path mp4 = ReplayStorage.exportRoot().resolve("selftest.mp4");
                 log("export file exists={} size={}", Files.exists(mp4), Files.exists(mp4) ? Files.size(mp4) : 0);
                 log("export audio clips mixed={} (expected 2), audio mux log={}", com.vyrriox.justreplay.export.ExportAudio.lastMixedClips(),
                         Files.exists(ReplayStorage.exportRoot().resolve("selftest.mp4.audio.log")));
+                log("mods after export: {}", Mods.state(mc, ReplaySession.current()));
                 mc.level.disconnect();
                 mc.disconnect(new TitleScreen());
                 next(60);
             }
-            case 15 -> {
+            case 16 -> {
                 if (atMenu(mc)) {
                     if (clip == null) {
-                        step = 18;
+                        step = 19;
                         return;
                     }
                     ReplaySession.open(clip, mc.screen);
@@ -456,12 +496,12 @@ public final class SelfTest {
                     next(40);
                 }
             }
-            case 16 -> {
+            case 17 -> {
                 if (ReplaySession.isRunning() && p != null) {
                     next(60);
                 }
             }
-            case 17 -> {
+            case 18 -> {
                 ReplaySession s = ReplaySession.current();
                 logWorld(mc, s, "buffer clip playing");
                 shot(mc, "6-buffer-clip");
@@ -473,7 +513,7 @@ public final class SelfTest {
                 mc.disconnect(new TitleScreen());
                 next(60);
             }
-            case 18 -> {
+            case 19 -> {
                 com.vyrriox.justreplay.config.JRConfig.REPLAY_BUFFER.set(false);
                 com.vyrriox.justreplay.config.JRConfig.EDITOR_MODE.set(com.vyrriox.justreplay.config.JRConfig.EditorMode.SIMPLE);
                 log("DONE");
@@ -635,6 +675,78 @@ public final class SelfTest {
         }
         try (var files = Files.list(dir)) {
             return files.mapToLong(f -> f.toFile().length()).sum();
+        }
+    }
+
+    /** Optional mods of the test pack: content placed before the recording and their replay state. */
+    private static final class Mods {
+        private Mods() {
+        }
+
+        static boolean loaded(String modId) {
+            return net.neoforged.fml.ModList.get().isLoaded(modId);
+        }
+
+        /** Makes the test video before the recording starts (FFmpeg takes a moment). */
+        static void prepare(Minecraft mc) {
+            if (loaded("waterframes")) {
+                testVideo(mc);
+            }
+        }
+
+        /** Places the modded test content around the start position, once the recording runs. */
+        static void place(Minecraft mc, LocalPlayer p, net.minecraft.core.BlockPos base) {
+            if (base == null) {
+                return;
+            }
+            if (loaded("waterframes")) {
+                Path video = testVideo(mc);
+                if (video != null) {
+                    // A looping 30 s test pattern with a running clock, muted.
+                    p.connection.sendCommand(String.format("setblock %d %d %d waterframes:frame[facing=south]{url:\"%s\",active:1b,loop:1b,"
+                                    + "max_x:3.0f,max_y:2.0f,volume:0,data_v:2s}", base.getX() - 2, base.getY() + 1, base.getZ() - 4,
+                            video.toAbsolutePath().toString().replace('\\', '/')));
+                }
+            }
+            if (loaded("mekanism")) {
+                p.connection.sendCommand(String.format("setblock %d %d %d mekanism:metallurgic_infuser", base.getX() - 3, base.getY(), base.getZ() - 1));
+            }
+        }
+
+        /** A short test video made with FFmpeg, or null. */
+        static Path testVideo(Minecraft mc) {
+            Path video = mc.gameDirectory.toPath().resolve("justreplay").resolve("selftest-video.mp4");
+            if (Files.exists(video)) {
+                return video;
+            }
+            try {
+                Files.createDirectories(video.getParent());
+                Process process = new ProcessBuilder(com.vyrriox.justreplay.config.JRConfig.FFMPEG_PATH.get(), "-y", "-f", "lavfi",
+                        "-i", "testsrc=duration=30:size=320x180:rate=20", "-pix_fmt", "yuv420p", video.toString())
+                        .redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.DISCARD).start();
+                if (!process.waitFor(60, java.util.concurrent.TimeUnit.SECONDS)) {
+                    process.destroyForcibly();
+                }
+                return Files.exists(video) ? video : null;
+            } catch (Exception e) {
+                log("cannot make the test video: {}", e.toString());
+                return null;
+            }
+        }
+
+        /** Create's animation clock, or -1. */
+        static int createTicks() {
+            try {
+                return (int) Class.forName("net.createmod.catnip.animation.AnimationTickHolder").getMethod("getTicks").invoke(null);
+            } catch (Throwable t) {
+                return -1;
+            }
+        }
+
+        static String state(Minecraft mc, ReplaySession s) {
+            return "cursor=" + s.playback().cursor() + " createTicks=" + createTicks()
+                    + " recorderEmote=" + com.vyrriox.justreplay.compat.EmotecraftCompat.describe(s.findRecorder(mc))
+                    + " waterframes=[" + com.vyrriox.justreplay.compat.WaterFramesCompat.describe() + "]";
         }
     }
 
