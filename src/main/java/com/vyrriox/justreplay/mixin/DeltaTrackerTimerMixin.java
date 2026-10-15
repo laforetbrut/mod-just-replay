@@ -9,8 +9,9 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * During a video export, every rendered frame advances the game by exactly one frame of video time instead of
- * the elapsed wall clock time.
+ * During a video export the game clock follows the export instead of the wall clock: whole ticks during the
+ * pre-roll, then exactly one frame of video time per rendered frame, with the partial tick set from the frame
+ * number so frame n always shows the same replay time.
  *
  * @author vyrriox
  */
@@ -25,14 +26,13 @@ public abstract class DeltaTrackerTimerMixin {
 
     @Inject(method = "advanceGameTime", at = @At("HEAD"), cancellable = true)
     private void justreplay$fixedStep(long time, CallbackInfoReturnable<Integer> cir) {
-        if (!VideoExporter.isFixedStep()) {
+        VideoExporter.TimerStep step = VideoExporter.nextTimerStep();
+        if (step == null) {
             return;
         }
         this.lastMs = time;
-        this.deltaTicks = VideoExporter.ticksPerFrame();
-        this.deltaTickResidual += this.deltaTicks;
-        int ticks = (int) this.deltaTickResidual;
-        this.deltaTickResidual -= ticks;
-        cir.setReturnValue(ticks);
+        this.deltaTicks = step.deltaTicks();
+        this.deltaTickResidual = step.partialTick();
+        cir.setReturnValue(step.ticks());
     }
 }

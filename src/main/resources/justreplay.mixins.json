@@ -10,7 +10,9 @@
     "IntegratedServerMixin",
     "PlayerInfoAccessor",
     "BossHealthOverlayAccessor",
-    "PlayerTabOverlayAccessor"
+    "PlayerTabOverlayAccessor",
+    "WindowMixin",
+    "MinecraftBlitMixin"
   ],
   "injectors": {
     "defaultRequire": 1

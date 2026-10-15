@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.config;
 
+import com.vyrriox.justreplay.export.ExportResolution;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 /**
@@ -18,6 +19,7 @@ public final class JRConfig {
     public static final ModConfigSpec.IntValue EXPORT_FPS;
     public static final ModConfigSpec.IntValue EXPORT_CRF;
     public static final ModConfigSpec.IntValue EXPORT_WARMUP_FRAMES;
+    public static final ModConfigSpec.EnumValue<ExportResolution> EXPORT_RESOLUTION;
 
     static {
         ModConfigSpec.Builder b = new ModConfigSpec.Builder();
@@ -43,8 +45,11 @@ public final class JRConfig {
                 .defineInRange("fps", 60, 10, 240);
         EXPORT_CRF = b.comment("x264 quality factor, lower is better (18 is visually lossless).")
                 .defineInRange("crf", 18, 0, 51);
-        EXPORT_WARMUP_FRAMES = b.comment("Frames rendered before capture starts, lets chunks finish building.")
+        EXPORT_WARMUP_FRAMES = b.comment("Minimum frames rendered before capture starts; capture also waits for the chunks to be built.")
                 .defineInRange("warmupFrames", 90, 0, 2000);
+        EXPORT_RESOLUTION = b.comment("Size of exported videos. WINDOW keeps the window size; the others render at that size",
+                        "whatever the window, or are scaled by FFmpeg when the graphics card cannot render that large.")
+                .defineEnum("resolution", ExportResolution.WINDOW);
         b.pop();
         SPEC = b.build();
     }

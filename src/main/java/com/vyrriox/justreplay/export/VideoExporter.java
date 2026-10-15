@@ -4,8 +4,8 @@ import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.vyrriox.justreplay.JustReplay;
 import com.vyrriox.justreplay.config.JRConfig;
-import com.vyrriox.justreplay.editor.CameraController;
 import com.vyrriox.justreplay.format.ReplayStorage;
+import com.vyrriox.justreplay.replay.Playback;
 import com.vyrriox.justreplay.replay.ReplaySession;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
@@ -27,12 +27,35 @@ import java.util.concurrent.TimeUnit;
 /**
  * Renders the camera path to a video. The game clock is driven frame by frame (see the delta tracker mixin),
  * so every frame is exact whatever the machine speed, and frames are piped to an external FFmpeg process.
+ * <p>
+ * An export runs in three phases: a pre-roll that plays up to one second of real ticks before the first frame
+ * (entities, particles and animations are in motion when capture starts), a settle phase that holds the clock
+ * on the first frame until the chunks around the camera are built, then the capture itself, where frame n
+ * shows exactly {@code startTick + n * 20 / fps}.
  *
  * @author vyrriox
  */
 public final class VideoExporter {
     private static final byte[] END = new byte[0];
+    /** Ticks played before the first frame. */
+    private static final int PRE_ROLL_TICKS = 20;
+    /** Pre-roll frames after which the pre-roll gives up waiting for the replay cursor. */
+    private static final int MAX_PRE_ROLL_FRAMES = 600;
+    /** Consecutive frames with every visible section compiled before capture starts. */
+    private static final int READY_FRAMES = 5;
+    /** Settle frames after which capture starts even if chunks are still building. */
+    private static final int MAX_SETTLE_FRAMES = 1200;
     private static VideoExporter current;
+
+    private enum Phase {
+        PRE_ROLL, SETTLE, CAPTURE
+    }
+
+    /** What the game clock does on one rendered frame: client ticks to run and the partial tick to show. */
+    public record TimerStep(int ticks, float deltaTicks, float partialTick) {
+        private static final TimerStep HOLD = new TimerStep(0, 0.0F, 0.0F);
+        private static final TimerStep ONE_TICK = new TimerStep(1, 1.0F, 0.0F);
+    }
 
     private final ReplaySession session;
     private final int startTick;
@@ -47,15 +70,22 @@ public final class VideoExporter {
     private final int height;
     private final boolean previousHideGui;
     private final boolean previousPauseOnLostFocus;
-    private int warmup;
-    private boolean capturing;
+    private final int warmupFrames;
+    private final int captureCursor;
+    private Phase phase = Phase.PRE_ROLL;
+    private int warmedFrames;
+    private int preRollFrames;
+    private int settleFrames;
+    private int readyStreak;
+    private long ticksIssued;
+    private boolean timerPrepared;
     private int frames;
     private final ExportAudio audio;
     private volatile boolean failed;
     private boolean finished;
 
-    private VideoExporter(ReplaySession session, int startTick, int endTick, int fps, Path output, Process process, int width, int height) {
-        Minecraft mc = Minecraft.getInstance();
+    private VideoExporter(ReplaySession session, int startTick, int endTick, int fps, Path output, Process process, int width, int height,
+                          boolean previousHideGui, boolean previousPauseOnLostFocus) {
         this.session = session;
         this.startTick = startTick;
         this.endTick = endTick;
@@ -65,9 +95,10 @@ public final class VideoExporter {
         this.stdin = process.getOutputStream();
         this.width = width;
         this.height = height;
-        this.warmup = JRConfig.EXPORT_WARMUP_FRAMES.get();
-        this.previousHideGui = mc.options.hideGui;
-        this.previousPauseOnLostFocus = mc.options.pauseOnLostFocus;
+        this.warmupFrames = JRConfig.EXPORT_WARMUP_FRAMES.get();
+        this.captureCursor = startTick + 1;
+        this.previousHideGui = previousHideGui;
+        this.previousPauseOnLostFocus = previousPauseOnLostFocus;
         this.audio = new ExportAudio(fps);
         this.writerThread = new Thread(this::pump, "JustReplay export");
         this.writerThread.setDaemon(true);
@@ -86,13 +117,15 @@ public final class VideoExporter {
         return current != null;
     }
 
-    public static float ticksPerFrame() {
+    /** Clock step of the frame about to be rendered, or null when no export is running. */
+    public static TimerStep nextTimerStep() {
         VideoExporter e = current;
-        return e == null || !e.capturing ? 0.0F : 20.0F / e.fps;
+        return e == null ? null : e.timerStep();
     }
 
     public float progress() {
-        return Math.min(1.0F, (float) frames / Math.max(1, (endTick - startTick) * fps / 20));
+        long total = (long) (endTick - startTick) * fps / 20 + 1;
+        return Math.min(1.0F, (float) frames / Math.max(1L, total));
     }
 
     /** Starts an export of the camera path between two ticks. Returns an error message, or null on success. */
@@ -105,9 +138,10 @@ public final class VideoExporter {
         }
         Minecraft mc = Minecraft.getInstance();
         RenderTarget target = mc.getMainRenderTarget();
-        int width = target.width;
-        int height = target.height;
+        int windowWidth = target.width;
+        int windowHeight = target.height;
         int fps = JRConfig.EXPORT_FPS.get();
+        ExportResolution resolution = JRConfig.EXPORT_RESOLUTION.get();
         String safeName = fileName.replaceAll("[^A-Za-z0-9._-]", "_");
         if (safeName.isBlank()) {
             safeName = "export";
@@ -121,35 +155,118 @@ public final class VideoExporter {
             // Never overwrite an earlier export.
             output = ReplayStorage.exportRoot().resolve(base + "_" + n + ".mp4");
         }
-        safeName = output.getFileName().toString();
-        List<String> command = new ArrayList<>(List.of(
-                JRConfig.FFMPEG_PATH.get(), "-y",
-                "-f", "rawvideo", "-pix_fmt", "rgba", "-s", width + "x" + height, "-r", Integer.toString(fps), "-i", "-",
-                "-vf", "crop=trunc(iw/2)*2:trunc(ih/2)*2",
-                "-c:v", "libx264", "-preset", "medium", "-crf", Integer.toString(JRConfig.EXPORT_CRF.get()),
-                "-pix_fmt", "yuv420p", "-movflags", "+faststart", output.toString()));
+
+        // Render at the chosen size when the GPU allows it, otherwise at window size with FFmpeg scaling.
+        int outWidth = resolution.isWindow() ? windowWidth : resolution.width();
+        int outHeight = resolution.isWindow() ? windowHeight : resolution.height();
+        boolean trueSize = resolution.isWindow() || ExportRenderSize.fits(outWidth, outHeight);
+        int renderWidth = trueSize ? outWidth : windowWidth;
+        int renderHeight = trueSize ? outHeight : windowHeight;
         Process process;
         try {
-            process = new ProcessBuilder(command)
-                    .redirectErrorStream(true)
-                    .redirectOutput(output.resolveSibling(safeName + ".log").toFile())
-                    .start();
+            process = launch(output, fps, renderWidth, renderHeight, trueSize ? 0 : outWidth, outHeight);
         } catch (IOException e) {
             JustReplay.LOGGER.error("Cannot start ffmpeg", e);
             return Component.translatable("justreplay.export.error.ffmpeg", JRConfig.FFMPEG_PATH.get());
         }
-        VideoExporter exporter = new VideoExporter(session, startTick, endTick, fps, output, process, width, height);
-        current = exporter;
-        exporter.writerThread.start();
+
+        boolean previousHideGui = mc.options.hideGui;
+        boolean previousPauseOnLostFocus = mc.options.pauseOnLostFocus;
         mc.getSoundManager().stop(); // live sounds would be heard out of sync; the track is rebuilt offline
         mc.options.hideGui = true;
         mc.options.pauseOnLostFocus = false;
         mc.setScreen(null);
-        session.playback().resetSpeed();
-        session.playback().seek(startTick + 1);
-        session.playback().setPaused(false);
-        JustReplay.LOGGER.info("Exporting ticks {}..{} at {} fps, {}x{} to {}", startTick, endTick, fps, width, height, output);
+        // The render size is changed before the warm-up so shader packs rebuild their pipeline before capture.
+        ExportRenderSize.lock();
+        if (!ExportRenderSize.apply(renderWidth, renderHeight)) {
+            JustReplay.LOGGER.warn("Cannot render at {}x{}, rendering at window size and scaling with FFmpeg instead", renderWidth, renderHeight);
+            process.destroyForcibly();
+            try {
+                process.waitFor(5, TimeUnit.SECONDS);
+            } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
+            }
+            RenderTarget fallback = mc.getMainRenderTarget();
+            renderWidth = fallback.width;
+            renderHeight = fallback.height;
+            try {
+                process = launch(output, fps, renderWidth, renderHeight, outWidth, outHeight);
+            } catch (IOException e) {
+                JustReplay.LOGGER.error("Cannot start ffmpeg", e);
+                ExportRenderSize.unlock();
+                mc.options.hideGui = previousHideGui;
+                mc.options.pauseOnLostFocus = previousPauseOnLostFocus;
+                SystemToast.add(mc.getToasts(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+                        Component.translatable("justreplay.export.failed"), Component.literal(output.getFileName().toString()));
+                return Component.translatable("justreplay.export.error.ffmpeg", JRConfig.FFMPEG_PATH.get());
+            }
+        }
+
+        VideoExporter exporter = new VideoExporter(session, startTick, endTick, fps, output, process, renderWidth, renderHeight,
+                previousHideGui, previousPauseOnLostFocus);
+        current = exporter;
+        exporter.writerThread.start();
+        Playback playback = session.playback();
+        playback.resetSpeed();
+        playback.setPaused(false);
+        playback.seek(Math.max(0, startTick + 1 - PRE_ROLL_TICKS));
+        JustReplay.LOGGER.info("Exporting ticks {}..{} at {} fps, rendered at {}x{}, output {}x{}{} to {}", startTick, endTick, fps,
+                renderWidth, renderHeight, outWidth, outHeight, renderWidth != outWidth || renderHeight != outHeight ? " (scaled by FFmpeg)" : "",
+                output);
         return null;
+    }
+
+    /**
+     * Starts FFmpeg reading raw RGBA frames of the render size. A non-zero {@code scaleWidth} scales the frames
+     * to {@code scaleWidth x scaleHeight} (Lanczos, aspect kept by cropping); otherwise only an odd edge is
+     * cropped. The output is H.264 tagged BT.709, limited range.
+     */
+    private static Process launch(Path output, int fps, int renderWidth, int renderHeight, int scaleWidth, int scaleHeight) throws IOException {
+        String size = scaleWidth > 0
+                ? "scale=" + scaleWidth + ":" + scaleHeight + ":force_original_aspect_ratio=increase:flags=lanczos,crop=" + scaleWidth + ":" + scaleHeight
+                : "crop=trunc(iw/2)*2:trunc(ih/2)*2";
+        // The YUV conversion happens in this scale filter, so it uses the BT.709 matrix the stream is tagged with.
+        String filter = size + ",scale=iw:ih:flags=lanczos:out_color_matrix=bt709:out_range=tv,format=yuv420p";
+        List<String> command = new ArrayList<>(List.of(
+                JRConfig.FFMPEG_PATH.get(), "-y",
+                "-f", "rawvideo", "-pix_fmt", "rgba", "-s", renderWidth + "x" + renderHeight, "-r", Integer.toString(fps), "-i", "-",
+                "-vf", filter,
+                "-c:v", "libx264", "-preset", "medium", "-crf", Integer.toString(JRConfig.EXPORT_CRF.get()),
+                "-pix_fmt", "yuv420p", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv",
+                "-movflags", "+faststart", output.toString()));
+        return new ProcessBuilder(command)
+                .redirectErrorStream(true)
+                .redirectOutput(output.resolveSibling(output.getFileName() + ".log").toFile())
+                .start();
+    }
+
+    private TimerStep timerStep() {
+        timerPrepared = false;
+        Playback playback = session.playback();
+        switch (phase) {
+            case PRE_ROLL -> {
+                // One real tick per frame until the cursor is on the first frame, never past it.
+                if (playback.cursor() < captureCursor && playback.cursor() < playback.duration() && !playback.isPaused()
+                        && preRollFrames < MAX_PRE_ROLL_FRAMES) {
+                    return TimerStep.ONE_TICK;
+                }
+                phase = Phase.SETTLE;
+                return TimerStep.HOLD;
+            }
+            case SETTLE -> {
+                return TimerStep.HOLD;
+            }
+            default -> {
+                // Frame n shows startTick + n * 20 / fps; computed from the frame number so it never drifts, and
+                // idempotent so a frame that could not be captured is simply rendered again.
+                long video = (long) frames * 20;
+                long target = video / fps;
+                int ticks = (int) Math.max(0, target - ticksIssued);
+                ticksIssued = Math.max(ticksIssued, target);
+                timerPrepared = true;
+                return new TimerStep(ticks, 20.0F / fps, (float) (video % fps) / fps);
+            }
+        }
     }
 
     /** Called after every rendered frame. */
@@ -166,15 +283,18 @@ public final class VideoExporter {
             finish(false);
             return;
         }
-        if (!capturing) {
-            if (warmup-- > 0) {
-                return;
-            }
-            capturing = true;
+        if (phase != Phase.CAPTURE) {
+            warmUp(mc);
+            return;
         }
+        if (!timerPrepared || mc.screen != null || mc.getOverlay() != null) {
+            // Never burn a screen into the video; this frame is rendered again once it is gone.
+            return;
+        }
+        timerPrepared = false;
         RenderTarget target = mc.getMainRenderTarget();
         if (target.width != width || target.height != height) {
-            JustReplay.LOGGER.warn("Window resized during export, stopping");
+            JustReplay.LOGGER.warn("Render size changed during export ({}x{} instead of {}x{}), stopping", target.width, target.height, width, height);
             finish(false);
             return;
         }
@@ -197,9 +317,34 @@ public final class VideoExporter {
         frames++;
         Camera camera = mc.gameRenderer.getMainCamera();
         audio.onFrame(camera.getPosition().x, camera.getPosition().y, camera.getPosition().z, camera.getYRot());
-        if (CameraController.frameTime(session, partialTick) >= endTick || session.playback().cursor() >= session.playback().duration()) {
+        Playback playback = session.playback();
+        boolean reachedEnd = (long) (frames - 1) * 20 >= (long) (endTick - startTick) * fps;
+        if (reachedEnd || playback.isPaused() && playback.cursor() >= playback.duration()) {
             finish(true);
         }
+    }
+
+    /** Pre-roll and settle frames: nothing is captured, chunks build and the world gets in motion. */
+    private void warmUp(Minecraft mc) {
+        warmedFrames++;
+        if (phase == Phase.PRE_ROLL) {
+            preRollFrames++;
+            return;
+        }
+        settleFrames++;
+        readyStreak = mc.levelRenderer.hasRenderedAllSections() ? readyStreak + 1 : 0;
+        boolean built = readyStreak >= READY_FRAMES;
+        if (warmedFrames < warmupFrames || !built && settleFrames < MAX_SETTLE_FRAMES) {
+            return;
+        }
+        if (!built) {
+            JustReplay.LOGGER.warn("Chunks still building after {} frames, starting capture anyway", warmedFrames);
+        }
+        if (session.playback().cursor() != captureCursor) {
+            JustReplay.LOGGER.warn("Pre-roll ended at tick {} instead of {}", session.playback().cursor(), captureCursor);
+        }
+        phase = Phase.CAPTURE;
+        JustReplay.LOGGER.debug("Export warm-up done after {} frames", warmedFrames);
     }
 
     private void pump() {
@@ -231,6 +376,11 @@ public final class VideoExporter {
         finished = true;
         current = null;
         Minecraft mc = Minecraft.getInstance();
+        try {
+            ExportRenderSize.unlock();
+        } catch (Throwable t) {
+            JustReplay.LOGGER.error("Cannot restore the render size after an export", t);
+        }
         mc.options.hideGui = previousHideGui;
         mc.options.pauseOnLostFocus = previousPauseOnLostFocus;
         session.playback().setPaused(true);
@@ -301,7 +451,7 @@ public final class VideoExporter {
         if (e == null || event.getSound() == null) {
             return;
         }
-        e.audio.onSound(event.getSound(), e.frames, e.capturing);
+        e.audio.onSound(event.getSound(), e.frames, e.phase == Phase.CAPTURE);
         event.setSound(null);
     }
 
