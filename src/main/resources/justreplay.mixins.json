@@ -22,7 +22,8 @@
     "HoglinAccessor",
     "ZoglinAccessor",
     "HumanoidModelMixin",
-    "ActorBedMixin"
+    "ActorBedMixin",
+    "GameRendererFxMixin"
   ],
   "injectors": {
     "defaultRequire": 1

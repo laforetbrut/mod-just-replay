@@ -38,6 +38,13 @@ NeoForge 1.21.1, client side. Author: vyrriox. License: Apache-2.0.
   from the **Audio** tab: move, trim, split (**S**), duplicate (**Ctrl + D**), fade, loop and change the speed
   of clips on the timeline, set track volume, mute and solo, and lower or mute the game sounds (with ducking
   under the music). Clips play with the replay and are mixed into exports. MP3 must be converted first.
+  Overlapping clips of a track crossfade (equal power), and fades can be linear, equal power or exponential.
+- **Video effects**: picture transitions on cuts (cross dissolve, fade through black or white, wipe, slide,
+  zoom blur, circle iris) and a filter stack in the **Effects** tab (exposure, contrast, saturation,
+  temperature and tint, hue, vignette, film grain, sharpen, blur, black and white, sepia, chromatic aberration,
+  letterbox 2.39:1 / 1.85:1 / 2:1 / 4:3, LUT from `.minecraft/justreplay/luts/`), global or per camera, with
+  keyframes on every parameter and ready-made looks (Cinematic, Vintage, Noir, Warm, Cold). Fade in and out at
+  the start and end of the export. Rendered on the GPU after shader packs, in the preview and in exports.
 - **Glass interface**: a clear glass look with rounded corners and smooth animations. The editor has a
   collapsible sidebar (Cameras, Actors, Scene, Export), a bottom dock with the transport controls and a
   zoomable multi-lane timeline (Ctrl + wheel), and a shortcut overlay on **F1** or **?**.
@@ -66,6 +73,7 @@ NeoForge 1.21.1, client side. Author: vyrriox. License: Apache-2.0.
 - Videos: `.minecraft/justreplay/exports/`
 - Blockbench models: `.minecraft/justreplay/models/`
 - Audio files (OGG, WAV): `.minecraft/justreplay/audio/`
+- LUT images (PNG, 1024x32 strip or 512x512 grid): `.minecraft/justreplay/luts/`
 
 Video export needs [FFmpeg](https://ffmpeg.org/download.html). Set its path in the export screen if it is
 not on the `PATH`.
@@ -118,7 +126,16 @@ edit and export test in a development client.
   des pistes audio depuis l'onglet **Audio** : déplacer, rogner, scinder (**S**), dupliquer (**Ctrl + D**),
   ajouter des fondus, boucler et changer la vitesse des clips sur la timeline, régler le volume, le muet et le
   solo des pistes, et baisser ou couper les sons du jeu (avec ducking sous la musique). Les clips sont joués
-  avec le replay et mixés dans les exports. Les MP3 doivent d'abord être convertis.
+  avec le replay et mixés dans les exports. Les MP3 doivent d'abord être convertis. Les clips qui se
+  chevauchent sur une piste font un fondu enchaîné (puissance constante), et les fondus peuvent être
+  linéaires, à puissance constante ou exponentiels.
+- **Effets vidéo** : transitions d'image sur les coupes (fondu enchaîné, fondu au noir ou au blanc, volet,
+  glissement, zoom flou, iris) et une pile de filtres dans l'onglet **Effets** (exposition, contraste,
+  saturation, température et teinte, teinte chromatique, vignette, grain, netteté, flou, noir et blanc, sépia,
+  aberration chromatique, bandes 2.39:1 / 1.85:1 / 2:1 / 4:3, LUT depuis `.minecraft/justreplay/luts/`),
+  globale ou par caméra, avec des images clés sur chaque paramètre et des looks prêts à l'emploi (Cinematic,
+  Vintage, Noir, Warm, Cold). Fondu d'ouverture et de fermeture de l'export. Rendus sur le GPU après les shader
+  packs, dans l'aperçu comme dans les exports.
 - **Interface en verre** : un style de verre clair aux coins arrondis et aux animations fluides. L'éditeur a
   un panneau latéral repliable (Caméras, Acteurs, Scène, Export), un dock en bas avec les commandes de
   lecture et une timeline à pistes zoomable (Ctrl + molette), et la liste des raccourcis sur **F1** ou **?**.
@@ -133,6 +150,7 @@ Voir le tableau de la section anglaise. Toutes les touches se changent dans Opti
 - Vidéos : `.minecraft/justreplay/exports/`
 - Modèles Blockbench : `.minecraft/justreplay/models/`
 - Fichiers audio (OGG, WAV) : `.minecraft/justreplay/audio/`
+- Images LUT (PNG, bande 1024x32 ou grille 512x512) : `.minecraft/justreplay/luts/`
 
 L'export vidéo demande [FFmpeg](https://ffmpeg.org/download.html). Indiquer son chemin dans l'écran
 d'export s'il n'est pas dans le `PATH`.

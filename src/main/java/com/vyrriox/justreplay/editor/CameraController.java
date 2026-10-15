@@ -36,7 +36,13 @@ public final class CameraController {
         if (session == null || !ReplaySession.isRunning() || !session.isCameraPathActive() || mc.player == null) {
             return;
         }
-        double[] state = CameraRig.sampleProject(session.project(), frameTime(session, partialTick), partialTick, true);
+        double time = frameTime(session, partialTick);
+        double[] state = CameraRig.sampleProject(session.project(), time, partialTick, true);
+        // A picture transition reached without its outgoing frame shows the outgoing camera for one frame.
+        double[] outgoing = com.vyrriox.justreplay.editor.fx.FxEngine.outgoingState(session.project(), time, partialTick);
+        if (outgoing != null) {
+            state = outgoing;
+        }
         if (state == null) {
             return;
         }

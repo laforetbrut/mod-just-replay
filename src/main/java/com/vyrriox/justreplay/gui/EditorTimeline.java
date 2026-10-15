@@ -420,6 +420,7 @@ final class EditorTimeline {
                 }
             }
         }
+        EffectsPanel.renderTransitions(g, this, project, y, Lane.CUTS.height);
         if (!project.cuts.isEmpty() && project.cutsEnd >= 0) {
             int ex = xOf(Math.min(duration, project.cutTrackEnd(duration)));
             g.fill(ex, y - 1, ex + 1, y + h + 1, Timeline.SELECTED_COLOR);
@@ -492,6 +493,7 @@ final class EditorTimeline {
 
     private void markers(GuiGraphics g, Font font, ReplayProject project, int y) {
         int h = Lane.MARKERS.height;
+        EffectsPanel.renderEffectKeys(g, this, project, y, h);
         int lastEnd = Integer.MIN_VALUE;
         for (ReplayProject.Marker marker : project.markers) {
             int mx = xOf(marker.tick);

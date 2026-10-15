@@ -6,8 +6,8 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * One audio track of the project: a mixer strip (volume, mute, solo) holding clips. Clips of a track may overlap,
- * they are simply mixed.
+ * One audio track of the project: a mixer strip (volume, mute, solo) holding clips. Clips of a track may overlap:
+ * they crossfade over the overlap, or are simply mixed when {@link #crossfade} is off.
  *
  * @author vyrriox
  */
@@ -17,6 +17,8 @@ public final class AudioTrack {
     public float volume = 1.0F;
     public boolean mute;
     public boolean solo;
+    /** Overlapping clips crossfade (equal power) over their overlap instead of simply adding up. */
+    public boolean crossfade = true;
     public List<AudioClip> clips = new ArrayList<>();
 
     public AudioTrack() {
@@ -43,6 +45,41 @@ public final class AudioTrack {
         return true;
     }
 
+    /**
+     * Length in ticks of the crossfade at the start of clip {@code index}: how long the clips before it still play
+     * once it starts. 0 without overlap or with crossfades off. Clips must be sorted.
+     */
+    public double crossfadeIn(int index) {
+        if (!crossfade) {
+            return 0.0;
+        }
+        AudioClip clip = clips.get(index);
+        double best = 0.0;
+        for (int j = 0; j < index; j++) {
+            AudioClip other = clips.get(j);
+            if (other.start <= clip.start && other.end() > clip.start) {
+                best = Math.max(best, Math.min(other.end(), clip.end()) - clip.start);
+            }
+        }
+        return best;
+    }
+
+    /** Length in ticks of the crossfade at the end of clip {@code index}: how early the next clip starts. */
+    public double crossfadeOut(int index) {
+        if (!crossfade) {
+            return 0.0;
+        }
+        AudioClip clip = clips.get(index);
+        double best = 0.0;
+        for (int j = index + 1; j < clips.size(); j++) {
+            AudioClip other = clips.get(j);
+            if (other.start >= clip.start && other.start < clip.end()) {
+                best = Math.max(best, clip.end() - other.start);
+            }
+        }
+        return best;
+    }
+
     public void normalize() {
         if (id == null || id.isBlank()) id = UUID.randomUUID().toString();
         if (name == null) name = "Track";
@@ -62,6 +99,7 @@ public final class AudioTrack {
         t.volume = volume;
         t.mute = mute;
         t.solo = solo;
+        t.crossfade = crossfade;
         for (AudioClip clip : clips) {
             t.clips.add(clip.copy());
         }

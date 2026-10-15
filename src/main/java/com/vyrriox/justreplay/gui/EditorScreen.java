@@ -92,6 +92,7 @@ public class EditorScreen extends GlassScreen {
             new SidebarTab("actors", "justreplay.editor.tab.actors", Icon.PERSON, false, true, EditorScreen::buildActors),
             new SidebarTab("scene", "justreplay.editor.tab.scene", Icon.FLAG, false, true, EditorScreen::buildScene),
             new SidebarTab("audio", "justreplay.editor.tab.audio", Icon.SPEAKER, false, true, (s, f) -> s.audioPanel.build(f)),
+            new SidebarTab("effects", "justreplay.editor.tab.effects", Icon.BOLT, false, true, (s, f) -> s.effectsPanel.build(f)),
             new SidebarTab("export", "justreplay.editor.tab.export", Icon.FILM, true, true, EditorScreen::buildExportTab)));
 
     /** Adds (or replaces) a sidebar tab, before the tab {@code beforeId}, or last when it is null or unknown. */
@@ -128,6 +129,8 @@ public class EditorScreen extends GlassScreen {
     // Audio editing: the lanes under the timeline markers and the sidebar tab.
     private final AudioLanes audioLanes;
     private final AudioPanel audioPanel;
+    // Video effects: the filter stack tab.
+    private final EffectsPanel effectsPanel;
     private boolean scrubbing;
     private int ghostTick = -1;
     private Object dragging;
@@ -166,6 +169,7 @@ public class EditorScreen extends GlassScreen {
         this.audioLanes = new AudioLanes(this, session);
         this.audioPanel = new AudioPanel(this, session, audioLanes);
         this.timeline.audio = audioLanes;
+        this.effectsPanel = new EffectsPanel(this, session);
         this.blurBackground = false;
     }
 
@@ -1593,7 +1597,9 @@ public class EditorScreen extends GlassScreen {
                         ReplayProject.Camera camera = project.camera(cut.camera);
                         String name = camera == null ? "?" : (project.cameras.indexOf(camera) + 1) + " " + camera.name;
                         Paint.tooltip(g, font, Component.literal(name + "  " + Timeline.formatTicks(cut.tick)
-                                + (cut.blend > 0 ? "  blend " + cut.blend + "t" : "")), mouseX, mouseY);
+                                + (cut.blend > 0 ? "  blend " + cut.blend + "t" : "")
+                                + (i > 0 && cut.transitionType() != com.vyrriox.justreplay.editor.fx.TransitionType.CUT
+                                ? "  " + tr(cut.transitionType().translationKey()) + " " + cut.transitionTicks + "t" : "")), mouseX, mouseY);
                         return;
                     }
                 }

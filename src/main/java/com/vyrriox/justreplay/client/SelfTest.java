@@ -49,6 +49,7 @@ public final class SelfTest {
     private static net.minecraft.core.BlockPos stairPos;
     private static net.minecraft.core.BlockPos bedPos;
     private static ReplayProject.ActorData placed;
+    private static int fxStep;
 
     private SelfTest() {
     }
@@ -410,7 +411,13 @@ public final class SelfTest {
                     }
                 }
                 shot(mc, "8-seat-bed");
-                go(12, 5);
+                go(34, 5);
+            }
+            case 34 -> {
+                // Transitions and filters: runs its own sub-steps, then the test goes on with the export.
+                if (effects(mc)) {
+                    go(12, 5);
+                }
             }
             case 12 -> {
                 mc.setScreen(null);
@@ -477,6 +484,80 @@ public final class SelfTest {
             default -> {
             }
         }
+    }
+
+    /**
+     * Video effects: a cross dissolve on the cut to the follow camera, the Cinematic look with a keyframed vignette
+     * and start and end fades. Screenshots of the same frame with the effects off and on, during the dissolve while
+     * playing, and after seeking into the dissolve (the outgoing frame is then captured on the fly). Returns true
+     * when done; the export that follows bakes the same effects.
+     */
+    private static boolean effects(Minecraft mc) {
+        ReplaySession s = ReplaySession.current();
+        ReplayProject project = s.project();
+        switch (fxStep) {
+            case 0 -> {
+                mc.setScreen(null);
+                s.setCameraPath(true);
+                s.playback().setPaused(true);
+                s.playback().seek(55);
+                project.effectsEnabled = false;
+                ReplayProject.Cut cut = project.cuts.get(project.cutIndexAt(65));
+                cut.transition = com.vyrriox.justreplay.editor.fx.TransitionType.DISSOLVE.name();
+                cut.transitionTicks = 20;
+                project.effects.removeIf(e -> true);
+                project.effects.addAll(com.vyrriox.justreplay.editor.fx.FxPresets.CINEMATIC.build(""));
+                for (com.vyrriox.justreplay.editor.fx.FxEffect e : project.effects) {
+                    if (e.fxType() == com.vyrriox.justreplay.editor.fx.FxType.VIGNETTE) {
+                        com.vyrriox.justreplay.editor.fx.FxParam amount = e.fxType().param("amount");
+                        e.setKey(amount, 20, 0.1F);
+                        e.setKey(amount, 80, 0.85F);
+                        log("fx vignette keyed: t=20 {} t=50 {} t=80 {}", e.value(amount, 20), e.value(amount, 50), e.value(amount, 80));
+                    }
+                }
+                project.fadeIn = 10;
+                project.fadeOut = 10;
+                s.saveProject();
+                log("fx shaders ready={} effects={} transition on cut {} = {} {}t", com.vyrriox.justreplay.editor.fx.FxEngine.ready(),
+                        project.effects.size(), cut.tick, cut.transition, cut.transitionTicks);
+                log("audio crossfade power at mid overlap: {}", Math.pow(com.vyrriox.justreplay.editor.audio.AudioMixer.crossfade(5, 100, 10, 0), 2)
+                        + Math.pow(com.vyrriox.justreplay.editor.audio.AudioMixer.crossfade(95, 100, 0, 10), 2));
+                fxStep++;
+                wait = 30;
+            }
+            case 1 -> {
+                shot(mc, "fx-1-off");
+                project.effectsEnabled = true;
+                fxStep++;
+                wait = 20;
+            }
+            case 2 -> {
+                shot(mc, "fx-2-cinematic");
+                s.playback().seek(58);
+                s.playback().setPaused(false);
+                fxStep++;
+                wait = 12;
+            }
+            case 3 -> {
+                shot(mc, "fx-3-dissolve-playing");
+                log("fx dissolve screenshot at cursor {}", s.playback().cursor());
+                s.playback().setPaused(true);
+                s.playback().seek(70);
+                fxStep++;
+                wait = 30;
+            }
+            case 4 -> {
+                shot(mc, "fx-4-dissolve-after-seek");
+                log("fx dissolve after seek at cursor {}", s.playback().cursor());
+                s.setCameraPath(false);
+                fxStep++;
+                return true;
+            }
+            default -> {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

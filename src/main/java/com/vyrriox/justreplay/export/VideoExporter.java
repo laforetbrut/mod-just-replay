@@ -123,6 +123,16 @@ public final class VideoExporter {
         return e == null ? null : e.timerStep();
     }
 
+    /** First tick of the exported range. */
+    public int startTick() {
+        return startTick;
+    }
+
+    /** Last tick of the exported range. */
+    public int endTick() {
+        return endTick;
+    }
+
     public float progress() {
         long total = (long) (endTick - startTick) * fps / 20 + 1;
         return Math.min(1.0F, (float) frames / Math.max(1L, total));

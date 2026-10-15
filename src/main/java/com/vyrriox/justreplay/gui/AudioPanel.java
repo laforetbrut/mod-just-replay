@@ -162,6 +162,10 @@ final class AudioPanel {
             save();
         }).icon(Icon.TARGET), 1, 2);
         f.next();
+        f.full(new GlassSwitch(tc("justreplay.audio.crossfade"), () -> selected.crossfade, () -> {
+            selected.crossfade = !selected.crossfade;
+            save();
+        }).icon(Icon.SORT).tip(tc("justreplay.audio.crossfade.tip")));
     }
 
     private void trackVolume(AudioTrack track, double delta) {
@@ -182,6 +186,11 @@ final class AudioPanel {
         f.full(new Stepper(tc("justreplay.audio.fade_out"), () -> clip.fadeOut / 20.0, "s", 2,
                 () -> fade(clip, false, -step(5, 1)), () -> fade(clip, false, step(5, 1))).icon(Icon.ARROW_DOWN)
                 .tip(tc("justreplay.audio.fine.tip")));
+        f.full(new Dropdown<>(screen, tc("justreplay.audio.fade_curve"), List.of(AudioClip.FADE_CURVES), clip.fadeCurve,
+                v -> tc("justreplay.audio.fade_curve." + v.toLowerCase(java.util.Locale.ROOT)), v -> {
+            clip.fadeCurve = v;
+            save();
+        }).icon(Icon.PATH).tip(tc("justreplay.audio.fade_curve.tip")));
         f.full(new Stepper(tc("justreplay.audio.trim_in"), () -> clip.in / 20.0, "s", 2,
                 () -> trimIn(clip, -step(10, 1)), () -> trimIn(clip, step(10, 1))).icon(Icon.SKIP_START)
                 .tip(tc("justreplay.audio.trim.tip")));
