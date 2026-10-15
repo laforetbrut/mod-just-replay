@@ -2,3 +2,19 @@ Just Replay
 Copyright 2026 vyrriox
 
 This product is licensed under the Apache License, Version 2.0.
+
+Just Replay is an independent project. It is not affiliated with Mojang, Microsoft,
+the authors of ReplayMod or Flashback, or any mod it integrates with. No source code of
+ReplayMod or Flashback was used.
+
+The distributed jar contains only the code and assets of Just Replay. It bundles no
+third-party library. The following software is used without being redistributed:
+
+- Minecraft and NeoForge: the platform the mod runs on.
+- FFmpeg (LGPL/GPL): an external program installed by the user, started as a separate
+  process for video export. It is not linked to or shipped with the mod.
+- Simple Voice Chat API (All Rights Reserved, Max Henkel): used at compile time only to
+  build the optional voice chat integration; nothing of it is included in the jar.
+- Optional integrations through public classes and APIs at runtime, nothing included:
+  Distant Horizons, Emotecraft and playerAnimator, WaterFrames and WaterMedia, Create,
+  Bobby, Iris, Sodium.

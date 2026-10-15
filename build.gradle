@@ -29,6 +29,11 @@ neoForge {
         client {
             client()
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            if (project.hasProperty('selftest')) {
+                systemProperty 'justreplay.selftest', 'true'
+                jvmArgument '-Xmx8G'
+                systemProperty 'justreplay.checkpointTicks', '60'
+            }
         }
         server {
             server()
@@ -48,6 +53,19 @@ neoForge {
 }
 
 sourceSets.main.resources { srcDir 'src/generated/resources' }
+
+repositories {
+    maven {
+        name = 'Max Henkel'
+        url = 'https://maven.maxhenkel.de/repository/public'
+        content { includeGroup 'de.maxhenkel.voicechat' }
+    }
+}
+
+dependencies {
+    // Simple Voice Chat API (the version bundled with voicechat-neoforge 1.21.1-2.6.22); optional at runtime.
+    compileOnly 'de.maxhenkel.voicechat:voicechat-api:2.6.20'
+}
 
 var generateModMetadata = tasks.register('generateModMetadata', ProcessResources) {
     var replaceProperties = [

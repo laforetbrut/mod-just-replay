@@ -1,0 +1,31 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.vyrriox.justreplay.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "ConnectionMixin",
+    "DeltaTrackerTimerMixin",
+    "PlayerListMixin",
+    "IntegratedServerMixin",
+    "PlayerInfoAccessor",
+    "HostChunkMapMixin",
+    "BossHealthOverlayAccessor",
+    "PlayerTabOverlayAccessor",
+    "WindowMixin",
+    "MinecraftBlitMixin",
+    "LivingEntityAccessor",
+    "EntityInvoker",
+    "WalkAnimationStateAccessor",
+    "IronGolemAccessor",
+    "RavagerAccessor",
+    "HoglinAccessor",
+    "ZoglinAccessor",
+    "HumanoidModelMixin",
+    "ActorBedMixin",
+    "GameRendererFxMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
