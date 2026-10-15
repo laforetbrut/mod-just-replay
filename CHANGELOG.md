@@ -4,6 +4,11 @@
 
 ### [Unreleased]
 
+#### Fixed
+- An actor seated or laid in a bed after a "Walk to" or a "Follow" no longer ends up beside the seat or the
+  bed: a placement keyframe now ends the moves and the follow started before it, and a seated actor is no
+  longer snapped onto a chair back, a table or a ceiling above the seat.
+
 ### [1.0.1] - 2026-10-15
 
 #### Added
@@ -119,6 +124,11 @@
 ## Français
 
 ### [Non publié]
+
+#### Corrigé
+- Un acteur assis ou couché dans un lit après un « Marcher vers » ou un « Suivre » ne se retrouve plus à côté
+  du siège ou du lit : un point clé de placement met fin aux déplacements et au suivi commencés avant lui, et
+  un acteur assis n'est plus collé sur un dossier, une table ou un plafond au-dessus du siège.
 
 ### [1.0.1] - 2026-10-15
 

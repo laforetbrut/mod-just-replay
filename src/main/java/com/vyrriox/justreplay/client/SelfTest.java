@@ -52,6 +52,7 @@ public final class SelfTest {
     private static net.minecraft.core.BlockPos stairPos;
     private static net.minecraft.core.BlockPos bedPos;
     private static ReplayProject.ActorData placed;
+    private static com.vyrriox.justreplay.editor.ActorPlacement.Spot seatSpot;
     private static int fxStep;
     private static int galleryIndex;
     private static String galleryName = "";
@@ -457,9 +458,18 @@ public final class SelfTest {
                 sleeper.name = "jeb_";
                 s.project().actors.add(sitter);
                 s.project().actors.add(sleeper);
+                // The sitter walked and followed someone before sitting down: the seat must still be exact.
+                int sitTick = s.playback().cursor();
+                sitter.keyframes.add(new ReplayProject.ActorKeyframe(Math.max(0, sitTick - 30), stairPos.getX() + 5.5, stairPos.getY(),
+                        stairPos.getZ() + 5.5, 0, 0));
+                sitter.actions.add(new ReplayProject.ActorAction(Math.max(0, sitTick - 25), com.vyrriox.justreplay.editor.ActionType.WALK_TO, 0,
+                        String.format(java.util.Locale.ROOT, "%.2f %d %.2f", stairPos.getX() + 9.5, stairPos.getY(), stairPos.getZ() + 0.5)));
+                sitter.actions.add(new ReplayProject.ActorAction(Math.max(0, sitTick - 10), com.vyrriox.justreplay.editor.ActionType.FOLLOW, 0, "recorder|2"));
+                sitter.sort();
                 var stairHit = new net.minecraft.world.phys.BlockHitResult(Vec3.atCenterOf(stairPos).add(0, 0.5, 0), net.minecraft.core.Direction.UP, stairPos, false);
                 var bedHit = new net.minecraft.world.phys.BlockHitResult(Vec3.atCenterOf(bedPos).add(0, 0.06, 0), net.minecraft.core.Direction.UP, bedPos, false);
                 var seat = com.vyrriox.justreplay.gui.PlacementTool.placeAt(s, sitter, com.vyrriox.justreplay.editor.ActorPlacement.Kind.SIT, stairHit, 0.0F);
+                seatSpot = seat;
                 var bed = com.vyrriox.justreplay.gui.PlacementTool.placeAt(s, sleeper, com.vyrriox.justreplay.editor.ActorPlacement.Kind.BED, bedHit, 0.0F);
                 log("seat on {}: {} actions={}", mc.level.getBlockState(stairPos), seat, sitter.actions.size());
                 log("bed at {}: {} actions={}", mc.level.getBlockState(bedPos), bed, sleeper.actions.size());
@@ -471,8 +481,13 @@ public final class SelfTest {
                 ReplaySession s = ReplaySession.current();
                 for (ReplayProject.ActorData a : s.project().actors) {
                     Entity e = s.actors().entityOf(a);
-                    if (a == placed || "Notch".equals(a.name) && !a.actions.isEmpty() && a.actions.get(0).actionType()
-                            == com.vyrriox.justreplay.editor.ActionType.SIT || "jeb_".equals(a.name)) {
+                    if ("Notch".equals(a.name) && e != null && seatSpot != null
+                            && a.actions.stream().anyMatch(x -> x.actionType() == com.vyrriox.justreplay.editor.ActionType.FOLLOW)) {
+                        double err = Math.max(Math.hypot(e.getX() - seatSpot.x(), e.getZ() - seatSpot.z()), Math.abs(e.getY() + 0.625 - seatSpot.y()));
+                        log("seat after walk and follow: error {} blocks, pose {} -> {}", String.format(java.util.Locale.ROOT, "%.3f", err),
+                                e.getPose(), err < 0.05 && e.getPose() == net.minecraft.world.entity.Pose.SITTING ? "OK" : "FAIL");
+                    }
+                    if (a == placed || "Notch".equals(a.name) || "jeb_".equals(a.name)) {
                         log("placed actor {} -> {}", a.name, e == null ? "missing" : e.getPose() + " @ " + e.position() + " yaw " + e.getYRot()
                                 + (e instanceof net.minecraft.world.entity.LivingEntity l ? " body " + l.yBodyRot + " bed " + l.getBedOrientation() : ""));
                     }

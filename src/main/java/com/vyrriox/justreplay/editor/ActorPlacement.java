@@ -207,9 +207,9 @@ public final class ActorPlacement {
         }
     }
 
-    /** Where an actor stands at {@code tick} from its keyframes, else where its entity is; null when unknown. */
+    /** Where an actor stands at {@code tick} from its keyframes and moves, else where its entity is; null when unknown. */
     public static double[] stateAt(ReplayProject.ActorData actor, int tick, Entity entity) {
-        double[] state = Interpolation.actor(actor.keyframes, tick);
+        double[] state = ActorAnimator.placedState(actor, tick, null);
         if (state != null) {
             return state;
         }
