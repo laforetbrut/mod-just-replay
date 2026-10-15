@@ -95,6 +95,29 @@ public final class PacketStream {
         prefetch(1);
     }
 
+    /** Puts the cursor on the first packet recorded after the given tick, reading only the segment that holds it. */
+    public void seekToTick(int tick) {
+        int index = 0;
+        for (int i = segments.size() - 1; i >= 0; i--) {
+            if (segments.get(i).startTick() <= tick) {
+                index = i;
+                break;
+            }
+        }
+        segment = index;
+        current = load(index);
+        position = 0;
+        while (position < current.size() && current.get(position).tick() <= tick) {
+            position++;
+        }
+        prefetch(index + 1);
+    }
+
+    /** The replay folder this stream belongs to. */
+    public Path dir() {
+        return file.getParent();
+    }
+
     /** Next packet without consuming it, or null at the end of the replay. */
     public RecordedPacket peek() {
         while (current != null && position >= current.size()) {
@@ -149,25 +172,30 @@ public final class PacketStream {
             return packets;
         }
         try (DataInputStream in = new DataInputStream(new BufferedInputStream(new GZIPInputStream(new ByteArrayInputStream(bytes), 1 << 16), 1 << 16))) {
-            while (true) {
-                int tick;
-                try {
-                    tick = in.readInt();
-                } catch (EOFException end) {
-                    break;
-                }
-                int length = in.readInt();
-                if (length < 0 || length > 64 * 1024 * 1024) {
-                    throw new IOException("Corrupted packet length " + length);
-                }
-                byte[] data = new byte[length];
-                in.readFully(data);
-                packets.add(new RecordedPacket(tick, data));
-            }
+            readRecords(in, packets);
         } catch (IOException damaged) {
             // Crash while recording: keep what could be read.
             JustReplay.LOGGER.warn("Replay segment at {} is damaged ({}), keeping {} packets", s.offset(), damaged.toString(), packets.size());
         }
         return packets;
+    }
+
+    /** Reads {@code [tick, length, bytes]} records up to the end of the stream. */
+    static void readRecords(DataInputStream in, List<RecordedPacket> packets) throws IOException {
+        while (true) {
+            int tick;
+            try {
+                tick = in.readInt();
+            } catch (EOFException end) {
+                return;
+            }
+            int length = in.readInt();
+            if (length < 0 || length > 64 * 1024 * 1024) {
+                throw new IOException("Corrupted packet length " + length);
+            }
+            byte[] data = new byte[length];
+            in.readFully(data);
+            packets.add(new RecordedPacket(tick, data));
+        }
     }
 }
