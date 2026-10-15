@@ -24,7 +24,6 @@
     "HumanoidModelMixin",
     "ActorBedMixin",
     "GameRendererFxMixin",
-    "SectionBufferGuardMixin",
     "VertexBufferAccessor",
     "LevelRendererSectionsAccessor",
     "SectionOcclusionGraphAccessor"

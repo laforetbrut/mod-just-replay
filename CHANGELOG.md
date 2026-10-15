@@ -10,6 +10,16 @@
   while the replay is paused or away from x1, follows the game sound volume, mute and ducking of the project,
   and is part of the video export audio, placed relative to the camera. The tick where each song starts is
   logged and available to the editor.
+- **Dance** actor action: humanoid actors dance on a beat grid ("style|bpm|beat tick") in eight styles
+  (bounce, fist pump, hands up, wave, shuffle, headbang, jump, DJ), smooth between ticks and on the beat in
+  exports, with a slightly different energy and timing per actor so a crowd never moves as one body.
+
+#### Fixed
+- With Drop the Beam's camera screens in view, a replay could crash on its first frame or show no terrain at all:
+  the level renderer is now put back on its current section grid when another view left it on a released one.
+- Colour grading no longer turns the darkest areas into bright noise when contrast or saturation and the
+  temperature filter are combined.
+- Player actors with "Show name" switched off no longer show their name tag.
 
 ### [1.0.2] - 2026-10-15
 
@@ -141,6 +151,18 @@
   ou hors x1, suit le volume des sons du jeu, leur coupure et l'atténuation du projet, et figure dans l'audio des
   exports vidéo, placée par rapport à la caméra. Le tick de début de chaque morceau est écrit dans le journal et
   disponible pour l'éditeur.
+- Action d'acteur **Danse** : les acteurs humanoïdes dansent sur une grille de temps (« style|bpm|tick d'un
+  temps ») dans huit styles (rebond, poing levé, mains en l'air, vague, shuffle, headbang, saut, DJ), fluides
+  entre les ticks et calés sur le temps dans les exports, avec une énergie et un timing un peu différents par
+  acteur pour qu'une foule ne bouge jamais d'un seul bloc.
+
+#### Corrigé
+- Avec les écrans caméra de Drop the Beam en vue, un replay pouvait planter dès la première image ou n'afficher
+  aucun terrain : le rendu du monde est remis sur sa grille de sections actuelle quand une autre vue l'a laissé
+  sur une grille libérée.
+- L'étalonnage ne transforme plus les zones les plus sombres en bruit vif quand le contraste ou la saturation
+  sont combinés au filtre de température.
+- Les acteurs joueurs dont « Afficher le nom » est désactivé n'affichent plus leur nom.
 
 ### [1.0.2] - 2026-10-15
 

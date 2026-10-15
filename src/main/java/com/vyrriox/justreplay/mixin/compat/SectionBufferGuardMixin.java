@@ -1,6 +1,7 @@
-package com.vyrriox.justreplay.mixin;
+package com.vyrriox.justreplay.mixin.compat;
 
 import com.mojang.blaze3d.vertex.VertexBuffer;
+import com.vyrriox.justreplay.mixin.VertexBufferAccessor;
 import com.vyrriox.justreplay.replay.ReplaySession;
 import net.minecraft.client.renderer.LevelRenderer;
 import org.spongepowered.asm.mixin.Mixin;
@@ -11,7 +12,8 @@ import org.spongepowered.asm.mixin.injection.Redirect;
  * A replay rebuilds the level renderer's sections when it starts and on seeks. A mod that renders extra views of the
  * level with its own list of visible sections (Drop the Beam's camera screens) can then hand the renderer sections
  * whose buffers were released or never uploaded, and drawing one crashes the game. While a replay runs, such a buffer
- * is skipped for that frame instead; the section is drawn again once it is compiled.
+ * is skipped for that frame instead; the section is drawn again once it is compiled. Not applied with Sodium or
+ * Embeddium, which draw sections their own way (see CompatMixinPlugin).
  *
  * @author vyrriox
  */

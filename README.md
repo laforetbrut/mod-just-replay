@@ -27,7 +27,7 @@ NeoForge 1.21.1, client side. Author: vyrriox. License: Apache-2.0.
 - **Actors**: add players (any skin, by name) or any entity, vanilla or modded, give them equipment and a
   pose, and animate them with keyframes. The recording is never modified, actors live in `project.json`.
 - **Actor actions**: place timed actions on an actor (walk, run, swing, attack, hurt, death, jump, sit,
-  sleep, swim, elytra, use item, shield, bow, eat, wave, look at, wander...) from the actor panel or the
+  sleep, swim, elytra, use item, shield, bow, eat, wave, dance on the beat, look at, wander...) from the actor panel or the
   actor screen. They show on the timeline and replay identically after a seek.
 - **Blockbench models**: drop `.bbmodel` files in `.minecraft/justreplay/models/` and add them as actors with
   **+ Model**. Cubes, groups, embedded or neighbouring PNG textures and animations are supported; pick a
@@ -130,7 +130,7 @@ classes and APIs and include none of their code. Not affiliated with Mojang or M
   moddée, leur donner un équipement et une posture, et les animer par keyframes. L'enregistrement n'est
   jamais modifié, les acteurs sont stockés dans `project.json`.
 - **Actions d'acteurs** : placer des actions datées sur un acteur (marcher, courir, frapper, attaquer,
-  dégâts, mort, sauter, s'asseoir, dormir, nager, élytres, utiliser un objet, bouclier, arc, manger, saluer,
+  dégâts, mort, sauter, s'asseoir, dormir, nager, élytres, utiliser un objet, bouclier, arc, manger, saluer, danser en rythme,
   regarder, se promener...) depuis le panneau des acteurs ou l'écran de l'acteur. Elles apparaissent sur la
   timeline et se rejouent à l'identique après une recherche dans le temps.
 - **Modèles Blockbench** : déposer des fichiers `.bbmodel` dans `.minecraft/justreplay/models/` et les
