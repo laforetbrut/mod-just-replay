@@ -1,6 +1,7 @@
 package com.vyrriox.justreplay.replay;
 
 import com.vyrriox.justreplay.JustReplay;
+import com.vyrriox.justreplay.format.Checkpoints;
 import com.vyrriox.justreplay.format.PacketStream;
 import com.vyrriox.justreplay.format.RecordedPacket;
 import com.vyrriox.justreplay.record.PacketCodec;
@@ -16,6 +17,9 @@ import net.minecraft.network.protocol.game.CommonPlayerSpawnInfo;
 import net.minecraft.world.TickRateManager;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.scores.Objective;
+import net.minecraft.world.scores.PlayerTeam;
+import net.minecraft.world.scores.Scoreboard;
 
 import java.util.Collections;
 import java.util.HashSet;
@@ -33,6 +37,8 @@ public final class Playback {
     /** Entity id given to the camera so it never collides with a recorded entity. */
     public static final int CAMERA_ENTITY_ID = -42;
     public static final float[] SPEEDS = {0.1F, 0.25F, 0.5F, 1.0F, 2.0F, 4.0F, 8.0F};
+    /** A forward seek longer than this restores a checkpoint instead of playing every tick in between. */
+    private static final int CHECKPOINT_JUMP_TICKS = 1200;
 
     private final PacketStream packets;
     private final int duration;
@@ -47,6 +53,7 @@ public final class Playback {
     private float speedAccumulator;
     private int skippingTo = -1;
     private int lastStep = 1;
+    private int[] checkpoints = new int[0];
 
     public Playback(PacketStream packets, int durationTicks) {
         this.packets = packets;
@@ -90,6 +97,7 @@ public final class Playback {
     /** Builds the codec from the replay connection and plays the first tick. */
     public void start(ClientPacketListener listener) {
         codec = PacketCodec.of(listener);
+        checkpoints = Checkpoints.list(packets.dir());
         packets.rewind();
         cursor = 0;
         flushTo(0);
@@ -118,7 +126,10 @@ public final class Playback {
         applyTickRate(mc);
     }
 
-    /** Jumps to a tick. Going back replays the stream from its start, which rebuilds the world exactly. */
+    /**
+     * Jumps to a tick. Going back (or far forward) restores the latest checkpoint before the target and plays the
+     * stream from there; without one, going back replays the stream from its start. Both rebuild the world.
+     */
     public void seek(int target) {
         target = Math.max(0, Math.min(duration, target));
         Minecraft mc = Minecraft.getInstance();
@@ -126,13 +137,23 @@ public final class Playback {
         Vec3 camPos = player != null ? player.position() : null;
         float yaw = player != null ? player.getYRot() : 0;
         float pitch = player != null ? player.getXRot() : 0;
-        if (target < cursor) {
-            packets.rewind();
-            cursor = 0;
+        boolean backward = target < cursor;
+        if (backward) {
             mc.gui.getChat().clearMessages(false);
         }
         skippingTo = target;
         try {
+            boolean restored = false;
+            if (backward || target - cursor > CHECKPOINT_JUMP_TICKS) {
+                int checkpoint = latestCheckpoint(target);
+                if (checkpoint >= 0 && (backward || checkpoint > cursor)) {
+                    restored = restoreCheckpoint(mc, checkpoint);
+                }
+            }
+            if (!restored && backward) {
+                packets.rewind();
+                cursor = 0;
+            }
             flushTo(target);
         } finally {
             skippingTo = -1;
@@ -142,6 +163,55 @@ public final class Playback {
             placeCamera(mc.player, camPos, yaw, pitch);
         }
         applyTickRate(mc);
+    }
+
+    /** Latest checkpoint at or before a tick, or -1. */
+    private int latestCheckpoint(int tick) {
+        int best = -1;
+        for (int checkpoint : checkpoints) {
+            if (checkpoint > tick) {
+                break;
+            }
+            best = checkpoint;
+        }
+        return best;
+    }
+
+    /** Handles the packets of a checkpoint and moves the stream right after it. False when it cannot be read. */
+    private boolean restoreCheckpoint(Minecraft mc, int tick) {
+        List<RecordedPacket> snapshot;
+        try {
+            snapshot = Checkpoints.read(packets.dir(), tick);
+        } catch (Exception e) {
+            logOnce(Checkpoints.class, "Cannot read the checkpoint at tick " + tick + ", replaying from the start: " + e);
+            return false;
+        }
+        if (snapshot.isEmpty()) {
+            return false;
+        }
+        for (RecordedPacket recorded : snapshot) {
+            handle(mc, recorded);
+        }
+        packets.seekToTick(tick);
+        cursor = tick;
+        return true;
+    }
+
+    /** What a new connection starts without and a login packet does not clear: scoreboard, boss bars, tab list text. */
+    private static void resetConnectionState(Minecraft mc, ClientPacketListener listener) {
+        try {
+            Scoreboard scoreboard = listener.scoreboard();
+            for (Objective objective : List.copyOf(scoreboard.getObjectives())) {
+                scoreboard.removeObjective(objective);
+            }
+            for (PlayerTeam team : List.copyOf(scoreboard.getPlayerTeams())) {
+                scoreboard.removePlayerTeam(team);
+            }
+            mc.gui.getBossOverlay().reset();
+            mc.gui.getTabList().reset();
+        } catch (Throwable t) {
+            JustReplay.LOGGER.warn("Cannot reset the scoreboard and overlays: {}", t.toString());
+        }
     }
 
     private void flushTo(int tick) {
@@ -183,6 +253,7 @@ public final class Playback {
             return;
         }
         if (packet instanceof ClientboundLoginPacket login) {
+            resetConnectionState(mc, listener);
             packet = rewriteLogin(login);
         }
         dispatching = true;

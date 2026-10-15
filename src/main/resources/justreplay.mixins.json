@@ -8,7 +8,9 @@
     "DeltaTrackerTimerMixin",
     "PlayerListMixin",
     "IntegratedServerMixin",
-    "PlayerInfoAccessor"
+    "PlayerInfoAccessor",
+    "BossHealthOverlayAccessor",
+    "PlayerTabOverlayAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

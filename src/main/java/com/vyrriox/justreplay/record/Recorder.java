@@ -4,21 +4,28 @@ import com.mojang.authlib.GameProfile;
 import com.mojang.datafixers.util.Pair;
 import com.vyrriox.justreplay.JustReplay;
 import com.vyrriox.justreplay.config.JRConfig;
+import com.vyrriox.justreplay.format.Checkpoints;
 import com.vyrriox.justreplay.format.RegistryIds;
 import com.vyrriox.justreplay.format.ReplayMeta;
 import com.vyrriox.justreplay.format.ReplayStorage;
 import com.vyrriox.justreplay.format.ReplayWriter;
+import com.vyrriox.justreplay.mixin.BossHealthOverlayAccessor;
+import com.vyrriox.justreplay.mixin.PlayerTabOverlayAccessor;
 import com.vyrriox.justreplay.replay.ReplaySession;
 import net.minecraft.SharedConstants;
+import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.LerpingBossEvent;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.Connection;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
 import net.minecraft.network.protocol.game.ClientboundAnimatePacket;
+import net.minecraft.network.protocol.game.ClientboundBossEventPacket;
 import net.minecraft.network.protocol.game.ClientboundGameEventPacket;
 import net.minecraft.network.protocol.game.ClientboundInitializeBorderPacket;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
@@ -26,10 +33,15 @@ import net.minecraft.network.protocol.game.ClientboundLoginPacket;
 import net.minecraft.network.protocol.game.ClientboundRotateHeadPacket;
 import net.minecraft.network.protocol.game.ClientboundSetChunkCacheCenterPacket;
 import net.minecraft.network.protocol.game.ClientboundSetChunkCacheRadiusPacket;
+import net.minecraft.network.protocol.game.ClientboundSetDisplayObjectivePacket;
 import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
 import net.minecraft.network.protocol.game.ClientboundSetEquipmentPacket;
+import net.minecraft.network.protocol.game.ClientboundSetObjectivePacket;
 import net.minecraft.network.protocol.game.ClientboundSetPassengersPacket;
+import net.minecraft.network.protocol.game.ClientboundSetPlayerTeamPacket;
+import net.minecraft.network.protocol.game.ClientboundSetScorePacket;
 import net.minecraft.network.protocol.game.ClientboundSetTimePacket;
+import net.minecraft.network.protocol.game.ClientboundTabListPacket;
 import net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket;
 import net.minecraft.network.protocol.game.CommonPlayerSpawnInfo;
 import net.minecraft.network.syncher.SynchedEntityData;
@@ -44,6 +56,11 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.scores.DisplaySlot;
+import net.minecraft.world.scores.Objective;
+import net.minecraft.world.scores.PlayerScoreEntry;
+import net.minecraft.world.scores.PlayerTeam;
+import net.minecraft.world.scores.Scoreboard;
 import net.neoforged.fml.ModList;
 
 import java.io.IOException;
@@ -54,9 +71,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 
 /**
  * Records every clientbound play packet of the current connection, plus synthetic packets describing the
@@ -70,6 +89,9 @@ public final class Recorder {
 
     private enum State { STARTING, RUNNING, STOPPED }
 
+    /** Recorded ticks between two checkpoints (one minute). */
+    private static final int CHECKPOINT_INTERVAL_TICKS = 1200;
+
     private final Connection connection;
     private final Path dir;
     private final ReplayWriter writer;
@@ -79,6 +101,9 @@ public final class Recorder {
     private volatile State state;
     private volatile int tick;
     private volatile PacketCodec codec;
+    /** Lowest tick a packet may be written with; raised past a checkpoint so later packets never share its tick. */
+    private int floorTick;
+    private volatile boolean checkpointPending;
 
     private UUID actorUuid;
     private ClientLevel lastLevel;
@@ -190,7 +215,7 @@ public final class Recorder {
     private synchronized void accept(byte[] data) {
         switch (state) {
             case STARTING -> pending.add(data);
-            case RUNNING -> writer.write(tick, data);
+            case RUNNING -> writer.write(Math.max(tick, floorTick), data);
             case STOPPED -> {
             }
         }
@@ -256,7 +281,7 @@ public final class Recorder {
             active = recorder;
             synchronized (recorder) {
                 recorder.codec = PacketCodec.of(listener);
-                recorder.writeSnapshot(mc, listener);
+                recorder.writeSnapshot(mc, listener, recorder::accept);
                 for (byte[] data : recorder.pending) {
                     recorder.writer.write(0, data);
                 }
@@ -316,15 +341,99 @@ public final class Recorder {
             meta.durationTicks = tick;
             ReplayStorage.writeMeta(dir, meta);
         }
+        if (tick % CHECKPOINT_INTERVAL_TICKS == 0) {
+            requestCheckpoint(mc);
+        }
     }
 
+    // ---------------------------------------------------------------- checkpoints
+
+    /**
+     * Schedules a checkpoint. A barrier task on the connection's network thread picks the checkpoint tick: every
+     * packet captured before it is already queued for the client thread, so the snapshot it queues there sees
+     * exactly the packets written up to that tick, and packets captured after it are written with a later tick.
+     */
+    private void requestCheckpoint(Minecraft mc) {
+        if (checkpointPending) {
+            return;
+        }
+        checkpointPending = true;
+        try {
+            connection.channel().eventLoop().execute(() -> {
+                int at;
+                synchronized (this) {
+                    if (state != State.RUNNING) {
+                        checkpointPending = false;
+                        return;
+                    }
+                    at = Math.max(tick, floorTick);
+                    floorTick = at + 1;
+                }
+                mc.execute(() -> writeCheckpoint(mc, at));
+            });
+        } catch (Throwable t) {
+            checkpointPending = false;
+            if (failedTypes.add(Checkpoints.class)) {
+                JustReplay.LOGGER.warn("Cannot schedule a replay checkpoint: {}", t.toString());
+            }
+        }
+    }
+
+    /** Snapshots the client state into {@code checkpoints/<tick>.bin.gz}; never touches the main stream. */
+    private void writeCheckpoint(Minecraft mc, int at) {
+        try {
+            ClientPacketListener listener = mc.getConnection();
+            if (state != State.RUNNING || lastLogin == null || listener == null || listener.getConnection() != connection
+                    || mc.level == null || mc.player == null) {
+                return;
+            }
+            List<byte[]> records = new ArrayList<>();
+            Consumer<byte[]> sink = records::add;
+            writeSnapshot(mc, listener, sink);
+            writeActorState(listener, mc.player, sink);
+            Util.ioPool().execute(() -> {
+                try {
+                    Checkpoints.write(dir, at, records);
+                } catch (Throwable t) {
+                    JustReplay.LOGGER.warn("Cannot write the replay checkpoint at tick {}: {}", at, t.toString());
+                }
+            });
+        } catch (Throwable t) {
+            JustReplay.LOGGER.warn("Cannot take a replay checkpoint at tick {}: {}", at, t.toString());
+        } finally {
+            checkpointPending = false;
+        }
+    }
+
+    /** The recording player's actor as a fresh spawn with its current state. */
+    private void writeActorState(ClientPacketListener listener, LocalPlayer player, Consumer<byte[]> sink) {
+        writeActorSpawn(listener, player, sink);
+        write(listener, new ClientboundTeleportEntityPacket(player), sink);
+        write(listener, new ClientboundRotateHeadPacket(player, (byte) Mth.floor(player.getYHeadRot() * 256.0F / 360.0F)), sink);
+        List<SynchedEntityData.DataValue<?>> data = player.getEntityData().getNonDefaultValues();
+        if (data != null) {
+            write(listener, new ClientboundSetEntityDataPacket(player.getId(), data), sink);
+        }
+        List<Pair<EquipmentSlot, ItemStack>> equipment = new ArrayList<>();
+        for (EquipmentSlot slot : EquipmentSlot.values()) {
+            equipment.add(Pair.of(slot, player.getItemBySlot(slot).copy()));
+        }
+        write(listener, new ClientboundSetEquipmentPacket(player.getId(), equipment), sink);
+    }
+
+    // ---------------------------------------------------------------- packet writing
+
     private void write(ClientPacketListener listener, Packet<?> packet) {
+        write(listener, packet, this::accept);
+    }
+
+    private void write(ClientPacketListener listener, Packet<?> packet, Consumer<byte[]> sink) {
         PacketCodec c = codec;
         if (c == null || !c.matches(listener)) {
             c = codec = PacketCodec.of(listener);
         }
         try {
-            c.encode(packet, this::accept);
+            c.encode(packet, sink);
         } catch (Throwable t) {
             if (failedTypes.add(packet.getClass())) {
                 JustReplay.LOGGER.warn("Cannot record synthetic packet {}: {}", packet.getClass().getName(), t.toString());
@@ -340,17 +449,7 @@ public final class Recorder {
             lastEntityId = player.getId();
             lastData = null;
             java.util.Arrays.fill(lastEquipment, null);
-            GameProfile source = player.getGameProfile();
-            PlayerInfo info = listener.getPlayerInfo(source.getId());
-            GameProfile actorProfile = new GameProfile(actorUuid, source.getName());
-            actorProfile.getProperties().putAll((info != null ? info.getProfile() : source).getProperties());
-            write(listener, PlayerInfoPackets.build(listener.registryAccess(), listener.getConnectionType(), List.of(
-                    new PlayerInfoPackets.Info(actorUuid, actorProfile, GameType.SURVIVAL, false, 0, null))));
-            write(listener, new ClientboundAddEntityPacket(player.getId(), actorUuid, player.getX(), player.getY(), player.getZ(),
-                    player.getXRot(), player.getYRot(), player.getType(), 0, Vec3.ZERO, player.getYHeadRot()));
-            if (player.getVehicle() != null) {
-                write(listener, new ClientboundSetPassengersPacket(player.getVehicle()));
-            }
+            writeActorSpawn(listener, player, this::accept);
         }
 
         Vec3 pos = player.position();
@@ -394,6 +493,21 @@ public final class Recorder {
         lastSwingTime = player.swingTime;
     }
 
+    /** Tab list entry and entity of the actor standing for the recording player (vanilla never sends it its own). */
+    private void writeActorSpawn(ClientPacketListener listener, LocalPlayer player, Consumer<byte[]> sink) {
+        GameProfile source = player.getGameProfile();
+        PlayerInfo info = listener.getPlayerInfo(source.getId());
+        GameProfile actorProfile = new GameProfile(actorUuid, source.getName());
+        actorProfile.getProperties().putAll((info != null ? info.getProfile() : source).getProperties());
+        write(listener, PlayerInfoPackets.build(listener.registryAccess(), listener.getConnectionType(), List.of(
+                new PlayerInfoPackets.Info(actorUuid, actorProfile, GameType.SURVIVAL, false, 0, null))), sink);
+        write(listener, new ClientboundAddEntityPacket(player.getId(), actorUuid, player.getX(), player.getY(), player.getZ(),
+                player.getXRot(), player.getYRot(), player.getType(), 0, Vec3.ZERO, player.getYHeadRot()), sink);
+        if (player.getVehicle() != null) {
+            write(listener, new ClientboundSetPassengersPacket(player.getVehicle()), sink);
+        }
+    }
+
     /** The "data" field vanilla puts in an add-entity packet, rebuilt from client state. */
     private static int spawnData(Entity entity) {
         if (entity instanceof net.minecraft.world.entity.decoration.HangingEntity hanging) {
@@ -408,8 +522,11 @@ public final class Recorder {
         return 0;
     }
 
-    /** Writes packets that rebuild the current client world: login, tab list, time, weather, chunks, entities. */
-    private void writeSnapshot(Minecraft mc, ClientPacketListener listener) {
+    /**
+     * Writes packets that rebuild the current client world into a sink: login, tab list, scoreboard, boss bars,
+     * time, weather, chunks, entities. The recording player's own actor is not included.
+     */
+    private void writeSnapshot(Minecraft mc, ClientPacketListener listener, Consumer<byte[]> sink) {
         ClientLevel level = mc.level;
         LocalPlayer player = mc.player;
         ClientboundLoginPacket login = lastLogin;
@@ -419,7 +536,7 @@ public final class Recorder {
                 login.chunkRadius(), login.simulationDistance(), login.reducedDebugInfo(), login.showDeathScreen(),
                 login.doLimitedCrafting(), new CommonPlayerSpawnInfo(level.dimensionTypeRegistration(), level.dimension(),
                 spawn.seed(), mode, spawn.previousGameType(), spawn.isDebug(), spawn.isFlat(), spawn.lastDeathLocation(), 0),
-                login.enforcesSecureChat()));
+                login.enforcesSecureChat()), sink);
 
         List<PlayerInfoPackets.Info> infos = new ArrayList<>();
         var listed = listener.getListedOnlinePlayers();
@@ -428,36 +545,56 @@ public final class Recorder {
                     listed.contains(info), info.getLatency(), info.getTabListDisplayName()));
         }
         if (!infos.isEmpty()) {
-            write(listener, PlayerInfoPackets.build(listener.registryAccess(), listener.getConnectionType(), infos));
+            write(listener, PlayerInfoPackets.build(listener.registryAccess(), listener.getConnectionType(), infos), sink);
+        }
+        try {
+            writeTabListText(mc, listener, sink);
+        } catch (Throwable t) {
+            JustReplay.LOGGER.warn("Skipping the tab list header and footer in the snapshot: {}", t.toString());
+        }
+        try {
+            writeTeams(listener, sink);
+        } catch (Throwable t) {
+            JustReplay.LOGGER.warn("Skipping teams in the snapshot: {}", t.toString());
+        }
+        try {
+            writeObjectives(listener, sink);
+        } catch (Throwable t) {
+            JustReplay.LOGGER.warn("Skipping scoreboard objectives in the snapshot: {}", t.toString());
+        }
+        try {
+            writeBossBars(mc, listener, sink);
+        } catch (Throwable t) {
+            JustReplay.LOGGER.warn("Skipping boss bars in the snapshot: {}", t.toString());
         }
 
         write(listener, new ClientboundSetTimePacket(level.getGameTime(), level.getDayTime(),
-                level.getGameRules().getBoolean(GameRules.RULE_DAYLIGHT)));
-        write(listener, new ClientboundInitializeBorderPacket(level.getWorldBorder()));
+                level.getGameRules().getBoolean(GameRules.RULE_DAYLIGHT)), sink);
+        write(listener, new ClientboundInitializeBorderPacket(level.getWorldBorder()), sink);
         if (level.isRaining()) {
-            write(listener, new ClientboundGameEventPacket(ClientboundGameEventPacket.START_RAINING, 0.0F));
-            write(listener, new ClientboundGameEventPacket(ClientboundGameEventPacket.RAIN_LEVEL_CHANGE, level.getRainLevel(1.0F)));
-            write(listener, new ClientboundGameEventPacket(ClientboundGameEventPacket.THUNDER_LEVEL_CHANGE, level.getThunderLevel(1.0F)));
+            write(listener, new ClientboundGameEventPacket(ClientboundGameEventPacket.START_RAINING, 0.0F), sink);
+            write(listener, new ClientboundGameEventPacket(ClientboundGameEventPacket.RAIN_LEVEL_CHANGE, level.getRainLevel(1.0F)), sink);
+            write(listener, new ClientboundGameEventPacket(ClientboundGameEventPacket.THUNDER_LEVEL_CHANGE, level.getThunderLevel(1.0F)), sink);
         }
 
         int radius = login.chunkRadius() + 1;
         int cx = player.chunkPosition().x;
         int cz = player.chunkPosition().z;
-        write(listener, new ClientboundSetChunkCacheRadiusPacket(login.chunkRadius()));
-        write(listener, new ClientboundSetChunkCacheCenterPacket(cx, cz));
+        write(listener, new ClientboundSetChunkCacheRadiusPacket(login.chunkRadius()), sink);
+        write(listener, new ClientboundSetChunkCacheCenterPacket(cx, cz), sink);
         for (int x = cx - radius; x <= cx + radius; x++) {
             for (int z = cz - radius; z <= cz + radius; z++) {
                 LevelChunk chunk = level.getChunkSource().getChunk(x, z, ChunkStatus.FULL, false);
                 if (chunk != null && !chunk.isEmpty()) {
                     try {
-                        write(listener, new ClientboundLevelChunkWithLightPacket(chunk, level.getLightEngine(), null, null));
+                        write(listener, new ClientboundLevelChunkWithLightPacket(chunk, level.getLightEngine(), null, null), sink);
                     } catch (Throwable t) {
                         JustReplay.LOGGER.warn("Skipping chunk {} in the snapshot: {}", chunk.getPos(), t.toString());
                     }
                 }
             }
         }
-        write(listener, new ClientboundGameEventPacket(ClientboundGameEventPacket.LEVEL_CHUNKS_LOAD_START, 0.0F));
+        write(listener, new ClientboundGameEventPacket(ClientboundGameEventPacket.LEVEL_CHUNKS_LOAD_START, 0.0F), sink);
 
         List<Entity> withPassengers = new ArrayList<>();
         for (Entity entity : level.entitiesForRendering()) {
@@ -465,56 +602,93 @@ public final class Recorder {
                 continue;
             }
             try {
-                writeEntitySnapshot(listener, entity, withPassengers);
+                writeEntitySnapshot(listener, entity, withPassengers, sink);
             } catch (Throwable t) {
                 JustReplay.LOGGER.warn("Skipping entity {} in the snapshot: {}", entity, t.toString());
             }
         }
         for (Entity vehicle : withPassengers) {
-            write(listener, new ClientboundSetPassengersPacket(vehicle));
+            write(listener, new ClientboundSetPassengersPacket(vehicle), sink);
         }
     }
 
-    private void writeEntitySnapshot(ClientPacketListener listener, Entity entity, List<Entity> withPassengers) {
-        {
-            List<Packet<?>> original = SPAWNS.get(entity.getId());
-            if (original != null) {
-                // The server's own spawn packets carry what client state cannot rebuild (spawn data, NeoForge payloads).
-                for (Packet<?> spawnPacket : original) {
-                    write(listener, spawnPacket);
-                }
-                write(listener, new ClientboundTeleportEntityPacket(entity));
-            } else {
-                write(listener, new ClientboundAddEntityPacket(entity.getId(), entity.getUUID(), entity.getX(), entity.getY(), entity.getZ(),
-                        entity.getXRot(), entity.getYRot(), entity.getType(), spawnData(entity), entity.getDeltaMovement(), entity.getYHeadRot()));
-                if (entity instanceof net.neoforged.neoforge.entity.IEntityWithComplexSpawn) {
-                    try {
-                        write(listener, new net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket(
-                                new net.neoforged.neoforge.network.payload.AdvancedAddEntityPayload(entity)));
-                    } catch (Throwable t) {
-                        JustReplay.LOGGER.debug("No spawn data for {}", entity, t);
-                    }
+    private void writeTabListText(Minecraft mc, ClientPacketListener listener, Consumer<byte[]> sink) {
+        PlayerTabOverlayAccessor tab = (PlayerTabOverlayAccessor) mc.gui.getTabList();
+        Component header = tab.justreplay$getHeader();
+        Component footer = tab.justreplay$getFooter();
+        if (header != null || footer != null) {
+            write(listener, new ClientboundTabListPacket(header != null ? header : Component.empty(),
+                    footer != null ? footer : Component.empty()), sink);
+        }
+    }
+
+    private void writeTeams(ClientPacketListener listener, Consumer<byte[]> sink) {
+        for (PlayerTeam team : List.copyOf(listener.scoreboard().getPlayerTeams())) {
+            write(listener, ClientboundSetPlayerTeamPacket.createAddOrModifyPacket(team, true), sink);
+        }
+    }
+
+    private void writeObjectives(ClientPacketListener listener, Consumer<byte[]> sink) {
+        Scoreboard scoreboard = listener.scoreboard();
+        for (Objective objective : List.copyOf(scoreboard.getObjectives())) {
+            write(listener, new ClientboundSetObjectivePacket(objective, ClientboundSetObjectivePacket.METHOD_ADD), sink);
+            for (PlayerScoreEntry score : scoreboard.listPlayerScores(objective)) {
+                write(listener, new ClientboundSetScorePacket(score.owner(), objective.getName(), score.value(),
+                        Optional.ofNullable(score.display()), Optional.ofNullable(score.numberFormatOverride())), sink);
+            }
+        }
+        for (DisplaySlot slot : DisplaySlot.values()) {
+            Objective objective = scoreboard.getDisplayObjective(slot);
+            if (objective != null) {
+                write(listener, new ClientboundSetDisplayObjectivePacket(slot, objective), sink);
+            }
+        }
+    }
+
+    private void writeBossBars(Minecraft mc, ClientPacketListener listener, Consumer<byte[]> sink) {
+        for (LerpingBossEvent event : List.copyOf(((BossHealthOverlayAccessor) mc.gui.getBossOverlay()).justreplay$getEvents().values())) {
+            write(listener, ClientboundBossEventPacket.createAddPacket(event), sink);
+        }
+    }
+
+    private void writeEntitySnapshot(ClientPacketListener listener, Entity entity, List<Entity> withPassengers, Consumer<byte[]> sink) {
+        List<Packet<?>> original = SPAWNS.get(entity.getId());
+        if (original != null) {
+            // The server's own spawn packets carry what client state cannot rebuild (spawn data, NeoForge payloads).
+            for (Packet<?> spawnPacket : original) {
+                write(listener, spawnPacket, sink);
+            }
+            write(listener, new ClientboundTeleportEntityPacket(entity), sink);
+        } else {
+            write(listener, new ClientboundAddEntityPacket(entity.getId(), entity.getUUID(), entity.getX(), entity.getY(), entity.getZ(),
+                    entity.getXRot(), entity.getYRot(), entity.getType(), spawnData(entity), entity.getDeltaMovement(), entity.getYHeadRot()), sink);
+            if (entity instanceof net.neoforged.neoforge.entity.IEntityWithComplexSpawn) {
+                try {
+                    write(listener, new net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket(
+                            new net.neoforged.neoforge.network.payload.AdvancedAddEntityPayload(entity)), sink);
+                } catch (Throwable t) {
+                    JustReplay.LOGGER.debug("No spawn data for {}", entity, t);
                 }
             }
-            List<SynchedEntityData.DataValue<?>> data = entity.getEntityData().getNonDefaultValues();
-            if (data != null) {
-                write(listener, new ClientboundSetEntityDataPacket(entity.getId(), data));
-            }
-            if (entity instanceof LivingEntity living) {
-                List<Pair<EquipmentSlot, ItemStack>> equipment = new ArrayList<>();
-                for (EquipmentSlot slot : EquipmentSlot.values()) {
-                    ItemStack stack = living.getItemBySlot(slot);
-                    if (!stack.isEmpty()) {
-                        equipment.add(Pair.of(slot, stack.copy()));
-                    }
-                }
-                if (!equipment.isEmpty()) {
-                    write(listener, new ClientboundSetEquipmentPacket(entity.getId(), equipment));
+        }
+        List<SynchedEntityData.DataValue<?>> data = entity.getEntityData().getNonDefaultValues();
+        if (data != null) {
+            write(listener, new ClientboundSetEntityDataPacket(entity.getId(), data), sink);
+        }
+        if (entity instanceof LivingEntity living) {
+            List<Pair<EquipmentSlot, ItemStack>> equipment = new ArrayList<>();
+            for (EquipmentSlot slot : EquipmentSlot.values()) {
+                ItemStack stack = living.getItemBySlot(slot);
+                if (!stack.isEmpty()) {
+                    equipment.add(Pair.of(slot, stack.copy()));
                 }
             }
-            if (!entity.getPassengers().isEmpty()) {
-                withPassengers.add(entity);
+            if (!equipment.isEmpty()) {
+                write(listener, new ClientboundSetEquipmentPacket(entity.getId(), equipment), sink);
             }
+        }
+        if (!entity.getPassengers().isEmpty()) {
+            withPassengers.add(entity);
         }
     }
 }
