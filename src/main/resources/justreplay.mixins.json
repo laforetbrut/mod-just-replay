@@ -9,6 +9,7 @@
     "PlayerListMixin",
     "IntegratedServerMixin",
     "PlayerInfoAccessor",
+    "HostChunkMapMixin",
     "BossHealthOverlayAccessor",
     "PlayerTabOverlayAccessor",
     "WindowMixin",
