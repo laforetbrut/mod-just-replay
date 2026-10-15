@@ -30,6 +30,12 @@ public final class JRKeys {
 
     public static final KeyMapping RECORD = new KeyMapping("key.justreplay.record", KeyConflictContext.IN_GAME,
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_F8, CATEGORY);
+    /** Saves the instant replay buffer (the last minutes of play) as a replay. */
+    public static final KeyMapping SAVE_BUFFER = new KeyMapping("key.justreplay.save_buffer", KeyConflictContext.IN_GAME,
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_F7, CATEGORY);
+    /** Starts a recording that stops by itself after the configured minutes; unbound by default. */
+    public static final KeyMapping RECORD_NEXT = new KeyMapping("key.justreplay.record_next", KeyConflictContext.IN_GAME,
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, CATEGORY);
     public static final KeyMapping EDITOR = key("editor", GLFW.GLFW_KEY_G);
     public static final KeyMapping PLAY_PAUSE = key("play_pause", GLFW.GLFW_KEY_J);
     public static final KeyMapping SEEK_BACK = key("seek_back", GLFW.GLFW_KEY_LEFT);
@@ -61,7 +67,7 @@ public final class JRKeys {
 
     public static void register(RegisterKeyMappingsEvent event) {
         for (KeyMapping key : new KeyMapping[]{RECORD, EDITOR, PLAY_PAUSE, SEEK_BACK, SEEK_FORWARD, SPEED_UP, SPEED_DOWN,
-                CAMERA_KEYFRAME, CAMERA_PATH, MARKER, TOGGLE_HUD, RECORDER_VIEW, STOP_SPECTATING}) {
+                CAMERA_KEYFRAME, CAMERA_PATH, MARKER, TOGGLE_HUD, RECORDER_VIEW, STOP_SPECTATING, SAVE_BUFFER, RECORD_NEXT}) {
             event.register(key);
         }
         for (KeyMapping key : CUT_TO) {

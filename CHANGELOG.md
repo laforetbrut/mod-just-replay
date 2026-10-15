@@ -40,6 +40,18 @@
   F1 or ? shows the shortcuts, read from the current key bindings. The replay list shows cards with search
   and sorting by date, name or size; the export screen has resolution and frame rate selectors and a quality
   slider.
+- Instant replay: with `recording.replayBuffer` on, the last minutes of play (`bufferMinutes`, 5 by default) stay in memory, compressed, and F7 saves them as a normal replay. Nothing is written to disk until you save.
+- "Record next minutes" key (unbound by default): records for `recording.nextMinutes` and stops by itself.
+- New settings `recording.checkpointMinutes` (5 by default) and `recording.extraChunkRadius` (16 by default).
+
+#### Changed
+- Recording costs less on the client thread: no allocation per tick for an idle player, chunk building on a
+  small time budget that pauses while frames are slow, voice frames handed over in one batch per tick, one
+  reused encoding buffer per thread, writer threads at low priority. A recording and the instant replay share
+  one capture, so packets are encoded once.
+- Fewer bytes written to the drive: checkpoints every 5 minutes at maximum compression, `meta.json` rewritten
+  once a minute, stream flushed every 30 seconds only when something new was written, cached chunks written
+  once per recording.
 
 #### Fixed
 - Signed player chat no longer breaks replays (expired keys, seeking back, manual recordings).
@@ -103,6 +115,19 @@
   défile. F1 ou ? affiche les raccourcis, lus depuis les touches configurées. La liste des replays montre des
   cartes avec recherche et tri par date, nom ou taille ; l'écran d'export a des sélecteurs de résolution et
   d'images par seconde et un curseur de qualité.
+- Replay instantané : avec `recording.replayBuffer` activé, les dernières minutes de jeu (`bufferMinutes`, 5 par défaut) restent en mémoire, compressées, et F7 les enregistre comme un replay normal. Rien n'est écrit sur le disque avant la sauvegarde.
+- Touche "Enregistrer les prochaines minutes" (sans touche par défaut) : enregistre pendant `recording.nextMinutes` puis s'arrête seule.
+- Nouveaux réglages `recording.checkpointMinutes` (5 par défaut) et `recording.extraChunkRadius` (16 par défaut).
+
+#### Modifié
+- L'enregistrement coûte moins sur le thread client : aucune allocation par tick pour un joueur immobile,
+  construction des chunks sur un petit budget de temps mis en pause quand les images ralentissent, voix
+  transmises en un seul lot par tick, un tampon d'encodage réutilisé par thread, threads d'écriture en basse
+  priorité. Un enregistrement et le replay instantané partagent une seule capture : chaque paquet est encodé
+  une fois.
+- Moins d'octets écrits sur le disque : points de reprise toutes les 5 minutes en compression maximale,
+  `meta.json` réécrit une fois par minute, flux vidé toutes les 30 secondes seulement s'il y a du nouveau,
+  chunks en cache écrits une fois par enregistrement.
 
 #### Corrigé
 - Le chat signé des joueurs ne casse plus les replays (clés expirées, retour en arrière, enregistrements manuels).

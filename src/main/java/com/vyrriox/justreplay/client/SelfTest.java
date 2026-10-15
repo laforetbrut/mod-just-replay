@@ -43,6 +43,8 @@ public final class SelfTest {
     private static int settle;
     private static int speedStart;
     private static Path replay;
+    private static Path clip;
+    private static java.util.concurrent.CompletableFuture<com.vyrriox.justreplay.format.ReplayBuffer.Saved> clipSave;
 
     private SelfTest() {
     }
@@ -95,6 +97,9 @@ public final class SelfTest {
         switch (step) {
             case 0 -> {
                 if (atMenu(mc)) {
+                    // Instant replay from the login on, with a short window so the clip starts at a buffer checkpoint.
+                    System.setProperty("justreplay.bufferWindowTicks", "160");
+                    com.vyrriox.justreplay.config.JRConfig.REPLAY_BUFFER.set(true);
                     LevelStorageSource source = mc.getLevelSource();
                     if (source.levelExists(WORLD)) {
                         try (var access = source.createAccess(WORLD)) {
@@ -153,9 +158,23 @@ public final class SelfTest {
                 if (t == 100) {
                     p.connection.sendCommand("setblock ~ ~3 ~ minecraft:diamond_block");
                 }
-                if (t >= 200) {
+                if (t % 40 == 0 && Recorder.capturing() != null) {
+                    log("recording cost: {}", Recorder.capturing().lastCost());
+                }
+                if (t >= 200 && clipSave == null) {
+                    clipSave = Recorder.saveBuffer();
+                    log("buffer save requested: {}", clipSave != null);
+                    if (clipSave == null) {
+                        clipSave = java.util.concurrent.CompletableFuture.failedFuture(new IllegalStateException("no buffer"));
+                    }
+                }
+                if (t >= 200 && clipSave.isDone()) {
+                    verifyClip(mc);
                     replay = Recorder.stop();
-                    log("record stopped: {} packets={}", replay, ReplayStorage.readStream(replay).size());
+                    log("record stopped: {} packets={} stream={} bytes checkpoints={} bytes in {} files", replay,
+                            ReplayStorage.readStream(replay).size(), Files.size(replay.resolve(ReplayStorage.STREAM)),
+                            folderSize(replay.resolve(com.vyrriox.justreplay.format.Checkpoints.FOLDER)),
+                            com.vyrriox.justreplay.format.Checkpoints.list(replay).length);
                     mc.level.disconnect();
                     mc.disconnect(new TitleScreen());
                     next(40);
@@ -326,6 +345,35 @@ public final class SelfTest {
                 next(60);
             }
             case 15 -> {
+                if (atMenu(mc)) {
+                    if (clip == null) {
+                        step = 18;
+                        return;
+                    }
+                    ReplaySession.open(clip, mc.screen);
+                    log("buffer clip opening");
+                    next(40);
+                }
+            }
+            case 16 -> {
+                if (ReplaySession.isRunning() && p != null) {
+                    next(60);
+                }
+            }
+            case 17 -> {
+                ReplaySession s = ReplaySession.current();
+                logWorld(mc, s, "buffer clip playing");
+                shot(mc, "6-buffer-clip");
+                s.playback().seek(Math.max(0, s.playback().duration() - 10));
+                logWorld(mc, s, "buffer clip after forward seek");
+                s.playback().seek(5);
+                logWorld(mc, s, "buffer clip after backward seek");
+                mc.level.disconnect();
+                mc.disconnect(new TitleScreen());
+                next(60);
+            }
+            case 18 -> {
+                com.vyrriox.justreplay.config.JRConfig.REPLAY_BUFFER.set(false);
                 log("DONE");
                 Files.deleteIfExists(FLAG);
                 step = 100;
@@ -333,6 +381,39 @@ public final class SelfTest {
             }
             default -> {
             }
+        }
+    }
+
+    /** Checks the saved instant replay opens like any replay: stream, first packet, checkpoints, duration. */
+    private static void verifyClip(Minecraft mc) {
+        try {
+            com.vyrriox.justreplay.format.ReplayBuffer.Saved saved = clipSave.join();
+            clip = saved.dir();
+            com.vyrriox.justreplay.format.PacketStream stream = com.vyrriox.justreplay.format.PacketStream.open(clip);
+            com.vyrriox.justreplay.format.RecordedPacket first = stream.peek();
+            String firstType = first == null ? "none" : com.vyrriox.justreplay.record.PacketCodec.of(mc.getConnection())
+                    .decode(first.data()).getClass().getSimpleName();
+            int packets = 0;
+            int lastTick = 0;
+            for (com.vyrriox.justreplay.format.RecordedPacket packet; (packet = stream.peek()) != null; stream.advance()) {
+                packets++;
+                lastTick = packet.tick();
+            }
+            log("buffer clip {}: packets={} (saved {}) lastTick={} duration={} checkpoints={} first={} voice={}", clip.getFileName(),
+                    packets, saved.packets(), lastTick, ReplayStorage.readMeta(clip).durationTicks,
+                    java.util.Arrays.toString(com.vyrriox.justreplay.format.Checkpoints.list(clip)), firstType, saved.voiceFrames());
+        } catch (Throwable t) {
+            JustReplay.LOGGER.error("SELFTEST FAIL buffer clip", t);
+            clip = null;
+        }
+    }
+
+    private static long folderSize(Path dir) throws java.io.IOException {
+        if (!Files.isDirectory(dir)) {
+            return 0;
+        }
+        try (var files = Files.list(dir)) {
+            return files.mapToLong(f -> f.toFile().length()).sum();
         }
     }
 

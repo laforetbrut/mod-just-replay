@@ -29,6 +29,14 @@ public final class RegistryIds {
 
     /** Saves the ids currently in use by the client, which are the server's ids once connected. */
     public static void save(Path dir) {
+        byte[] bytes = encode();
+        if (bytes != null) {
+            write(dir, bytes);
+        }
+    }
+
+    /** The ids currently in use by the client, encoded as in {@value #FILE}; null when they cannot be read. */
+    public static byte[] encode() {
         Map<ResourceLocation, RegistrySnapshot> snapshot = RegistryManager.takeSnapshot(RegistryManager.SnapshotType.SYNC_TO_CLIENT);
         FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
         try {
@@ -39,12 +47,22 @@ public final class RegistryIds {
             });
             byte[] bytes = new byte[buf.readableBytes()];
             buf.readBytes(bytes);
+            return bytes;
+        } catch (Exception e) {
+            JustReplay.LOGGER.error("Cannot encode the registry ids", e);
+            return null;
+        } finally {
+            buf.release();
+        }
+    }
+
+    /** Writes ids taken earlier with {@link #encode()} into a replay folder. */
+    public static void write(Path dir, byte[] bytes) {
+        try {
             Files.createDirectories(dir);
             Files.write(dir.resolve(FILE), bytes);
         } catch (Exception e) {
             JustReplay.LOGGER.error("Cannot save registry ids for {}", dir, e);
-        } finally {
-            buf.release();
         }
     }
 

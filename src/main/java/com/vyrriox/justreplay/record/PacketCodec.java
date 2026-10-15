@@ -56,16 +56,46 @@ public final class PacketCodec {
             }
             return;
         }
-        ByteBuf buf = Unpooled.buffer(256);
+        Scratch scratch = SCRATCH.get();
+        ByteBuf buf = scratch.busy ? Unpooled.buffer(256) : scratch.buf;
+        boolean shared = buf == scratch.buf;
+        scratch.busy |= shared;
+        byte[] bytes;
         try {
+            buf.clear();
             codec.encode(buf, (Packet<? super ClientGamePacketListener>) packet);
-            byte[] bytes = new byte[buf.readableBytes()];
+            bytes = new byte[buf.readableBytes()];
             buf.readBytes(bytes);
-            sink.accept(bytes);
         } finally {
-            buf.release();
+            if (shared) {
+                scratch.busy = false;
+                scratch.trim();
+            } else {
+                buf.release();
+            }
+        }
+        sink.accept(bytes);
+    }
+
+    /**
+     * Encoding buffer reused by each thread (network thread, client thread), so recording a packet allocates only
+     * its final byte array. A buffer grown by a huge packet is given back.
+     */
+    private static final class Scratch {
+        private static final int INITIAL = 8 * 1024;
+        private static final int MAX_KEPT = 1 << 20;
+        ByteBuf buf = Unpooled.buffer(INITIAL);
+        boolean busy;
+
+        void trim() {
+            if (buf.capacity() > MAX_KEPT) {
+                buf.release();
+                buf = Unpooled.buffer(INITIAL);
+            }
         }
     }
+
+    private static final ThreadLocal<Scratch> SCRATCH = ThreadLocal.withInitial(Scratch::new);
 
     public Packet<? super ClientGamePacketListener> decode(byte[] data) {
         ByteBuf buf = Unpooled.wrappedBuffer(data);
