@@ -56,6 +56,7 @@ public class ActorScreen extends GlassScreen {
     private ScrollArea area;
     private float pageScroll;
     private int boxX, boxY, boxW, boxH;
+    private int tabsW;
 
     public ActorScreen(Screen parent, ReplaySession session, ReplayProject.ActorData actor) {
         super(Component.translatable("justreplay.actor.title"));
@@ -89,7 +90,7 @@ public class ActorScreen extends GlassScreen {
         boxH = Math.min(300, height - 12);
         boxX = (width - boxW) / 2;
         boxY = (height - boxH) / 2;
-        int tabsW = Math.min(170, boxW - 110);
+        tabsW = Math.min(170, boxW - 110);
         Segmented<Boolean> pages = addRenderableWidget(new Segmented<>(List.of(false, true), actionsPage,
                 v -> Component.translatable(v ? "justreplay.actor.tab.actions" : "justreplay.actor.tab.properties"),
                 v -> v ? Icon.BOLT : Icon.PERSON, v -> {
@@ -357,7 +358,7 @@ public class ActorScreen extends GlassScreen {
     protected void renderOverlay(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         Paint.iconOnText(g, actor.isModel() ? Icon.CUBE : Icon.PERSON, boxX + 12, boxY + 11, 10, Theme.ACCENT);
         String who = actor.name.isBlank() ? actor.type : actor.name;
-        g.drawString(font, Paint.ellipsize(font, title.getString() + "  " + who, boxW - 200), boxX + 27, boxY + 11, Theme.TEXT, false);
+        g.drawString(font, Paint.ellipsize(font, title.getString() + "  " + who, boxW - 10 - tabsW - 27 - 8), boxX + 27, boxY + 11, Theme.TEXT, false);
     }
 
     /** Animation names of the chosen model as a tooltip, or null when there is none. */

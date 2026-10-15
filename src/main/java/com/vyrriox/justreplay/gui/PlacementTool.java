@@ -349,8 +349,25 @@ public final class PlacementTool {
             status = Component.translatable(tool.kind == ActorPlacement.Kind.BED ? "justreplay.place.need_bed" : "justreplay.place.need_block");
             statusColor = Anim.now() - tool.refusedAt < 900 ? Theme.DANGER : Theme.WARNING;
         }
-        int boxW = Math.min(w - 16, Math.max(font.width(title) + 30, font.width(keys) + 16));
-        int boxH = status == null ? 30 : 41;
+        // The key groups ("Click: confirm", ...) wrap onto more lines in a narrow window instead of being cut.
+        java.util.List<String> keyLines = new java.util.ArrayList<>();
+        String line = "";
+        for (String group : keys.getString().split(" {2,}")) {
+            String joined = line.isEmpty() ? group : line + "   " + group;
+            if (line.isEmpty() || font.width(joined) <= w - 32) {
+                line = joined;
+            } else {
+                keyLines.add(line);
+                line = group;
+            }
+        }
+        keyLines.add(line);
+        int keysW = 0;
+        for (String l : keyLines) {
+            keysW = Math.max(keysW, font.width(l));
+        }
+        int boxW = Math.min(w - 16, Math.max(font.width(title) + 30, keysW + 16));
+        int boxH = 19 + keyLines.size() * 11 + (status == null ? 0 : 11);
         int bx = (w - boxW) / 2;
         int by = 8 - Math.round((1.0F - a) * 6);
         Paint.glass(g, bx, by, boxW, boxH, Theme.RADIUS_L);
@@ -362,9 +379,13 @@ public final class PlacementTool {
         };
         Paint.iconOnText(g, icon, bx + 8, by + 7, 9, Theme.ACCENT);
         g.drawString(font, Paint.ellipsize(font, title.getString(), boxW - 30), bx + 21, by + 7, Theme.TEXT, false);
-        g.drawString(font, Paint.ellipsize(font, keys.getString(), boxW - 16), bx + 8, by + 19, Theme.TEXT_DIM, false);
+        int ly = by + 19;
+        for (String l : keyLines) {
+            g.drawString(font, Paint.ellipsize(font, l, boxW - 16), bx + 8, ly, Theme.TEXT_DIM, false);
+            ly += 11;
+        }
         if (status != null) {
-            g.drawString(font, Paint.ellipsize(font, status.getString(), boxW - 16), bx + 8, by + 30, statusColor, false);
+            g.drawString(font, Paint.ellipsize(font, status.getString(), boxW - 16), bx + 8, ly, statusColor, false);
         }
     }
 }

@@ -36,6 +36,11 @@ public class ConfirmDialog extends GlassScreen {
     protected void init() {
         boxW = Math.min(260, width - 24);
         lines = font.split(message, boxW - 24);
+        // The dialog never grows past the window: a very long message is cut to the lines that fit.
+        int maxLines = Math.max(1, (height - 16 - 72) / 10);
+        if (lines.size() > maxLines) {
+            lines = lines.subList(0, maxLines);
+        }
         boxH = 50 + lines.size() * 10 + 22;
         boxX = (width - boxW) / 2;
         boxY = (height - boxH) / 2;

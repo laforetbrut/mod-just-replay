@@ -44,7 +44,12 @@ public class GlassSwitch extends AbstractButton implements Tipped {
 
     @Override
     public Component tooltip() {
-        return tip;
+        // A label cut to fit is given in full by the tooltip.
+        boolean cut = cachedLabel != null && !cachedLabel.equals(getMessage().getString());
+        if (!cut) {
+            return tip;
+        }
+        return tip == null ? getMessage() : getMessage().copy().append(": ").append(tip);
     }
 
     @Override

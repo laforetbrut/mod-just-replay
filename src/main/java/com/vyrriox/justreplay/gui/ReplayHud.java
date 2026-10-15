@@ -92,10 +92,10 @@ public final class ReplayHud {
         if (session.spectate().isActive()) {
             Component leave = mc.options.keyShift.getTranslatedKeyMessage();
             Component spectating = Component.translatable("justreplay.hud.spectating", session.spectate().targetName(), leave);
-            int sw = font.width(spectating) + 22;
+            int sw = Math.min(w, font.width(spectating) + 22);
             Paint.glass(g, x, y - 16, sw, 13, 6.5F);
             Paint.iconOnText(g, Icon.EYE, x + 5, y - 13, 9, Theme.WARNING);
-            g.drawString(font, spectating, x + 17, y - 13, 0xFFFFE08A, false);
+            g.drawString(font, Paint.ellipsize(font, spectating.getString(), sw - 22), x + 17, y - 13, 0xFFFFE08A, false);
             used = x + sw + 6;
         }
         String hint = hint();

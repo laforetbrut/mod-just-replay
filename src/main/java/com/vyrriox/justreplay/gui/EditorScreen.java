@@ -35,6 +35,7 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -48,6 +49,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -69,6 +71,10 @@ public class EditorScreen extends GlassScreen {
     private static final int TOP_H = 18;
     /** Height of the transport row and of the main buttons in the simple mode. */
     private static final int BIG = 20;
+    /** Height of the transport row and of the main buttons of the simple mode in a short window. */
+    private static final int BIG_COMPACT = 16;
+    /** Height the sidebar keeps at least, when the dock can give it up (fewer audio lanes). */
+    private static final int MIN_SIDE = 110;
     private static final String[] COMMON_MOBS = {"minecraft:villager", "minecraft:zombie", "minecraft:skeleton", "minecraft:creeper",
             "minecraft:iron_golem", "minecraft:wolf", "minecraft:cat", "minecraft:horse", "minecraft:pig", "minecraft:cow",
             "minecraft:sheep", "minecraft:chicken", "minecraft:fox", "minecraft:enderman", "minecraft:piglin", "minecraft:pillager",
@@ -147,6 +153,9 @@ public class EditorScreen extends GlassScreen {
     private int nameRight;
     private int timeX;
     private int rowH;
+    /** Height of the main buttons of the simple mode sidebar. */
+    private int bigH = BIG - 2;
+    private boolean compact;
     private Segmented<String> tabs;
     private ScrollArea side;
     private Dropdown<Float> speed;
@@ -154,6 +163,10 @@ public class EditorScreen extends GlassScreen {
     private boolean helpOpen;
     private long helpAt;
     private List<String[]> help = List.of();
+    private final Anim.Value helpScroll = new Anim.Value(0.0F, Theme.NORMAL + 4);
+    private int helpMax;
+    private final Map<String[], List<FormattedCharSequence>> helpLines = new IdentityHashMap<>();
+    private int helpLinesW = -1;
 
     private long savedMtime = Long.MIN_VALUE;
     private long savedFlashAt;
@@ -193,8 +206,13 @@ public class EditorScreen extends GlassScreen {
         return mode() == EditorMode.SIMPLE;
     }
 
+    /** Vertical gap between the transport row and the timeline. */
+    private int dockGap() {
+        return compact ? 4 : 6;
+    }
+
     private int dockHeight() {
-        return 4 + rowH + 6 + timeline.height() + 4;
+        return 4 + rowH + dockGap() + timeline.height() + (compact ? 3 : 4);
     }
 
     // ---------------------------------------------------------------- layout
@@ -202,19 +220,26 @@ public class EditorScreen extends GlassScreen {
     @Override
     protected void init() {
         boolean simple = simple();
-        rowH = simple ? BIG : Theme.ROW + 1;
+        // A short window (the default 854 x 480 window at GUI scale 2 is 240 high) gets smaller controls so the
+        // sidebar keeps room above the dock.
+        compact = height < 300;
+        rowH = simple ? (compact ? BIG_COMPACT : BIG) : Theme.ROW + 1;
+        bigH = compact ? BIG_COMPACT : BIG - 2;
         timeline.lanes(simple ? EditorTimeline.SIMPLE_LANES : EditorTimeline.ALL_LANES);
-        sideW = Mth.clamp(width * 40 / 100, 160, simple ? 240 : 220);
+        timeline.compact(compact);
+        // The audio lanes give way first: fewer tracks at once (the others scroll) rather than a cramped sidebar.
+        int tracks = AudioLanes.MAX_VISIBLE;
+        audioLanes.maxVisible(tracks);
+        while (tracks > 1 && height - dockHeight() - 4 - 4 - (4 + TOP_H + 4) < MIN_SIDE) {
+            audioLanes.maxVisible(--tracks);
+        }
+        sideW = Mth.clamp(width * 40 / 100, Math.min(160, width - 16), simple ? 240 : 220);
         dockTop = height - 4 - dockHeight();
         sideTop = 4 + TOP_H + 4;
         sideBottom = dockTop - 4;
         initTopBar();
-        if (simple) {
-            initSimpleTransport();
-        } else {
-            initTransport();
-        }
-        timeline.layout(8 + EditorTimeline.LABELS + 2, dockTop + 4 + rowH + 6, width - 16 - EditorTimeline.LABELS - 2);
+        initTransport();
+        timeline.layout(8 + EditorTimeline.LABELS + 2, dockTop + 4 + rowH + dockGap(), width - 16 - EditorTimeline.LABELS - 2);
         initSidebar();
         if (savedMtime == Long.MIN_VALUE) {
             savedMtime = projectTime();
@@ -225,10 +250,16 @@ public class EditorScreen extends GlassScreen {
         int y = 4 + (TOP_H - 14) / 2;
         addRenderableWidget(new GlassButton(8, y, 16, 14, Component.empty(), b -> toggleSidebar())
                 .icon(Icon.SIDEBAR).style(GlassButton.Style.GHOST).selected(() -> sidebarOpen).tip(tc("justreplay.editor.sidebar.tip")));
+        int modeW = Math.max(font.width(tc("justreplay.editor.mode.simple")), font.width(tc("justreplay.editor.mode.advanced"))) * 2 + 22;
+        int exportW = font.width(tc("justreplay.editor.export")) + 24;
+        // Narrow window: the export button keeps only its icon so the replay name still has some room.
+        int fixed = 8 + 16 + 4 + 3 + 16 + 2 + 16 + 2 + 16 + 6 + modeW + 6;
+        if (width - fixed - exportW < 42 + 70) {
+            exportW = 20;
+        }
         int rx = width - 8 - 16;
         addRenderableWidget(new GlassButton(rx, y, 16, 14, Component.empty(), b -> onClose())
                 .icon(Icon.CLOSE).style(GlassButton.Style.GHOST).tip(tc("justreplay.editor.close.tip")));
-        int exportW = font.width(tc("justreplay.editor.export")) + 24;
         rx -= 4 + exportW;
         addRenderableWidget(new GlassButton(rx, y, exportW, 14, tc("justreplay.editor.export"), b -> {
             if (simple()) {
@@ -249,7 +280,6 @@ public class EditorScreen extends GlassScreen {
         addRenderableWidget(new GlassButton(rx, y, 16, 14, Component.empty(), b -> toggleHelp())
                 .icon(Icon.HELP).style(GlassButton.Style.GHOST).selected(() -> helpOpen).tip(tc("justreplay.editor.help.tip")));
         // Simple / Advanced switch, remembered in the config.
-        int modeW = Math.max(font.width(tc("justreplay.editor.mode.simple")), font.width(tc("justreplay.editor.mode.advanced"))) * 2 + 22;
         rx -= 6 + modeW;
         Segmented<EditorMode> modes = addRenderableWidget(new Segmented<>(List.of(EditorMode.SIMPLE, EditorMode.ADVANCED), mode(),
                 m -> tc("justreplay.editor.mode." + m.name().toLowerCase(Locale.ROOT)), null, this::setMode)
@@ -270,58 +300,94 @@ public class EditorScreen extends GlassScreen {
         rebuildWidgets();
     }
 
+    /**
+     * The transport row. Its parts are measured first and give way, in this order, when the window is too narrow:
+     * the label of the marker button, the zoom in and out buttons (Ctrl + wheel still zooms, "fit" stays), the label
+     * of the camera point button, then the jump to start and end buttons. Unlabelled buttons keep a tooltip, and
+     * nothing ever overlaps the zoom buttons.
+     */
     private void initTransport() {
+        boolean simple = simple();
         Playback playback = session.playback();
         int y = dockTop + 4;
-        int x = 8;
         int h = rowH;
-        Component step = Component.literal(Integer.toString(stepSeconds()));
-        x = transport(x, y, 16, h, Icon.SKIP_START, tc("justreplay.editor.start.tip"), () -> playback.seek(0));
-        x = transport(x, y, 16, h, Icon.REWIND, Component.translatable("justreplay.editor.back.tip", step), () -> seekRelative(-stepTicks()));
-        addRenderableWidget(new GlassButton(x, y, 24, h, Component.empty(), b -> togglePlay())
-                .icon(() -> playback.isPaused() ? Icon.PLAY : Icon.PAUSE).style(GlassButton.Style.PRIMARY).tip(tc("justreplay.editor.play.tip")));
-        x += 26;
-        x = transport(x, y, 16, h, Icon.FORWARD, Component.translatable("justreplay.editor.forward.tip", step), () -> seekRelative(stepTicks()));
-        x = transport(x, y, 16, h, Icon.SKIP_END, tc("justreplay.editor.end.tip"), () -> playback.seek(playback.duration()));
-        timeX = x + 6;
-        x = timeX + font.width("00:00.0 / 00:00.0") + 6;
-        x = speedDropdown(x, y, 36, h);
-        x += 8;
-        x = transport(x, y, 16, h, Icon.KEY, tc("justreplay.editor.key.tip"), cameras::addKeyframe);
-        x = transport(x, y, 16, h, Icon.FLAG, tc("justreplay.editor.marker.tip"), this::addMarker);
-        transport(x, y, 16, h, Icon.CUT, tc("justreplay.editor.cut.add.tip"), cameras::cutHere);
-        zoomButtons(y, h);
-    }
-
-    /** Transport of the simple mode: bigger buttons, and the main actions spelled out. */
-    private void initSimpleTransport() {
-        Playback playback = session.playback();
-        int y = dockTop + 4;
-        int x = 8;
-        int h = rowH;
-        Component step = Component.literal(Integer.toString(stepSeconds()));
-        x = transport(x, y, 20, h, Icon.SKIP_START, tc("justreplay.editor.start.tip"), () -> playback.seek(0));
-        x = transport(x, y, 20, h, Icon.REWIND, Component.translatable("justreplay.editor.back.tip", step), () -> seekRelative(-stepTicks()));
-        addRenderableWidget(new GlassButton(x, y, 32, h, Component.empty(), b -> togglePlay())
-                .icon(() -> playback.isPaused() ? Icon.PLAY : Icon.PAUSE).style(GlassButton.Style.PRIMARY).tip(tc("justreplay.editor.play.tip")));
-        x += 34;
-        x = transport(x, y, 20, h, Icon.FORWARD, Component.translatable("justreplay.editor.forward.tip", step), () -> seekRelative(stepTicks()));
-        timeX = x + 6;
-        x = timeX + font.width("00:00.0 / 00:00.0") + 6;
-        x = speedDropdown(x, y, 40, h);
-        x += 8;
+        int btn = simple ? (compact ? 18 : 20) : 16;
+        int play = simple ? (compact ? 26 : 32) : 24;
+        int speedW = simple && !compact ? 40 : 36;
+        int gap = compact ? 5 : 8;
+        String total = Timeline.formatTicks(playback.duration());
+        int timeW = font.width(total + " / " + total);
         Component point = tc("justreplay.editor.simple.point");
-        int pointW = font.width(point) + 26;
-        addRenderableWidget(new GlassButton(x, y, pointW, h, point, b -> addSimplePoint()).icon(Icon.KEY)
-                .tip(tc("justreplay.editor.simple.point.tip")));
-        x += pointW + 3;
         Component marker = tc("justreplay.editor.simple.marker");
+        int pointW = font.width(point) + 26;
         int markerW = font.width(marker) + 26;
-        if (x + markerW < width - 8 - 3 * 22) {
-            addRenderableWidget(new GlassButton(x, y, markerW, h, marker, b -> addMarker()).icon(Icon.FLAG)
-                    .tip(tc("justreplay.editor.marker.tip")));
+
+        boolean skips = true;
+        boolean allZoom = true;
+        int labels = simple ? 2 : 0;
+        while (true) {
+            int left = 8 + (skips ? btn + 2 : 0) + (btn + 2) + (play + 2) + (btn + 2) + (skips && !simple ? btn + 2 : 0);
+            int actions = switch (labels) {
+                case 2 -> pointW + 3 + markerW;
+                case 1 -> pointW + 3 + btn;
+                default -> simple ? 2 * btn + 2 : 3 * (btn + 2) - 2;
+            };
+            int end = left + 4 + timeW + 6 + speedW + gap + actions;
+            int zoomLeft = width - 8 - (allZoom ? 3 * 18 - 2 : 16);
+            if (end + 4 <= zoomLeft) {
+                break;
+            }
+            if (labels == 2) {
+                labels = 1;
+            } else if (allZoom) {
+                allZoom = false;
+            } else if (labels == 1) {
+                labels = 0;
+            } else if (skips) {
+                skips = false;
+            } else {
+                break;
+            }
         }
-        zoomButtons(y, h);
+
+        int x = 8;
+        Component step = Component.literal(Integer.toString(stepSeconds()));
+        if (skips) {
+            x = transport(x, y, btn, h, Icon.SKIP_START, tc("justreplay.editor.start.tip"), () -> playback.seek(0));
+        }
+        x = transport(x, y, btn, h, Icon.REWIND, Component.translatable("justreplay.editor.back.tip", step), () -> seekRelative(-stepTicks()));
+        addRenderableWidget(new GlassButton(x, y, play, h, Component.empty(), b -> togglePlay())
+                .icon(() -> playback.isPaused() ? Icon.PLAY : Icon.PAUSE).style(GlassButton.Style.PRIMARY).tip(tc("justreplay.editor.play.tip")));
+        x += play + 2;
+        x = transport(x, y, btn, h, Icon.FORWARD, Component.translatable("justreplay.editor.forward.tip", step), () -> seekRelative(stepTicks()));
+        if (skips && !simple) {
+            x = transport(x, y, btn, h, Icon.SKIP_END, tc("justreplay.editor.end.tip"), () -> playback.seek(playback.duration()));
+        }
+        timeX = x + 4;
+        x = timeX + timeW + 6;
+        x = speedDropdown(x, y, speedW, h);
+        x += gap;
+        if (simple) {
+            // The main actions of the simple mode are spelled out when there is room, else icons with tooltips.
+            if (labels >= 1) {
+                addRenderableWidget(new GlassButton(x, y, pointW, h, point, b -> addSimplePoint()).icon(Icon.KEY)
+                        .tip(tc("justreplay.editor.simple.point.tip")));
+                x += pointW + 3;
+            } else {
+                x = transport(x, y, btn, h, Icon.KEY, point.copy().append(" (K)"), this::addSimplePoint);
+            }
+            if (labels == 2) {
+                addRenderableWidget(new GlassButton(x, y, markerW, h, marker, b -> addMarker()).icon(Icon.FLAG)
+                        .tip(tc("justreplay.editor.marker.tip")));
+            } else {
+                transport(x, y, btn, h, Icon.FLAG, tc("justreplay.editor.marker.tip"), this::addMarker);
+            }
+        } else {
+            x = transport(x, y, btn, h, Icon.KEY, tc("justreplay.editor.key.tip"), cameras::addKeyframe);
+            x = transport(x, y, btn, h, Icon.FLAG, tc("justreplay.editor.marker.tip"), this::addMarker);
+            transport(x, y, btn, h, Icon.CUT, tc("justreplay.editor.cut.add.tip"), cameras::cutHere);
+        }
+        zoomButtons(y, h, allZoom);
     }
 
     private int speedDropdown(int x, int y, int w, int h) {
@@ -337,8 +403,13 @@ public class EditorScreen extends GlassScreen {
         return x + w;
     }
 
-    private void zoomButtons(int y, int h) {
+    /** Zoom buttons at the right of the transport row; {@code all} false keeps only "fit". */
+    private void zoomButtons(int y, int h, boolean all) {
         int rx = width - 8 - 16;
+        if (!all) {
+            transport(rx, y, 16, h, Icon.FIT, tc("justreplay.editor.zoom_fit.tip"), timeline::fit);
+            return;
+        }
         transport(rx, y, 16, h, Icon.PLUS, tc("justreplay.editor.zoom_in.tip"), () -> timeline.zoom(0.5, timeline.x + timeline.w / 2.0));
         rx -= 18;
         transport(rx, y, 16, h, Icon.FIT, tc("justreplay.editor.zoom_fit.tip"), timeline::fit);
@@ -399,7 +470,7 @@ public class EditorScreen extends GlassScreen {
         tabs.slideFrom(previousTab);
         previousTab = current.id();
         tabs.setWidth(contentW);
-        tabs.setHeight(simple() ? 24 : Theme.ROW);
+        tabs.setHeight(simple() ? (compact ? 18 : 24) : Theme.ROW);
         int areaTop = sideTop + 9 + tabs.getHeight();
         side = new ScrollArea(this, 0, areaTop, contentW + 2, sideBottom - areaTop - 4);
         Form form = new Form(side, contentW - 5);
@@ -458,17 +529,17 @@ public class EditorScreen extends GlassScreen {
     }
 
     /** A main button of the simple mode: taller, label and icon. */
-    private static GlassButton big(Component label, Icon icon, Component tip, GlassButton.OnPress action) {
+    private GlassButton big(Component label, Icon icon, Component tip, GlassButton.OnPress action) {
         GlassButton b = new GlassButton(label, action).icon(icon).tip(tip);
-        b.setHeight(BIG - 2);
+        b.setHeight(bigH);
         return b;
     }
 
     /** Two big buttons side by side. */
-    private static void bigPair(Form f, GlassButton left, GlassButton right) {
+    private void bigPair(Form f, GlassButton left, GlassButton right) {
         f.put(left, 0, 2);
         f.put(right, 1, 2);
-        f.next(BIG - 2);
+        f.next(bigH);
     }
 
     /** Shows a short feedback line in the open tab. */
@@ -524,10 +595,16 @@ public class EditorScreen extends GlassScreen {
     private void buildSimpleCamera(Form f) {
         ReplayProject.Camera camera = pathCamera();
         f.header(tc("justreplay.editor.simple.camera"), Icon.CAMERA);
-        f.paragraph(tc("justreplay.editor.simple.camera.help"), Theme.TEXT_MUTED);
+        // In a short window the main button comes before the explanation, so it shows without scrolling.
+        if (!compact) {
+            f.paragraph(tc("justreplay.editor.simple.camera.help"), Theme.TEXT_MUTED);
+        }
         f.full(big(tc("justreplay.editor.simple.point"), Icon.KEY, tc("justreplay.editor.simple.point.tip"), b -> addSimplePoint())
                 .style(GlassButton.Style.PRIMARY));
         f.text(() -> status, statusColor);
+        if (compact) {
+            f.paragraph(tc("justreplay.editor.simple.camera.help"), Theme.TEXT_MUTED);
+        }
         f.full(new GlassSwitch(tc("justreplay.editor.simple.play_path"), session::isCameraPathActive,
                 () -> session.setCameraPath(!session.isCameraPathActive())).icon(Icon.EYE).tip(tc("justreplay.editor.simple.play_path.tip")));
         f.full(new GlassSwitch(tc("justreplay.editor.simple.show_path"), () -> session.project().showPath, () -> {
@@ -922,7 +999,10 @@ public class EditorScreen extends GlassScreen {
 
     private void buildSimpleExport(Form f) {
         f.header(tc("justreplay.editor.export.section"), Icon.FILM);
-        f.paragraph(tc("justreplay.editor.simple.export.help"), Theme.TEXT_MUTED);
+        // In a short window the main button comes before the explanation, so it shows without scrolling.
+        if (!compact) {
+            f.paragraph(tc("justreplay.editor.simple.export.help"), Theme.TEXT_MUTED);
+        }
         f.text(this::exportRangeLine, Theme.TEXT);
         f.text(() -> Component.translatable("justreplay.editor.simple.export.settings", JRConfig.EXPORT_RESOLUTION.get().getTranslatedName(),
                 JRConfig.EXPORT_FPS.get()), Theme.TEXT_DIM);
@@ -930,6 +1010,9 @@ public class EditorScreen extends GlassScreen {
         f.full(big(tc("justreplay.editor.simple.export"), Icon.FILM, tc("justreplay.editor.simple.export.tip"), b -> oneClickExport())
                 .style(GlassButton.Style.PRIMARY));
         f.text(() -> status, statusColor);
+        if (compact) {
+            f.paragraph(tc("justreplay.editor.simple.export.help"), Theme.TEXT_MUTED);
+        }
         f.full(new GlassButton(tc("justreplay.export.folder"), b -> Util.getPlatform().openPath(ReplayStorage.exportRoot())).icon(Icon.FOLDER));
         f.full(new GlassButton(tc("justreplay.editor.simple.export.more"), b -> openExport()).icon(Icon.GEAR)
                 .tip(tc("justreplay.editor.export.tip")));
@@ -1440,6 +1523,10 @@ public class EditorScreen extends GlassScreen {
 
     @Override
     public boolean mouseScrolled(double mx, double my, double sx, double sy) {
+        if (helpOpen) {
+            helpScroll.to(Mth.clamp(helpScroll.target() - (float) sy * 24.0F, 0.0F, helpMax));
+            return true;
+        }
         if (!hasPopup() && !helpOpen && timeline.contains(mx, my)) {
             if (timeline.laneAt(my) == EditorTimeline.Lane.AUDIO && audioLanes.mouseScrolled(sy)) {
                 return true;
@@ -1681,46 +1768,114 @@ public class EditorScreen extends GlassScreen {
         if (helpOpen) {
             helpAt = Anim.now();
             help = buildHelp();
+            helpLines.clear();
+            helpScroll.snap(0.0F);
         }
     }
 
-    private static String key(int glfw) {
+    /**
+     * Short name of a key, from its key code so it does not depend on the keyboard layout where that only confuses
+     * (the digit row of an AZERTY keyboard is named after its symbols): arrows, Ctrl, Shift, Alt, Esc, digits.
+     */
+    private static String keyName(int glfw) {
+        switch (glfw) {
+            case GLFW.GLFW_KEY_LEFT -> {
+                return "←";
+            }
+            case GLFW.GLFW_KEY_RIGHT -> {
+                return "→";
+            }
+            case GLFW.GLFW_KEY_UP -> {
+                return "↑";
+            }
+            case GLFW.GLFW_KEY_DOWN -> {
+                return "↓";
+            }
+            case GLFW.GLFW_KEY_LEFT_CONTROL, GLFW.GLFW_KEY_RIGHT_CONTROL -> {
+                return "Ctrl";
+            }
+            case GLFW.GLFW_KEY_LEFT_SHIFT, GLFW.GLFW_KEY_RIGHT_SHIFT -> {
+                return "Shift";
+            }
+            case GLFW.GLFW_KEY_LEFT_ALT, GLFW.GLFW_KEY_RIGHT_ALT -> {
+                return "Alt";
+            }
+            case GLFW.GLFW_KEY_ESCAPE -> {
+                return "Esc";
+            }
+            default -> {
+            }
+        }
+        if (glfw >= GLFW.GLFW_KEY_0 && glfw <= GLFW.GLFW_KEY_9) {
+            return Integer.toString(glfw - GLFW.GLFW_KEY_0);
+        }
+        if (glfw >= GLFW.GLFW_KEY_KP_0 && glfw <= GLFW.GLFW_KEY_KP_9) {
+            return "Num" + (glfw - GLFW.GLFW_KEY_KP_0);
+        }
         return InputConstants.Type.KEYSYM.getOrCreate(glfw).getDisplayName().getString();
     }
 
+    /** Short name of a binding, with its modifier ("Ctrl+K"). */
     private static String key(KeyMapping mapping) {
-        return mapping.isUnbound() ? "-" : mapping.getTranslatedKeyMessage().getString();
+        if (mapping.isUnbound()) {
+            return "-";
+        }
+        InputConstants.Key key = mapping.getKey();
+        String name = key.getType() == InputConstants.Type.KEYSYM ? keyName(key.getValue()) : key.getDisplayName().getString();
+        return switch (mapping.getKeyModifier()) {
+            case CONTROL -> "Ctrl+" + name;
+            case SHIFT -> "Shift+" + name;
+            case ALT -> "Alt+" + name;
+            default -> name;
+        };
+    }
+
+    /** A row of bindings shown as a range ("1–9") when they are consecutive keys, else its first and last key. */
+    private static String keyRange(KeyMapping[] mappings) {
+        KeyMapping first = mappings[0];
+        KeyMapping last = mappings[mappings.length - 1];
+        boolean consecutive = !first.isUnbound() && first.getKey().getType() == InputConstants.Type.KEYSYM;
+        for (int i = 1; i < mappings.length && consecutive; i++) {
+            InputConstants.Key key = mappings[i].getKey();
+            consecutive = !mappings[i].isUnbound() && key.getType() == InputConstants.Type.KEYSYM
+                    && key.getValue() == first.getKey().getValue() + i && mappings[i].getKeyModifier() == first.getKeyModifier();
+        }
+        if (consecutive) {
+            return key(first) + "–" + keyName(last.getKey().getValue());
+        }
+        return key(first) + " … " + key(last);
     }
 
     /** Shortcut list built from the real bindings: {keys, action} rows, {null, title} for a section. */
     private List<String[]> buildHelp() {
+        String wheel = tr("justreplay.help.mouse.wheel");
         List<String[]> rows = new ArrayList<>();
         rows.add(new String[]{null, tr("justreplay.help.editor")});
-        rows.add(new String[]{key(GLFW.GLFW_KEY_SPACE), tr("justreplay.help.play")});
-        rows.add(new String[]{key(GLFW.GLFW_KEY_LEFT) + " " + key(GLFW.GLFW_KEY_RIGHT),
+        rows.add(new String[]{keyName(GLFW.GLFW_KEY_SPACE), tr("justreplay.help.play")});
+        rows.add(new String[]{keyName(GLFW.GLFW_KEY_LEFT) + " / " + keyName(GLFW.GLFW_KEY_RIGHT),
                 Component.translatable("justreplay.help.seek", stepSeconds()).getString()});
-        rows.add(new String[]{key(GLFW.GLFW_KEY_DELETE), tr("justreplay.help.delete")});
-        rows.add(new String[]{key(GLFW.GLFW_KEY_K), tr("justreplay.help.keyframe")});
+        rows.add(new String[]{keyName(GLFW.GLFW_KEY_DELETE), tr("justreplay.help.delete")});
+        rows.add(new String[]{keyName(GLFW.GLFW_KEY_K), tr("justreplay.help.keyframe")});
         if (!simple()) {
-            rows.add(new String[]{key(GLFW.GLFW_KEY_S), tr("justreplay.help.audio_split")});
-            rows.add(new String[]{key(GLFW.GLFW_KEY_LEFT_CONTROL) + " + " + key(GLFW.GLFW_KEY_D), tr("justreplay.help.audio_duplicate")});
-            rows.add(new String[]{key(JRKeys.CUT_TO[0]) + "-" + key(JRKeys.CUT_TO[JRKeys.CUT_TO.length - 1]), tr("justreplay.help.cut")});
+            rows.add(new String[]{keyName(GLFW.GLFW_KEY_S), tr("justreplay.help.audio_split")});
+            rows.add(new String[]{"Ctrl+" + keyName(GLFW.GLFW_KEY_D), tr("justreplay.help.audio_duplicate")});
+            rows.add(new String[]{keyRange(JRKeys.CUT_TO), tr("justreplay.help.cut")});
         }
         rows.add(new String[]{key(JRKeys.CAMERA_PATH), tr("justreplay.help.preview")});
-        rows.add(new String[]{key(JRKeys.EDITOR) + " " + key(GLFW.GLFW_KEY_ESCAPE), tr("justreplay.help.close")});
-        rows.add(new String[]{key(GLFW.GLFW_KEY_F1) + " ?", tr("justreplay.help.help")});
+        rows.add(new String[]{key(JRKeys.EDITOR) + " / " + keyName(GLFW.GLFW_KEY_ESCAPE), tr("justreplay.help.close")});
+        rows.add(new String[]{keyName(GLFW.GLFW_KEY_F1) + " / ?", tr("justreplay.help.help")});
         rows.add(new String[]{tr("justreplay.help.mouse.click"), tr("justreplay.help.pick")});
         rows.add(new String[]{null, tr("justreplay.help.timeline")});
         rows.add(new String[]{tr("justreplay.help.mouse.click"), tr("justreplay.help.click")});
         rows.add(new String[]{tr("justreplay.help.mouse.drag"), tr("justreplay.help.drag")});
-        rows.add(new String[]{key(GLFW.GLFW_KEY_LEFT_CONTROL) + " + " + tr("justreplay.help.mouse.wheel"), tr("justreplay.help.zoom")});
-        rows.add(new String[]{tr("justreplay.help.mouse.wheel"), tr("justreplay.help.scroll")});
+        rows.add(new String[]{"Ctrl+" + wheel, tr("justreplay.help.zoom")});
+        rows.add(new String[]{wheel, tr("justreplay.help.scroll")});
         rows.add(new String[]{null, tr("justreplay.help.placing")});
         rows.add(new String[]{tr("justreplay.help.mouse.click"), tr("justreplay.help.place.confirm")});
-        rows.add(new String[]{tr("justreplay.help.mouse.wheel"), tr("justreplay.help.place.turn")});
-        rows.add(new String[]{key(GLFW.GLFW_KEY_LEFT_SHIFT) + " + " + tr("justreplay.help.mouse.wheel"), tr("justreplay.help.place.fine")});
-        rows.add(new String[]{key(GLFW.GLFW_KEY_LEFT_CONTROL), tr("justreplay.help.place.center")});
-        rows.add(new String[]{key(GLFW.GLFW_KEY_ESCAPE), tr("justreplay.help.place.cancel")});
+        rows.add(new String[]{wheel, tr("justreplay.help.place.turn")});
+        rows.add(new String[]{"Shift+" + wheel, tr("justreplay.help.place.fine")});
+        rows.add(new String[]{"Ctrl", tr("justreplay.help.place.center")});
+        rows.add(new String[]{keyName(GLFW.GLFW_KEY_ESCAPE), tr("justreplay.help.place.cancel")});
         rows.add(new String[]{null, tr("justreplay.help.watching")});
         for (KeyMapping mapping : new KeyMapping[]{JRKeys.PLAY_PAUSE, JRKeys.SEEK_BACK, JRKeys.SEEK_FORWARD, JRKeys.SPEED_DOWN,
                 JRKeys.SPEED_UP, JRKeys.CAMERA_KEYFRAME, JRKeys.MARKER, JRKeys.TOGGLE_HUD, JRKeys.RECORDER_VIEW, JRKeys.STOP_SPECTATING,
@@ -1732,6 +1887,10 @@ public class EditorScreen extends GlassScreen {
         return rows;
     }
 
+    /**
+     * The shortcut sheet: two columns when the window is wide enough, one otherwise. Descriptions wrap instead of
+     * being cut, and the sheet scrolls with the wheel when it is taller than the window.
+     */
     private void renderHelp(GuiGraphics g) {
         float a = Anim.easeOutCubic(Anim.progress(helpAt, 200));
         g.pose().pushPose();
@@ -1744,60 +1903,101 @@ public class EditorScreen extends GlassScreen {
                 break;
             }
         }
-        boolean twoColumns = width >= 360 && split > 0;
-        int colW = twoColumns ? Math.min(230, (width - 40) / 2) : Math.min(300, width - 32);
-        int content = twoColumns ? Math.max(columnHeight(help.subList(0, split)), columnHeight(help.subList(split, help.size())))
-                : columnHeight(help);
-        int boxW = twoColumns ? colW * 2 + 24 : colW + 16;
-        int boxH = Math.min(height - 16, 28 + content + 8);
+        int wide = Math.min(width - 16, 500);
+        boolean twoColumns = split > 0 && (wide - 24) / 2 >= 170;
+        int boxW = twoColumns ? wide : Math.min(width - 16, 340);
+        int colW = twoColumns ? (boxW - 24) / 2 : boxW - 16;
+        if (colW != helpLinesW) {
+            helpLines.clear();
+            helpLinesW = colW;
+        }
+        List<String[]> first = twoColumns ? help.subList(0, split) : help;
+        List<String[]> second = twoColumns ? help.subList(split, help.size()) : List.of();
+        int content = Math.max(columnHeight(first, colW), columnHeight(second, colW));
+        int boxH = Math.min(height - 16, 28 + content + 6);
+        helpMax = Math.max(0, content - (boxH - 28 - 4));
+        float scroll = helpScroll.to(Mth.clamp(helpScroll.target(), 0.0F, helpMax));
         int bx = (width - boxW) / 2;
         int by = (height - boxH) / 2 + Math.round((1.0F - a) * 8);
         Paint.glass(g, bx, by, boxW, boxH, Theme.RADIUS_L);
         Paint.iconOnText(g, Icon.KEYBOARD, bx + 10, by + 10, 10, Theme.ACCENT);
-        g.drawString(font, tr("justreplay.help.title"), bx + 25, by + 10, Theme.TEXT, false);
+        String title = tr("justreplay.help.title");
         Component hint = tc("justreplay.help.dismiss");
-        g.drawString(font, hint, bx + boxW - 10 - font.width(hint), by + 10, Theme.TEXT_MUTED, false);
+        int hintX = bx + boxW - 10 - font.width(hint);
+        boolean showHint = bx + 25 + font.width(title) + 12 <= hintX;
+        g.drawString(font, Paint.ellipsize(font, title, boxW - 35), bx + 25, by + 10, Theme.TEXT, false);
+        if (showHint) {
+            g.drawString(font, hint, hintX, by + 10, Theme.TEXT_MUTED, false);
+        }
+        int top = by + 28 - Math.round(scroll);
         g.enableScissor(bx, by + 24, bx + boxW, by + boxH - 4);
+        renderHelpColumn(g, first, bx + 8, top, colW, by + 24, by + boxH - 4);
         if (twoColumns) {
-            renderHelpColumn(g, help.subList(0, split), bx + 8, by + 28, colW);
-            renderHelpColumn(g, help.subList(split, help.size()), bx + 16 + colW, by + 28, colW);
-        } else {
-            renderHelpColumn(g, help, bx + 8, by + 28, colW);
+            renderHelpColumn(g, second, bx + 16 + colW, top, colW, by + 24, by + boxH - 4);
         }
         g.disableScissor();
+        if (helpMax > 0) {
+            int trackY = by + 28;
+            int trackH = boxH - 28 - 6;
+            int thumb = Math.max(12, trackH * trackH / Math.max(1, content));
+            float ty = trackY + (trackH - thumb) * (scroll / helpMax);
+            Paint.rect(g, bx + boxW - 5, trackY, 2, trackH, 1, 0x1AFFFFFF);
+            Paint.rect(g, bx + boxW - 5, ty, 2, thumb, 1, 0x80FFFFFF);
+        }
         g.pose().popPose();
     }
 
-    /** Height of a column of the help: section titles take 12 pixels, shortcuts 11. */
-    private static int columnHeight(List<String[]> rows) {
-        int h = 0;
-        for (String[] row : rows) {
-            h += row[0] == null ? 12 : 11;
-        }
-        return h;
-    }
-
-    private void renderHelpColumn(GuiGraphics g, List<String[]> rows, int x, int y, int w) {
+    /** Width of the key column of a help column. */
+    private int helpKeyWidth(List<String[]> rows, int w) {
         int keyW = 0;
         for (String[] row : rows) {
             if (row[0] != null) {
                 keyW = Math.max(keyW, font.width(row[0]) + 8);
             }
         }
-        keyW = Math.min(keyW, w / 2);
+        return Math.min(keyW, w * 2 / 5);
+    }
+
+    /** Wrapped description of a help row, cached for the current column width. */
+    private List<FormattedCharSequence> helpLines(String[] row, int width) {
+        return helpLines.computeIfAbsent(row, r -> font.split(Component.literal(r[1]), Math.max(20, width)));
+    }
+
+    /** Height of a column of the help: section titles take 12 pixels, shortcuts 11 per line of description. */
+    private int columnHeight(List<String[]> rows, int w) {
+        int keyW = helpKeyWidth(rows, w);
+        int h = 0;
+        for (String[] row : rows) {
+            h += row[0] == null ? 12 : Math.max(11, helpLines(row, w - keyW - 6).size() * 10 + 1);
+        }
+        return h;
+    }
+
+    private void renderHelpColumn(GuiGraphics g, List<String[]> rows, int x, int y, int w, int clipTop, int clipBottom) {
+        int keyW = helpKeyWidth(rows, w);
         for (String[] row : rows) {
             if (row[0] == null) {
-                g.drawString(font, row[1].toUpperCase(Locale.ROOT), x, y + 2, Theme.ACCENT, false);
+                if (y + 12 > clipTop && y < clipBottom) {
+                    g.drawString(font, row[1].toUpperCase(Locale.ROOT), x, y + 2, Theme.ACCENT, false);
+                }
                 y += 12;
                 continue;
             }
-            String keys = Paint.ellipsize(font, row[0], keyW - 8);
-            int kw = font.width(keys) + 8;
-            Paint.rect(g, x + keyW - kw, y, kw, 10, Theme.RADIUS_S, 0x33FFFFFF, 0x1AFFFFFF);
-            Paint.outline(g, x + keyW - kw, y, kw, 10, Theme.RADIUS_S, 0x4DFFFFFF, 0x1AFFFFFF);
-            g.drawString(font, keys, x + keyW - kw + 4, y + 1, Theme.TEXT, false);
-            g.drawString(font, Paint.ellipsize(font, row[1], w - keyW - 6), x + keyW + 6, y + 1, Theme.TEXT_DIM, false);
-            y += 11;
+            List<FormattedCharSequence> lines = helpLines(row, w - keyW - 6);
+            int rowH = Math.max(11, lines.size() * 10 + 1);
+            if (y + rowH > clipTop && y < clipBottom) {
+                String keys = Paint.ellipsize(font, row[0], keyW - 8);
+                int kw = font.width(keys) + 8;
+                Paint.rect(g, x + keyW - kw, y, kw, 10, Theme.RADIUS_S, 0x33FFFFFF, 0x1AFFFFFF);
+                Paint.outline(g, x + keyW - kw, y, kw, 10, Theme.RADIUS_S, 0x4DFFFFFF, 0x1AFFFFFF);
+                g.drawString(font, keys, x + keyW - kw + 4, y + 1, Theme.TEXT, false);
+                int ly = y + 1;
+                for (FormattedCharSequence line : lines) {
+                    g.drawString(font, line, x + keyW + 6, ly, Theme.TEXT_DIM, false);
+                    ly += 10;
+                }
+            }
+            y += rowH;
         }
     }
 

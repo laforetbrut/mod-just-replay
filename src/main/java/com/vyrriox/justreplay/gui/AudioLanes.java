@@ -30,6 +30,8 @@ import java.util.Locale;
 final class AudioLanes {
     static final int LANE = 16;
     static final int MAX_VISIBLE = 4;
+    /** Track lanes shown at once; the editor lowers it when the window is short. */
+    private int maxVisible = MAX_VISIBLE;
     private static final int EDGE = 3;
     private static final int SNAP_PX = 5;
     private static final int[] COLORS = {0xFF8E7CFF, 0xFF4FD1C5, 0xFFFF9F68, 0xFFF06292, 0xFF9CCC65, 0xFF64B5F6, 0xFFFFD54F};
@@ -67,14 +69,19 @@ final class AudioLanes {
         return COLORS[Math.floorMod(trackIndex, COLORS.length)];
     }
 
+    /** Sets how many track lanes are shown at once (1 to {@link #MAX_VISIBLE}); the others scroll with Shift + wheel. */
+    void maxVisible(int count) {
+        maxVisible = Math.max(1, Math.min(MAX_VISIBLE, count));
+    }
+
     /** Height of the lane group under the markers, 0 without tracks. */
     int height() {
-        int visible = Math.min(MAX_VISIBLE, tracks().size());
+        int visible = Math.min(maxVisible, tracks().size());
         return visible == 0 ? 0 : visible * (LANE + 1);
     }
 
     private int visibleCount() {
-        return Math.min(MAX_VISIBLE, tracks().size());
+        return Math.min(maxVisible, tracks().size());
     }
 
     private int clampScroll() {
@@ -133,8 +140,8 @@ final class AudioLanes {
         if (index >= 0) {
             if (index < scroll) {
                 scroll = index;
-            } else if (index >= scroll + MAX_VISIBLE) {
-                scroll = index - MAX_VISIBLE + 1;
+            } else if (index >= scroll + maxVisible) {
+                scroll = index - maxVisible + 1;
             }
         }
     }
@@ -153,11 +160,11 @@ final class AudioLanes {
             int iconColor = audible ? Theme.withAlpha(color(first + row), 0xCC) : 0x66B9C2CF;
             Paint.iconCentered(g, audible ? Icon.SPEAKER : Icon.SPEAKER_OFF, lx, y, EditorTimeline.LABELS, LANE, 7, iconColor);
         }
-        if (tracks().size() > MAX_VISIBLE) {
+        if (tracks().size() > maxVisible) {
             // Thin indicator of the visible part of the track list, right of the lanes.
             int h = height();
-            int thumb = Math.max(4, h * MAX_VISIBLE / tracks().size());
-            int ty = t.audioY() + (h - thumb) * first / Math.max(1, tracks().size() - MAX_VISIBLE);
+            int thumb = Math.max(4, h * maxVisible / tracks().size());
+            int ty = t.audioY() + (h - thumb) * first / Math.max(1, tracks().size() - maxVisible);
             g.fill(t.x + t.w + 1, t.audioY(), t.x + t.w + 3, t.audioY() + h - 1, 0x1AFFFFFF);
             g.fill(t.x + t.w + 1, ty, t.x + t.w + 3, ty + thumb - 1, 0x80FFFFFF);
         }
@@ -482,7 +489,7 @@ final class AudioLanes {
 
     /** Shift + wheel over the lanes scrolls the track list when it is longer than the lanes. */
     boolean mouseScrolled(double sy) {
-        if (tracks().size() <= MAX_VISIBLE || !Screen.hasShiftDown()) {
+        if (tracks().size() <= maxVisible || !Screen.hasShiftDown()) {
             return false;
         }
         scroll += sy > 0 ? -1 : 1;

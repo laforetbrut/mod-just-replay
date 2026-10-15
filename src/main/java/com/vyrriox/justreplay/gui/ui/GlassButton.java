@@ -41,6 +41,8 @@ public class GlassButton extends Button implements Tipped {
     private Component cachedMessage;
     private int cachedWidth = -1;
     private String cachedLabel = "";
+    /** True while the label does not fit and only the icon is drawn: the label becomes the tooltip. */
+    private boolean labelHidden;
 
     public GlassButton(int x, int y, int width, int height, Component label, OnPress onPress) {
         super(x, y, width, height, label, onPress, DEFAULT_NARRATION);
@@ -89,7 +91,7 @@ public class GlassButton extends Button implements Tipped {
 
     @Override
     public Component tooltip() {
-        return tip;
+        return tip != null ? tip : labelHidden ? getMessage() : null;
     }
 
     @Override
@@ -211,6 +213,11 @@ public class GlassButton extends Button implements Tipped {
         int pad = row ? 5 : 4;
         int avail = w - 2 * pad - (ic != null ? (int) iconSize + 3 : 0);
         String label = label(font, Math.max(0, avail));
+        // A cut label reads worse than an icon alone: a button with an icon drops its label when it does not fit.
+        labelHidden = ic != null && style != Style.ROW && !label.isEmpty() && font.width(getMessage().getString()) > avail;
+        if (labelHidden) {
+            label = "";
+        }
         int labelW = label.isEmpty() ? 0 : font.width(label);
         int ty = Paint.textY(y, hh);
         if (labelW == 0) {

@@ -103,7 +103,7 @@ public class ReplayListScreen extends GlassScreen {
         listW = contentW;
         int headerY = 10;
         int searchW = Math.min(170, contentW / 2 - 20);
-        int sortW = Math.min(170, contentW - searchW - 120);
+        int sortW = Math.min(170, contentW - searchW - 12);
         search = new GlassTextField(font, searchW, Component.translatable("justreplay.list.search"));
         search.leading(Icon.SEARCH, 12);
         search.setHint(Component.translatable("justreplay.list.search").withColor(Theme.TEXT_MUTED));

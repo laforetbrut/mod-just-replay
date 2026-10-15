@@ -34,15 +34,19 @@ final class EditorTimeline {
      * track adds a constant here with its height and icon, and draws itself in {@link #renderLane}.
      */
     enum Lane {
-        RULER(EditorTimeline.RULER, null), CUTS(13, Icon.CUT), CAMERA(10, Icon.CAMERA), ACTOR(12, Icon.PERSON), MARKERS(10, Icon.FLAG),
+        RULER(EditorTimeline.RULER, EditorTimeline.RULER, null), CUTS(13, 11, Icon.CUT), CAMERA(10, 9, Icon.CAMERA),
+        ACTOR(12, 10, Icon.PERSON), MARKERS(10, 9, Icon.FLAG),
         /** Audio tracks: their height comes from {@link AudioLanes#height()}, they draw their own backs and labels. */
-        AUDIO(0, null), BAR(4, null), NONE(0, null);
+        AUDIO(0, 0, null), BAR(4, 4, null), NONE(0, 0, null);
 
         final int height;
+        /** Height in a short window. */
+        final int compactHeight;
         final Icon icon;
 
-        Lane(int height, Icon icon) {
+        Lane(int height, int compactHeight, Icon icon) {
             this.height = height;
+            this.compactHeight = compactHeight;
             this.icon = icon;
         }
     }
@@ -58,6 +62,7 @@ final class EditorTimeline {
     /** Lane area (without the label column). */
     int x, top, w;
     private List<Lane> lanes = ALL_LANES;
+    private boolean compact;
     private int duration = 1;
     private final Anim.Value start = new Anim.Value(0.0F, 16.0F);
     private final Anim.Value span = new Anim.Value(1.0F, 16.0F);
@@ -83,6 +88,11 @@ final class EditorTimeline {
         this.lanes = List.copyOf(lanes);
     }
 
+    /** Thinner lanes, for a short window. */
+    void compact(boolean compact) {
+        this.compact = compact;
+    }
+
     List<Lane> lanes() {
         return lanes;
     }
@@ -99,7 +109,7 @@ final class EditorTimeline {
 
     /** Height of a lane; the audio lane grows with its tracks and is 0 without them. */
     int heightOf(Lane lane) {
-        return lane == Lane.AUDIO ? (audio == null ? 0 : audio.height()) : lane.height;
+        return lane == Lane.AUDIO ? (audio == null ? 0 : audio.height()) : compact ? lane.compactHeight : lane.height;
     }
 
     /** Top of the audio lanes. */
@@ -307,7 +317,7 @@ final class EditorTimeline {
                     audio.renderBack(g, font, this);
                 }
             } else {
-                laneBack(g, lx, laneY(lane), lane.height, lane.icon);
+                laneBack(g, lx, laneY(lane), heightOf(lane), lane.icon);
             }
         }
         ruler(g, font);
@@ -407,7 +417,7 @@ final class EditorTimeline {
     }
 
     private void cuts(GuiGraphics g, Font font, ReplayProject project, int y, ReplayProject.Cut selectedCut) {
-        int h = Lane.CUTS.height;
+        int h = heightOf(Lane.CUTS);
         ReplayProject.Camera selectedCamera = project.selected();
         for (int i = 0; i < project.cuts.size(); i++) {
             ReplayProject.Cut cut = project.cuts.get(i);
@@ -436,7 +446,7 @@ final class EditorTimeline {
                 }
             }
         }
-        EffectsPanel.renderTransitions(g, this, project, y, Lane.CUTS.height);
+        EffectsPanel.renderTransitions(g, this, project, y, h);
         if (!project.cuts.isEmpty() && project.cutsEnd >= 0) {
             int ex = xOf(Math.min(duration, project.cutTrackEnd(duration)));
             g.fill(ex, y - 1, ex + 1, y + h + 1, Timeline.SELECTED_COLOR);
@@ -449,7 +459,7 @@ final class EditorTimeline {
         if (camera == null || camera.keyframes.isEmpty()) {
             return;
         }
-        int cy = y + Lane.CAMERA.height / 2;
+        int cy = y + heightOf(Lane.CAMERA) / 2;
         int color = PathRenderer.cameraColor(project.cameras.indexOf(camera));
         List<ReplayProject.CameraKeyframe> keys = camera.keyframes;
         if (keys.size() > 1) {
@@ -474,7 +484,7 @@ final class EditorTimeline {
         if (actor == null) {
             return;
         }
-        int h = Lane.ACTOR.height;
+        int h = heightOf(Lane.ACTOR);
         int lastLabel = -100000;
         for (ReplayProject.ActorAction action : actor.actions) {
             int ax = xOf(action.tick);
@@ -508,7 +518,7 @@ final class EditorTimeline {
     }
 
     private void markers(GuiGraphics g, Font font, ReplayProject project, int y) {
-        int h = Lane.MARKERS.height;
+        int h = heightOf(Lane.MARKERS);
         EffectsPanel.renderEffectKeys(g, this, project, y, h);
         int lastEnd = Integer.MIN_VALUE;
         for (ReplayProject.Marker marker : project.markers) {
