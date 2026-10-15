@@ -551,5 +551,7 @@
   "justreplay.audio.loading": "Decoding the audio file...",
   "justreplay.audio.missing": "file not found",
   "justreplay.audio.error": "Cannot read %s: %s",
-  "justreplay.audio.lane.tip": "%s: drag clips to move them, drag their edges to trim them, Shift to move freely"
+  "justreplay.audio.lane.tip": "%s: drag clips to move them, drag their edges to trim them, Shift to move freely",
+  "justreplay.toast.buffer_ram": "Instant replay keeps the last %s min in RAM",
+  "justreplay.toast.buffer_ram.detail": "About %s to %s MB of memory. Lower it in the settings if needed."
 }

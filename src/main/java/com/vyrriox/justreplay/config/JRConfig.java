@@ -61,9 +61,11 @@ public final class JRConfig {
         REPLAY_BUFFER = b.comment("Instant replay: always keep the last minutes of play in memory (compressed), from joining a world or server,",
                         "so the 'Save last minutes' key can save them as a replay after the fact.")
                 .define("replayBuffer", false);
-        BUFFER_MINUTES = b.comment("Minutes kept by the instant replay buffer. Saved clips start at the last checkpoint before that window,",
-                        "so they can be up to a minute longer (a fifth longer for long windows).")
-                .defineInRange("bufferMinutes", 5, 1, 30);
+        BUFFER_MINUTES = b.comment("Minutes kept by the instant replay buffer (1 to 120). Saved clips start at the last checkpoint before that window,",
+                        "so they can be up to a minute longer (a fifth longer for long windows).",
+                        "WARNING: the buffer lives in RAM. Expect roughly 10 to 25 MB per 10 minutes on a busy server, more with",
+                        "cached chunks: about 150 to 300 MB for 2 hours. Lower it if your game is short on memory.")
+                .defineInRange("bufferMinutes", 5, 1, 120);
         NEXT_MINUTES = b.comment("Length of a recording started with the 'Record next minutes' key; it stops by itself.")
                 .defineInRange("nextMinutes", 5, 1, 240);
         b.pop();

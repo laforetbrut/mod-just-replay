@@ -51,7 +51,8 @@ public final class ReplayBuffer {
     }
 
     /** Hard cap of the memory held, whatever happens (a world change loop that never lets a checkpoint finish...). */
-    private static final long MAX_BYTES = 768L << 20;
+    /** Safety cap for very long windows; the oldest part is dropped first when it is reached. */
+    private static final long MAX_BYTES = 1024L << 20;
     private static final long LOG_INTERVAL_MS = 60_000L;
 
     private final ExecutorService executor;

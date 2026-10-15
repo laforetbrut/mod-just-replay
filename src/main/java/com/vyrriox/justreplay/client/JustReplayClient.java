@@ -74,6 +74,12 @@ public final class JustReplayClient {
 
         @SubscribeEvent
         public static void onLoggingIn(ClientPlayerNetworkEvent.LoggingIn event) {
+            if (JRConfig.REPLAY_BUFFER.get() && JRConfig.BUFFER_MINUTES.get() > 30 && !ReplaySession.isReplayConnection(event.getConnection())) {
+                // Long instant replay windows cost memory: say so once per world.
+                int minutes = JRConfig.BUFFER_MINUTES.get();
+                toast(Component.translatable("justreplay.toast.buffer_ram", minutes),
+                        Component.translatable("justreplay.toast.buffer_ram.detail", Math.max(1, minutes * 10 / 10), minutes * 25 / 10));
+            }
             com.vyrriox.justreplay.editor.CameraRig.reset();
             ReplaySession.onLoggingIn(event.getConnection());
         }
