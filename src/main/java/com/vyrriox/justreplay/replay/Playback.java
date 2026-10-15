@@ -50,6 +50,7 @@ public final class Playback {
     private boolean worldReset;
     private int handledInLastFlush;
     private static boolean dispatching;
+    private static int dispatchTick = -1;
     private float speedAccumulator;
     private int skippingTo = -1;
     private int lastStep = 1;
@@ -266,6 +267,14 @@ public final class Playback {
         if (PacketFilter.shouldDrop(packet)) {
             return;
         }
+        if (recorded.tick() < skippingTo) {
+            // Mod state with its own clock (emotes) starts late by the time skipped, or not at all once over.
+            packet = (Packet<? super ClientGamePacketListener>) com.vyrriox.justreplay.compat.ReplayCompat.adjustSkipped(packet,
+                    skippingTo - recorded.tick());
+            if (packet == null) {
+                return;
+            }
+        }
         packet = chunks.filter(packet);
         if (packet == null) {
             return;
@@ -275,12 +284,14 @@ public final class Playback {
             packet = rewriteLogin(login, chunks.onLogin(login));
         }
         dispatching = true;
+        dispatchTick = recorded.tick();
         try {
             ((Packet<ClientGamePacketListener>) packet).handle(listener);
         } catch (Throwable t) {
             logOnce(packet.getClass(), "Packet " + packet.getClass().getSimpleName() + " failed during playback: " + t);
         } finally {
             dispatching = false;
+            dispatchTick = -1;
         }
         chunks.afterHandle(mc);
         if (packet instanceof ClientboundLoginPacket || packet instanceof ClientboundRespawnPacket) {
@@ -292,6 +303,14 @@ public final class Playback {
     /** True while a recorded packet is being handled; screen openings and disconnects it causes are ignored. */
     public static boolean isDispatching() {
         return dispatching;
+    }
+
+    /**
+     * Recorded tick of the packet being handled, or -1. During a seek many ticks are handled at once: state with its own
+     * clock (an in-world video) uses this tick, not the cursor, as the time the packet describes.
+     */
+    public static int dispatchTick() {
+        return dispatchTick;
     }
 
     private static Packet<? super ClientGamePacketListener> unsign(net.minecraft.network.protocol.game.ClientboundPlayerChatPacket chat) {

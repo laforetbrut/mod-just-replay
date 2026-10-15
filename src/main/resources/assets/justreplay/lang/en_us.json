@@ -553,5 +553,6 @@
   "justreplay.audio.error": "Cannot read %s: %s",
   "justreplay.audio.lane.tip": "%s: drag clips to move them, drag their edges to trim them, Shift to move freely",
   "justreplay.toast.buffer_ram": "Instant replay keeps the last %s min in RAM",
-  "justreplay.toast.buffer_ram.detail": "About %s to %s MB of memory. Lower it in the settings if needed."
+  "justreplay.toast.buffer_ram.detail": "About %s to %s MB of memory. Lower it in the settings if needed.",
+  "justreplay.action.emote": "Emote"
 }

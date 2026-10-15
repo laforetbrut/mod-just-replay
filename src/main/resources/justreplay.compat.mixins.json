@@ -4,7 +4,13 @@
   "package": "com.vyrriox.justreplay.mixin.compat",
   "compatibilityLevel": "JAVA_21",
   "client": [
-    "BobbyMixin"
+    "BobbyMixin",
+    "CatnipAnimationTickHolderMixin",
+    "LevelRendererClockMixin",
+    "PlayerAnimKeyframeMixin",
+    "PlayerAnimStackMixin",
+    "WaterFramesControlMixin",
+    "WaterFramesDataMixin"
   ],
   "injectors": {
     "defaultRequire": 0

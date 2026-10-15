@@ -635,6 +635,14 @@ public final class ActorAnimator {
         } else {
             GESTURES.remove(entity.getId());
         }
+        if (entity instanceof Player) {
+            ReplayProject.ActorAction emote = activeState(actor.actions, cursor, ActionType.EMOTE);
+            if (emote != null && emote.param != null && !emote.param.isBlank()) {
+                com.vyrriox.justreplay.compat.EmotecraftCompat.applyActorEmote(entity, emote.param, cursor - emote.tick);
+            } else {
+                com.vyrriox.justreplay.compat.EmotecraftCompat.stopActorEmote(entity);
+            }
+        }
         if (now.sit && isHumanoid(entity)) {
             SITTING.add(entity.getId());
         } else {
