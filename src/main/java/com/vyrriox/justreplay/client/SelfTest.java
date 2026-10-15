@@ -2,6 +2,7 @@ package com.vyrriox.justreplay.client;
 
 import com.vyrriox.justreplay.JustReplay;
 import com.vyrriox.justreplay.editor.ReplayProject;
+import com.vyrriox.justreplay.editor.overlay.Overlay;
 import com.vyrriox.justreplay.export.VideoExporter;
 import com.vyrriox.justreplay.format.ReplayStorage;
 import com.vyrriox.justreplay.gui.EditorScreen;
@@ -533,10 +534,37 @@ public final class SelfTest {
                 go(40, 2);
             }
             case 34 -> {
-                // Transitions and filters: runs its own sub-steps, then the test goes on with the export.
+                // Transitions and filters: runs its own sub-steps, then the test goes on with the overlays.
                 if (effects(mc)) {
-                    go(13, 5);
+                    go(50, 5);
                 }
+            }
+            case 50 -> {
+                overlays(mc, p);
+                go(51, 20);
+            }
+            case 51 -> {
+                ReplaySession s = ReplaySession.current();
+                logOverlays(s, "overlays at cursor " + s.playback().cursor());
+                shot(mc, "overlay-1");
+                // Into the fade in of the fixed title: a quarter of its opacity.
+                s.playback().seek(25);
+                go(52, 20);
+            }
+            case 52 -> {
+                ReplaySession s = ReplaySession.current();
+                logOverlays(s, "overlays during the fade, cursor " + s.playback().cursor());
+                shot(mc, "overlay-2-fade");
+                s.playback().seek(40);
+                EditorScreen editor = new EditorScreen(s);
+                mc.setScreen(editor);
+                editor.openOverlay(s.project().overlays.get(0).id);
+                go(53, 10);
+            }
+            case 53 -> {
+                shot(mc, "ui-overlays-" + com.vyrriox.justreplay.config.JRConfig.EDITOR_MODE.get().name().toLowerCase(java.util.Locale.ROOT));
+                mc.setScreen(null);
+                go(13, 5);
             }
             case 13 -> {
                 mc.setScreen(null);
@@ -546,6 +574,7 @@ public final class SelfTest {
                 com.vyrriox.justreplay.config.JRConfig.EXPORT_CRF.set(18);
                 com.vyrriox.justreplay.config.JRConfig.EXPORT_FPS.set(60);
                 com.vyrriox.justreplay.config.JRConfig.EXPORT_RESOLUTION.set(com.vyrriox.justreplay.export.ExportResolution.FULL_HD_1080);
+                com.vyrriox.justreplay.editor.overlay.OverlayRenderer.resetExportFrames();
                 var error = VideoExporter.start(s, 20, 80, "selftest");
                 log("export start error={}", error == null ? "none" : error.getString());
                 next(1);
@@ -561,6 +590,8 @@ public final class SelfTest {
                 log("export audio clips mixed={} (expected 2), audio mux log={}", com.vyrriox.justreplay.export.ExportAudio.lastMixedClips(),
                         Files.exists(ReplayStorage.exportRoot().resolve("selftest.mp4.audio.log")));
                 log("mods after export: {}", Mods.state(mc, ReplaySession.current()));
+                log("export frames showing overlays: {} ({} overlays in the project)",
+                        com.vyrriox.justreplay.editor.overlay.OverlayRenderer.exportFrames(), ReplaySession.current().project().overlays.size());
                 mc.level.disconnect();
                 mc.disconnect(new TitleScreen());
                 next(60);
@@ -678,6 +709,108 @@ public final class SelfTest {
             }
         }
         return false;
+    }
+
+    /**
+     * Texts and images in the world: a label following the recording player (its scale keyframed), a generated
+     * PNG sticker lying on the gold block, a fixed title at a position with fades shown through walls, and one
+     * text anchored by a ray like the placement tool does. The camera then looks at them from the north.
+     */
+    private static void overlays(Minecraft mc, LocalPlayer p) throws java.io.IOException {
+        ReplaySession s = ReplaySession.current();
+        mc.setScreen(null);
+        s.setCameraPath(false);
+        s.playback().setPaused(true);
+        s.playback().seek(40);
+        Path png = com.vyrriox.justreplay.editor.overlay.ImageLibrary.folder().resolve("selftest-sticker.png");
+        try (com.mojang.blaze3d.platform.NativeImage image = new com.mojang.blaze3d.platform.NativeImage(64, 64, true)) {
+            for (int y = 0; y < 64; y++) {
+                for (int x = 0; x < 64; x++) {
+                    double d = Math.hypot(x - 31.5, y - 31.5);
+                    // A gradient disc with a white ring on a transparent square (ABGR).
+                    int abgr = d > 30 ? 0 : d > 26 ? 0xFFFFFFFF : 0xFF000000 | 200 << 16 | (y * 4) << 8 | (x * 4);
+                    image.setPixelRGBA(x, y, abgr);
+                }
+            }
+            image.writeToFile(png);
+        }
+        com.vyrriox.justreplay.editor.overlay.ImageLibrary.reload();
+        net.minecraft.core.BlockPos base = modsBase != null ? modsBase : p.blockPosition();
+        net.minecraft.core.BlockPos gold = base.offset(2, 0, 0);
+        int duration = s.playback().duration();
+        Overlay label = new Overlay(Overlay.TEXT);
+        label.name = "Selftest label";
+        label.text = "&6Just Replay\n&fself test";
+        label.anchor = Overlay.ENTITY;
+        label.target = Overlay.RECORDER;
+        label.targetName = "Recorder";
+        label.setBase(Overlay.OFFSET_Y, 0.4F);
+        label.start = 20;
+        label.end = 80;
+        label.fadeIn = 0;
+        label.fadeOut = 0;
+        label.setKey(Overlay.SCALE, 20, 0.8F);
+        label.setKey(Overlay.SCALE, 80, 1.4F);
+        Overlay sticker = new Overlay(Overlay.IMAGE);
+        sticker.name = "Selftest sticker";
+        sticker.image = png.getFileName().toString();
+        sticker.anchor = Overlay.BLOCK;
+        sticker.blockX = gold.getX();
+        sticker.blockY = gold.getY();
+        sticker.blockZ = gold.getZ();
+        sticker.face = "UP";
+        sticker.facing = Overlay.FLAT;
+        sticker.width = 1.0F;
+        sticker.start = 0;
+        sticker.end = duration;
+        sticker.fadeIn = 0;
+        sticker.fadeOut = 0;
+        Overlay title = new Overlay(Overlay.TEXT);
+        title.name = "Selftest title";
+        title.text = "&lFixed title\nfades in and out";
+        title.anchor = Overlay.POSITION;
+        title.x = base.getX() + 0.5;
+        title.y = base.getY() + 3.5;
+        title.z = base.getZ() + 4.5;
+        title.facing = Overlay.FIXED;
+        title.setBase(Overlay.YAW, 0.0F);
+        title.throughWalls = true;
+        title.fontSize = 0.4F;
+        title.color = 0x5AB4FF;
+        title.start = 20;
+        title.end = 80;
+        title.fadeIn = 20;
+        title.fadeOut = 20;
+        s.project().overlays.removeIf(o -> o.name.startsWith("Selftest"));
+        s.project().overlays.add(label);
+        s.project().overlays.add(sticker);
+        s.project().overlays.add(title);
+        // Anchored by a ray from the north towards the gold block, as the placement tool does on a click.
+        Vec3 eye = new Vec3(base.getX() + 0.5, base.getY() + 4.6, base.getZ() - 4.0);
+        Overlay aimed = new Overlay(Overlay.TEXT);
+        aimed.name = "Selftest aimed";
+        aimed.text = "aimed";
+        aimed.start = 20;
+        aimed.end = 80;
+        com.vyrriox.justreplay.gui.OverlayPlacementTool.anchorAt(s, aimed, eye, Vec3.atCenterOf(gold).subtract(eye), 4.0, true);
+        s.project().overlays.add(aimed);
+        s.saveProject();
+        var loaded = com.vyrriox.justreplay.editor.overlay.ImageLibrary.get(sticker.image);
+        log("overlays: {} in project, sticker image {}, aimed overlay anchored {} {}", s.project().overlays.size(),
+                loaded == null ? "not loaded" : loaded.width() + "x" + loaded.height(), aimed.anchor,
+                Overlay.BLOCK.equals(aimed.anchor) ? aimed.blockX + " " + aimed.blockY + " " + aimed.blockZ + " " + aimed.face : aimed.target);
+        com.vyrriox.justreplay.replay.Playback.placeCamera(p, new Vec3(base.getX() + 0.5, base.getY() + 3.0, base.getZ() - 4.0), 0.0F, 25.0F);
+    }
+
+    private static void logOverlays(ReplaySession s, String label) {
+        double time = s.playback().cursor();
+        StringBuilder sb = new StringBuilder();
+        for (Overlay o : s.project().overlays) {
+            Vec3 at = com.vyrriox.justreplay.editor.overlay.OverlayRenderer.position(s, o, time, 0.0F);
+            sb.append(String.format(java.util.Locale.ROOT, "[%s %s %s at %s fade %.2f] ", o.displayName(), o.type, o.anchor,
+                    at == null ? "unresolved" : String.format(java.util.Locale.ROOT, "%.2f %.2f %.2f", at.x, at.y, at.z), o.fade(time)));
+        }
+        log("{}: drawn last frame={} {}", label, com.vyrriox.justreplay.editor.overlay.OverlayRenderer.lastDrawn(), sb);
     }
 
     /**
