@@ -237,5 +237,18 @@
   "justreplay.action.hint.wander": "Radius in blocks",
   "justreplay.action.hint.animation": "Animation name, then |loop, |once or |hold",
   "justreplay.action.hint.entity_event": "Vanilla entity event id (byte)",
-  "justreplay.action.hint.use_item": "main or off"
+  "justreplay.action.hint.use_item": "main or off",
+  "key.justreplay.save_buffer": "Save last minutes (instant replay)",
+  "key.justreplay.record_next": "Record next minutes",
+  "justreplay.configuration.replayBuffer": "Instant replay buffer",
+  "justreplay.configuration.bufferMinutes": "Instant replay length (minutes)",
+  "justreplay.configuration.nextMinutes": "Timed recording length (minutes)",
+  "justreplay.toast.buffer_saved": "Saved the last %s minutes",
+  "justreplay.toast.buffer_failed": "Cannot save the instant replay",
+  "justreplay.toast.buffer_off": "Instant replay is off",
+  "justreplay.toast.buffer_off.hint": "Enable the replay buffer in the Just Replay settings",
+  "justreplay.toast.next_started": "Recording the next %s minutes",
+  "justreplay.toast.next_done": "Timed recording saved",
+  "justreplay.configuration.extraChunkRadius": "Cached chunk radius",
+  "justreplay.configuration.checkpointMinutes": "Minutes between checkpoints"
 }

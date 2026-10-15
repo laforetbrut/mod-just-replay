@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.record;
 
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientboundForgetLevelChunkPacket;
@@ -12,8 +13,9 @@ import net.minecraft.world.level.chunk.status.ChunkStatus;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
 
 /**
@@ -26,6 +28,9 @@ import java.util.function.Consumer;
  * </ul>
  * Chunks of a checkpoint built after its tick may already carry a few later block changes; replaying the stream
  * from the checkpoint applies those same absolute changes again, so the world converges on the recorded state.
+ * <p>
+ * Building a chunk packet is the most expensive thing the recorder does on the client thread, so each tick has a
+ * small time budget, and nothing optional runs while frames are slow.
  *
  * @author vyrriox
  */
@@ -36,22 +41,39 @@ final class ChunkCapture {
     }
 
     private static final int SCAN_MAX_CHECKS = 256;
-    private static final int SCAN_MAX_BUILDS = 4;
-    private static final long SCAN_BUDGET_NANOS = 1_500_000L;
+    private static final int SCAN_MAX_BUILDS = 2;
+    private static final long SCAN_BUDGET_NANOS = 250_000L;
     private static final int CHECKPOINT_MAX_CHECKS = 2048;
-    private static final int CHECKPOINT_MAX_BUILDS = 24;
-    private static final long CHECKPOINT_BUDGET_NANOS = 3_000_000L;
+    private static final int CHECKPOINT_MAX_BUILDS = 12;
+    private static final long CHECKPOINT_BUDGET_NANOS = 600_000L;
+    /** A frame slower than this (under 40 fps) skips the optional work of the tick. */
+    private static final long SLOW_FRAME_NANOS = 25_000_000L;
+    /** A checkpoint never waits more than this many ticks for faster frames. */
+    private static final int MAX_DEFERRED_TICKS = 40;
     static final int MAX_RADIUS = 64;
 
-    /** Chunks the server sent and has not forgotten (network thread writes, client thread reads). */
-    private final Set<Long> serverChunks = ConcurrentHashMap.newKeySet();
-    /** Chunks already in the main stream, from the server or from the scan. */
-    private final Set<Long> written = ConcurrentHashMap.newKeySet();
+    /** What the network thread saw; drained on the client thread so the sets below need no locking or boxing. */
+    private record Event(int kind, long key) {
+        static final int SENT = 0;
+        static final int FORGOTTEN = 1;
+        static final int RESET = 2;
+    }
+
+    private final ConcurrentLinkedQueue<Event> events = new ConcurrentLinkedQueue<>();
+    /** Chunks the server sent and has not forgotten (client thread only). */
+    private final LongOpenHashSet serverChunks = new LongOpenHashSet();
+    /**
+     * Chunks already in the main stream, from the server or from the scan (client thread only). A cached chunk is
+     * written once per level: the server sends no change for it while it is out of range, and a chunk the server
+     * sends again is written by the server itself, so leaving and coming back never rewrites unchanged chunks.
+     */
+    private final LongOpenHashSet written = new LongOpenHashSet();
 
     private int scanRadius = -1;
     private int[] scanOffsets = new int[0];
     private int scanIndex;
     private CheckpointJob checkpoint;
+    private int deferred;
 
     private static final class CheckpointJob {
         final int at;
@@ -85,23 +107,52 @@ final class ChunkCapture {
     /** Tracks which chunks the server itself provides; called for every captured packet. */
     void onPacket(Packet<?> packet) {
         if (packet instanceof ClientboundLevelChunkWithLightPacket chunk) {
-            long key = ChunkPos.asLong(chunk.getX(), chunk.getZ());
-            serverChunks.add(key);
-            written.add(key);
+            events.add(new Event(Event.SENT, ChunkPos.asLong(chunk.getX(), chunk.getZ())));
         } else if (packet instanceof ClientboundForgetLevelChunkPacket forget) {
-            // Playback keeps forgotten chunks, so they stay written.
-            serverChunks.remove(forget.pos().toLong());
+            events.add(new Event(Event.FORGOTTEN, forget.pos().toLong()));
         } else if (packet instanceof ClientboundLoginPacket || packet instanceof ClientboundRespawnPacket) {
-            serverChunks.clear();
-            written.clear();
+            events.add(new Event(Event.RESET, 0L));
         }
     }
 
     // ---------------------------------------------------------------- client thread
 
+    /**
+     * Applies what the network thread saw. A chunk is captured before the client handles it, so any chunk the
+     * client level holds is already known here once drained.
+     */
+    private void drain() {
+        Event event;
+        while ((event = events.poll()) != null) {
+            switch (event.kind()) {
+                case Event.SENT -> {
+                    serverChunks.add(event.key());
+                    written.add(event.key());
+                }
+                // Playback keeps forgotten chunks, so they stay written.
+                case Event.FORGOTTEN -> serverChunks.remove(event.key());
+                default -> {
+                    serverChunks.clear();
+                    written.clear();
+                }
+            }
+        }
+    }
+
     /** Records a chunk written by a snapshot into the main stream. */
     void markWritten(int x, int z) {
         written.add(ChunkPos.asLong(x, z));
+    }
+
+    /**
+     * A new output joined the stream with a snapshot of the nearby chunks only: scan the cached chunks again so it
+     * gets them too (the other outputs receive them a second time, which playback handles like any chunk resend).
+     */
+    void rescanExtraChunks() {
+        drain();
+        written.clear();
+        written.addAll(serverChunks);
+        scanIndex = 0;
     }
 
     boolean isCheckpointRunning() {
@@ -117,6 +168,7 @@ final class ChunkCapture {
         if (checkpoint != null) {
             checkpoint.done.accept(null);
         }
+        deferred = 0;
         checkpoint = new CheckpointJob(at, epoch, level, centerX, centerZ, Math.min(MAX_RADIUS, radius), head, tail, done);
     }
 
@@ -131,17 +183,25 @@ final class ChunkCapture {
     /**
      * One client tick of work: the running checkpoint first, otherwise the extra chunk scan.
      *
-     * @param scanRadius radius of the extra chunk scan, or a negative value to skip it
-     * @param epoch      level epoch of the recorder; a checkpoint started in another epoch is dropped
-     * @param mainSink   sink of the main stream, which only accepts data of the epoch the chunk was built in
+     * @param scanRadius     radius of the extra chunk scan, or a negative value to skip it
+     * @param epoch          level epoch of the recorder; a checkpoint started in another epoch is dropped
+     * @param lastFrameNanos duration of the last rendered frame; slow frames postpone the work
+     * @param mainSink       sink of the main stream, which only accepts data of the epoch the chunk was built in
      */
-    void tick(ClientLevel level, int playerChunkX, int playerChunkZ, int scanRadius, int epoch, Output out, Consumer<byte[]> mainSink) {
+    void tick(ClientLevel level, int playerChunkX, int playerChunkZ, int scanRadius, int epoch, long lastFrameNanos, Output out,
+              Consumer<byte[]> mainSink) {
+        drain();
+        boolean slow = lastFrameNanos > SLOW_FRAME_NANOS;
         long start = System.nanoTime();
         if (checkpoint != null) {
+            if (slow && ++deferred <= MAX_DEFERRED_TICKS) {
+                return;
+            }
+            deferred = 0;
             stepCheckpoint(level, epoch, out, start + CHECKPOINT_BUDGET_NANOS);
             return;
         }
-        if (scanRadius > 0) {
+        if (scanRadius > 0 && !slow) {
             scan(level, playerChunkX, playerChunkZ, Math.min(MAX_RADIUS, scanRadius), out, mainSink, start + SCAN_BUDGET_NANOS);
         }
     }
@@ -189,7 +249,6 @@ final class ChunkCapture {
         for (int checks = 0; checks < SCAN_MAX_CHECKS && builds < SCAN_MAX_BUILDS; checks++) {
             if (scanIndex >= count) {
                 scanIndex = 0;
-                forgetFar(cx, cz, radius + 2);
                 break;
             }
             int x = cx + scanOffsets[scanIndex * 2];
@@ -212,13 +271,7 @@ final class ChunkCapture {
         }
     }
 
-    /** Far chunks are written again when the player comes back: playback may have evicted them in between. */
-    private void forgetFar(int cx, int cz, int radius) {
-        written.removeIf(key -> !serverChunks.contains(key)
-                && Math.max(Math.abs(ChunkPos.getX(key) - cx), Math.abs(ChunkPos.getZ(key) - cz)) > radius);
-    }
-
-    private static final java.util.Map<Integer, int[]> OFFSETS = new ConcurrentHashMap<>();
+    private static final Map<Integer, int[]> OFFSETS = new ConcurrentHashMap<>();
 
     /** {@code (dx, dz)} pairs of a square of the given radius, ring by ring from the center; computed once per radius. */
     private static int[] offsets(int radius) {

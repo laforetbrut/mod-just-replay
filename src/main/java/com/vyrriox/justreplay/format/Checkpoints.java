@@ -17,7 +17,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
-import java.util.zip.GZIPOutputStream;
 
 /**
  * Checkpoints are full snapshots of the client state taken while recording, stored next to the stream as
@@ -63,7 +62,7 @@ public final class Checkpoints {
         Path file = folder.resolve(tick + ".bin.gz");
         Path tmp = folder.resolve(tick + ".bin.gz.tmp");
         try (DataOutputStream out = new DataOutputStream(new BufferedOutputStream(
-                new GZIPOutputStream(Files.newOutputStream(tmp), 1 << 16), 1 << 16))) {
+                SegmentedStream.gzip(Files.newOutputStream(tmp), 1 << 16, false, SegmentedStream.MAX_LEVEL), 1 << 16))) {
             for (byte[] data : records) {
                 out.writeInt(tick);
                 out.writeInt(data.length);

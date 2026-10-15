@@ -34,6 +34,8 @@ NeoForge 1.21.1, client side. Author: vyrriox. License: Apache-2.0.
 | Key | Action |
 |---|---|
 | F8 | Start / stop recording |
+| F7 | Save the last minutes (instant replay, enable `replayBuffer` in the settings) |
+| unbound | Record the next minutes, then stop |
 | G | Replay editor |
 | J | Play / pause |
 | Left / Right | Seek backward / forward |

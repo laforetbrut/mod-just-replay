@@ -58,10 +58,7 @@ public final class JustReplayClient {
         @SubscribeEvent
         public static void onTick(ClientTickEvent.Post event) {
             Minecraft mc = Minecraft.getInstance();
-            Recorder recorder = Recorder.active();
-            if (recorder != null) {
-                recorder.clientTick(mc);
-            }
+            Recorder.clientTickAll(mc);
             ReplaySession.clientTick(mc);
             handleKeys(mc);
             SelfTest.tick(mc);
@@ -87,11 +84,9 @@ public final class JustReplayClient {
                 }
                 return;
             }
-            if (Recorder.isRecording()) {
-                Path saved = Recorder.stop();
-                if (saved != null) {
-                    toast("justreplay.toast.saved", saved.getFileName().toString());
-                }
+            Path saved = Recorder.endCapture();
+            if (saved != null) {
+                toast("justreplay.toast.saved", saved.getFileName().toString());
             }
         }
 
@@ -269,9 +264,73 @@ public final class JustReplayClient {
                 detail.isEmpty() ? null : Component.literal(detail));
     }
 
+    private static boolean savingBuffer;
+
+    /** Saves the instant replay buffer off the client thread; the toast follows when the files are written. */
+    private static void saveBuffer(Minecraft mc) {
+        if (ReplaySession.current() != null || savingBuffer) {
+            return;
+        }
+        var saving = Recorder.saveBuffer();
+        if (saving == null) {
+            toast(Component.translatable("justreplay.toast.buffer_off"), Component.translatable("justreplay.toast.buffer_off.hint"));
+            return;
+        }
+        savingBuffer = true;
+        saving.whenComplete((saved, error) -> mc.execute(() -> {
+            savingBuffer = false;
+            if (error != null || saved == null) {
+                JustReplay.LOGGER.warn("Cannot save the replay buffer: {}", String.valueOf(error));
+                toast("justreplay.toast.buffer_failed", "");
+                return;
+            }
+            float minutes = saved.durationTicks() / 1200.0F;
+            String length = minutes >= 1.0F && Math.abs(minutes - Math.round(minutes)) < 0.05F
+                    ? Integer.toString(Math.round(minutes))
+                    : String.format(java.util.Locale.ROOT, "%.1f", minutes);
+            toast(Component.translatable("justreplay.toast.buffer_saved", length),
+                    Component.literal(saved.dir().getFileName().toString()));
+        }));
+    }
+
+    /** Starts a recording of the configured length, or stops the running recording. */
+    private static void toggleTimedRecording() {
+        if (ReplaySession.current() != null) {
+            return;
+        }
+        if (Recorder.isRecording()) {
+            toggleRecording();
+            return;
+        }
+        int minutes = JRConfig.NEXT_MINUTES.get();
+        if (Recorder.startTimed(minutes * 1200)) {
+            toast(Component.translatable("justreplay.toast.next_started", minutes), null);
+        } else {
+            toast("justreplay.toast.failed", "");
+        }
+    }
+
+    private static void toast(Component title, Component detail) {
+        Minecraft mc = Minecraft.getInstance();
+        SystemToast.add(mc.getToasts(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION, title, detail);
+    }
+
     private static void handleKeys(Minecraft mc) {
         while (JRKeys.RECORD.consumeClick()) {
             toggleRecording();
+        }
+        while (JRKeys.SAVE_BUFFER.consumeClick()) {
+            saveBuffer(mc);
+        }
+        while (JRKeys.RECORD_NEXT.consumeClick()) {
+            toggleTimedRecording();
+        }
+        Recorder recorder = Recorder.active();
+        if (recorder != null && recorder.timedRecordingFinished()) {
+            Path saved = Recorder.stop();
+            if (saved != null) {
+                toast("justreplay.toast.next_done", saved.getFileName().toString());
+            }
         }
         ReplaySession session = ReplaySession.current();
         if (session == null || !ReplaySession.isRunning() || VideoExporter.isActive()) {

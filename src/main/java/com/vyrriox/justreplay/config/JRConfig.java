@@ -15,6 +15,11 @@ public final class JRConfig {
     public static final ModConfigSpec.BooleanValue SHOW_RECORDING_INDICATOR;
     public static final ModConfigSpec.BooleanValue CAPTURE_EXTRA_CHUNKS;
     public static final ModConfigSpec.BooleanValue CAPTURE_VOICE_CHAT;
+    public static final ModConfigSpec.IntValue EXTRA_CHUNK_RADIUS;
+    public static final ModConfigSpec.IntValue CHECKPOINT_MINUTES;
+    public static final ModConfigSpec.BooleanValue REPLAY_BUFFER;
+    public static final ModConfigSpec.IntValue BUFFER_MINUTES;
+    public static final ModConfigSpec.IntValue NEXT_MINUTES;
     public static final ModConfigSpec.IntValue SEEK_STEP_SECONDS;
     public static final ModConfigSpec.BooleanValue CLEAN_HUD;
     public static final ModConfigSpec.IntValue PLAYBACK_VIEW_DISTANCE;
@@ -38,6 +43,20 @@ public final class JRConfig {
                 .define("captureExtraChunks", true);
         CAPTURE_VOICE_CHAT = b.comment("Record Simple Voice Chat audio (other players and your microphone) when that mod is installed.")
                 .define("captureVoiceChat", true);
+        EXTRA_CHUNK_RADIUS = b.comment("Largest radius (in chunks around the player) of the cached chunks and checkpoints recorded beyond the",
+                        "server view distance. Each chunk is written once per recording; a larger radius means more data on disk.")
+                .defineInRange("extraChunkRadius", 16, 2, 48);
+        CHECKPOINT_MINUTES = b.comment("Minutes between two checkpoints of a recording (snapshots that make seeking fast).",
+                        "Fewer checkpoints means fewer bytes written; recordings shorter than this have none.")
+                .defineInRange("checkpointMinutes", 5, 1, 30);
+        REPLAY_BUFFER = b.comment("Instant replay: always keep the last minutes of play in memory (compressed), from joining a world or server,",
+                        "so the 'Save last minutes' key can save them as a replay after the fact.")
+                .define("replayBuffer", false);
+        BUFFER_MINUTES = b.comment("Minutes kept by the instant replay buffer. Saved clips start at the last checkpoint before that window,",
+                        "so they can be up to a minute longer (a fifth longer for long windows).")
+                .defineInRange("bufferMinutes", 5, 1, 30);
+        NEXT_MINUTES = b.comment("Length of a recording started with the 'Record next minutes' key; it stops by itself.")
+                .defineInRange("nextMinutes", 5, 1, 240);
         b.pop();
         b.push("playback");
         SEEK_STEP_SECONDS = b.comment("Seconds skipped by the seek keys.")
