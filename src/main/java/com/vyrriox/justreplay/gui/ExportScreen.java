@@ -98,8 +98,9 @@ public class ExportScreen extends GlassScreen {
         f.full(new Segmented<>(rates, fps, v -> Component.literal(v + " fps"), null, v -> fps = v));
 
         f.space(2);
-        f.full(new GlassSlider(0, 0, 51, 1, crf, v -> Component.translatable("justreplay.export.quality",
-                qualityName((int) v), (int) v), v -> crf = (int) v));
+        // Right means better: the slider shows quality, stored as CRF 40 (small file) down to 12 (near lossless).
+        f.full(new GlassSlider(0, 0, 28, 1, 40 - Math.max(12, Math.min(40, crf)), v -> Component.translatable("justreplay.export.quality",
+                qualityName(40 - (int) v), 40 - (int) v), v -> crf = 40 - (int) v));
 
         f.space(2);
         f.text(this::rangeLine, Theme.TEXT);

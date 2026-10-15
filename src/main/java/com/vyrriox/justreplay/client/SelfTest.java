@@ -306,6 +306,8 @@ public final class SelfTest {
                 ReplaySession s = ReplaySession.current();
                 s.setCameraPath(false);
                 Files.deleteIfExists(ReplayStorage.exportRoot().resolve("selftest.mp4"));
+                com.vyrriox.justreplay.config.JRConfig.EXPORT_CRF.set(18);
+                com.vyrriox.justreplay.config.JRConfig.EXPORT_FPS.set(60);
                 com.vyrriox.justreplay.config.JRConfig.EXPORT_RESOLUTION.set(com.vyrriox.justreplay.export.ExportResolution.FULL_HD_1080);
                 var error = VideoExporter.start(s, 20, 80, "selftest");
                 log("export start error={}", error == null ? "none" : error.getString());
