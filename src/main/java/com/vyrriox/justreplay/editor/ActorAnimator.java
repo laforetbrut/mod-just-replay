@@ -1,0 +1,637 @@
+package com.vyrriox.justreplay.editor;
+
+import com.vyrriox.justreplay.mixin.EntityInvoker;
+import com.vyrriox.justreplay.mixin.HoglinAccessor;
+import com.vyrriox.justreplay.mixin.IronGolemAccessor;
+import com.vyrriox.justreplay.mixin.LivingEntityAccessor;
+import com.vyrriox.justreplay.mixin.RavagerAccessor;
+import com.vyrriox.justreplay.mixin.WalkAnimationStateAccessor;
+import com.vyrriox.justreplay.mixin.ZoglinAccessor;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.Pose;
+import net.minecraft.world.entity.TamableAnimal;
+import net.minecraft.world.entity.animal.IronGolem;
+import net.minecraft.world.entity.monster.AbstractIllager;
+import net.minecraft.world.entity.monster.AbstractSkeleton;
+import net.minecraft.world.entity.monster.Ravager;
+import net.minecraft.world.entity.monster.Zoglin;
+import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.entity.monster.hoglin.Hoglin;
+import net.minecraft.world.entity.monster.piglin.AbstractPiglin;
+import net.minecraft.world.entity.monster.warden.Warden;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.UseAnim;
+import net.minecraft.world.phys.Vec3;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Turns the keyframes and actions of an actor into the animation state of its entity. Everything is derived
+ * from the play head, so seeking shows the same pose as playing up to that tick. Vanilla client paths do the
+ * drawing: swing and hurt fields, death time, poses, shared flags, item use flags and entity events.
+ *
+ * @author vyrriox
+ */
+public final class ActorAnimator {
+    public enum Gesture { WAVE, POINT, CHEER, HANDS_UP }
+
+    /** Feet height offsets of a vanilla jump (0.42 initial speed, 0.08 gravity, 0.98 drag), one per tick. */
+    private static final double[] JUMP;
+    private static final int SWING_TICKS = 6;
+    private static final int HURT_TICKS = 10;
+    private static final int ATTACK_TICKS = 10;
+    private static final int AGGRESSIVE_TICKS = 20;
+    /** Lowers a sitting humanoid so its legs rest on the keyframed ground. */
+    private static final double SIT_OFFSET = 0.625;
+
+    static {
+        double[] heights = new double[32];
+        double y = 0;
+        double vy = 0.42;
+        int n = 0;
+        while (n < heights.length) {
+            y += vy;
+            vy = (vy - 0.08) * 0.98;
+            if (y <= 0) {
+                break;
+            }
+            heights[n++] = y;
+        }
+        JUMP = java.util.Arrays.copyOf(heights, n);
+    }
+
+    /** Render side state, read by the humanoid model mixin and the model renderer. Keyed by entity id. */
+    private static final Map<Integer, Gesture> GESTURES = new HashMap<>();
+    private static final java.util.Set<Integer> SITTING = new java.util.HashSet<>();
+
+    private final Map<String, State> states = new HashMap<>();
+
+    /** Per actor memory that cannot be derived from one tick: the walk cycle phase and the last play head. */
+    private static final class State {
+        float walkSpeed;
+        float walkPosition;
+        int lastCursor = Integer.MIN_VALUE;
+        boolean fallFlying;
+        double[] anchor;
+    }
+
+    /** Everything an actor shows at one tick. */
+    public static final class Frame {
+        public double x, y, z;
+        public float yaw, pitch, headYaw;
+        Pose pose = Pose.STANDING;
+        boolean crouch, sit, sprint, aggressive, spin, fallFlying;
+        int deathTime, hurtTime, fallFlyTicks = -1, attackCounter;
+        float attackAnim, swimAmount;
+        int swingTime = -1;
+        InteractionHand swingHand = InteractionHand.MAIN_HAND;
+        float forcedWalk;
+        ActionType use;
+        String useParam = "";
+        int useElapsed;
+        Gesture gesture;
+    }
+
+    // ---------------------------------------------------------------- render side
+
+    public static boolean isSitting(Entity entity) {
+        return ActorManager.isActorEntity(entity) && SITTING.contains(entity.getId());
+    }
+
+    /** Arm gestures for humanoid models, after vanilla posed them. */
+    public static void applyGesture(Entity entity, float ageInTicks, ModelPart rightArm, ModelPart leftArm) {
+        if (!ActorManager.isActorEntity(entity)) {
+            return;
+        }
+        Gesture gesture = GESTURES.get(entity.getId());
+        if (gesture == null) {
+            return;
+        }
+        switch (gesture) {
+            case WAVE -> {
+                rightArm.xRot = 0.0F;
+                rightArm.yRot = 0.0F;
+                rightArm.zRot = 2.6F + 0.35F * Mth.sin(ageInTicks * 0.6F);
+            }
+            case POINT -> {
+                rightArm.xRot = (float) (-Math.PI / 2.0);
+                rightArm.yRot = -0.1F;
+                rightArm.zRot = 0.0F;
+            }
+            case CHEER -> {
+                float bounce = 0.15F * Mth.sin(ageInTicks * 0.5F);
+                rightArm.xRot = 0.0F;
+                rightArm.yRot = 0.0F;
+                rightArm.zRot = 2.7F + bounce;
+                leftArm.xRot = 0.0F;
+                leftArm.yRot = 0.0F;
+                leftArm.zRot = -2.7F - bounce;
+            }
+            case HANDS_UP -> {
+                rightArm.xRot = (float) -Math.PI;
+                rightArm.yRot = 0.0F;
+                rightArm.zRot = 0.25F;
+                leftArm.xRot = (float) -Math.PI;
+                leftArm.yRot = 0.0F;
+                leftArm.zRot = -0.25F;
+            }
+        }
+    }
+
+    public static void forget(Entity entity) {
+        if (entity != null) {
+            GESTURES.remove(entity.getId());
+            SITTING.remove(entity.getId());
+        }
+    }
+
+    void forget(ReplayProject.ActorData actor) {
+        states.remove(actor.id);
+    }
+
+    public static void clearAllRenderState() {
+        GESTURES.clear();
+        SITTING.clear();
+    }
+
+    // ---------------------------------------------------------------- actions
+
+    /** Ticks since the latest action of these types started at or before {@code t}, or -1. */
+    static int elapsedSince(List<ReplayProject.ActorAction> actions, int t, ActionType... types) {
+        int best = -1;
+        for (ReplayProject.ActorAction action : actions) {
+            if (action.tick > t) {
+                break;
+            }
+            ActionType type = action.actionType();
+            for (ActionType candidate : types) {
+                if (type == candidate) {
+                    best = t - action.tick;
+                }
+            }
+        }
+        return best;
+    }
+
+    /**
+     * The latest started state action among {@code types} still active at {@code t}, or null. An {@code IDLE}
+     * ends every state started before it; when the latest state has run out, an earlier open ended one shows.
+     */
+    public static ReplayProject.ActorAction activeState(List<ReplayProject.ActorAction> actions, int t, ActionType... types) {
+        java.util.ArrayList<ReplayProject.ActorAction> started = new java.util.ArrayList<>();
+        for (ReplayProject.ActorAction action : actions) {
+            if (action.tick > t) {
+                break;
+            }
+            ActionType type = action.actionType();
+            if (type == ActionType.IDLE) {
+                started.clear();
+                continue;
+            }
+            for (ActionType candidate : types) {
+                if (type == candidate) {
+                    started.add(action);
+                    break;
+                }
+            }
+        }
+        for (int i = started.size() - 1; i >= 0; i--) {
+            ReplayProject.ActorAction action = started.get(i);
+            if (action.duration <= 0 || t < action.tick + action.duration) {
+                return action;
+            }
+        }
+        return null;
+    }
+
+    // ---------------------------------------------------------------- frames
+
+    /**
+     * Pose of an actor at tick {@code t}. {@code fallback} gives the position when the actor has no keyframe.
+     */
+    public static Frame frame(ReplayProject.ActorData actor, ReplayProject project, int t, Entity entity, double[] fallback) {
+        Frame f = new Frame();
+        double[] base = Interpolation.actor(actor.keyframes, t);
+        if (base == null) {
+            base = fallback;
+        }
+        f.x = base[0];
+        f.y = base[1];
+        f.z = base[2];
+        f.yaw = (float) base[3];
+        f.pitch = (float) base[4];
+        List<ReplayProject.ActorAction> actions = actor.actions;
+
+        ReplayProject.ActorAction wander = activeState(actions, t, ActionType.WANDER);
+        if (wander != null) {
+            double radius = parseDouble(wander.param, 2.0);
+            double seed = (actor.id.hashCode() & 0xFFFF) / 997.0;
+            double[] now = wanderOffset(t, radius, seed);
+            double[] next = wanderOffset(t + 1, radius, seed);
+            f.x += now[0];
+            f.z += now[1];
+            double dx = next[0] - now[0];
+            double dz = next[1] - now[1];
+            if (dx * dx + dz * dz > 1.0E-6) {
+                f.yaw = (float) (Mth.atan2(-dx, dz) * Mth.RAD_TO_DEG);
+            }
+        }
+        f.headYaw = f.yaw;
+
+        ReplayProject.ActorAction pose = activeState(actions, t, ActionType.DEATH, ActionType.SLEEP, ActionType.SWIM,
+                ActionType.ELYTRA, ActionType.SPIN_ATTACK, ActionType.SIT, ActionType.CROUCH);
+        if (pose == null) {
+            f.pose = parsePose(actor.pose);
+            f.crouch = f.pose == Pose.CROUCHING;
+            f.sit = f.pose == Pose.SITTING;
+            if (f.pose == Pose.FALL_FLYING) {
+                f.fallFlying = true;
+                f.fallFlyTicks = 20;
+            }
+            if (f.pose == Pose.SPIN_ATTACK) {
+                f.spin = true;
+            }
+            if (f.pose == Pose.SWIMMING) {
+                f.swimAmount = 1.0F;
+            }
+        } else {
+            int e = t - pose.tick;
+            switch (pose.actionType()) {
+                case DEATH -> f.deathTime = Math.min(20, e + 1);
+                case SLEEP -> f.pose = Pose.SLEEPING;
+                case SWIM -> {
+                    f.pose = Pose.SWIMMING;
+                    f.swimAmount = Math.min(1.0F, (e + 1) * 0.09F);
+                }
+                case ELYTRA -> {
+                    f.pose = Pose.FALL_FLYING;
+                    f.fallFlying = true;
+                    f.fallFlyTicks = e;
+                }
+                case SPIN_ATTACK -> {
+                    f.pose = Pose.SPIN_ATTACK;
+                    f.spin = true;
+                }
+                case SIT -> {
+                    f.pose = Pose.SITTING;
+                    f.sit = true;
+                }
+                case CROUCH -> {
+                    f.pose = Pose.CROUCHING;
+                    f.crouch = true;
+                }
+                default -> {
+                }
+            }
+        }
+        if (f.sit && isHumanoid(entity)) {
+            f.y -= SIT_OFFSET;
+        }
+
+        int jump = elapsedSince(actions, t, ActionType.JUMP);
+        if (jump >= 0 && jump < JUMP.length) {
+            f.y += JUMP[jump];
+        }
+
+        ReplayProject.ActorAction move = activeState(actions, t, ActionType.WALK, ActionType.RUN);
+        if (move != null) {
+            boolean run = move.actionType() == ActionType.RUN;
+            f.forcedWalk = run ? 1.0F : 0.7F;
+            f.sprint = run;
+        }
+
+        int swing = elapsedSince(actions, t, ActionType.SWING_MAIN, ActionType.SWING_OFF, ActionType.ATTACK);
+        if (swing >= 0 && swing < SWING_TICKS) {
+            f.swingTime = swing;
+            f.attackAnim = (float) swing / SWING_TICKS;
+            f.swingHand = elapsedSince(actions, t, ActionType.SWING_OFF) == swing ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND;
+        }
+        int attack = elapsedSince(actions, t, ActionType.ATTACK);
+        if (attack >= 0 && attack < ATTACK_TICKS) {
+            f.attackCounter = ATTACK_TICKS - attack;
+        }
+        if (attack >= 0 && attack < AGGRESSIVE_TICKS) {
+            f.aggressive = true;
+        }
+        if (activeState(actions, t, ActionType.AGGRESSIVE) != null) {
+            f.aggressive = true;
+        }
+
+        int hurt = elapsedSince(actions, t, ActionType.HURT);
+        if (hurt >= 0 && hurt < HURT_TICKS) {
+            f.hurtTime = HURT_TICKS - hurt;
+        }
+
+        ReplayProject.ActorAction use = activeState(actions, t, ActionType.USE_ITEM, ActionType.BLOCK, ActionType.BOW, ActionType.EAT);
+        if (use != null) {
+            f.use = use.actionType();
+            f.useParam = use.param == null ? "" : use.param;
+            f.useElapsed = t - use.tick;
+            if (f.use == ActionType.BOW) {
+                f.aggressive = true;
+            }
+        }
+
+        ReplayProject.ActorAction gesture = activeState(actions, t, ActionType.WAVE, ActionType.POINT, ActionType.CHEER, ActionType.HANDS_UP);
+        if (gesture != null) {
+            f.gesture = Gesture.valueOf(gesture.actionType().name());
+        }
+
+        ReplayProject.ActorAction look = activeState(actions, t, ActionType.LOOK_AT, ActionType.LOOK_AROUND);
+        if (look != null) {
+            if (look.actionType() == ActionType.LOOK_AROUND) {
+                double phase = (actor.id.hashCode() & 0xFF) / 41.0;
+                f.headYaw = f.yaw + (float) (55.0 * Math.sin(t * 0.045 + phase) * Math.sin(t * 0.017 + phase * 0.5));
+                f.pitch = (float) (12.0 * Math.sin(t * 0.031 + phase));
+            } else {
+                Vec3 target = lookTarget(look.param, project, actor, t);
+                if (target != null) {
+                    double eye = entity != null ? entity.getEyeHeight() : 1.62;
+                    double dx = target.x - f.x;
+                    double dy = target.y - (f.y + eye);
+                    double dz = target.z - f.z;
+                    double horizontal = Math.sqrt(dx * dx + dz * dz);
+                    float wanted = (float) (Mth.atan2(-dx, dz) * Mth.RAD_TO_DEG);
+                    float relative = Mth.clamp(Mth.wrapDegrees(wanted - f.yaw), -75.0F, 75.0F);
+                    f.headYaw = f.yaw + relative;
+                    f.pitch = Mth.clamp((float) (-Mth.atan2(dy, horizontal) * Mth.RAD_TO_DEG), -80.0F, 80.0F);
+                }
+            }
+        }
+        return f;
+    }
+
+    private static Vec3 lookTarget(String param, ReplayProject project, ReplayProject.ActorData self, int t) {
+        String name = param == null ? "" : param.trim();
+        if (name.isEmpty() || name.equalsIgnoreCase("camera")) {
+            Minecraft mc = Minecraft.getInstance();
+            return mc.gameRenderer.getMainCamera().getPosition();
+        }
+        for (ReplayProject.ActorData other : project.actors) {
+            if (other != self && (other.name.equalsIgnoreCase(name) || other.id.equals(name))) {
+                double[] pos = Interpolation.actor(other.keyframes, t);
+                if (pos != null) {
+                    return new Vec3(pos[0], pos[1] + 1.5, pos[2]);
+                }
+            }
+        }
+        return null;
+    }
+
+    private static double[] wanderOffset(double t, double radius, double seed) {
+        double r = Math.max(0.25, radius);
+        double w1 = 0.08 / r;
+        double w2 = 0.13 / r;
+        double x = r * (0.6 * Math.sin(t * w1 + seed) + 0.4 * Math.sin(t * w2 * 1.3 + seed * 2.1));
+        double z = r * (0.6 * Math.cos(t * w1 * 0.9 + seed * 1.7) + 0.4 * Math.sin(t * w2 + seed * 0.3));
+        return new double[]{x, z};
+    }
+
+    private static boolean isHumanoid(Entity entity) {
+        return entity instanceof Player || entity instanceof Zombie || entity instanceof AbstractSkeleton
+                || entity instanceof AbstractPiglin || entity instanceof AbstractIllager;
+    }
+
+    static double parseDouble(String value, double fallback) {
+        try {
+            return Double.parseDouble(value.trim());
+        } catch (Exception e) {
+            return fallback;
+        }
+    }
+
+    static Pose parsePose(String name) {
+        try {
+            return Pose.valueOf(name);
+        } catch (Exception e) {
+            return Pose.STANDING;
+        }
+    }
+
+    // ---------------------------------------------------------------- apply
+
+    /**
+     * Applies the frames of the current and previous tick to the entity, so the renderer interpolates between
+     * them. One shot effects with a sound or particles fire only when the play head passes them while playing.
+     */
+    public void apply(ReplayProject.ActorData actor, ReplayProject project, Entity entity, int cursor, boolean paused) {
+        State state = states.computeIfAbsent(actor.id, k -> new State());
+        if (state.anchor == null) {
+            // Without keyframes the actor stays where it spawned; actions add their offsets to that anchor.
+            state.anchor = new double[]{entity.getX(), entity.getY(), entity.getZ(), entity.getYRot(), entity.getXRot()};
+        }
+        double[] fallback = state.anchor;
+        Frame now = frame(actor, project, cursor, entity, fallback);
+        Frame before = paused ? now : frame(actor, project, cursor - 1, entity, fallback);
+
+        entity.setPose(now.pose);
+        entity.setShiftKeyDown(now.crouch);
+        entity.setSprinting(now.sprint);
+        entity.xo = entity.xOld = before.x;
+        entity.yo = entity.yOld = before.y;
+        entity.zo = entity.zOld = before.z;
+        entity.yRotO = before.yaw;
+        entity.xRotO = before.pitch;
+        entity.setPos(now.x, now.y, now.z);
+        entity.setYRot(now.yaw);
+        entity.setXRot(now.pitch);
+        entity.setDeltaMovement(now.fallFlying && !paused ? new Vec3(now.x - before.x, now.y - before.y, now.z - before.z) : Vec3.ZERO);
+        if (!(entity instanceof Player)) {
+            // Age drives idle motion and keyframed vanilla animations; the actor's own tick never advances it.
+            entity.tickCount = Math.max(0, cursor);
+        }
+
+        if (entity instanceof LivingEntity living) {
+            applyLiving(living, now, before, state, paused);
+        }
+
+        if (now.gesture != null) {
+            GESTURES.put(entity.getId(), now.gesture);
+        } else {
+            GESTURES.remove(entity.getId());
+        }
+        if (now.sit && isHumanoid(entity)) {
+            SITTING.add(entity.getId());
+        } else {
+            SITTING.remove(entity.getId());
+        }
+        if (entity instanceof TamableAnimal tamable) {
+            tamable.setInSittingPose(now.sit);
+        }
+        if (entity instanceof Mob mob) {
+            mob.setAggressive(now.aggressive);
+        }
+
+        if (!paused && state.lastCursor != Integer.MIN_VALUE && cursor > state.lastCursor && cursor - state.lastCursor <= 20) {
+            fireCrossed(actor, entity, state.lastCursor, cursor);
+        }
+        state.lastCursor = cursor;
+    }
+
+    private void applyLiving(LivingEntity living, Frame now, Frame before, State state, boolean paused) {
+        living.yBodyRotO = before.yaw;
+        living.yBodyRot = now.yaw;
+        // Fields, not setYHeadRot: armor stands (model actors) would also overwrite the body rotation.
+        living.yHeadRotO = before.headYaw;
+        living.yHeadRot = now.headYaw;
+
+        // Walk cycle from the horizontal speed along the path, like vanilla's calculateEntityAnimation.
+        WalkAnimationStateAccessor walk = (WalkAnimationStateAccessor) living.walkAnimation;
+        if (paused) {
+            if (living instanceof Player) {
+                // Players keep ticking while paused: a moving phase would twitch, so the legs rest.
+                walk.justreplay$setSpeedOld(0.0F);
+                walk.justreplay$setSpeed(0.0F);
+                walk.justreplay$setPosition(state.walkPosition);
+            }
+        } else {
+            double dx = now.x - before.x;
+            double dz = now.z - before.z;
+            float target = (float) Math.min(1.0, Math.sqrt(dx * dx + dz * dz) * 4.0);
+            target = Math.max(target, now.forcedWalk);
+            if (now.pose == Pose.SLEEPING || now.deathTime > 0 || now.sit) {
+                target = 0.0F;
+            }
+            float old = state.walkSpeed;
+            state.walkSpeed = old + (target - old) * 0.4F;
+            state.walkPosition += state.walkSpeed;
+            walk.justreplay$setSpeedOld(old);
+            walk.justreplay$setSpeed(state.walkSpeed);
+            walk.justreplay$setPosition(state.walkPosition);
+        }
+
+        living.oAttackAnim = before.attackAnim;
+        living.attackAnim = now.attackAnim;
+        living.swinging = now.swingTime >= 0;
+        living.swingTime = Math.max(0, now.swingTime);
+        living.swingingArm = now.swingHand;
+
+        living.hurtDuration = HURT_TICKS;
+        living.hurtTime = now.hurtTime;
+        living.deathTime = now.deathTime;
+
+        LivingEntityAccessor access = (LivingEntityAccessor) living;
+        access.justreplay$setSwimAmountO(before.swimAmount);
+        access.justreplay$setSwimAmount(now.swimAmount);
+        access.justreplay$setLivingEntityFlag(4, now.spin);
+
+        if (living instanceof Player player) {
+            if (now.fallFlying && !state.fallFlying) {
+                player.startFallFlying();
+            } else if (!now.fallFlying && state.fallFlying) {
+                player.stopFallFlying();
+            }
+        } else {
+            ((EntityInvoker) living).justreplay$setSharedFlag(7, now.fallFlying);
+        }
+        state.fallFlying = now.fallFlying;
+        access.justreplay$setFallFlyTicks(now.fallFlying ? Math.max(0, now.fallFlyTicks) : 0);
+
+        applyUse(living, access, now);
+
+        int counter = now.attackCounter;
+        if (living instanceof IronGolem) {
+            ((IronGolemAccessor) living).justreplay$setAttackAnimation(counter);
+        } else if (living instanceof Ravager) {
+            ((RavagerAccessor) living).justreplay$setAttackAnimation(counter);
+        } else if (living instanceof Hoglin) {
+            ((HoglinAccessor) living).justreplay$setAttackAnimation(counter);
+        } else if (living instanceof Zoglin) {
+            ((ZoglinAccessor) living).justreplay$setAttackAnimation(counter);
+        }
+    }
+
+    private static void applyUse(LivingEntity living, LivingEntityAccessor access, Frame now) {
+        if (now.use == null) {
+            access.justreplay$setLivingEntityFlag(1, false);
+            return;
+        }
+        InteractionHand hand = useHand(living, now.use, now.useParam);
+        if (living.isUsingItem() && living.getUseItem() != living.getItemInHand(hand)) {
+            // Another hand or item: turn the use off so the client picks the new item up below.
+            access.justreplay$setLivingEntityFlag(1, false);
+        }
+        // The hand flag first: the client picks the used item from it when the "using" flag turns on.
+        access.justreplay$setLivingEntityFlag(2, hand == InteractionHand.OFF_HAND);
+        access.justreplay$setLivingEntityFlag(1, true);
+        ItemStack used = living.getUseItem();
+        if (used.isEmpty()) {
+            return;
+        }
+        int duration = used.getUseDuration(living);
+        if (duration <= 0) {
+            return;
+        }
+        int remaining;
+        if (now.use == ActionType.EAT || used.getUseAnimation() == UseAnim.EAT || used.getUseAnimation() == UseAnim.DRINK) {
+            remaining = duration - (now.useElapsed % duration);
+        } else {
+            remaining = Math.max(1, duration - now.useElapsed);
+        }
+        access.justreplay$setUseItemRemaining(remaining);
+    }
+
+    private static InteractionHand useHand(LivingEntity living, ActionType type, String param) {
+        UseAnim wanted = switch (type) {
+            case BLOCK -> UseAnim.BLOCK;
+            case BOW -> UseAnim.BOW;
+            case EAT -> UseAnim.EAT;
+            default -> null;
+        };
+        if (wanted == null) {
+            return param.trim().equalsIgnoreCase("off") ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND;
+        }
+        for (InteractionHand hand : InteractionHand.values()) {
+            UseAnim anim = living.getItemInHand(hand).getUseAnimation();
+            if (anim == wanted || (wanted == UseAnim.BOW && anim == UseAnim.CROSSBOW) || (wanted == UseAnim.EAT && anim == UseAnim.DRINK)) {
+                return hand;
+            }
+        }
+        return type == ActionType.BLOCK ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND;
+    }
+
+    /** Sounds and particles of actions whose start lies in (from, to]. */
+    private static void fireCrossed(ReplayProject.ActorData actor, Entity entity, int from, int to) {
+        for (ReplayProject.ActorAction action : actor.actions) {
+            ActionType type = action.actionType();
+            int at = type == ActionType.DEATH ? action.tick + 18 : action.tick;
+            if (at <= from || at > to) {
+                continue;
+            }
+            try {
+                switch (type) {
+                    case HURT -> {
+                        if (entity instanceof LivingEntity living) {
+                            living.handleDamageEvent(living.damageSources().generic());
+                        }
+                    }
+                    case ATTACK -> {
+                        if (entity instanceof IronGolem || entity instanceof Ravager || entity instanceof Hoglin
+                                || entity instanceof Zoglin || entity instanceof Warden) {
+                            entity.handleEntityEvent((byte) 4);
+                        }
+                    }
+                    case DEATH -> {
+                        if (entity instanceof LivingEntity) {
+                            entity.handleEntityEvent((byte) 60);
+                        }
+                    }
+                    case ENTITY_EVENT -> entity.handleEntityEvent((byte) (int) parseDouble(action.param, 0));
+                    default -> {
+                    }
+                }
+            } catch (Throwable t) {
+                com.vyrriox.justreplay.JustReplay.LOGGER.warn("Actor {} action {} failed: {}", actor.name, type, t.toString());
+            }
+        }
+    }
+}

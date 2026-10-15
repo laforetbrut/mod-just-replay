@@ -200,8 +200,37 @@ public final class ReplayProject {
         }
     }
 
+    /**
+     * A timed action of an actor: a one shot animation (swing, hurt, jump...) or a state held for
+     * {@link #duration} ticks, or until the next {@code IDLE} action when the duration is 0.
+     */
+    public static final class ActorAction {
+        public int tick;
+        /** Name of an {@link ActionType}. */
+        public String type = ActionType.SWING_MAIN.name();
+        public int duration;
+        /** Type specific value: look target, animation name, wander radius, entity event id... */
+        public String param = "";
+
+        public ActorAction() {
+        }
+
+        public ActorAction(int tick, ActionType type, int duration, String param) {
+            this.tick = tick;
+            this.type = type.name();
+            this.duration = duration;
+            this.param = param;
+        }
+
+        public ActionType actionType() {
+            return ActionType.parse(type);
+        }
+    }
+
     public static final class ActorData {
         public static final String PLAYER = "player";
+        /** Blockbench model actor; {@link #model} names the file in the models folder. */
+        public static final String MODEL = "model";
 
         public String id = UUID.randomUUID().toString();
         /** {@link #PLAYER} or an entity type id such as {@code minecraft:zombie}. */
@@ -218,13 +247,25 @@ public final class ReplayProject {
         public String feet = "";
         public String pose = "STANDING";
         public List<ActorKeyframe> keyframes = new ArrayList<>();
+        public List<ActorAction> actions = new ArrayList<>();
+        /** Blockbench file name for model actors. */
+        public String model = "";
+        /** Animation of the model played in a loop when no action plays another one. */
+        public String modelAnimation = "";
+        /** Model scale for model actors. */
+        public float modelScale = 1.0F;
 
         public boolean isPlayer() {
             return PLAYER.equals(type);
         }
 
+        public boolean isModel() {
+            return MODEL.equals(type);
+        }
+
         public void sort() {
             keyframes.sort(Comparator.comparingInt(k -> k.tick));
+            actions.sort(Comparator.comparingInt(a -> a.tick));
         }
     }
 
@@ -261,6 +302,15 @@ public final class ReplayProject {
         for (ActorData actor : actors) {
             if (actor.keyframes == null) actor.keyframes = new ArrayList<>();
             if (actor.pose == null) actor.pose = "STANDING";
+            if (actor.actions == null) actor.actions = new ArrayList<>();
+            actor.actions.removeIf(a -> a == null);
+            for (ActorAction action : actor.actions) {
+                if (action.type == null) action.type = ActionType.IDLE.name();
+                if (action.param == null) action.param = "";
+            }
+            if (actor.model == null) actor.model = "";
+            if (actor.modelAnimation == null) actor.modelAnimation = "";
+            if (!(actor.modelScale > 0.01F && actor.modelScale < 100F)) actor.modelScale = 1.0F;
             actor.sort();
         }
         sort();
