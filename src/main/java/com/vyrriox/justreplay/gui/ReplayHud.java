@@ -63,10 +63,11 @@ public final class ReplayHud {
         Paint.glass(g, x, y, w, pillH, pillH / 2.0F);
 
         int cx = x + 7;
-        Paint.icon(g, playback.isPaused() ? Icon.PLAY : Icon.PAUSE, cx, y + (pillH - 8) / 2.0F, 8, Theme.TEXT);
+        int textY = Paint.textY(y, pillH);
+        Paint.iconOnText(g, playback.isPaused() ? Icon.PLAY : Icon.PAUSE, cx, textY, 8, Theme.TEXT);
         cx += 12;
         String time = time(playback.cursor(), playback.duration());
-        g.drawString(font, time, cx, y + (pillH - 7) / 2, Theme.TEXT, false);
+        g.drawString(font, time, cx, textY, Theme.TEXT, false);
         cx += font.width(time) + 8;
 
         int right = x + w - 8;
@@ -74,14 +75,14 @@ public final class ReplayHud {
             String cam = "CAM";
             int bw = font.width(cam) + 14;
             right -= bw;
-            Paint.rect(g, right, y + 4, bw, pillH - 8, (pillH - 8) / 2.0F, 0xCC5AB4FF, 0xCC2F86E0);
-            Paint.icon(g, Icon.CAMERA, right + 3, y + (pillH - 7) / 2.0F, 7, Theme.TEXT_ON_ACCENT);
-            g.drawString(font, cam, right + 11, y + (pillH - 7) / 2, Theme.TEXT_ON_ACCENT, false);
+            Paint.rect(g, right, textY - 2, bw, Paint.CAP + 4, (Paint.CAP + 4) / 2.0F, 0xCC5AB4FF, 0xCC2F86E0);
+            Paint.iconOnText(g, Icon.CAMERA, right + 3, textY, 7, Theme.TEXT_ON_ACCENT);
+            g.drawString(font, cam, right + 11, textY, Theme.TEXT_ON_ACCENT, false);
             right -= 6;
         }
         String speed = speed(playback.speed());
         right -= font.width(speed);
-        g.drawString(font, speed, right, y + (pillH - 7) / 2, Theme.TEXT_DIM, false);
+        g.drawString(font, speed, right, textY, Theme.TEXT_DIM, false);
         right -= 8;
         if (right - cx > 20) {
             Timeline.renderCompact(g, cx, y + 4, right - cx, 9, session);
@@ -93,7 +94,7 @@ public final class ReplayHud {
             Component spectating = Component.translatable("justreplay.hud.spectating", session.spectate().targetName(), leave);
             int sw = font.width(spectating) + 22;
             Paint.glass(g, x, y - 16, sw, 13, 6.5F);
-            Paint.icon(g, Icon.EYE, x + 5, y - 14, 9, Theme.WARNING);
+            Paint.iconOnText(g, Icon.EYE, x + 5, y - 13, 9, Theme.WARNING);
             g.drawString(font, spectating, x + 17, y - 13, 0xFFFFE08A, false);
             used = x + sw + 6;
         }

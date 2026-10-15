@@ -83,15 +83,16 @@ public class ListRow extends GlassButton {
     @Override
     protected void drawContent(GuiGraphics g, Font font, int x, int y, int w, int hh, float h, float o, float alpha) {
         int color = textColor(h, o, alpha);
-        int left = x + 6;
+        int ty = Paint.textY(y, hh);
+        int left = x + 5;
         if (dot != 0) {
-            Paint.circle(g, left + 2.5F, y + hh / 2.0F, 2.5F, Theme.fade(dot, alpha));
+            Paint.circle(g, left + 2.5F, ty + Paint.CAP / 2.0F, 2.5F, Theme.fade(dot, alpha));
             left += 9;
         }
         Icon ic = currentIcon();
         if (ic != null) {
-            Paint.icon(g, ic, left, y + (hh - 8) / 2.0F, 8, Theme.text(o > 0 ? Theme.ACCENT : Theme.TEXT_DIM, alpha));
-            left += 11;
+            Paint.iconOnText(g, ic, left, ty, 8, Theme.text(o > 0 ? Theme.ACCENT : Theme.TEXT_DIM, alpha));
+            left += 12;
         }
         int right = x + w - 5;
         overAction = false;
@@ -100,16 +101,24 @@ public class ListRow extends GlassButton {
             overAction = isHovered() && lastMouseX >= ax;
             float ah = actionHover.to(overAction ? 1.0F : 0.0F);
             Paint.rect(g, ax, y + 1, 13, hh - 2, Theme.RADIUS_S, Theme.fade(0x33FFFFFF, ah));
-            Paint.iconCentered(g, action.get(), ax, y, 13, hh, 8, Theme.text(Theme.mix(Theme.TEXT_MUTED, Theme.TEXT, Math.max(ah, h * 0.6F)), alpha));
+            Paint.iconOnText(g, action.get(), ax + 2.5F, ty, 8, Theme.text(Theme.mix(Theme.TEXT_MUTED, Theme.TEXT, Math.max(ah, h * 0.6F)), alpha));
             right = ax - 3;
         }
+        String shownDetail = detail;
         int dw = detail.isEmpty() ? 0 : font.width(detail);
+        if (dw > (right - left) * 2 / 5) {
+            // A long detail (a mod entity id) keeps the label readable: it gets two fifths of the row at most.
+            shownDetail = Paint.ellipsize(font, detail, (right - left) * 2 / 5);
+            dw = shownDetail.isEmpty() ? 0 : font.width(shownDetail);
+        }
         if (dw > 0) {
-            g.drawString(font, detail, right - dw, y + (hh - 7) / 2, Theme.text(Theme.TEXT_MUTED, alpha), false);
+            // Muted grey is unreadable on the blue of a selected row.
+            int detailColor = Theme.mix(Theme.TEXT_MUTED, Theme.TEXT_DIM, o);
+            g.drawString(font, shownDetail, right - dw, ty, Theme.text(detailColor, alpha), false);
             right -= dw + 5;
         }
         String label = label(font, Math.max(0, right - left));
-        g.drawString(font, label, left, y + (hh - 7) / 2, color, false);
+        g.drawString(font, label, left, ty, color, false);
     }
 
     private int lastMouseX;

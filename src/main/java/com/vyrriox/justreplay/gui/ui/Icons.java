@@ -45,15 +45,20 @@ public final class Icons {
         int rows = (icons.length + COLUMNS - 1) / COLUMNS;
         int w = COLUMNS * px, h = rows * px;
         NativeImage image = new NativeImage(NativeImage.Format.RGBA, w, h, true);
-        float unit = 24.0F / px;
         // Strokes never thinner than about one real pixel.
-        hw = Math.max(1.0F, 0.62F * unit);
+        hw = Math.max(1.0F, 0.62F * 24.0F / px);
+        // Shapes are drawn up to one unit from the edge with a half stroke of one unit: thicker strokes at small
+        // sizes would bleed out of the cell, so the grid is widened around its centre to keep them inside.
+        float zoom = (24.0F + 2.0F * Math.max(0.0F, hw - 1.0F)) / 24.0F;
+        float unit = 24.0F * zoom / px;
         for (Icon icon : icons) {
             Sdf sdf = shape(icon);
             int ox = icon.ordinal() % COLUMNS * px, oy = icon.ordinal() / COLUMNS * px;
             for (int j = 0; j < px; j++) {
                 for (int i = 0; i < px; i++) {
-                    float d = sdf.d((i + 0.5F) * unit, (j + 0.5F) * unit) / unit;
+                    float gx = 12.0F + ((i + 0.5F) * unit - 12.0F * zoom);
+                    float gy = 12.0F + ((j + 0.5F) * unit - 12.0F * zoom);
+                    float d = sdf.d(gx, gy) / unit;
                     int a = Math.round(Anim.clamp01(0.5F - d) * 255.0F);
                     image.setPixelRGBA(ox + i, oy + j, a << 24 | 0xFFFFFF);
                 }

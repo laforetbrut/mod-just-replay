@@ -77,7 +77,8 @@ public class Stepper extends AbstractWidget implements Tipped {
         double v = value.getAsDouble();
         if (v != shownValue) {
             shownValue = v;
-            shownText = Double.isNaN(v) ? "-" : (decimals == 0 ? Long.toString(Math.round(v))
+            // No value (nothing selected): an empty field, a dash there read as a third minus button.
+            shownText = Double.isNaN(v) ? "" : (decimals == 0 ? Long.toString(Math.round(v))
                     : String.format(Locale.ROOT, "%." + decimals + "f", v)) + suffix;
         }
         return shownText;
@@ -95,8 +96,9 @@ public class Stepper extends AbstractWidget implements Tipped {
         float hm = hoverMinus.to(overMinus ? 1.0F : 0.0F);
         float hp = hoverPlus.to(overPlus ? 1.0F : 0.0F);
         int left = x + 5;
+        int textY = Paint.textY(y, height);
         if (icon != null) {
-            Paint.icon(g, icon, left, y + (height - Theme.ICON) / 2.0F, Theme.ICON, Theme.text(Theme.TEXT_DIM, alpha));
+            Paint.iconOnText(g, icon, left, textY, Theme.ICON, Theme.text(Theme.TEXT_DIM, alpha));
             left += Theme.ICON + 4;
         }
         int avail = mx - 3 - left;
@@ -104,17 +106,19 @@ public class Stepper extends AbstractWidget implements Tipped {
             cachedWidth = avail;
             cachedLabel = Paint.ellipsize(font, getMessage().getString(), Math.max(0, avail));
         }
-        g.drawString(font, cachedLabel, left, y + (height - 7) / 2, Theme.text(Theme.TEXT_DIM, alpha), false);
+        g.drawString(font, cachedLabel, left, textY, Theme.text(Theme.TEXT_DIM, alpha), false);
         float r = Theme.RADIUS_M;
         // Field holding the value, the two buttons sit at its ends.
         Paint.rect(g, mx, y, px + BUTTON - mx, height, r, Theme.fade(Theme.FIELD, alpha));
         Paint.outline(g, mx, y, px + BUTTON - mx, height, r, Theme.fade(0x33FFFFFF, alpha));
         Paint.rect(g, mx + 1, y + 1, BUTTON - 2, height - 2, r - 1, Theme.fade(0x40FFFFFF, hm * alpha));
         Paint.rect(g, px + 1, y + 1, BUTTON - 2, height - 2, r - 1, Theme.fade(0x40FFFFFF, hp * alpha));
-        Paint.iconCentered(g, Icon.MINUS, mx, y, BUTTON, height, 7, Theme.text(Theme.TEXT, alpha));
-        Paint.iconCentered(g, Icon.PLUS, px, y, BUTTON, height, 7, Theme.text(Theme.TEXT, alpha));
+        Paint.iconOnText(g, Icon.MINUS, mx + (BUTTON - 7) / 2.0F, textY, 7, Theme.text(Theme.TEXT, alpha));
+        Paint.iconOnText(g, Icon.PLUS, px + (BUTTON - 7) / 2.0F, textY, 7, Theme.text(Theme.TEXT, alpha));
         String t = text();
-        g.drawString(font, t, mx + BUTTON + (VALUE + 2 - font.width(t)) / 2, y + (height - 7) / 2, Theme.text(Theme.TEXT, alpha), false);
+        if (!t.isEmpty()) {
+            g.drawString(font, t, mx + BUTTON + Math.round((VALUE - font.width(t) + 1) / 2.0F), textY, Theme.text(Theme.TEXT, alpha), false);
+        }
     }
 
     @Override

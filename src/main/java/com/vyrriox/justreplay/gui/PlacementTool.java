@@ -360,7 +360,7 @@ public final class PlacementTool {
             case WALK_TO -> Icon.PATH;
             default -> Icon.PIN;
         };
-        Paint.icon(g, icon, bx + 8, by + 6, 9, Theme.ACCENT);
+        Paint.iconOnText(g, icon, bx + 8, by + 7, 9, Theme.ACCENT);
         g.drawString(font, Paint.ellipsize(font, title.getString(), boxW - 30), bx + 21, by + 7, Theme.TEXT, false);
         g.drawString(font, Paint.ellipsize(font, keys.getString(), boxW - 16), bx + 8, by + 19, Theme.TEXT_DIM, false);
         if (status != null) {

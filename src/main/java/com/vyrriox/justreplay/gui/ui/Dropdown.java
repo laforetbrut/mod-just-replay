@@ -64,16 +64,16 @@ public class Dropdown<T> extends GlassButton {
 
     @Override
     protected void drawContent(GuiGraphics g, Font font, int x, int y, int w, int hh, float h, float o, float alpha) {
-        int textY = y + (hh - 7) / 2;
+        int textY = Paint.textY(y, hh);
         float iconSize = Math.min(8, hh - 4);
-        int right = x + w - 4 - (int) iconSize;
-        Paint.icon(g, Icon.CHEVRON_DOWN, right, y + (hh - iconSize) / 2.0F, iconSize, Theme.text(Theme.TEXT_DIM, alpha));
+        int right = x + w - 5 - (int) iconSize;
+        Paint.iconOnText(g, Icon.CHEVRON_DOWN, right, textY, iconSize, Theme.text(Theme.TEXT_DIM, alpha));
         int left = x + 5;
         Icon ic = currentIcon();
         if (ic != null) {
             float s = Math.min(Theme.ICON, hh - 4);
-            Paint.icon(g, ic, left, y + (hh - s) / 2.0F, s, Theme.text(Theme.TEXT_DIM, alpha));
-            left += (int) s + 3;
+            Paint.iconOnText(g, ic, left, textY, s, Theme.text(Theme.TEXT_DIM, alpha));
+            left += (int) s + 4;
         }
         String caption = label(font, Math.max(0, (right - left) / 2));
         if (!caption.isEmpty()) {

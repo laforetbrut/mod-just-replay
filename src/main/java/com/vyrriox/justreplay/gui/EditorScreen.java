@@ -423,7 +423,9 @@ public class EditorScreen extends GlassScreen {
     }
 
     public void setHelpForTest(boolean open) {
-        helpOpen = open;
+        if (open != helpOpen) {
+            toggleHelp();
+        }
     }
 
     private void selectTab(String id) {
@@ -1576,7 +1578,7 @@ public class EditorScreen extends GlassScreen {
             shownCursor = playback.cursor();
             timeText = Timeline.formatTicks(playback.cursor()) + " / " + Timeline.formatTicks(playback.duration());
         }
-        g.drawString(font, timeText, timeX, dockTop + 4 + (rowH - 7) / 2, Theme.TEXT, false);
+        g.drawString(font, timeText, timeX, Paint.textY(dockTop + 4, rowH), Theme.TEXT, false);
         timeline.render(g, font, session, cameras.selectedKey, cameras.selectedCut, selectedActor, selectedActorKey, selectedAction,
                 ghostTick, mouseX, mouseY);
         if (timeline.contains(mouseX, mouseY) && dragging == null && !scrubbing && !helpOpen && !audioLanes.dragging()) {
@@ -1588,8 +1590,8 @@ public class EditorScreen extends GlassScreen {
     }
 
     private void renderTopBar(GuiGraphics g, int mouseX, int mouseY) {
-        int y = 4 + (TOP_H - 7) / 2;
-        Paint.icon(g, Icon.FILM, 29, 4 + (TOP_H - 9) / 2.0F, 9, Theme.ACCENT);
+        int y = Paint.textY(4, TOP_H);
+        Paint.iconOnText(g, Icon.FILM, 29, y, 9, Theme.ACCENT);
         int x = 42;
         float flash = 1.0F - Anim.progress(savedFlashAt, 1600);
         Component state = savedMtime < 0 ? tc("justreplay.editor.unsaved") : tc("justreplay.editor.saved");
@@ -1599,11 +1601,11 @@ public class EditorScreen extends GlassScreen {
         int sx = x + font.width(name) + 10;
         if (sx + stateW <= nameRight) {
             int color = savedMtime < 0 ? Theme.TEXT_MUTED : Theme.mix(0xFF7FA894, Theme.SUCCESS, flash);
-            Paint.icon(g, savedMtime < 0 ? Icon.DOT : Icon.CHECK, sx, 4 + (TOP_H - 8) / 2.0F, 8, color);
+            Paint.iconOnText(g, savedMtime < 0 ? Icon.DOT : Icon.CHECK, sx, y, 8, color);
             g.drawString(font, state, sx + 11, y, Theme.text(Theme.mix(Theme.TEXT_MUTED, Theme.TEXT_DIM, flash), 1.0F), false);
             if (mouseX >= sx && mouseX < sx + stateW && mouseY >= 4 && mouseY < 4 + TOP_H && savedMtime >= 0) {
                 savedTip = new SimpleDateFormat("HH:mm:ss").format(new Date(savedMtime));
-                Paint.tooltip(g, font, Component.translatable("justreplay.editor.saved.tip", savedTip), mouseX, mouseY);
+                deferTooltip(Component.translatable("justreplay.editor.saved.tip", savedTip), mouseX, mouseY);
             }
         }
     }
@@ -1618,7 +1620,7 @@ public class EditorScreen extends GlassScreen {
                         ReplayProject.Cut cut = project.cuts.get(i);
                         ReplayProject.Camera camera = project.camera(cut.camera);
                         String name = camera == null ? "?" : (project.cameras.indexOf(camera) + 1) + " " + camera.name;
-                        Paint.tooltip(g, font, Component.literal(name + "  " + Timeline.formatTicks(cut.tick)
+                        deferTooltip(Component.literal(name + "  " + Timeline.formatTicks(cut.tick)
                                 + (cut.blend > 0 ? "  blend " + cut.blend + "t" : "")
                                 + (i > 0 && cut.transitionType() != com.vyrriox.justreplay.editor.fx.TransitionType.CUT
                                 ? "  " + tr(cut.transitionType().translationKey()) + " " + cut.transitionTicks + "t" : "")), mouseX, mouseY);
@@ -1629,7 +1631,7 @@ public class EditorScreen extends GlassScreen {
             case CAMERA -> {
                 for (ReplayProject.CameraKeyframe k : project.selected().keyframes) {
                     if (Math.abs(timeline.xOf(k.tick) - mouseX) <= 4) {
-                        Paint.tooltip(g, font, Component.translatable("justreplay.editor.camera.key_tip", Timeline.formatTicks(k.tick),
+                        deferTooltip(Component.translatable("justreplay.editor.camera.key_tip", Timeline.formatTicks(k.tick),
                                 Math.round(k.roll), Math.round(k.fov)), mouseX, mouseY);
                         return;
                     }
@@ -1637,18 +1639,18 @@ public class EditorScreen extends GlassScreen {
             }
             case ACTOR -> {
                 if (selectedActor == null) {
-                    Paint.tooltip(g, font, tc("justreplay.editor.actor.lane.tip"), mouseX, mouseY);
+                    deferTooltip(tc("justreplay.editor.actor.lane.tip"), mouseX, mouseY);
                     return;
                 }
                 for (ReplayProject.ActorAction action : selectedActor.actions) {
                     if (Math.abs(timeline.xOf(action.tick) - mouseX) <= 2) {
-                        Paint.tooltip(g, font, Component.literal(actionLabel(action)), mouseX, mouseY);
+                        deferTooltip(Component.literal(actionLabel(action)), mouseX, mouseY);
                         return;
                     }
                 }
                 for (ReplayProject.ActorKeyframe k : selectedActor.keyframes) {
                     if (Math.abs(timeline.xOf(k.tick) - mouseX) <= 4) {
-                        Paint.tooltip(g, font, Component.translatable("justreplay.editor.actor.key_info", Timeline.formatTicks(k.tick)), mouseX, mouseY);
+                        deferTooltip(Component.translatable("justreplay.editor.actor.key_info", Timeline.formatTicks(k.tick)), mouseX, mouseY);
                         return;
                     }
                 }
@@ -1656,13 +1658,13 @@ public class EditorScreen extends GlassScreen {
             case AUDIO -> {
                 Component tip = audioLanes.tooltip(timeline, mouseX, mouseY);
                 if (tip != null) {
-                    Paint.tooltip(g, font, tip, mouseX, mouseY);
+                    deferTooltip(tip, mouseX, mouseY);
                 }
             }
             case MARKERS -> {
                 for (ReplayProject.Marker marker : project.markers) {
                     if (Math.abs(timeline.xOf(marker.tick) - mouseX) <= 3) {
-                        Paint.tooltip(g, font, Component.literal(marker.name + "  " + Timeline.formatTicks(marker.tick)), mouseX, mouseY);
+                        deferTooltip(Component.literal(marker.name + "  " + Timeline.formatTicks(marker.tick)), mouseX, mouseY);
                         return;
                     }
                 }
@@ -1744,13 +1746,14 @@ public class EditorScreen extends GlassScreen {
         }
         boolean twoColumns = width >= 360 && split > 0;
         int colW = twoColumns ? Math.min(230, (width - 40) / 2) : Math.min(300, width - 32);
-        int rows = twoColumns ? Math.max(split, help.size() - split) : help.size();
+        int content = twoColumns ? Math.max(columnHeight(help.subList(0, split)), columnHeight(help.subList(split, help.size())))
+                : columnHeight(help);
         int boxW = twoColumns ? colW * 2 + 24 : colW + 16;
-        int boxH = Math.min(height - 16, 30 + rows * 11 + 8);
+        int boxH = Math.min(height - 16, 28 + content + 8);
         int bx = (width - boxW) / 2;
         int by = (height - boxH) / 2 + Math.round((1.0F - a) * 8);
         Paint.glass(g, bx, by, boxW, boxH, Theme.RADIUS_L);
-        Paint.icon(g, Icon.KEYBOARD, bx + 10, by + 8, 10, Theme.ACCENT);
+        Paint.iconOnText(g, Icon.KEYBOARD, bx + 10, by + 10, 10, Theme.ACCENT);
         g.drawString(font, tr("justreplay.help.title"), bx + 25, by + 10, Theme.TEXT, false);
         Component hint = tc("justreplay.help.dismiss");
         g.drawString(font, hint, bx + boxW - 10 - font.width(hint), by + 10, Theme.TEXT_MUTED, false);
@@ -1763,6 +1766,15 @@ public class EditorScreen extends GlassScreen {
         }
         g.disableScissor();
         g.pose().popPose();
+    }
+
+    /** Height of a column of the help: section titles take 12 pixels, shortcuts 11. */
+    private static int columnHeight(List<String[]> rows) {
+        int h = 0;
+        for (String[] row : rows) {
+            h += row[0] == null ? 12 : 11;
+        }
+        return h;
     }
 
     private void renderHelpColumn(GuiGraphics g, List<String[]> rows, int x, int y, int w) {
@@ -1787,6 +1799,11 @@ public class EditorScreen extends GlassScreen {
             g.drawString(font, Paint.ellipsize(font, row[1], w - keyW - 6), x + keyW + 6, y + 1, Theme.TEXT_DIM, false);
             y += 11;
         }
+    }
+
+    @Override
+    protected boolean tooltipsEnabled() {
+        return !helpOpen;
     }
 
     @Override

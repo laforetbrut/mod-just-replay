@@ -117,25 +117,32 @@ public class Segmented<T> extends AbstractWidget implements Tipped {
             int color = Theme.text(sel ? Theme.TEXT : i == hovered ? Theme.TEXT : Theme.TEXT_DIM, alpha);
             Icon icon = icons[i];
             if (stacked) {
-                int top = y + (height - Theme.ICON - 3 - 7) / 2;
+                // Icon over the label, the pair centred in the segment (capitals only: descenders hang below).
+                int gap = 2;
+                float top = y + (height - Theme.ICON - gap - Paint.CAP) / 2.0F;
                 if (icon != null) {
                     Paint.icon(g, icon, sx + (seg - Theme.ICON) / 2.0F, top, Theme.ICON, color);
                 }
                 String text = Paint.ellipsize(font, texts.get(i), (int) seg - 4);
-                g.drawString(font, text, Math.round(sx + (seg - font.width(text)) / 2.0F), top + Theme.ICON + 3, color, false);
+                g.drawString(font, text, Math.round(sx + (seg - font.width(text) + 1) / 2.0F), Math.round(top + Theme.ICON + gap), color, false);
                 continue;
             }
             String text = iconsOnly ? "" : Paint.ellipsize(font, texts.get(i), (int) seg - 6 - (icon != null ? Theme.ICON + 3 : 0));
             int tw = text.isEmpty() ? 0 : font.width(text);
-            int content = (icon != null ? Theme.ICON : 0) + (icon != null && tw > 0 ? 3 : 0) + tw;
+            if (tw == 0) {
+                if (icon != null) {
+                    Paint.iconCentered(g, icon, sx, y, seg, height, Theme.ICON, color);
+                }
+                continue;
+            }
+            int textY = Paint.textY(y, height);
+            int content = (icon != null ? Theme.ICON + 3 : 0) + tw - 1;
             float cx = sx + (seg - content) / 2.0F;
             if (icon != null) {
-                Paint.icon(g, icon, cx, y + (height - Theme.ICON) / 2.0F, Theme.ICON, color);
+                Paint.iconOnText(g, icon, Math.round(cx), textY, Theme.ICON, color);
                 cx += Theme.ICON + 3;
             }
-            if (tw > 0) {
-                g.drawString(font, text, Math.round(cx), y + (height - 7) / 2, color, false);
-            }
+            g.drawString(font, text, Math.round(cx), textY, color, false);
         }
     }
 

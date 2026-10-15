@@ -58,7 +58,7 @@ public class ConfirmDialog extends GlassScreen {
     @Override
     protected void renderOverlay(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         Paint.circle(g, boxX + 22, boxY + 22, 10, Theme.DANGER_SOFT);
-        Paint.icon(g, Icon.TRASH, boxX + 17, boxY + 17, 10, Theme.DANGER);
+        Paint.iconOnText(g, Icon.TRASH, boxX + 17, boxY + 19, 10, Theme.DANGER);
         g.drawString(font, Paint.ellipsize(font, title.getString(), boxW - 50), boxX + 40, boxY + 19, Theme.TEXT, false);
         int y = boxY + 40;
         for (FormattedCharSequence line : lines) {

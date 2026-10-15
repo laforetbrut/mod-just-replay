@@ -357,7 +357,7 @@ public class ReplayListScreen extends GlassScreen {
     @Override
     protected void renderOverlay(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         float a = intro();
-        Paint.icon(g, Icon.FILM, listX, 10, 14, Theme.ACCENT);
+        Paint.iconOnText(g, Icon.FILM, listX, 11, 14, Theme.ACCENT);
         g.drawString(font, title, listX + 19, 11, Theme.TEXT, false);
         Component count = Component.translatable("justreplay.list.count", shown.size());
         g.drawString(font, count, listX + 19 + font.width(title) + 8, 11, Theme.TEXT_MUTED, false);
@@ -426,7 +426,7 @@ public class ReplayListScreen extends GlassScreen {
     private int chip(GuiGraphics g, Icon icon, String text, int x, int y) {
         int w = font.width(text) + 16;
         Paint.rect(g, x, y, w, 11, 5.5F, 0x1FFFFFFF);
-        Paint.icon(g, icon, x + 3, y + 2, 7, Theme.TEXT_MUTED);
+        Paint.iconOnText(g, icon, x + 3, y + 2, 7, Theme.TEXT_MUTED);
         g.drawString(font, text, x + 12, y + 2, Theme.TEXT_DIM, false);
         return x + w + 4;
     }

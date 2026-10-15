@@ -115,12 +115,13 @@ public final class Form {
             Font font = Minecraft.getInstance().font;
             int left = x + 1;
             if (icon != null) {
-                Paint.icon(g, icon, left, dy, 8, Theme.ACCENT);
+                Paint.iconOnText(g, icon, left, dy + 1, 8, Theme.ACCENT);
                 left += 11;
             }
             g.drawString(font, text, left, dy + 1, Theme.TEXT_MUTED, false);
-            int lineX = left + font.width(text) + 5;
+            int lineX = left + font.width(text) + 4;
             if (lineX < x + width - 2) {
+                // Hairline on the middle of the capitals.
                 g.fill(lineX, dy + 4, x + width - 2, dy + 5, 0x1FFFFFFF);
             }
         });

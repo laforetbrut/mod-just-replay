@@ -355,7 +355,7 @@ public class ActorScreen extends GlassScreen {
 
     @Override
     protected void renderOverlay(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        Paint.icon(g, actor.isModel() ? Icon.CUBE : Icon.PERSON, boxX + 12, boxY + 9, 10, Theme.ACCENT);
+        Paint.iconOnText(g, actor.isModel() ? Icon.CUBE : Icon.PERSON, boxX + 12, boxY + 11, 10, Theme.ACCENT);
         String who = actor.name.isBlank() ? actor.type : actor.name;
         g.drawString(font, Paint.ellipsize(font, title.getString() + "  " + who, boxW - 200), boxX + 27, boxY + 11, Theme.TEXT, false);
     }
