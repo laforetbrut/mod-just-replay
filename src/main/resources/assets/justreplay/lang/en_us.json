@@ -124,5 +124,11 @@
   "justreplay.export.error.running": "An export is already running",
   "justreplay.export.error.range": "Empty export range",
   "justreplay.export.error.keyframes": "Add at least two camera keyframes",
-  "justreplay.export.error.ffmpeg": "Cannot run FFmpeg (%s). Install it or set its path."
+  "justreplay.export.error.ffmpeg": "Cannot run FFmpeg (%s). Install it or set its path.",
+  "justreplay.editor.voices.on": "Voices: on",
+  "justreplay.editor.voices.off": "Voices: off",
+  "justreplay.editor.voices.tip": "Play the recorded voice chat and include it in video exports.",
+  "justreplay.configuration.captureExtraChunks": "Record cached chunks",
+  "justreplay.configuration.captureVoiceChat": "Record voice chat",
+  "justreplay.configuration.viewDistance": "Replay view distance (chunks)"
 }

@@ -54,6 +54,8 @@ public final class Playback {
     private int skippingTo = -1;
     private int lastStep = 1;
     private int[] checkpoints = new int[0];
+    private final ChunkRetention chunks = new ChunkRetention();
+    private int seekCount;
 
     public Playback(PacketStream packets, int durationTicks) {
         this.packets = packets;
@@ -75,6 +77,11 @@ public final class Playback {
 
     public void setPaused(boolean paused) {
         this.paused = paused;
+    }
+
+    /** Number of seeks so far; anything that follows the replay clock resynchronizes when it changes. */
+    public int seekCount() {
+        return seekCount;
     }
 
     /** Recorded ticks played during the last client tick (0 when paused). */
@@ -123,6 +130,11 @@ public final class Playback {
                 paused = true;
             }
         }
+        try {
+            chunks.tick(mc);
+        } catch (Throwable t) {
+            logOnce(ChunkRetention.class, "Cannot evict far chunks: " + t);
+        }
         applyTickRate(mc);
     }
 
@@ -132,6 +144,7 @@ public final class Playback {
      */
     public void seek(int target) {
         target = Math.max(0, Math.min(duration, target));
+        seekCount++;
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         Vec3 camPos = player != null ? player.position() : null;
@@ -253,9 +266,13 @@ public final class Playback {
         if (PacketFilter.shouldDrop(packet)) {
             return;
         }
+        packet = chunks.filter(packet);
+        if (packet == null) {
+            return;
+        }
         if (packet instanceof ClientboundLoginPacket login) {
             resetConnectionState(mc, listener);
-            packet = rewriteLogin(login);
+            packet = rewriteLogin(login, chunks.onLogin(login));
         }
         dispatching = true;
         try {
@@ -265,6 +282,7 @@ public final class Playback {
         } finally {
             dispatching = false;
         }
+        chunks.afterHandle(mc);
         if (packet instanceof ClientboundLoginPacket || packet instanceof ClientboundRespawnPacket) {
             worldReset = true;
             enforceCamera(mc);
@@ -288,11 +306,11 @@ public final class Playback {
         return content == null ? null : new net.minecraft.network.protocol.game.ClientboundDisguisedChatPacket(content, chat.chatType());
     }
 
-    private static ClientboundLoginPacket rewriteLogin(ClientboundLoginPacket login) {
+    private static ClientboundLoginPacket rewriteLogin(ClientboundLoginPacket login, int chunkRadius) {
         CommonPlayerSpawnInfo s = login.commonPlayerSpawnInfo();
         CommonPlayerSpawnInfo spawn = new CommonPlayerSpawnInfo(s.dimensionType(), s.dimension(), s.seed(), GameType.SPECTATOR,
                 s.previousGameType(), s.isDebug(), s.isFlat(), s.lastDeathLocation(), s.portalCooldown());
-        return new ClientboundLoginPacket(CAMERA_ENTITY_ID, login.hardcore(), login.levels(), login.maxPlayers(), login.chunkRadius(),
+        return new ClientboundLoginPacket(CAMERA_ENTITY_ID, login.hardcore(), login.levels(), login.maxPlayers(), chunkRadius,
                 login.simulationDistance(), false, false, login.doLimitedCrafting(), spawn, false);
     }
 

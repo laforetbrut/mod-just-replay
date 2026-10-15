@@ -21,6 +21,8 @@ public final class ReplayProject {
     public boolean cameraEase = true;
     /** Draw the camera path in the world while editing. */
     public boolean showPath = true;
+    /** Play the recorded voice chat and include it in video exports. */
+    public boolean voices = true;
     public List<Marker> markers = new ArrayList<>();
     public List<ActorData> actors = new ArrayList<>();
 

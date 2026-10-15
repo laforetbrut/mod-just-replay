@@ -134,6 +134,12 @@ public class EditorScreen extends Screen {
             b.setMessage(Component.literal(showPathLabel()));
             session.saveProject();
         }).setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("justreplay.editor.showpath.tip")));
+        py += ROW;
+        button(px, py, half, tr(project.voices ? "justreplay.editor.voices.on" : "justreplay.editor.voices.off"), b -> {
+            project.voices = !project.voices;
+            b.setMessage(Component.translatable(project.voices ? "justreplay.editor.voices.on" : "justreplay.editor.voices.off"));
+            session.saveProject();
+        }).setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("justreplay.editor.voices.tip")));
         cameraInfoY = py + ROW + 2;
 
         // Actor panel

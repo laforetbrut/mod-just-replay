@@ -54,6 +54,19 @@ neoForge {
 
 sourceSets.main.resources { srcDir 'src/generated/resources' }
 
+repositories {
+    maven {
+        name = 'Max Henkel'
+        url = 'https://maven.maxhenkel.de/repository/public'
+        content { includeGroup 'de.maxhenkel.voicechat' }
+    }
+}
+
+dependencies {
+    // Simple Voice Chat API (the version bundled with voicechat-neoforge 1.21.1-2.6.22); optional at runtime.
+    compileOnly 'de.maxhenkel.voicechat:voicechat-api:2.6.20'
+}
+
 var generateModMetadata = tasks.register('generateModMetadata', ProcessResources) {
     var replaceProperties = [
             minecraft_version      : minecraft_version,

@@ -136,6 +136,11 @@ public final class PacketFilter {
                 || custom.payload() instanceof net.neoforged.neoforge.network.payload.AdvancedContainerSetDataPayload)) {
             return true;
         }
+        if (packet instanceof net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket custom
+                && "voicechat".equals(custom.payload().type().id().getNamespace())) {
+            // Voice chat connection data of the recorded server: replaying it would connect to that server's voice chat.
+            return true;
+        }
         if (packet instanceof ClientboundGameEventPacket event) {
             ClientboundGameEventPacket.Type type = event.getEvent();
             return type == ClientboundGameEventPacket.CHANGE_GAME_MODE

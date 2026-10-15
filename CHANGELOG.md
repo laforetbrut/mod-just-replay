@@ -19,6 +19,9 @@
 - Constant speed camera paths with optional smooth start and stop: only the first and last keyframe times matter.
 - The camera path and its keyframes are drawn in the world while editing.
 - Development self test (`./gradlew runClient -Pselftest`).
+- Chunks the client holds beyond the server view distance (for example cached by Bobby) are recorded too, a few per tick.
+- Replays keep chunks loaded up to the playback view distance (32 by default) instead of unloading them when the recording player walked away.
+- Simple Voice Chat support: voices heard and your own microphone are recorded into `voice.bin.gz`, played back at the speaker in sync with the replay clock and mixed into video exports; a Voices toggle in the editor turns them off.
 
 #### Fixed
 - Signed player chat no longer breaks replays (expired keys, seeking back, manual recordings).
@@ -58,6 +61,9 @@
 - Chemins de caméra à vitesse constante avec départ et arrêt en douceur : seuls les temps du premier et du dernier keyframe comptent.
 - Le chemin de caméra et ses keyframes sont dessinés dans le monde pendant l'édition.
 - Auto-test de développement (`./gradlew runClient -Pselftest`).
+- Les chunks que le client garde au-delà de la distance de vue du serveur (par exemple en cache avec Bobby) sont aussi enregistrés, quelques-uns par tick.
+- Les replays gardent les chunks chargés jusqu'à la distance de vue de lecture (32 par défaut) au lieu de les décharger quand le joueur enregistré s'éloigne.
+- Prise en charge de Simple Voice Chat : les voix entendues et votre micro sont enregistrés dans `voice.bin.gz`, rejoués à la position de la personne qui parle en suivant l'horloge du replay et mixés dans les exports vidéo ; un bouton Voix dans l'éditeur les coupe.
 
 #### Corrigé
 - Le chat signé des joueurs ne casse plus les replays (clés expirées, retour en arrière, enregistrements manuels).

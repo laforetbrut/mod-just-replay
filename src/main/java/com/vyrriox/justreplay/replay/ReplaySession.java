@@ -60,6 +60,7 @@ public final class ReplaySession {
     private final Playback playback;
     private final ActorManager actors;
     private final SpectateCamera spectate = new SpectateCamera();
+    private final com.vyrriox.justreplay.voice.VoicePlayer voices;
     private final UUID actorUuid;
     private volatile Connection connection;
     private volatile boolean blocking;
@@ -74,6 +75,7 @@ public final class ReplaySession {
         this.project = project;
         this.playback = new Playback(packets, meta.durationTicks);
         this.actors = new ActorManager(this);
+        this.voices = new com.vyrriox.justreplay.voice.VoicePlayer(dir);
         UUID uuid = null;
         try {
             uuid = UUID.fromString(meta.actorUuid);
@@ -128,6 +130,11 @@ public final class ReplaySession {
 
     public SpectateCamera spectate() {
         return spectate;
+    }
+
+    /** Recorded voice chat of this replay. */
+    public com.vyrriox.justreplay.voice.VoicePlayer voices() {
+        return voices;
     }
 
     public boolean isCameraPathActive() {
@@ -263,6 +270,7 @@ public final class ReplaySession {
         if (s != null) {
             s.spectate.clear();
             VideoExporter.cancel();
+            s.voices.close();
             s.saveProject();
             current = null;
             pendingWorldCleanup = true;
@@ -294,6 +302,11 @@ public final class ReplaySession {
             return;
         }
         s.playback.tick(mc);
+        try {
+            s.voices.tick(mc, s);
+        } catch (Throwable t) {
+            JustReplay.LOGGER.debug("Voice playback failed", t);
+        }
         Playback.enforceCamera(mc);
         if (mc.screen instanceof ReceivingLevelScreen) {
             mc.setScreen(null);
