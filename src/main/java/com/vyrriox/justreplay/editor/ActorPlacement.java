@@ -6,7 +6,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.Pose;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.StairBlock;
@@ -135,9 +134,8 @@ public final class ActorPlacement {
     }
 
     /**
-     * Lying spot in the bed that was hit: the head on the pillow, the body along the bed. Vanilla moves a sleeper
-     * from its head block towards the foot by the eye height when drawing it; an actor has no bed of its own, so
-     * the entity stands there and faces the way vanilla turns a sleeper of that bed.
+     * Lying spot in the bed that was hit: like a vanilla sleeper, the entity is on the head block and faces the
+     * pillow; a sleeping actor is drawn lying towards where it faces (see the bed orientation mixin).
      */
     public static Spot bed(BlockHitResult hit, Entity entity) {
         ClientLevel level = Minecraft.getInstance().level;
@@ -148,20 +146,8 @@ public final class ActorPlacement {
         BlockState state = level.getBlockState(hit.getBlockPos());
         Direction facing = state.getValue(BedBlock.FACING);
         BlockPos head = state.getValue(BedBlock.PART) == BedPart.HEAD ? hit.getBlockPos() : hit.getBlockPos().relative(facing);
-        double reach = (entity != null ? entity.getEyeHeight(Pose.STANDING) : 1.62F) - 0.1;
-        double x = head.getX() + 0.5 - facing.getStepX() * reach;
-        double z = head.getZ() + 0.5 - facing.getStepZ() * reach;
-        return new Spot(x, head.getY() + BED_HEIGHT, z, sleepYaw(facing), ActorAnimator.PreviewPose.SLEEP, head, true);
-    }
-
-    /** Body rotation vanilla gives a sleeper of a bed facing this way. */
-    private static float sleepYaw(Direction facing) {
-        return switch (facing) {
-            case SOUTH -> 90.0F;
-            case NORTH -> 270.0F;
-            case EAST -> 180.0F;
-            default -> 0.0F;
-        };
+        return new Spot(head.getX() + 0.5, head.getY() + BED_HEIGHT, head.getZ() + 0.5, facing.toYRot(),
+                ActorAnimator.PreviewPose.SLEEP, head, true);
     }
 
     /** Yaw that turns something at {@code from} to face {@code to}. */

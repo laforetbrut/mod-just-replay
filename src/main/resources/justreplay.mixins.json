@@ -9,6 +9,7 @@
     "PlayerListMixin",
     "IntegratedServerMixin",
     "PlayerInfoAccessor",
+    "HostChunkMapMixin",
     "BossHealthOverlayAccessor",
     "PlayerTabOverlayAccessor",
     "WindowMixin",
@@ -20,7 +21,8 @@
     "RavagerAccessor",
     "HoglinAccessor",
     "ZoglinAccessor",
-    "HumanoidModelMixin"
+    "HumanoidModelMixin",
+    "ActorBedMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -34,6 +34,10 @@ NeoForge 1.21.1, client side. Author: vyrriox. License: Apache-2.0.
   looping default animation and play others from the timeline with the *Model animation* action.
 - **Video export**: renders the camera path frame by frame to MP4 through FFmpeg, every frame is exact
   whatever the speed of the machine.
+- **Audio editor**: put OGG or WAV files in `.minecraft/justreplay/audio/` and place them on audio tracks
+  from the **Audio** tab: move, trim, split (**S**), duplicate (**Ctrl + D**), fade, loop and change the speed
+  of clips on the timeline, set track volume, mute and solo, and lower or mute the game sounds (with ducking
+  under the music). Clips play with the replay and are mixed into exports. MP3 must be converted first.
 - **Glass interface**: a clear glass look with rounded corners and smooth animations. The editor has a
   collapsible sidebar (Cameras, Actors, Scene, Export), a bottom dock with the transport controls and a
   zoomable multi-lane timeline (Ctrl + wheel), and a shortcut overlay on **F1** or **?**.
@@ -61,6 +65,7 @@ NeoForge 1.21.1, client side. Author: vyrriox. License: Apache-2.0.
 - Replays: `.minecraft/justreplay/replays/<name>/` (`stream.bin.gz` + `index.bin`, `meta.json`, `project.json`, `registries.bin`)
 - Videos: `.minecraft/justreplay/exports/`
 - Blockbench models: `.minecraft/justreplay/models/`
+- Audio files (OGG, WAV): `.minecraft/justreplay/audio/`
 
 Video export needs [FFmpeg](https://ffmpeg.org/download.html). Set its path in the export screen if it is
 not on the `PATH`.
@@ -109,6 +114,11 @@ edit and export test in a development client.
   avec l'action *Model animation*.
 - **Export vidéo** : rend le chemin de caméra image par image en MP4 via FFmpeg, chaque image est exacte
   quelle que soit la puissance du PC.
+- **Éditeur audio** : déposer des fichiers OGG ou WAV dans `.minecraft/justreplay/audio/` et les placer sur
+  des pistes audio depuis l'onglet **Audio** : déplacer, rogner, scinder (**S**), dupliquer (**Ctrl + D**),
+  ajouter des fondus, boucler et changer la vitesse des clips sur la timeline, régler le volume, le muet et le
+  solo des pistes, et baisser ou couper les sons du jeu (avec ducking sous la musique). Les clips sont joués
+  avec le replay et mixés dans les exports. Les MP3 doivent d'abord être convertis.
 - **Interface en verre** : un style de verre clair aux coins arrondis et aux animations fluides. L'éditeur a
   un panneau latéral repliable (Caméras, Acteurs, Scène, Export), un dock en bas avec les commandes de
   lecture et une timeline à pistes zoomable (Ctrl + molette), et la liste des raccourcis sur **F1** ou **?**.
@@ -122,6 +132,7 @@ Voir le tableau de la section anglaise. Toutes les touches se changent dans Opti
 - Replays : `.minecraft/justreplay/replays/<nom>/`
 - Vidéos : `.minecraft/justreplay/exports/`
 - Modèles Blockbench : `.minecraft/justreplay/models/`
+- Fichiers audio (OGG, WAV) : `.minecraft/justreplay/audio/`
 
 L'export vidéo demande [FFmpeg](https://ffmpeg.org/download.html). Indiquer son chemin dans l'écran
 d'export s'il n'est pas dans le `PATH`.

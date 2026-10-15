@@ -64,9 +64,15 @@ public class Segmented<T> extends AbstractWidget implements Tipped {
         }
     }
 
+    /** Tall segments put their icon above the label, which leaves the whole width to the label. */
+    private boolean stacked() {
+        return height >= 22 && icons.length > 0 && icons[0] != null;
+    }
+
     private boolean iconsOnly(Font font, float segment) {
+        boolean stacked = stacked();
         for (int i = 0; i < texts.size(); i++) {
-            int need = font.width(texts.get(i)) + (icons[i] != null ? Theme.ICON + 3 : 0) + 6;
+            int need = font.width(texts.get(i)) + (icons[i] != null && !stacked ? Theme.ICON + 3 : 0) + 6;
             if (need > segment) {
                 return icons[i] != null;
             }
@@ -104,11 +110,21 @@ public class Segmented<T> extends AbstractWidget implements Tipped {
         Paint.rect(g, px, y + 1, seg - 2, height - 2, Theme.RADIUS_M - 1, Theme.fade(0x8C5AB4FF, alpha), Theme.fade(0x662F86E0, alpha));
         Paint.outline(g, px, y + 1, seg - 2, height - 2, Theme.RADIUS_M - 1, Theme.fade(0x998FD0FF, alpha), Theme.fade(0x335AB4FF, alpha));
         boolean iconsOnly = iconsOnly(font, seg);
+        boolean stacked = stacked() && !iconsOnly;
         for (int i = 0; i < n; i++) {
             float sx = x + i * seg;
             boolean sel = i == index;
             int color = Theme.text(sel ? Theme.TEXT : i == hovered ? Theme.TEXT : Theme.TEXT_DIM, alpha);
             Icon icon = icons[i];
+            if (stacked) {
+                int top = y + (height - Theme.ICON - 3 - 7) / 2;
+                if (icon != null) {
+                    Paint.icon(g, icon, sx + (seg - Theme.ICON) / 2.0F, top, Theme.ICON, color);
+                }
+                String text = Paint.ellipsize(font, texts.get(i), (int) seg - 4);
+                g.drawString(font, text, Math.round(sx + (seg - font.width(text)) / 2.0F), top + Theme.ICON + 3, color, false);
+                continue;
+            }
             String text = iconsOnly ? "" : Paint.ellipsize(font, texts.get(i), (int) seg - 6 - (icon != null ? Theme.ICON + 3 : 0));
             int tw = text.isEmpty() ? 0 : font.width(text);
             int content = (icon != null ? Theme.ICON : 0) + (icon != null && tw > 0 ? 3 : 0) + tw;

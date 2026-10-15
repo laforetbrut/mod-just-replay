@@ -32,7 +32,8 @@ final class EditorTimeline {
      */
     enum Lane {
         RULER(10, null), CUTS(13, Icon.CUT), CAMERA(10, Icon.CAMERA), ACTOR(12, Icon.PERSON), MARKERS(10, Icon.FLAG),
-        BAR(4, null), NONE(0, null);
+        /** Audio tracks: their height comes from {@link AudioLanes#height()}, they draw their own backs and labels. */
+        AUDIO(0, null), BAR(4, null), NONE(0, null);
 
         final int height;
         final Icon icon;
@@ -44,7 +45,7 @@ final class EditorTimeline {
     }
 
     /** Every track lane, in display order: the advanced editor. */
-    static final List<Lane> ALL_LANES = List.of(Lane.CUTS, Lane.CAMERA, Lane.ACTOR, Lane.MARKERS);
+    static final List<Lane> ALL_LANES = List.of(Lane.CUTS, Lane.CAMERA, Lane.ACTOR, Lane.MARKERS, Lane.AUDIO);
     /** The simple editor works with one camera, so it has no cut track. */
     static final List<Lane> SIMPLE_LANES = List.of(Lane.CAMERA, Lane.ACTOR, Lane.MARKERS);
 
@@ -65,6 +66,8 @@ final class EditorTimeline {
     private double barGrab;
     private String[] rulerLabels = new String[0];
     private int[] rulerTicks = new int[0];
+    /** Audio lanes drawn in the AUDIO lane, or null. */
+    AudioLanes audio;
 
     void layout(int x, int top, int w) {
         this.x = x;
@@ -81,13 +84,29 @@ final class EditorTimeline {
         return lanes;
     }
 
-    /** Height of the timeline with these lanes: ruler, lanes, scrollbar. */
-    static int height(List<Lane> lanes) {
+    /** Height of the timeline with its lanes: ruler, lanes, scrollbar. */
+    int height() {
         int h = RULER + BAR - 1;
         for (Lane lane : lanes) {
-            h += lane.height + 1;
+            int lh = heightOf(lane);
+            h += lh > 0 ? lh + 1 : 0;
         }
         return h;
+    }
+
+    /** Height of a lane; the audio lane grows with its tracks and is 0 without them. */
+    int heightOf(Lane lane) {
+        return lane == Lane.AUDIO ? (audio == null ? 0 : audio.height()) : lane.height;
+    }
+
+    /** Top of the audio lanes. */
+    int audioY() {
+        int y = laneY(Lane.AUDIO);
+        return y >= 0 ? y : lanesBottom() + 1;
+    }
+
+    int audioHeight() {
+        return lanes.contains(Lane.AUDIO) ? heightOf(Lane.AUDIO) : 0;
     }
 
     /** Top of the first lane. */
@@ -100,9 +119,10 @@ final class EditorTimeline {
         int y = lanesY();
         for (Lane l : lanes) {
             if (l == lane) {
-                return y;
+                return heightOf(l) > 0 ? y : -1;
             }
-            y += l.height + 1;
+            int lh = heightOf(l);
+            y += lh > 0 ? lh + 1 : 0;
         }
         return -1;
     }
@@ -111,7 +131,8 @@ final class EditorTimeline {
     int lanesBottom() {
         int y = lanesY();
         for (Lane l : lanes) {
-            y += l.height + 1;
+            int lh = heightOf(l);
+            y += lh > 0 ? lh + 1 : 0;
         }
         return y - 1;
     }
@@ -179,6 +200,11 @@ final class EditorTimeline {
         return x + (int) Math.round((tick - viewStart) / viewSpan * (w - 1));
     }
 
+    /** Fractional, unclamped time under an x coordinate. */
+    double timeAt(double mouseX) {
+        return viewStart + (mouseX - x) / Math.max(1, w - 1) * viewSpan;
+    }
+
     int tickAt(double mouseX) {
         double t = viewStart + (mouseX - x) / Math.max(1, w - 1) * viewSpan;
         return (int) Math.round(Math.max(0, Math.min(duration, t)));
@@ -196,14 +222,19 @@ final class EditorTimeline {
             return Lane.RULER;
         }
         int y = lanesY();
-        for (int i = 0; i < lanes.size(); i++) {
-            Lane lane = lanes.get(i);
-            y += lane.height + 1;
-            if (my < y || i == lanes.size() - 1 && my < barY() - 1) {
+        Lane last = Lane.BAR;
+        for (Lane lane : lanes) {
+            int lh = heightOf(lane);
+            if (lh <= 0) {
+                continue;
+            }
+            y += lh + 1;
+            last = lane;
+            if (my < y) {
                 return lane;
             }
         }
-        return Lane.BAR;
+        return my < barY() - 1 ? last : Lane.BAR;
     }
 
     /** Pixel range of the segment of a cut: {start, end}. */
@@ -268,7 +299,13 @@ final class EditorTimeline {
         int cursor = session.playback().cursor();
         int lx = x - LABELS - 1;
         for (Lane lane : lanes) {
-            laneBack(g, lx, laneY(lane), lane.height, lane.icon);
+            if (lane == Lane.AUDIO) {
+                if (audio != null && audioHeight() > 0) {
+                    audio.renderBack(g, font, this);
+                }
+            } else {
+                laneBack(g, lx, laneY(lane), lane.height, lane.icon);
+            }
         }
         ruler(g, font);
         g.enableScissor(x, top, x + w, barY());
@@ -277,7 +314,7 @@ final class EditorTimeline {
             g.fill(x, lanesY(), played, lanesBottom(), 0x145AB4FF);
         }
         for (Lane lane : lanes) {
-            renderLane(g, font, lane, laneY(lane), session, selection);
+            renderLane(g, font, lane, laneY(lane), session, selection, mouseX, mouseY);
         }
         g.disableScissor();
         scrollbar(g, mouseX, mouseY);
@@ -285,13 +322,18 @@ final class EditorTimeline {
     }
 
     /** Draws the content of one lane at {@code y}. */
-    private void renderLane(GuiGraphics g, Font font, Lane lane, int y, ReplaySession session, Selection s) {
+    private void renderLane(GuiGraphics g, Font font, Lane lane, int y, ReplaySession session, Selection s, int mouseX, int mouseY) {
         ReplayProject project = session.project();
         switch (lane) {
             case CUTS -> cuts(g, font, project, y, s.cut());
             case CAMERA -> cameraKeys(g, project, y, s.cameraKey());
             case ACTOR -> actorLane(g, font, y, s.actor(), s.actorKey(), s.action());
             case MARKERS -> markers(g, font, project, y);
+            case AUDIO -> {
+                if (audio != null && y >= 0) {
+                    audio.renderClips(g, font, this, session, mouseX, mouseY);
+                }
+            }
             default -> {
             }
         }

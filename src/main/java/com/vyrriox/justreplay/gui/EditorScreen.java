@@ -90,8 +90,8 @@ public class EditorScreen extends GlassScreen {
             new SidebarTab("cameras", "justreplay.editor.tab.cameras", Icon.CAMERA, false, true, (s, f) -> s.cameras.build(f)),
             new SidebarTab("characters", "justreplay.editor.tab.characters", Icon.PERSON, true, false, EditorScreen::buildSimpleActors),
             new SidebarTab("actors", "justreplay.editor.tab.actors", Icon.PERSON, false, true, EditorScreen::buildActors),
-            new SidebarTab("markers", "justreplay.editor.tab.markers", Icon.FLAG, true, false, EditorScreen::buildMarkers),
             new SidebarTab("scene", "justreplay.editor.tab.scene", Icon.FLAG, false, true, EditorScreen::buildScene),
+            new SidebarTab("audio", "justreplay.editor.tab.audio", Icon.SPEAKER, false, true, (s, f) -> s.audioPanel.build(f)),
             new SidebarTab("export", "justreplay.editor.tab.export", Icon.FILM, true, true, EditorScreen::buildExportTab)));
 
     /** Adds (or replaces) a sidebar tab, before the tab {@code beforeId}, or last when it is null or unknown. */
@@ -125,6 +125,9 @@ public class EditorScreen extends GlassScreen {
     private int statusColor = Theme.TEXT_MUTED;
 
     private final EditorTimeline timeline = new EditorTimeline();
+    // Audio editing: the lanes under the timeline markers and the sidebar tab.
+    private final AudioLanes audioLanes;
+    private final AudioPanel audioPanel;
     private boolean scrubbing;
     private int ghostTick = -1;
     private Object dragging;
@@ -160,6 +163,9 @@ public class EditorScreen extends GlassScreen {
         super(Component.translatable("justreplay.editor.title"));
         this.session = session;
         this.cameras = new CameraPanel(this, session);
+        this.audioLanes = new AudioLanes(this, session);
+        this.audioPanel = new AudioPanel(this, session, audioLanes);
+        this.timeline.audio = audioLanes;
         this.blurBackground = false;
     }
 
@@ -184,7 +190,7 @@ public class EditorScreen extends GlassScreen {
     }
 
     private int dockHeight() {
-        return 4 + rowH + 6 + EditorTimeline.height(timeline.lanes()) + 4;
+        return 4 + rowH + 6 + timeline.height() + 4;
     }
 
     // ---------------------------------------------------------------- layout
@@ -389,7 +395,7 @@ public class EditorScreen extends GlassScreen {
         tabs.slideFrom(previousTab);
         previousTab = current.id();
         tabs.setWidth(contentW);
-        tabs.setHeight(simple() ? 16 : Theme.ROW);
+        tabs.setHeight(simple() ? 24 : Theme.ROW);
         int areaTop = sideTop + 9 + tabs.getHeight();
         side = new ScrollArea(this, 0, areaTop, contentW + 2, sideBottom - areaTop - 4);
         Form form = new Form(side, contentW - 5);
@@ -559,6 +565,7 @@ public class EditorScreen extends GlassScreen {
             f.space(2);
             f.paragraph(tc("justreplay.editor.simple.more_cameras"), Theme.WARNING);
         }
+        buildMarkers(f);
     }
 
     // ---------------------------------------------------------------- simple mode: characters
@@ -1018,6 +1025,9 @@ public class EditorScreen extends GlassScreen {
 
     /** Deletes the selected cut, camera keyframe or actor keyframe, else the markers at the play head. */
     void deleteSelected() {
+        if (audioLanes.deleteSelected()) {
+            return;
+        }
         if (cameras.selectedCut != null) {
             cameras.deleteCut();
             return;
@@ -1038,7 +1048,7 @@ public class EditorScreen extends GlassScreen {
         } else {
             int cursor = session.playback().cursor();
             session.project().markers.removeIf(m -> Math.abs(m.tick - cursor) <= 2);
-            if (isTab("scene") || isTab("markers")) {
+            if (isTab("scene") || isTab("camera")) {
                 rebuildWidgets();
             }
         }
@@ -1220,6 +1230,9 @@ public class EditorScreen extends GlassScreen {
             int duration = session.playback().duration();
             ReplayProject project = session.project();
             dragging = null;
+            if (timeline.laneAt(my) == EditorTimeline.Lane.AUDIO ? audioLanes.mouseClicked(timeline, mx, my) : clearAudioSelection()) {
+                return true;
+            }
             switch (timeline.laneAt(my)) {
                 case CUTS -> {
                     if (clickCuts(project, mx, duration)) {
@@ -1286,6 +1299,17 @@ public class EditorScreen extends GlassScreen {
         return button == 0 && !overPanels(mx, my) && pickActor(mx, my);
     }
 
+    /** Drops the audio clip selection when another lane is clicked; never consumes the click. */
+    private boolean clearAudioSelection() {
+        if (audioLanes.selectedClip != null) {
+            audioLanes.selectedClip = null;
+            if (isTab("audio")) {
+                rebuildWidgets();
+            }
+        }
+        return false;
+    }
+
     /** Cut lane: grab a boundary or the track end to drag it, or click a segment to select its cut and camera. */
     private boolean clickCuts(ReplayProject project, double mx, int duration) {
         if (project.cuts.isEmpty()) {
@@ -1331,7 +1355,7 @@ public class EditorScreen extends GlassScreen {
 
     @Override
     public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
-        if (timeline.barDragged(mx)) {
+        if (timeline.barDragged(mx) || audioLanes.mouseDragged(timeline, mx, my)) {
             return true;
         }
         int duration = session.playback().duration();
@@ -1370,7 +1394,7 @@ public class EditorScreen extends GlassScreen {
 
     @Override
     public boolean mouseReleased(double mx, double my, int button) {
-        if (timeline.barReleased()) {
+        if (timeline.barReleased() || audioLanes.mouseReleased()) {
             return true;
         }
         if (dragging != null) {
@@ -1398,6 +1422,9 @@ public class EditorScreen extends GlassScreen {
     @Override
     public boolean mouseScrolled(double mx, double my, double sx, double sy) {
         if (!hasPopup() && !helpOpen && timeline.contains(mx, my)) {
+            if (timeline.laneAt(my) == EditorTimeline.Lane.AUDIO && audioLanes.mouseScrolled(sy)) {
+                return true;
+            }
             if (hasControlDown()) {
                 timeline.zoom(sy > 0 ? 0.8 : 1.25, mx);
             } else {
@@ -1416,6 +1443,9 @@ public class EditorScreen extends GlassScreen {
         }
         if (hasPopup()) {
             return super.keyPressed(keyCode, scanCode, modifiers);
+        }
+        if (!simple() && audioLanes.keyPressed(keyCode)) {
+            return true;
         }
         switch (keyCode) {
             case GLFW.GLFW_KEY_SPACE -> {
@@ -1509,7 +1539,7 @@ public class EditorScreen extends GlassScreen {
         }
         Paint.glass(g, 4, dockTop, width - 8, height - 4 - dockTop, Theme.RADIUS_L);
         Playback playback = session.playback();
-        timeline.begin(playback.duration(), playback.cursor(), !playback.isPaused() && dragging == null && !scrubbing);
+        timeline.begin(playback.duration(), playback.cursor(), !playback.isPaused() && dragging == null && !scrubbing && !audioLanes.dragging());
     }
 
     @Override
@@ -1523,7 +1553,7 @@ public class EditorScreen extends GlassScreen {
         g.drawString(font, timeText, timeX, dockTop + 4 + (rowH - 7) / 2, Theme.TEXT, false);
         timeline.render(g, font, session, cameras.selectedKey, cameras.selectedCut, selectedActor, selectedActorKey, selectedAction,
                 ghostTick, mouseX, mouseY);
-        if (timeline.contains(mouseX, mouseY) && dragging == null && !scrubbing && !helpOpen) {
+        if (timeline.contains(mouseX, mouseY) && dragging == null && !scrubbing && !helpOpen && !audioLanes.dragging()) {
             renderTimelineTooltip(g, mouseX, mouseY);
         }
         if (helpOpen) {
@@ -1595,6 +1625,12 @@ public class EditorScreen extends GlassScreen {
                     }
                 }
             }
+            case AUDIO -> {
+                Component tip = audioLanes.tooltip(timeline, mouseX, mouseY);
+                if (tip != null) {
+                    Paint.tooltip(g, font, tip, mouseX, mouseY);
+                }
+            }
             case MARKERS -> {
                 for (ReplayProject.Marker marker : project.markers) {
                     if (Math.abs(timeline.xOf(marker.tick) - mouseX) <= 3) {
@@ -1636,6 +1672,8 @@ public class EditorScreen extends GlassScreen {
         rows.add(new String[]{key(GLFW.GLFW_KEY_DELETE), tr("justreplay.help.delete")});
         rows.add(new String[]{key(GLFW.GLFW_KEY_K), tr("justreplay.help.keyframe")});
         if (!simple()) {
+            rows.add(new String[]{key(GLFW.GLFW_KEY_S), tr("justreplay.help.audio_split")});
+            rows.add(new String[]{key(GLFW.GLFW_KEY_LEFT_CONTROL) + " + " + key(GLFW.GLFW_KEY_D), tr("justreplay.help.audio_duplicate")});
             rows.add(new String[]{key(JRKeys.CUT_TO[0]) + "-" + key(JRKeys.CUT_TO[JRKeys.CUT_TO.length - 1]), tr("justreplay.help.cut")});
         }
         rows.add(new String[]{key(JRKeys.CAMERA_PATH), tr("justreplay.help.preview")});
