@@ -62,6 +62,11 @@ public final class WaterFramesCompat {
         if (reflect != null || reflectFailed) {
             return reflect;
         }
+        if (!ReplayCompat.WATERFRAMES) {
+            // Not installed (the WaterFrames mixins can still be reached from vanilla paths): stay silent.
+            reflectFailed = true;
+            return null;
+        }
         try {
             ClassLoader loader = WaterFramesCompat.class.getClassLoader();
             Class<?> tile = Class.forName(TILE, false, loader);
