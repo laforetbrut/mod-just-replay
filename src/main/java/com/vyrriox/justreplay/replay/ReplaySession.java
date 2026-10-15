@@ -105,7 +105,8 @@ public final class ReplaySession {
 
     /** True for the integrated server that hosts the replay's empty world. */
     public static boolean isHostServer(net.minecraft.server.MinecraftServer server) {
-        return current != null && server != null && WORLD_NAME.equals(server.getWorldData().getLevelName());
+        // By world name only: the host must stay minimal while it shuts down, after the session is closed.
+        return server != null && WORLD_NAME.equals(server.getWorldData().getLevelName());
     }
 
     public Path dir() {
