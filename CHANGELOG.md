@@ -4,6 +4,8 @@
 
 ### [Unreleased]
 
+### [1.0.3] - 2026-10-15
+
 #### Added
 - Optional Drop the Beam support: its music, light desk cues and video screens follow the replay clock (pause,
   speed, seeks). A recording started mid-session carries the turntable, mix and show state. The music is silent
@@ -149,6 +151,8 @@
 ## Français
 
 ### [Non publié]
+
+### [1.0.3] - 2026-10-15
 
 #### Ajouté
 - Compatibilité optionnelle avec Drop the Beam : la musique, les cues de la console lumière et les écrans vidéo
