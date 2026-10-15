@@ -375,5 +375,13 @@
   "justreplay.export.quality.lossless": "visually lossless",
   "justreplay.export.quality.high": "high",
   "justreplay.export.quality.medium": "medium",
-  "justreplay.export.quality.low": "low"
+  "justreplay.export.quality.low": "low",
+  "justreplay.editor.cam.add.path": "Path",
+  "justreplay.editor.cam.add.static": "Static",
+  "justreplay.editor.cam.add.follow": "Follow",
+  "justreplay.editor.actor.add.player": "Player",
+  "justreplay.editor.actor.add.entity": "Entity",
+  "justreplay.editor.actor.add.model": "Model",
+  "justreplay.editor.cam.new": "New camera",
+  "justreplay.editor.actor.new": "New actor"
 }

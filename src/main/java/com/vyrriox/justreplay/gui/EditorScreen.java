@@ -124,7 +124,7 @@ public class EditorScreen extends GlassScreen {
 
     @Override
     protected void init() {
-        sideW = Mth.clamp(width * 34 / 100, 140, 196);
+        sideW = Mth.clamp(width * 40 / 100, 160, 220);
         dockTop = height - 4 - dockHeight();
         sideTop = 4 + TOP_H + 4;
         sideBottom = dockTop - 4;
@@ -258,11 +258,13 @@ public class EditorScreen extends GlassScreen {
 
     private void buildActors(Form f) {
         f.header(tc("justreplay.editor.actors"), Icon.PERSON);
-        f.put(new GlassButton(tc("justreplay.editor.actor.player"), b -> addPlayerActor()).icon(Icon.PERSON)
+        f.caption(tc("justreplay.editor.actor.new"), 0, 1);
+        f.next(9);
+        f.put(new GlassButton(tc("justreplay.editor.actor.add.player"), b -> addPlayerActor()).icon(Icon.PERSON)
                 .tip(tc("justreplay.editor.actor.player.tip")), 0, 3);
-        f.put(new GlassButton(tc("justreplay.editor.actor.entity"), b -> addEntityActor()).icon(Icon.PUZZLE)
+        f.put(new GlassButton(tc("justreplay.editor.actor.add.entity"), b -> addEntityActor()).icon(Icon.PUZZLE)
                 .tip(tc("justreplay.editor.actor.entity.tip")), 1, 3);
-        f.put(new GlassButton(tc("justreplay.editor.actor.model"), b -> addModelActor()).icon(Icon.CUBE)
+        f.put(new GlassButton(tc("justreplay.editor.actor.add.model"), b -> addModelActor()).icon(Icon.CUBE)
                 .tip(tc("justreplay.editor.actor.model.tip")), 2, 3);
         f.next();
         List<ReplayProject.ActorData> actors = session.project().actors;

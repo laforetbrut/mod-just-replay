@@ -85,11 +85,13 @@ public final class CameraPanel {
                     .tip(Component.translatable("justreplay.editor.cam.row.tip", i + 1));
             f.full(row);
         }
-        f.put(new GlassButton(tc("justreplay.editor.cam.new_path"), b -> addCamera(ReplayProject.Camera.PATH))
+        f.caption(tc("justreplay.editor.cam.new"), 0, 1);
+        f.next(9);
+        f.put(new GlassButton(tc("justreplay.editor.cam.add.path"), b -> addCamera(ReplayProject.Camera.PATH))
                 .icon(Icon.PATH).tip(tc("justreplay.editor.cam.new_path.tip")), 0, 3);
-        f.put(new GlassButton(tc("justreplay.editor.cam.new_static"), b -> addCamera(ReplayProject.Camera.STATIC))
+        f.put(new GlassButton(tc("justreplay.editor.cam.add.static"), b -> addCamera(ReplayProject.Camera.STATIC))
                 .icon(Icon.PIN).tip(tc("justreplay.editor.cam.new_static.tip")), 1, 3);
-        f.put(new GlassButton(tc("justreplay.editor.cam.new_follow"), b -> addCamera(ReplayProject.Camera.FOLLOW))
+        f.put(new GlassButton(tc("justreplay.editor.cam.add.follow"), b -> addCamera(ReplayProject.Camera.FOLLOW))
                 .icon(Icon.TARGET).tip(tc("justreplay.editor.cam.new_follow.tip")), 2, 3);
         f.next();
         f.put(new GlassButton(tc("justreplay.editor.cam.duplicate"), b -> duplicate()).icon(Icon.COPY), 0, 3);

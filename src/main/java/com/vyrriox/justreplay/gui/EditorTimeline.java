@@ -245,7 +245,7 @@ final class EditorTimeline {
     }
 
     private void laneBack(GuiGraphics g, int lx, int y, int h, Icon icon) {
-        Paint.rect(g, x, y, w, h, Theme.RADIUS_S, 0x14FFFFFF, 0x0AFFFFFF);
+        Paint.rect(g, x, y, w, h, Theme.RADIUS_S, 0x24FFFFFF, 0x14FFFFFF);
         Paint.iconCentered(g, icon, lx, y, LABELS, h, 7, 0x99B9C2CF);
     }
 

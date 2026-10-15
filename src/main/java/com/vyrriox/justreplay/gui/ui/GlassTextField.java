@@ -42,6 +42,13 @@ public class GlassTextField extends EditBox implements Tipped {
         return tip;
     }
 
+    /** Fields are often sized after their value is set: show the text from its start once the width is known. */
+    @Override
+    public void setWidth(int width) {
+        super.setWidth(width);
+        moveCursorToStart(false);
+    }
+
     /** The vanilla sprite frame is replaced by the glass one. */
     @Override
     public boolean isBordered() {
