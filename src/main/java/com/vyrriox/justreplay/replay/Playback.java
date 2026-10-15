@@ -148,6 +148,7 @@ public final class Playback {
                 int checkpoint = latestCheckpoint(target);
                 if (checkpoint >= 0 && (backward || checkpoint > cursor)) {
                     restored = restoreCheckpoint(mc, checkpoint);
+                    JustReplay.LOGGER.debug("Seek to {} from checkpoint {}: {}", target, checkpoint, restored);
                 }
             }
             if (!restored && backward) {

@@ -199,6 +199,9 @@ public final class SelfTest {
                 ReplaySession s = ReplaySession.current();
                 log("speed x{}: cursor advanced {} ticks in 10 client ticks", s.playback().speed(), s.playback().cursor() - speedStart);
                 s.playback().resetSpeed();
+                s.playback().seek(190);
+                s.playback().seek(130);
+                logWorld(mc, s, "after checkpoint seek to 130");
                 s.playback().seek(20);
                 s.jumpToRecorder(mc);
                 Vec3 c = p.position();
@@ -245,6 +248,13 @@ public final class SelfTest {
                 s.project().cameraCurve = "BEZIER";
                 s.project().cameraTiming = "CONSTANT_SPEED";
                 s.setCameraPath(false);
+                net.minecraft.world.entity.Entity recorder = s.findRecorder(mc);
+                if (recorder != null) {
+                    s.spectate().start(mc, recorder, true);
+                }
+                log("spectating recorder: {} camera entity={}", s.spectate().isActive(),
+                        mc.getCameraEntity() == null ? "none" : mc.getCameraEntity().getClass().getSimpleName());
+                s.spectate().stop(mc);
                 mc.setScreen(new EditorScreen(s));
                 next(10);
             }
@@ -257,6 +267,7 @@ public final class SelfTest {
                 ReplaySession s = ReplaySession.current();
                 s.setCameraPath(false);
                 Files.deleteIfExists(ReplayStorage.exportRoot().resolve("selftest.mp4"));
+                com.vyrriox.justreplay.config.JRConfig.EXPORT_RESOLUTION.set(com.vyrriox.justreplay.export.ExportResolution.FULL_HD_1080);
                 var error = VideoExporter.start(s, 20, 80, "selftest");
                 log("export start error={}", error == null ? "none" : error.getString());
                 next(1);
