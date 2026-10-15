@@ -49,6 +49,16 @@
 - Instant replay: with `recording.replayBuffer` on, the last minutes of play (`bufferMinutes`, 5 by default) stay in memory, compressed, and F7 saves them as a normal replay. Nothing is written to disk until you save.
 - "Record next minutes" key (unbound by default): records for `recording.nextMinutes` and stops by itself.
 - New settings `recording.checkpointMinutes` (5 by default) and `recording.extraChunkRadius` (16 by default).
+- Video effects: picture transitions on cuts (cross dissolve from the frozen last frame of the outgoing shot,
+  fade through black or white, wipe and slide in four directions, zoom blur, circle iris) with a duration, set
+  from the Cameras tab and marked on the cut lane; an Effects tab with a filter stack (exposure and brightness,
+  contrast, saturation, temperature and tint, hue shift, vignette, film grain, sharpen, blur, black and white,
+  sepia, chromatic aberration, letterbox, LUT from `justreplay/luts/`), global or bound to a camera, keyframes
+  on every parameter at the play head, presets (Cinematic, Vintage, Noir, Warm, Cold), and fades at the start
+  and end of the export range. Rendered on the GPU over the finished world (after shader packs) and before the
+  HUD, so the preview and the export match.
+- Audio crossfades: overlapping clips of a track crossfade with an equal power curve (switch per track), and
+  clip fades can be linear, equal power or exponential.
 
 #### Changed
 - Recording costs less on the client thread: no allocation per tick for an idle player, chunk building on a
@@ -131,6 +141,16 @@
 - Replay instantané : avec `recording.replayBuffer` activé, les dernières minutes de jeu (`bufferMinutes`, 5 par défaut) restent en mémoire, compressées, et F7 les enregistre comme un replay normal. Rien n'est écrit sur le disque avant la sauvegarde.
 - Touche "Enregistrer les prochaines minutes" (sans touche par défaut) : enregistre pendant `recording.nextMinutes` puis s'arrête seule.
 - Nouveaux réglages `recording.checkpointMinutes` (5 par défaut) et `recording.extraChunkRadius` (16 par défaut).
+- Effets vidéo : transitions d'image sur les coupes (fondu enchaîné depuis la dernière image figée du plan
+  sortant, fondu au noir ou au blanc, volet et glissement dans quatre directions, zoom flou, iris) avec une
+  durée, réglées depuis l'onglet Caméras et marquées sur la piste des coupes ; un onglet Effets avec une pile
+  de filtres (exposition et luminosité, contraste, saturation, température et teinte, rotation de teinte,
+  vignette, grain, netteté, flou, noir et blanc, sépia, aberration chromatique, bandes, LUT depuis
+  `justreplay/luts/`), globale ou liée à une caméra, des images clés sur chaque paramètre à la tête de lecture,
+  des préréglages (Cinematic, Vintage, Noir, Warm, Cold), et des fondus au début et à la fin de l'export. Rendus
+  sur le GPU sur le monde terminé (après les shader packs) et avant le HUD, l'aperçu et l'export sont identiques.
+- Fondus enchaînés audio : les clips qui se chevauchent sur une piste font un fondu à puissance constante
+  (réglable par piste), et les fondus des clips peuvent être linéaires, à puissance constante ou exponentiels.
 
 #### Modifié
 - L'enregistrement coûte moins sur le thread client : aucune allocation par tick pour un joueur immobile,

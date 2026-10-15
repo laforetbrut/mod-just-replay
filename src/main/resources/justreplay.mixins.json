@@ -21,7 +21,8 @@
     "RavagerAccessor",
     "HoglinAccessor",
     "ZoglinAccessor",
-    "HumanoidModelMixin"
+    "HumanoidModelMixin",
+    "GameRendererFxMixin"
   ],
   "injectors": {
     "defaultRequire": 1

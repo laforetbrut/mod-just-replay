@@ -1,6 +1,8 @@
 package com.vyrriox.justreplay.editor;
 
 import com.vyrriox.justreplay.editor.audio.AudioTrack;
+import com.vyrriox.justreplay.editor.fx.FxEffect;
+import com.vyrriox.justreplay.editor.fx.TransitionType;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -49,6 +51,16 @@ public final class ReplayProject {
     public boolean ducking;
     /** How much the ducking lowers them, 0 to 1. */
     public float duckAmount = 0.5F;
+    /** Filter stack, in the order it is applied; filters bound to a camera only act while it is live. */
+    public List<FxEffect> effects = new ArrayList<>();
+    /** Render the filters, transitions and fades (a bypass switch for the whole effect chain). */
+    public boolean effectsEnabled = true;
+    /** Fade from black (or white) at the start of the export range, in ticks. */
+    public int fadeIn;
+    /** Fade to black (or white) at the end of the export range, in ticks. */
+    public int fadeOut;
+    /** The start and end fades go through white instead of black. */
+    public boolean fadeWhite;
 
     public static final class CameraKeyframe {
         public int tick;
@@ -165,11 +177,19 @@ public final class ReplayProject {
         }
     }
 
-    /** From {@link #tick}, {@link #camera} is live; the change is blended over {@link #blend} ticks (0: hard cut). */
+    /**
+     * From {@link #tick}, {@link #camera} is live; the camera move is blended over {@link #blend} ticks (0: hard cut).
+     * The picture changes with {@link #transition} over {@link #transitionTicks} ticks from the cut.
+     */
     public static final class Cut {
         public int tick;
         public String camera = "";
         public int blend;
+        /** Name of a {@link TransitionType}. */
+        public String transition = TransitionType.CUT.name();
+        public int transitionTicks = 10;
+        /** Motion of a wipe or slide: LEFT, RIGHT, UP or DOWN. */
+        public String transitionDir = "LEFT";
 
         public Cut() {
         }
@@ -178,6 +198,15 @@ public final class ReplayProject {
             this.tick = tick;
             this.camera = camera;
             this.blend = blend;
+        }
+
+        public TransitionType transitionType() {
+            return TransitionType.parse(transition);
+        }
+
+        /** True when the picture transition plays at a time. */
+        public boolean transitionAt(double time) {
+            return transitionType() != TransitionType.CUT && time >= tick && time < tick + transitionTicks;
         }
     }
 
@@ -289,6 +318,13 @@ public final class ReplayProject {
         if (markers == null) markers = new ArrayList<>();
         if (actors == null) actors = new ArrayList<>();
         if (audioTracks == null) audioTracks = new ArrayList<>();
+        if (effects == null) effects = new ArrayList<>();
+        effects.removeIf(e -> e == null);
+        for (FxEffect effect : effects) {
+            effect.normalize();
+        }
+        fadeIn = Math.max(0, fadeIn);
+        fadeOut = Math.max(0, fadeOut);
         audioTracks.removeIf(t -> t == null);
         for (AudioTrack track : audioTracks) {
             track.normalize();
@@ -319,6 +355,12 @@ public final class ReplayProject {
             if (camera.followMode == null) camera.followMode = "BEHIND";
         }
         cuts.removeIf(c -> c == null || camera(c.camera) == null);
+        for (Cut cut : cuts) {
+            cut.transition = cut.transitionType().name();
+            cut.transitionTicks = Math.max(1, Math.min(200, cut.transitionTicks));
+            if (cut.transitionDir == null) cut.transitionDir = "LEFT";
+        }
+        effects.removeIf(e -> !e.isGlobal() && camera(e.camera) == null);
         if (camera(selectedCamera) == null) selectedCamera = cameras.get(0).id;
         for (ActorData actor : actors) {
             if (actor.keyframes == null) actor.keyframes = new ArrayList<>();
@@ -399,6 +441,7 @@ public final class ReplayProject {
             return;
         }
         cuts.removeIf(c -> c.camera.equals(camera.id));
+        effects.removeIf(e -> camera.id.equals(e.camera));
         mergeCuts();
         if (camera.id.equals(selectedCamera)) {
             selectedCamera = cameras.get(0).id;

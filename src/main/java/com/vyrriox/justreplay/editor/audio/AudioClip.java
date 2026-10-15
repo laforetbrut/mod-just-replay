@@ -39,6 +39,15 @@ public final class AudioClip {
     public double offset;
     /** Playback rate; the pitch follows. */
     public float speed = 1.0F;
+    /** Shape of both fades: LINEAR, EQUAL_POWER or EXPONENTIAL. */
+    public String fadeCurve = LINEAR;
+
+    public static final String LINEAR = "LINEAR";
+    public static final String EQUAL_POWER = "EQUAL_POWER";
+    public static final String EXPONENTIAL = "EXPONENTIAL";
+    public static final String[] FADE_CURVES = {LINEAR, EQUAL_POWER, EXPONENTIAL};
+    /** Range of the exponential fade, as a gain ratio (48 dB). */
+    private static final double EXP_RANGE = Math.pow(10.0, 48.0 / 20.0);
 
     public AudioClip() {
     }
@@ -86,17 +95,35 @@ public final class AudioClip {
         return in + o * speed();
     }
 
-    /** Gain of the fades at {@code o} ticks from the start of the clip. */
+    /** Gain of the fades at {@code o} ticks from the start of the clip, shaped by {@link #fadeCurve}. */
     public float fadeGain(double o) {
-        float gain = 1.0F;
+        double gain = 1.0;
         if (fadeIn > 0 && o < fadeIn) {
-            gain = (float) Math.max(0.0, o / fadeIn);
+            gain = Math.max(0.0, o / fadeIn);
         }
         double left = length() - o;
         if (fadeOut > 0 && left < fadeOut) {
-            gain = Math.min(gain, (float) Math.max(0.0, left / fadeOut));
+            gain = Math.min(gain, Math.max(0.0, left / fadeOut));
         }
-        return gain;
+        return gain >= 1.0 ? 1.0F : (float) shape(fadeCurve, gain);
+    }
+
+    /** Gain of a fade curve at a position 0..1 of the fade (0 silent, 1 full). */
+    public static double shape(String curve, double x) {
+        if (x <= 0.0) {
+            return 0.0;
+        }
+        if (x >= 1.0) {
+            return 1.0;
+        }
+        if (EQUAL_POWER.equals(curve)) {
+            return Math.sin(x * Math.PI * 0.5);
+        }
+        if (EXPONENTIAL.equals(curve)) {
+            // Even steps in decibels sound like a steady fade; the -48 dB floor is pulled down to silence.
+            return (Math.pow(EXP_RANGE, x) - 1.0) / (EXP_RANGE - 1.0);
+        }
+        return x;
     }
 
     public AudioClip copy() {
@@ -112,6 +139,7 @@ public final class AudioClip {
         c.length = length;
         c.offset = offset;
         c.speed = speed;
+        c.fadeCurve = fadeCurve;
         return c;
     }
 
@@ -154,6 +182,7 @@ public final class AudioClip {
     public void normalize() {
         if (id == null || id.isBlank()) id = UUID.randomUUID().toString();
         if (file == null) file = "";
+        if (!EQUAL_POWER.equals(fadeCurve) && !EXPONENTIAL.equals(fadeCurve)) fadeCurve = LINEAR;
         if (!Double.isFinite(in) || in < 0) in = 0;
         if (!Double.isFinite(out) || out < in) out = in;
         if (!Double.isFinite(offset)) offset = 0;

@@ -53,14 +53,15 @@ public class EditorScreen extends GlassScreen {
     private static final int TAB_SCENE = 2;
     private static final int TAB_EXPORT = 3;
     private static final int TAB_AUDIO = 4;
+    private static final int TAB_EFFECTS = 5;
     private static final String[] TAB_KEYS = {"justreplay.editor.tab.cameras", "justreplay.editor.tab.actors",
-            "justreplay.editor.tab.scene", "justreplay.editor.tab.export", "justreplay.editor.tab.audio"};
-    private static final Icon[] TAB_ICONS = {Icon.CAMERA, Icon.PERSON, Icon.FLAG, Icon.FILM, Icon.SPEAKER};
+            "justreplay.editor.tab.scene", "justreplay.editor.tab.export", "justreplay.editor.tab.audio", "justreplay.editor.tab.effects"};
+    private static final Icon[] TAB_ICONS = {Icon.CAMERA, Icon.PERSON, Icon.FLAG, Icon.FILM, Icon.SPEAKER, Icon.BOLT};
     /** Editor state kept across rebuilds and reopenings. */
     private static int tab = TAB_CAMERAS;
     private static int previousTab = TAB_CAMERAS;
     private static boolean sidebarOpen = true;
-    private static final float[] TAB_SCROLL = new float[5];
+    private static final float[] TAB_SCROLL = new float[6];
 
     private final ReplaySession session;
     private final CameraPanel cameras;
@@ -75,6 +76,8 @@ public class EditorScreen extends GlassScreen {
     // Audio editing: the lanes under the timeline markers and the sidebar tab.
     private final AudioLanes audioLanes;
     private final AudioPanel audioPanel;
+    // Video effects: the filter stack tab.
+    private final EffectsPanel effectsPanel;
     private boolean scrubbing;
     private int ghostTick = -1;
     private Object dragging;
@@ -112,6 +115,7 @@ public class EditorScreen extends GlassScreen {
         this.audioLanes = new AudioLanes(this, session);
         this.audioPanel = new AudioPanel(this, session, audioLanes);
         this.timeline.audio = audioLanes;
+        this.effectsPanel = new EffectsPanel(this, session);
         this.blurBackground = false;
     }
 
@@ -211,7 +215,7 @@ public class EditorScreen extends GlassScreen {
 
     private void initSidebar() {
         int contentW = sideW - 10;
-        tabs = addRenderableWidget(new Segmented<>(List.of(TAB_CAMERAS, TAB_ACTORS, TAB_SCENE, TAB_AUDIO, TAB_EXPORT), tab,
+        tabs = addRenderableWidget(new Segmented<>(List.of(TAB_CAMERAS, TAB_ACTORS, TAB_SCENE, TAB_AUDIO, TAB_EFFECTS, TAB_EXPORT), tab,
                 i -> tc(TAB_KEYS[i]), i -> TAB_ICONS[i], this::selectTab));
         tabs.slideFrom(previousTab);
         previousTab = tab;
@@ -223,6 +227,7 @@ public class EditorScreen extends GlassScreen {
             case TAB_SCENE -> buildScene(form);
             case TAB_EXPORT -> buildExport(form);
             case TAB_AUDIO -> audioPanel.build(form);
+            case TAB_EFFECTS -> effectsPanel.build(form);
             default -> cameras.build(form);
         }
         form.end();
@@ -1001,7 +1006,9 @@ public class EditorScreen extends GlassScreen {
                         ReplayProject.Camera camera = project.camera(cut.camera);
                         String name = camera == null ? "?" : (project.cameras.indexOf(camera) + 1) + " " + camera.name;
                         Paint.tooltip(g, font, Component.literal(name + "  " + Timeline.formatTicks(cut.tick)
-                                + (cut.blend > 0 ? "  blend " + cut.blend + "t" : "")), mouseX, mouseY);
+                                + (cut.blend > 0 ? "  blend " + cut.blend + "t" : "")
+                                + (i > 0 && cut.transitionType() != com.vyrriox.justreplay.editor.fx.TransitionType.CUT
+                                ? "  " + tr(cut.transitionType().translationKey()) + " " + cut.transitionTicks + "t" : "")), mouseX, mouseY);
                         return;
                     }
                 }

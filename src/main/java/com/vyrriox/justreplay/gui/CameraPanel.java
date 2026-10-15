@@ -191,6 +191,7 @@ public final class CameraPanel {
         f.next();
         f.text(this::cutLine, Theme.TEXT_MUTED);
         f.text(() -> status, Theme.WARNING);
+        EffectsPanel.buildTransition(f, screen, session, selectedCut);
         f.full(new GlassButton(tc("justreplay.editor.camera.recorder"), b -> session.jumpToRecorder(mc())).icon(Icon.PERSON)
                 .tip(tc("justreplay.editor.camera.recorder.tip")));
     }
