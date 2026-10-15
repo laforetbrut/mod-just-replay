@@ -50,6 +50,11 @@ public final class ReplayHud {
         g.drawString(font, line, x, y - 12, 0xFFFFFFFF, true);
         Component hint = Component.translatable("justreplay.hud.hint");
         g.drawString(font, hint, width - 10 - font.width(hint), y - 12, 0xFFBBBBBB, true);
+        if (session.spectate().isActive()) {
+            Component leave = mc.options.keyShift.getTranslatedKeyMessage();
+            Component spectating = Component.translatable("justreplay.hud.spectating", session.spectate().targetName(), leave);
+            g.drawString(font, spectating, x, y - 24, 0xFFFFD54F, true);
+        }
     }
 
     static String trim(float value) {

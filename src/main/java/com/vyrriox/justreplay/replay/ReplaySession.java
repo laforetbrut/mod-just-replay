@@ -59,6 +59,7 @@ public final class ReplaySession {
     private final ReplayProject project;
     private final Playback playback;
     private final ActorManager actors;
+    private final SpectateCamera spectate = new SpectateCamera();
     private final UUID actorUuid;
     private volatile Connection connection;
     private volatile boolean blocking;
@@ -125,12 +126,20 @@ public final class ReplaySession {
         return actors;
     }
 
+    public SpectateCamera spectate() {
+        return spectate;
+    }
+
     public boolean isCameraPathActive() {
         return cameraPath || VideoExporter.isActive();
     }
 
     public void setCameraPath(boolean active) {
         this.cameraPath = active;
+        if (active) {
+            // The path drives the free camera; viewing through an entity would hide it.
+            spectate.stop(Minecraft.getInstance());
+        }
     }
 
     public boolean isHudVisible() {
@@ -252,6 +261,7 @@ public final class ReplaySession {
     public static void onLoggingOut() {
         ReplaySession s = current;
         if (s != null) {
+            s.spectate.clear();
             VideoExporter.cancel();
             s.saveProject();
             current = null;
@@ -293,6 +303,7 @@ public final class ReplaySession {
             s.placeCameraOnRecorder(mc);
         }
         s.actors.tick(mc);
+        s.spectate.tick(mc, s);
     }
 
     private void placeCameraOnRecorder(Minecraft mc) {
@@ -324,10 +335,34 @@ public final class ReplaySession {
 
     /** Moves the camera to the recording player's point of view. */
     public void jumpToRecorder(Minecraft mc) {
+        spectate.stop(mc);
         Entity recorder = findRecorder(mc);
         if (recorder != null && mc.player != null) {
             Vec3 eye = recorder.position().add(0, recorder.getEyeHeight() - mc.player.getEyeHeight(), 0);
             Playback.placeCamera(mc.player, eye, recorder.getYRot(), recorder.getXRot());
         }
+    }
+
+    /** Follows the recording player in first person, or returns to the free camera when already following it. */
+    public void toggleRecorderView(Minecraft mc) {
+        if (spectate.isFollowingRecorder()) {
+            spectate.stop(mc);
+            return;
+        }
+        if (isCameraPathActive()) {
+            return;
+        }
+        Entity recorder = findRecorder(mc);
+        if (recorder != null) {
+            spectate.start(mc, recorder, true);
+        }
+    }
+
+    /** Views the replay through an entity, unless the camera path or a video export drives the camera. */
+    public void spectate(Minecraft mc, Entity entity) {
+        if (entity == null || isCameraPathActive()) {
+            return;
+        }
+        spectate.start(mc, entity, actorUuid != null && actorUuid.equals(entity.getUUID()));
     }
 }

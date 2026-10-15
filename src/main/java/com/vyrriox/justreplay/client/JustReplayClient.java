@@ -117,6 +117,11 @@ public final class JustReplayClient {
 
         @SubscribeEvent
         public static void onRenderFramePre(RenderFrameEvent.Pre event) {
+            ReplaySession session = ReplaySession.current();
+            if (session != null && session.spectate().isActive() && session.isCameraPathActive()) {
+                // A camera path or an export started this tick: never render it from a spectated entity.
+                session.spectate().stop(Minecraft.getInstance());
+            }
             CameraController.onRenderFrame(event.getPartialTick().getGameTimeDeltaPartialTick(false));
         }
 
@@ -171,6 +176,33 @@ public final class JustReplayClient {
             if (event.getEntity().level().isClientSide() && ReplaySession.isRunning()
                     && com.vyrriox.justreplay.editor.ActorManager.isActorEntity(event.getEntity())
                     && !(event.getEntity() instanceof net.minecraft.client.player.RemotePlayer)) {
+                event.setCanceled(true);
+            }
+        }
+
+        /**
+         * Attacking in a replay would reach the host server; a left click on an entity views the replay through it
+         * instead.
+         */
+        @SubscribeEvent
+        public static void onInteractionKey(net.neoforged.neoforge.client.event.InputEvent.InteractionKeyMappingTriggered event) {
+            if (!event.isAttack() || !ReplaySession.isRunning()) {
+                return;
+            }
+            event.setCanceled(true);
+            event.setSwingHand(false);
+            Minecraft mc = Minecraft.getInstance();
+            ReplaySession session = ReplaySession.current();
+            if (session != null && mc.screen == null && !session.isCameraPathActive()) {
+                session.spectate(mc, com.vyrriox.justreplay.replay.SpectateCamera.pick(mc));
+            }
+        }
+
+        /** A spectated player keeps its build ability, which would draw the block outline over the view. */
+        @SubscribeEvent
+        public static void onBlockHighlight(net.neoforged.neoforge.client.event.RenderHighlightEvent.Block event) {
+            ReplaySession session = ReplaySession.current();
+            if (session != null && ReplaySession.isRunning() && session.spectate().isActive()) {
                 event.setCanceled(true);
             }
         }
@@ -270,7 +302,10 @@ public final class JustReplayClient {
             session.setHudVisible(!session.isHudVisible());
         }
         while (JRKeys.RECORDER_VIEW.consumeClick()) {
-            session.jumpToRecorder(mc);
+            session.toggleRecorderView(mc);
+        }
+        while (JRKeys.STOP_SPECTATING.consumeClick()) {
+            session.spectate().stop(mc);
         }
         while (JRKeys.MARKER.consumeClick()) {
             int tick = playback.cursor();
@@ -293,7 +328,7 @@ public final class JustReplayClient {
     private static void consumeAll() {
         for (var key : new net.minecraft.client.KeyMapping[]{JRKeys.EDITOR, JRKeys.PLAY_PAUSE, JRKeys.SEEK_BACK, JRKeys.SEEK_FORWARD,
                 JRKeys.SPEED_UP, JRKeys.SPEED_DOWN, JRKeys.CAMERA_KEYFRAME, JRKeys.CAMERA_PATH, JRKeys.MARKER, JRKeys.TOGGLE_HUD,
-                JRKeys.RECORDER_VIEW}) {
+                JRKeys.RECORDER_VIEW, JRKeys.STOP_SPECTATING}) {
             while (key.consumeClick()) {
                 // Playback keys do nothing outside a replay.
             }

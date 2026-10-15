@@ -41,6 +41,8 @@ public final class JRKeys {
     public static final KeyMapping MARKER = key("marker", GLFW.GLFW_KEY_M);
     public static final KeyMapping TOGGLE_HUD = key("toggle_hud", GLFW.GLFW_KEY_H);
     public static final KeyMapping RECORDER_VIEW = key("recorder_view", GLFW.GLFW_KEY_V);
+    /** Unbound by default: sneaking already leaves the spectated entity. */
+    public static final KeyMapping STOP_SPECTATING = key("stop_spectating", GLFW.GLFW_KEY_UNKNOWN);
 
     private JRKeys() {
     }
@@ -51,7 +53,7 @@ public final class JRKeys {
 
     public static void register(RegisterKeyMappingsEvent event) {
         for (KeyMapping key : new KeyMapping[]{RECORD, EDITOR, PLAY_PAUSE, SEEK_BACK, SEEK_FORWARD, SPEED_UP, SPEED_DOWN,
-                CAMERA_KEYFRAME, CAMERA_PATH, MARKER, TOGGLE_HUD, RECORDER_VIEW}) {
+                CAMERA_KEYFRAME, CAMERA_PATH, MARKER, TOGGLE_HUD, RECORDER_VIEW, STOP_SPECTATING}) {
             event.register(key);
         }
     }
