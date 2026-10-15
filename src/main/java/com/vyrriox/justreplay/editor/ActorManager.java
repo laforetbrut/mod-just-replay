@@ -38,6 +38,8 @@ import java.util.concurrent.CompletableFuture;
 public final class ActorManager {
     private final ReplaySession session;
     private final Map<String, Entity> spawned = new HashMap<>();
+    /** Player actors whose name tag is hidden: players always show theirs, so the tag is cancelled when drawn. */
+    private static final java.util.Set<Integer> HIDDEN_NAMES = new java.util.HashSet<>();
     private final Map<String, Integer> ids = new HashMap<>();
     private final Map<String, CompletableFuture<Optional<GameProfile>>> lookups = new HashMap<>();
     private final Map<String, GameProfile> profiles = new HashMap<>();
@@ -129,7 +131,13 @@ public final class ActorManager {
         }
     }
 
+    /** True for a player actor whose name tag is switched off. */
+    public static boolean hidesName(Entity entity) {
+        return isActorEntity(entity) && HIDDEN_NAMES.contains(entity.getId());
+    }
+
     private static void forgetEntity(Entity entity) {
+        HIDDEN_NAMES.remove(entity.getId());
         ActorAnimator.forget(entity);
         com.vyrriox.justreplay.editor.model.ModelRenderer.unregister(entity.getId());
     }
@@ -224,6 +232,11 @@ public final class ActorManager {
             }
         }
         entity.setId(ids.computeIfAbsent(actor.id, k -> nextId--));
+        if (actor.isPlayer() && !actor.showName) {
+            HIDDEN_NAMES.add(entity.getId());
+        } else {
+            HIDDEN_NAMES.remove(entity.getId());
+        }
         entity.setNoGravity(true);
         if (entity instanceof LivingEntity living && !actor.isModel()) {
             equip(living, EquipmentSlot.MAINHAND, actor.mainHand);
