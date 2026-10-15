@@ -297,11 +297,13 @@ public final class Recorder {
     private static final Set<String> FAILED_GLOBAL = ConcurrentHashMap.newKeySet();
 
     private static void trackSpawns(Connection connection, Packet<?> packet) {
-        if (connection != spawnConnection) {
+        boolean newConnection = connection != spawnConnection;
+        if (newConnection) {
             SPAWNS.clear();
             PERSISTENT.clear();
             spawnConnection = connection;
         }
+        com.vyrriox.justreplay.compat.ReplayCompat.onLivePacket(packet, newConnection);
         if (com.vyrriox.justreplay.compat.CreateCompat.isPersistent(packet)) {
             if (PERSISTENT.size() < MAX_PERSISTENT) {
                 PERSISTENT.add(packet);
@@ -754,6 +756,10 @@ public final class Recorder {
                 if (failedTypes.add(LocalPlayer.class)) {
                     JustReplay.LOGGER.warn("Cannot record the local player", t);
                 }
+            }
+            Packet<?> sample = com.vyrriox.justreplay.compat.ReplayCompat.recordTick(tick);
+            if (sample != null) {
+                write(listener, sample);
             }
             try {
                 long chunkStart = System.nanoTime();
@@ -1227,6 +1233,7 @@ public final class Recorder {
         for (Packet<?> packet : persistent) {
             write(listener, packet, sink);
         }
+        com.vyrriox.justreplay.compat.ReplayCompat.writeSnapshot(packet -> write(listener, packet, sink));
         write(listener, new ClientboundGameEventPacket(ClientboundGameEventPacket.LEVEL_CHUNKS_LOAD_START, 0.0F), sink);
 
         List<Entity> withPassengers = new ArrayList<>();

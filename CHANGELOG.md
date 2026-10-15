@@ -4,6 +4,13 @@
 
 ### [Unreleased]
 
+#### Added
+- Optional Drop the Beam support: its music, light desk cues and video screens follow the replay clock (pause,
+  speed, seeks). A recording started mid-session carries the turntable, mix and show state. The music is silent
+  while the replay is paused or away from x1, follows the game sound volume, mute and ducking of the project,
+  and is part of the video export audio, placed relative to the camera. The tick where each song starts is
+  logged and available to the editor.
+
 ### [1.0.2] - 2026-10-15
 
 #### Fixed
@@ -126,6 +133,14 @@
 ## Français
 
 ### [Non publié]
+
+#### Ajouté
+- Compatibilité optionnelle avec Drop the Beam : la musique, les cues de la console lumière et les écrans vidéo
+  suivent l'horloge du replay (pause, vitesse, sauts dans le temps). Un enregistrement démarré en cours de
+  partie contient l'état des platines, des mixages et des shows. La musique se tait quand le replay est en pause
+  ou hors x1, suit le volume des sons du jeu, leur coupure et l'atténuation du projet, et figure dans l'audio des
+  exports vidéo, placée par rapport à la caméra. Le tick de début de chaque morceau est écrit dans le journal et
+  disponible pour l'éditeur.
 
 ### [1.0.2] - 2026-10-15
 

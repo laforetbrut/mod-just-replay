@@ -260,6 +260,9 @@ public final class Playback {
                 return;
             }
         }
+        if (com.vyrriox.justreplay.compat.ReplayCompat.consumeRecorded(packet, recorded.tick())) {
+            return;
+        }
         if (recorded.tick() < skippingTo && PacketFilter.isTransient(packet)) {
             // Sounds and effects of skipped time would all fire at once.
             return;

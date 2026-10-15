@@ -6,6 +6,9 @@
   "client": [
     "BobbyMixin",
     "CatnipAnimationTickHolderMixin",
+    "DropTheBeamAudioMixin",
+    "DropTheBeamClockMixin",
+    "DropTheBeamPauseMixin",
     "LevelRendererClockMixin",
     "PlayerAnimKeyframeMixin",
     "PlayerAnimStackMixin",
