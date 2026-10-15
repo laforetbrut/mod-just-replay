@@ -26,8 +26,10 @@ NeoForge 1.21.1, client side. Author: vyrriox. License: Apache-2.0.
   and live switching with keys 1 to 9 while the replay plays, like a multi-camera editor.
 - **Actors**: add players (any skin, by name) or any entity, vanilla or modded, give them equipment and a
   pose, and animate them with keyframes. The recording is never modified, actors live in `project.json`.
+- **Skin files**: drop PNG skins (64x64) in `.minecraft/justreplay/skins/` and give one to a
+  player actor in the actor screen ("Skin file", with a "Slim arms" switch). No Mojang account is needed.
 - **Actor actions**: place timed actions on an actor (walk, run, swing, attack, hurt, death, jump, sit,
-  sleep, swim, elytra, use item, shield, bow, eat, wave, look at, wander...) from the actor panel or the
+  sleep, swim, elytra, use item, shield, bow, eat, wave, dance on the beat, look at, wander...) from the actor panel or the
   actor screen. They show on the timeline and replay identically after a seek.
 - **Blockbench models**: drop `.bbmodel` files in `.minecraft/justreplay/models/` and add them as actors with
   **+ Model**. Cubes, groups, embedded or neighbouring PNG textures and animations are supported; pick a
@@ -101,7 +103,7 @@ edit and export test in a development client.
 
 Apache License 2.0, see `LICENSE` and `NOTICE`. The jar bundles no third-party code. FFmpeg is an external
 program you install yourself; Just Replay only starts it for video export. Optional integrations (Simple
-Voice Chat, Distant Horizons, Emotecraft, WaterFrames, Create, Bobby, Iris) work through those mods' public
+Voice Chat, Distant Horizons, Emotecraft, WaterFrames, Create, Drop the Beam, Bobby, Iris) work through those mods'
 classes and APIs and include none of their code. Not affiliated with Mojang or Microsoft.
 
 ## Français
@@ -129,8 +131,11 @@ classes and APIs and include none of their code. Not affiliated with Mojang or M
 - **Acteurs** : ajouter des joueurs (n'importe quel skin, par pseudo) ou n'importe quelle entité, vanilla ou
   moddée, leur donner un équipement et une posture, et les animer par keyframes. L'enregistrement n'est
   jamais modifié, les acteurs sont stockés dans `project.json`.
+- **Fichiers de skin** : déposer des skins PNG (64x64) dans
+  `.minecraft/justreplay/skins/` et en donner un à un acteur joueur dans l'écran de l'acteur ("Skin file", avec
+  un interrupteur "Slim arms"). Aucun compte Mojang n'est nécessaire.
 - **Actions d'acteurs** : placer des actions datées sur un acteur (marcher, courir, frapper, attaquer,
-  dégâts, mort, sauter, s'asseoir, dormir, nager, élytres, utiliser un objet, bouclier, arc, manger, saluer,
+  dégâts, mort, sauter, s'asseoir, dormir, nager, élytres, utiliser un objet, bouclier, arc, manger, saluer, danser en rythme,
   regarder, se promener...) depuis le panneau des acteurs ou l'écran de l'acteur. Elles apparaissent sur la
   timeline et se rejouent à l'identique après une recherche dans le temps.
 - **Modèles Blockbench** : déposer des fichiers `.bbmodel` dans `.minecraft/justreplay/models/` et les
@@ -197,5 +202,5 @@ Le jar est créé dans `build/libs/`. `./gradlew runClient -Pselftest` lance un 
 
 Licence Apache 2.0, voir `LICENSE` et `NOTICE`. Le jar n'embarque aucun code tiers. FFmpeg est un programme
 externe que tu installes toi-même ; Just Replay ne fait que le lancer pour l'export vidéo. Les intégrations
-optionnelles (Simple Voice Chat, Distant Horizons, Emotecraft, WaterFrames, Create, Bobby, Iris) passent par les
-classes et API publiques de ces mods et n'incluent aucun de leur code. Projet non affilié à Mojang ou Microsoft.
+optionnelles (Simple Voice Chat, Distant Horizons, Emotecraft, WaterFrames, Create, Drop the Beam, Bobby, Iris) passent par les
+classes et API de ces mods et n'incluent aucun de leur code. Projet non affilié à Mojang ou Microsoft.

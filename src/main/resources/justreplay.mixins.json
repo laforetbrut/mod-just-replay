@@ -23,7 +23,11 @@
     "ZoglinAccessor",
     "HumanoidModelMixin",
     "ActorBedMixin",
-    "GameRendererFxMixin"
+    "ActorSkinMixin",
+    "GameRendererFxMixin",
+    "VertexBufferAccessor",
+    "LevelRendererSectionsAccessor",
+    "SectionOcclusionGraphAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

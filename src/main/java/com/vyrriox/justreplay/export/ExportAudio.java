@@ -40,6 +40,9 @@ import java.util.Map;
  * 0 shows the replay tick the capture started on, so a voice frame of tick {@code t} starts {@code (t - start) / 20}
  * seconds into the track, placed relative to the camera of the frame it starts on.
  * <p>
+ * Mods with a sound engine of their own (Drop the Beam) render their audio offline for each captured frame and add it
+ * with {@link #addRendered}; it is mixed with the game sounds and follows the same game volume and ducking.
+ * <p>
  * The audio tracks of the project are mixed last, sample accurately from the same start tick: the game sounds
  * get the game sound volume of the project, then the ducking lowers them and the voices under the clips, then
  * the clips are added. The tracks are frozen when capture starts, so later edits never change a running export.
@@ -59,6 +62,8 @@ public final class ExportAudio {
     private final int fps;
     private final List<Event> events = new ArrayList<>();
     private final List<CameraState> cameras = new ArrayList<>();
+    /** Interleaved stereo audio rendered offline by mods with their own sound engine (see {@link #addRendered}). */
+    private final FloatArrayList rendered = new FloatArrayList();
     private final ReplaySession session;
     private final VoiceTrack voices;
     private int voiceStartTick = -1;
@@ -113,7 +118,27 @@ public final class ExportAudio {
     }
 
     public boolean isEmpty() {
-        return events.isEmpty() && !hasVoices(cameras.size()) && !hasMusic(cameras.size());
+        return events.isEmpty() && rendered.isEmpty() && !hasVoices(cameras.size()) && !hasMusic(cameras.size());
+    }
+
+    /**
+     * Adds audio rendered offline by a mod with its own sound engine (stereo, 48 kHz, already placed relative to the
+     * camera), from sample {@code start} of the track (sample 0 is the first captured frame). It is a game sound: the
+     * project's game volume, mute and ducking apply to it.
+     */
+    public void addRendered(long start, float[] left, float[] right, int count) {
+        long end = (start + count) * 2;
+        if (start < 0 || end > Integer.MAX_VALUE - 8) {
+            return;
+        }
+        if (rendered.size() < end) {
+            rendered.size((int) end);
+        }
+        for (int i = 0; i < count; i++) {
+            int at = (int) ((start + i) * 2);
+            rendered.set(at, rendered.getFloat(at) + left[i]);
+            rendered.set(at + 1, rendered.getFloat(at + 1) + right[i]);
+        }
     }
 
     /** Copies the audio tracks and game sound settings the export mixes. */
@@ -227,6 +252,11 @@ public final class ExportAudio {
                 right[out] += r * gainR;
                 position += step;
             }
+        }
+        float renderedGain = gameGain();
+        for (int i = 0, n = Math.min(samples, rendered.size() / 2); i < n && renderedGain > 0.0F; i++) {
+            left[i] += rendered.getFloat(i * 2) * renderedGain;
+            right[i] += rendered.getFloat(i * 2 + 1) * renderedGain;
         }
         try {
             mixVoices(mc, left, right, frames);

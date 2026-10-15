@@ -34,6 +34,17 @@ neoForge {
                 jvmArgument '-Xmx8G'
                 systemProperty 'justreplay.checkpointTicks', '60'
             }
+            // Unattended recording of a world for test footage, see SceneRecorder.
+            if (project.hasProperty('scene') || project.hasProperty('sceneReplay')) {
+                systemProperty 'justreplay.scene', project.findProperty('scene') ?: ''
+                systemProperty 'justreplay.sceneReplay', project.findProperty('sceneReplay') ?: ''
+                systemProperty 'justreplay.sceneExport', project.findProperty('sceneExport') ?: ''
+                systemProperty 'justreplay.sceneShots', project.findProperty('sceneShots') ?: ''
+                systemProperty 'justreplay.sceneCommands', project.findProperty('sceneCommands') ?: ''
+                systemProperty 'justreplay.sceneSeconds', project.findProperty('sceneSeconds') ?: '60'
+                systemProperty 'justreplay.sceneDelay', project.findProperty('sceneDelay') ?: '5'
+                jvmArgument '-Xmx8G'
+            }
         }
         server {
             server()

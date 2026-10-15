@@ -12,7 +12,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Sitting and arm gestures of humanoid actors. Vanilla has no pose for them without a vehicle, so the model
+ * Sitting, arm gestures and dances of humanoid actors. Vanilla has no pose for them without a vehicle, so the model
  * is adjusted for actor entities only; every other entity is left untouched.
  *
  * @author vyrriox
@@ -38,5 +38,6 @@ public abstract class HumanoidModelMixin {
     private void justreplay$gesture(LivingEntity entity, float limbSwing, float limbSwingAmount, float ageInTicks, float netHeadYaw,
                                     float headPitch, CallbackInfo ci) {
         ActorAnimator.applyGesture(entity, ageInTicks, rightArm, leftArm);
+        ActorAnimator.applyDance(entity, (HumanoidModel<?>) (Object) this);
     }
 }

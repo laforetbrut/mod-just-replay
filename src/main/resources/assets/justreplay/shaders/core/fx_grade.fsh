@@ -82,9 +82,11 @@ void main() {
         } else if (op == 3) {
             c = mix(vec3(dot(c, LUMA)), c, a);
         } else if (op == 4) {
+            // Keeps the luminance; near black there is nothing to keep and dividing by it would blow up.
             float l = dot(c, LUMA);
-            c *= vec3(1.0 + 0.3 * a + 0.1 * b, 1.0 - 0.2 * b, 1.0 - 0.3 * a + 0.1 * b);
-            c *= l / max(dot(c, LUMA), 0.0001);
+            vec3 t = c * vec3(1.0 + 0.3 * a + 0.1 * b, 1.0 - 0.2 * b, 1.0 - 0.3 * a + 0.1 * b);
+            float lt = dot(t, LUMA);
+            c = lt > 0.001 ? t * (l / lt) : t;
         } else if (op == 5) {
             c = hueShift(c, a);
         } else if (op == 6) {
@@ -107,6 +109,8 @@ void main() {
                 c = mix(c, lut(c), a);
             }
         }
+        // Contrast and saturation push dark colours below zero; no later step expects negative light.
+        c = max(c, vec3(0.0));
     }
     if (Letterbox.x > 0.0 && Letterbox.y > 0.0) {
         if (Letterbox.x > aspect) {

@@ -7,6 +7,7 @@ import com.vyrriox.justreplay.replay.ReplaySession;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.protocol.Packet;
 import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModList;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -27,6 +28,7 @@ public final class ReplayCompat {
     static final boolean WATERFRAMES = isLoaded("waterframes");
     static final boolean EMOTECRAFT = isLoaded("emotecraft");
     static final boolean DISTANT_HORIZONS = isLoaded("distanthorizons");
+    static final boolean DROP_THE_BEAM = isLoaded("dropthebeam");
     private static final Set<String> FAILED = Collections.synchronizedSet(new HashSet<>());
 
     private ReplayCompat() {
@@ -93,6 +95,10 @@ public final class ReplayCompat {
         if (DISTANT_HORIZONS) {
             DistantHorizonsCompat.onReplayStart();
         }
+        if (DROP_THE_BEAM) {
+            ReplaySession session = ReplaySession.current();
+            DropTheBeamCompat.onReplayStart(session != null ? session.dir() : null);
+        }
     }
 
     /** Called every client tick of a running replay, after the playback tick. */
@@ -107,6 +113,13 @@ public final class ReplayCompat {
         if (DISTANT_HORIZONS) {
             DistantHorizonsCompat.tick();
         }
+        if (DROP_THE_BEAM) {
+            try {
+                DropTheBeamCompat.tick(mc, session);
+            } catch (Throwable t) {
+                warnOnce("dropthebeam.tick", "Drop the Beam sync failed", t);
+            }
+        }
     }
 
     /** Called when the replay session closes. */
@@ -116,6 +129,79 @@ public final class ReplayCompat {
         }
         if (DISTANT_HORIZONS) {
             DistantHorizonsCompat.onReplayEnd();
+        }
+        if (DROP_THE_BEAM) {
+            DropTheBeamCompat.onReplayEnd();
+        }
+    }
+
+    /**
+     * A recorded packet about to be handled at its recorded tick (seeks included): true when an integration consumed
+     * it and it must not reach the client (Drop the Beam's clock packets, which belong to the recording process).
+     */
+    public static boolean consumeRecorded(Packet<?> packet, int tick) {
+        return DROP_THE_BEAM && DropTheBeamCompat.consumeRecorded(packet, tick);
+    }
+
+    /** A packet the client is about to send to the replay host: true to drop it (requests of mods with no server there). */
+    public static boolean blockServerbound(Packet<?> packet) {
+        return DROP_THE_BEAM && DropTheBeamCompat.blockServerbound(packet);
+    }
+
+    // ---------------------------------------------------------------- recording hooks
+
+    /** A clientbound packet of a live (recorded) connection, on the network thread; {@code newConnection} on its first. */
+    public static void onLivePacket(Packet<?> packet, boolean newConnection) {
+        if (!DROP_THE_BEAM) {
+            return;
+        }
+        if (newConnection) {
+            DropTheBeamCompat.clearCache();
+        }
+        DropTheBeamCompat.track(packet);
+    }
+
+    /** Mod state a snapshot or checkpoint must write because the server sends it only on a change. */
+    public static void writeSnapshot(java.util.function.Consumer<Packet<?>> out) {
+        if (DROP_THE_BEAM) {
+            try {
+                DropTheBeamCompat.writeSnapshot(out);
+            } catch (Throwable t) {
+                warnOnce("dropthebeam.snapshot", "Cannot write the Drop the Beam state into the snapshot", t);
+            }
+        }
+    }
+
+    /** A synthetic packet to record on this capture tick (a mod clock sample), or null. */
+    public static Packet<?> recordTick(int captureTick) {
+        return DROP_THE_BEAM ? DropTheBeamCompat.sampleForTick(captureTick) : null;
+    }
+
+    // ---------------------------------------------------------------- export hooks
+
+    /** An export starts (before its pre-roll). */
+    public static void onExportStart() {
+        if (DROP_THE_BEAM) {
+            DropTheBeamCompat.beginExport();
+        }
+    }
+
+    /** An export ended, finished or not. */
+    public static void onExportEnd() {
+        if (DROP_THE_BEAM) {
+            DropTheBeamCompat.endExport();
+        }
+    }
+
+    /** A frame was captured: integrations with their own audio engine render its stretch into the export mix. */
+    public static void onExportFrame(com.vyrriox.justreplay.export.ExportAudio audio, int frame, int fps, double x, double y, double z,
+                                     float yaw, float partialTick) {
+        if (DROP_THE_BEAM) {
+            try {
+                DropTheBeamCompat.onExportFrame(audio, frame, fps, x, y, z, yaw, partialTick);
+            } catch (Throwable t) {
+                warnOnce("dropthebeam.export", "Cannot render Drop the Beam's audio for the export", t);
+            }
         }
     }
 
@@ -133,6 +219,19 @@ public final class ReplayCompat {
     @EventBusSubscriber(modid = JustReplay.MOD_ID, value = Dist.CLIENT)
     public static final class Events {
         private Events() {
+        }
+
+        /** Before anything renders (mods read their clock while rendering): integration clocks move to this frame. */
+        @SubscribeEvent(priority = EventPriority.HIGHEST)
+        public static void onRenderFrameFirst(RenderFrameEvent.Pre event) {
+            if (!DROP_THE_BEAM) {
+                return;
+            }
+            try {
+                DropTheBeamCompat.onFrame(event.getPartialTick().getGameTimeDeltaPartialTick(false));
+            } catch (Throwable t) {
+                warnOnce("dropthebeam.frame", "Drop the Beam clock sync failed", t);
+            }
         }
 
         /** Exports render frames faster or slower than real time: in-world videos are moved to each frame's time. */

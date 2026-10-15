@@ -59,12 +59,20 @@ public final class JustReplayClient {
     @EventBusSubscriber(modid = JustReplay.MOD_ID, value = Dist.CLIENT)
     public static final class GameEvents {
         @SubscribeEvent
+        public static void onNameTag(net.neoforged.neoforge.client.event.RenderNameTagEvent event) {
+            if (com.vyrriox.justreplay.editor.ActorManager.hidesName(event.getEntity())) {
+                event.setCanRender(net.neoforged.neoforge.common.util.TriState.FALSE);
+            }
+        }
+
+        @SubscribeEvent
         public static void onTick(ClientTickEvent.Post event) {
             Minecraft mc = Minecraft.getInstance();
             Recorder.clientTickAll(mc);
             ReplaySession.clientTick(mc);
             handleKeys(mc);
             SelfTest.tick(mc);
+            SceneRecorder.tick(mc);
         }
 
         @SubscribeEvent
@@ -128,6 +136,7 @@ public final class JustReplayClient {
 
         @SubscribeEvent
         public static void onRenderFramePre(RenderFrameEvent.Pre event) {
+            com.vyrriox.justreplay.replay.SectionRepair.beforeFrame(Minecraft.getInstance());
             ReplaySession session = ReplaySession.current();
             if (session != null && session.spectate().isActive() && session.isCameraPathActive()) {
                 // A camera path or an export started this tick: never render it from a spectated entity.

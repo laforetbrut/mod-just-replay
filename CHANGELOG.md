@@ -4,6 +4,31 @@
 
 ### [Unreleased]
 
+### [1.0.3] - 2026-10-15
+
+#### Added
+- Optional Drop the Beam support: its music, light desk cues and video screens follow the replay clock (pause,
+  speed, seeks). A recording started mid-session carries the turntable, mix and show state. The music is silent
+  while the replay is paused or away from x1, follows the game sound volume, mute and ducking of the project,
+  and is part of the video export audio, placed relative to the camera. The tick where each song starts is
+  logged and available to the editor.
+- **Dance** actor action: humanoid actors dance on a beat grid ("style|bpm|beat tick") in ten styles
+  (bounce, fist pump, hands up, wave, shuffle, headbang, jump, DJ, hakken, jumpstyle), smooth between ticks and on the beat in
+  exports, with a slightly different energy and timing per actor so a crowd never moves as one body.
+- Player actors can wear a skin file: drop PNG skins (64x64) in `.minecraft/justreplay/skins/`
+  and pick one in the actor screen, with a "Slim arms" switch for the arm model. No Mojang lookup is made for
+  such an actor. A missing or broken file logs one warning and the actor keeps the default skin.
+
+#### Fixed
+- With Drop the Beam's camera screens in view, a replay could crash on its first frame or show no terrain at all:
+  the level renderer is now put back on its current section grid when another view left it on a released one.
+- Colour grading no longer turns the darkest areas into bright noise when contrast or saturation and the
+  temperature filter are combined.
+- Player actors with "Show name" switched off no longer show their name tag.
+- Projects with many named player actors no longer have their skin lookups refused by Mojang (HTTP 429): the
+  lookups are queued, two per tick, and a failed one is retried once after five seconds. Actors wear the
+  default skin until their turn.
+
 ### [1.0.2] - 2026-10-15
 
 #### Fixed
@@ -126,6 +151,35 @@
 ## Français
 
 ### [Non publié]
+
+### [1.0.3] - 2026-10-15
+
+#### Ajouté
+- Compatibilité optionnelle avec Drop the Beam : la musique, les cues de la console lumière et les écrans vidéo
+  suivent l'horloge du replay (pause, vitesse, sauts dans le temps). Un enregistrement démarré en cours de
+  partie contient l'état des platines, des mixages et des shows. La musique se tait quand le replay est en pause
+  ou hors x1, suit le volume des sons du jeu, leur coupure et l'atténuation du projet, et figure dans l'audio des
+  exports vidéo, placée par rapport à la caméra. Le tick de début de chaque morceau est écrit dans le journal et
+  disponible pour l'éditeur.
+- Action d'acteur **Danse** : les acteurs humanoïdes dansent sur une grille de temps (« style|bpm|tick d'un
+  temps ») dans dix styles (rebond, poing levé, mains en l'air, vague, shuffle, headbang, saut, DJ, hakken, jumpstyle), fluides
+  entre les ticks et calés sur le temps dans les exports, avec une énergie et un timing un peu différents par
+  acteur pour qu'une foule ne bouge jamais d'un seul bloc.
+- Les acteurs joueurs peuvent porter un fichier de skin : déposer des skins PNG (64x64)
+  dans `.minecraft/justreplay/skins/` et en choisir un dans l'écran de l'acteur, avec un interrupteur
+  "Slim arms" pour le modèle des bras. Aucune requête Mojang n'est faite pour un tel acteur. Un fichier absent ou
+  illisible écrit un seul avertissement et l'acteur garde le skin par défaut.
+
+#### Corrigé
+- Avec les écrans caméra de Drop the Beam en vue, un replay pouvait planter dès la première image ou n'afficher
+  aucun terrain : le rendu du monde est remis sur sa grille de sections actuelle quand une autre vue l'a laissé
+  sur une grille libérée.
+- L'étalonnage ne transforme plus les zones les plus sombres en bruit vif quand le contraste ou la saturation
+  sont combinés au filtre de température.
+- Les acteurs joueurs dont « Afficher le nom » est désactivé n'affichent plus leur nom.
+- Les projets avec beaucoup d'acteurs joueurs nommés ne voient plus leurs requêtes de skin refusées par Mojang
+  (HTTP 429) : les requêtes passent dans une file, deux par tick, et une requête échouée est retentée une fois
+  après cinq secondes. Les acteurs portent le skin par défaut en attendant leur tour.
 
 ### [1.0.2] - 2026-10-15
 

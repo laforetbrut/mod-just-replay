@@ -305,6 +305,7 @@ public final class SelfTest {
                 s.playback().seek(190);
                 s.playback().seek(130);
                 logWorld(mc, s, "after checkpoint seek to 130");
+                Mods.logDropTheBeam("after checkpoint seek to 130");
                 s.playback().seek(20);
                 s.jumpToRecorder(mc);
                 Vec3 c = p.position();
@@ -605,6 +606,7 @@ public final class SelfTest {
                 log("export audio clips mixed={} (expected 2), audio mux log={}", com.vyrriox.justreplay.export.ExportAudio.lastMixedClips(),
                         Files.exists(ReplayStorage.exportRoot().resolve("selftest.mp4.audio.log")));
                 log("mods after export: {}", Mods.state(mc, ReplaySession.current()));
+                Mods.logDropTheBeam("after export");
                 log("export frames showing overlays: {} ({} overlays in the project)",
                         com.vyrriox.justreplay.editor.overlay.OverlayRenderer.exportFrames(), ReplaySession.current().project().overlays.size());
                 mc.level.disconnect();
@@ -969,6 +971,20 @@ public final class SelfTest {
             } catch (Throwable t) {
                 return -1;
             }
+        }
+
+        /** Drop the Beam's replay clock, voices, song starts and exported audio; nothing when it is absent. */
+        static void logDropTheBeam(String label) {
+            if (!loaded("dropthebeam")) {
+                return;
+            }
+            log("dropthebeam {}: clock samples={} mapped tick 20={} tick 100={} voices={} song starts={} last export={}", label,
+                    com.vyrriox.justreplay.compat.DropTheBeamCompat.clockSamples(),
+                    com.vyrriox.justreplay.compat.DropTheBeamCompat.mappedNanos(20),
+                    com.vyrriox.justreplay.compat.DropTheBeamCompat.mappedNanos(100),
+                    com.vyrriox.justreplay.compat.DropTheBeamCompat.voiceCount(),
+                    com.vyrriox.justreplay.compat.DropTheBeamCompat.songStartTicks().size(),
+                    com.vyrriox.justreplay.compat.DropTheBeamCompat.lastExport());
         }
 
         static String state(Minecraft mc, ReplaySession s) {

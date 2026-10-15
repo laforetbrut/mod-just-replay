@@ -2,6 +2,7 @@ package com.vyrriox.justreplay.gui;
 
 import com.vyrriox.justreplay.editor.ActionType;
 import com.vyrriox.justreplay.editor.ReplayProject;
+import com.vyrriox.justreplay.editor.SkinLibrary;
 import com.vyrriox.justreplay.editor.model.ModelLibrary;
 import com.vyrriox.justreplay.gui.ui.Dropdown;
 import com.vyrriox.justreplay.gui.ui.Form;
@@ -16,6 +17,7 @@ import com.vyrriox.justreplay.gui.ui.ScrollArea;
 import com.vyrriox.justreplay.gui.ui.Segmented;
 import com.vyrriox.justreplay.gui.ui.Theme;
 import com.vyrriox.justreplay.replay.ReplaySession;
+import net.minecraft.Util;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.CommonComponents;
@@ -42,6 +44,9 @@ public class ActorScreen extends GlassScreen {
     private Pose pose;
     private boolean visible;
     private boolean showName;
+    /** Skin file of a player actor, empty for the skin of the account named by the name field. */
+    private String skinFile;
+    private boolean slim;
     /** Field values kept across the two pages. */
     private final String[] values;
 
@@ -65,6 +70,8 @@ public class ActorScreen extends GlassScreen {
         this.actor = actor;
         this.visible = actor.visible;
         this.showName = actor.showName;
+        this.skinFile = actor.skin == null ? "" : actor.skin;
+        this.slim = actor.slim;
         Pose p;
         try {
             p = Pose.valueOf(actor.pose);
@@ -143,6 +150,18 @@ public class ActorScreen extends GlassScreen {
         GlassTextField[] row = pair(f, 0, "justreplay.actor.type", 1, "justreplay.actor.name");
         type = row[0];
         name = row[1];
+        f.caption(Component.translatable("justreplay.actor.skinfile"), 0, 2);
+        f.next(9);
+        int skinW = f.cellWidth(1, 2);
+        f.at(new GlassButton(skinLabel(), b -> {
+            cycleSkin();
+            b.setMessage(skinLabel());
+        }).icon(Icon.PERSON).tip(Component.translatable("justreplay.actor.skinfile.tip")), 0, skinW - Theme.ROW - 2);
+        f.at(new GlassButton(Component.empty(), b -> Util.getPlatform().openPath(SkinLibrary.folder())).icon(Icon.FOLDER)
+                .tip(Component.translatable("justreplay.actor.skinfile.folder")), skinW - Theme.ROW, Theme.ROW);
+        f.at(new GlassSwitch(Component.translatable("justreplay.actor.slim"), () -> slim, () -> slim = !slim).icon(Icon.PERSON)
+                .tip(Component.translatable("justreplay.actor.slim.tip")), f.cellX(1, 2), skinW);
+        f.next();
         f.header(Component.translatable("justreplay.actor.section.equipment"), Icon.PUZZLE);
         row = pair(f, 2, "justreplay.actor.mainhand", 3, "justreplay.actor.offhand");
         mainHand = row[0];
@@ -182,6 +201,19 @@ public class ActorScreen extends GlassScreen {
         f.put(new GlassSwitch(Component.translatable("justreplay.actor.showname"), () -> showName, () -> showName = !showName)
                 .icon(Icon.EDIT), 1, 2);
         f.next();
+    }
+
+    private Component skinLabel() {
+        return skinFile.isBlank() ? Component.translatable("justreplay.actor.skinfile.none") : Component.literal(skinFile);
+    }
+
+    /** Next entry of: none, then every PNG of the skins folder. */
+    private void cycleSkin() {
+        List<String> files = new ArrayList<>();
+        files.add("");
+        files.addAll(SkinLibrary.list());
+        int index = files.indexOf(skinFile);
+        skinFile = files.get((index + 1) % files.size());
     }
 
     private void initActions(Form f) {
@@ -332,6 +364,8 @@ public class ActorScreen extends GlassScreen {
         actor.pose = pose.name();
         actor.visible = visible;
         actor.showName = showName;
+        actor.skin = skinFile;
+        actor.slim = slim;
         actor.actions = new ArrayList<>(actions);
         actor.sort();
         session.actors().refresh(actor);

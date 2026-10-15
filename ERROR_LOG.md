@@ -28,3 +28,17 @@
 **Root cause:** PowerShell 5.1 writes UTF-8 with a BOM.
 **Fix:** stripped the BOM with sed.
 **Prevention:** edit sources with the Edit/Write tools or sed, never PowerShell `Set-Content`.
+
+## [2026-10-15 18:00] — FFmpeg quit during a self-test export
+**Context:** vanilla self-test run after the Drop the Beam work (no Drop the Beam jar loaded).
+**Error:** `FFmpeg stopped accepting frames` / `java.io.IOException: Le canal de communication a été fermé`; FFmpeg's own log stops at frame 62 with no error line, the export is marked failed and the audio is not muxed.
+**Root cause:** not found. The FFmpeg process ended on its own; the same test passed right before (with Drop the Beam) and right after, unchanged.
+**Fix:** none needed for the run; the self-test was run again and passed.
+**Prevention:** if it happens again, keep the FFmpeg log and check for an external kill or a crash of ffmpeg.exe in the Windows event log before changing the exporter.
+
+## [2026-10-15 18:20] — Showcase recorded without Drop the Beam
+**Context:** re-recording the Drop the Beam showcase world for the clip, right after a vanilla self-test.
+**Error:** the replay opened with no Drop the Beam clock lines; the world had been opened and saved without the mod.
+**Root cause:** the Drop the Beam jar had been moved out of `run/mods` for the vanilla self-test and was not put back. Opening the world without the mod drops its blocks and saves the loss.
+**Fix:** restored the world from the Drop the Beam showcase build, put the jar back, recorded again.
+**Prevention:** before any run on a modded world, list `run/mods` and check the "Drop the Beam detected" log line; keep a pristine copy of test worlds and copy from it for each run.

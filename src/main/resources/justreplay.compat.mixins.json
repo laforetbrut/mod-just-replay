@@ -3,12 +3,17 @@
   "minVersion": "0.8",
   "package": "com.vyrriox.justreplay.mixin.compat",
   "compatibilityLevel": "JAVA_21",
+  "plugin": "com.vyrriox.justreplay.mixin.compat.CompatMixinPlugin",
   "client": [
     "BobbyMixin",
     "CatnipAnimationTickHolderMixin",
+    "DropTheBeamAudioMixin",
+    "DropTheBeamClockMixin",
+    "DropTheBeamPauseMixin",
     "LevelRendererClockMixin",
     "PlayerAnimKeyframeMixin",
     "PlayerAnimStackMixin",
+    "SectionBufferGuardMixin",
     "WaterFramesControlMixin",
     "WaterFramesDataMixin"
   ],

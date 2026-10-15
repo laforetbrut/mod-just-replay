@@ -56,7 +56,12 @@ public enum ActionType {
     /** Sends a vanilla entity event byte (the parameter) to the entity when the play head passes it. */
     ENTITY_EVENT("EV", Kind.ONE_SHOT, 0, "4"),
     /** Plays an Emotecraft emote on a player actor; the parameter is the emote name (or UUID). Needs Emotecraft. */
-    EMOTE("EM", Kind.STATE, 0, "waving");
+    EMOTE("EM", Kind.STATE, 0, "waving"),
+    /**
+     * Dances on a beat: "style|bpm|origin", origin being the replay tick (decimals allowed) of a beat. Styles: bounce,
+     * pump, hands, wave, shuffle, headbang, jump, dj, hakken, jumpstyle. Humanoid actors only.
+     */
+    DANCE("DA", Kind.STATE, 0, "bounce|128|0");
 
     public enum Kind { ONE_SHOT, STATE, MARKER }
 
