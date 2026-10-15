@@ -15,7 +15,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.Pose;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -44,6 +43,7 @@ public final class ActorManager {
     private final Map<String, GameProfile> profiles = new HashMap<>();
     private int nextId = -1000;
     private final java.util.Set<String> failed = new java.util.HashSet<>();
+    private final ActorAnimator animator = new ActorAnimator();
 
     public ActorManager(ReplaySession session) {
         this.session = session;
@@ -58,15 +58,28 @@ public final class ActorManager {
         return spawned.get(actor.id);
     }
 
-    /** Forces an actor to be rebuilt, after its type, skin or equipment changed. */
+    /** Forces an actor to be rebuilt, after its type, skin, model or equipment changed. */
     public void refresh(ReplayProject.ActorData actor) {
         failed.remove(actor.id);
         Entity entity = spawned.remove(actor.id);
-        if (entity != null && Minecraft.getInstance().level != null) {
-            Minecraft.getInstance().level.removeEntity(entity.getId(), Entity.RemovalReason.DISCARDED);
+        if (entity != null) {
+            forgetEntity(entity);
+            if (Minecraft.getInstance().level != null) {
+                Minecraft.getInstance().level.removeEntity(entity.getId(), Entity.RemovalReason.DISCARDED);
+            }
         }
         profiles.remove(actor.id);
         lookups.remove(actor.id);
+        animator.forget(actor);
+        if (actor.isModel()) {
+            // Picks up a model file edited in Blockbench meanwhile.
+            com.vyrriox.justreplay.editor.model.ModelLibrary.reload(actor.model);
+        }
+    }
+
+    private static void forgetEntity(Entity entity) {
+        ActorAnimator.forget(entity);
+        com.vyrriox.justreplay.editor.model.ModelRenderer.unregister(entity.getId());
     }
 
     public void remove(ReplayProject.ActorData actor) {
@@ -83,6 +96,12 @@ public final class ActorManager {
         boolean paused = session.playback().isPaused();
         for (ReplayProject.ActorData actor : session.project().actors) {
             Entity entity = spawned.get(actor.id);
+            if (entity != null && (entity.isRemoved() || entity.level() != level)) {
+                // The world was reset by a seek or a dimension change: the old entity is gone.
+                forgetEntity(entity);
+                spawned.remove(actor.id);
+                entity = null;
+            }
             if (!actor.visible) {
                 if (entity != null) {
                     refresh(actor);
@@ -122,6 +141,13 @@ public final class ActorManager {
                         List.of(new PlayerInfoPackets.Info(profile.getId(), profile, GameType.SURVIVAL, false, 0, null))));
             }
             entity = new RemotePlayer(level, profile);
+        } else if (actor.isModel()) {
+            // An invisible armor stand carries the Blockbench model; ModelRenderer draws the model instead of it.
+            net.minecraft.world.entity.decoration.ArmorStand stand = new net.minecraft.world.entity.decoration.ArmorStand(EntityType.ARMOR_STAND, level);
+            stand.setInvisible(true);
+            stand.setNoBasePlate(true);
+            stand.noCulling = true;
+            entity = stand;
         } else {
             Optional<EntityType<?>> type = EntityType.byString(actor.type);
             if (type.isEmpty()) {
@@ -143,7 +169,7 @@ public final class ActorManager {
         }
         entity.setId(ids.computeIfAbsent(actor.id, k -> nextId--));
         entity.setNoGravity(true);
-        if (entity instanceof LivingEntity living) {
+        if (entity instanceof LivingEntity living && !actor.isModel()) {
             equip(living, EquipmentSlot.MAINHAND, actor.mainHand);
             equip(living, EquipmentSlot.OFFHAND, actor.offHand);
             equip(living, EquipmentSlot.HEAD, actor.head);
@@ -158,6 +184,9 @@ public final class ActorManager {
             entity.moveTo(mc.player.getX(), mc.player.getY(), mc.player.getZ(), mc.player.getYRot(), 0);
         }
         level.addEntity(entity);
+        if (actor.isModel()) {
+            com.vyrriox.justreplay.editor.model.ModelRenderer.register(entity.getId(), actor);
+        }
         return entity;
     }
 
@@ -194,6 +223,9 @@ public final class ActorManager {
             String id = actor.id;
             lookup.thenRun(() -> Minecraft.getInstance().execute(() -> {
                 Entity e = spawned.remove(id);
+                if (e != null) {
+                    forgetEntity(e);
+                }
                 if (e != null && Minecraft.getInstance().level != null) {
                     Minecraft.getInstance().level.removeEntity(e.getId(), Entity.RemovalReason.DISCARDED);
                 }
@@ -209,41 +241,6 @@ public final class ActorManager {
     }
 
     private void animate(ReplayProject.ActorData actor, Entity entity, int cursor, boolean paused) {
-        Pose pose = parsePose(actor.pose);
-        entity.setPose(pose);
-        entity.setShiftKeyDown(pose == Pose.CROUCHING);
-        if (actor.keyframes.isEmpty()) {
-            entity.setOldPosAndRot();
-            return;
-        }
-        double[] now = Interpolation.actor(actor.keyframes, cursor);
-        double[] before = paused ? now : Interpolation.actor(actor.keyframes, cursor - 1);
-        entity.xo = entity.xOld = before[0];
-        entity.yo = entity.yOld = before[1];
-        entity.zo = entity.zOld = before[2];
-        entity.yRotO = (float) before[3];
-        entity.xRotO = (float) before[4];
-        entity.setPos(now[0], now[1], now[2]);
-        entity.setYRot((float) now[3]);
-        entity.setXRot((float) now[4]);
-        entity.setDeltaMovement(0, 0, 0);
-        if (entity instanceof LivingEntity living) {
-            living.yHeadRotO = (float) before[3];
-            living.yBodyRotO = (float) before[3];
-            living.setYHeadRot((float) now[3]);
-            living.yBodyRot = (float) now[3];
-            double dx = now[0] - before[0];
-            double dz = now[2] - before[2];
-            float speed = (float) Math.min(1.0, Math.sqrt(dx * dx + dz * dz) * 4.0);
-            living.walkAnimation.update(speed, 0.4F);
-        }
-    }
-
-    private static Pose parsePose(String name) {
-        try {
-            return Pose.valueOf(name);
-        } catch (Exception e) {
-            return Pose.STANDING;
-        }
+        animator.apply(actor, session.project(), entity, cursor, paused);
     }
 }

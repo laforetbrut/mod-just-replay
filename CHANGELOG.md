@@ -14,6 +14,11 @@
 - Editor: timeline, markers, camera keyframes with roll and FOV, Catmull-Rom camera path, draggable
   keyframes.
 - Actors: players with any skin and any entity type, equipment, pose, visibility, keyframed motion.
+- Actor actions on the timeline: walk and run cycles, swings, attacks (mob attack animations included), hurt
+  flash, death, jump, crouch, sit, sleep, swim, elytra, spin attack, item use, shield, bow, eating, gestures,
+  look at an actor or the camera, look around, wander. Seeking shows the same pose as playing.
+- Blockbench model actors: `.bbmodel` files from `justreplay/models/` with their textures and animations,
+  drawn in the world (shaders and video export included). An example model is provided.
 - Video export to MP4 through FFmpeg with a fixed time step, with an audio track: the sounds of the replay are logged during the export and mixed in stereo relative to the camera, in sync with every frame.
 - Camera path shapes: Curve (through every keyframe), Bezier (rounded corners, smoothest) and Linear.
 - Constant speed camera paths with optional smooth start and stop: only the first and last keyframe times matter.
@@ -53,6 +58,12 @@
   déplaçables.
 - Acteurs : joueurs avec n'importe quel skin et n'importe quel type d'entité, équipement, posture,
   visibilité, mouvement par keyframes.
+- Actions d'acteurs sur la timeline : marche et course, coups, attaques (animations d'attaque des mobs
+  comprises), dégâts, mort, saut, accroupi, assis, sommeil, nage, élytres, attaque tournoyante, utilisation
+  d'objet, bouclier, arc, manger, gestes, regarder un acteur ou la caméra, regarder autour, se promener. Une
+  recherche dans le temps montre la même pose que la lecture.
+- Acteurs modèles Blockbench : fichiers `.bbmodel` du dossier `justreplay/models/` avec leurs textures et
+  animations, dessinés dans le monde (shaders et export vidéo compris). Un modèle d'exemple est fourni.
 - Export vidéo MP4 via FFmpeg avec un pas de temps fixe, avec une piste audio : les sons du replay sont relevés pendant l'export et mixés en stéréo selon la position de la caméra, synchronisés à chaque image.
 - Formes de chemin de caméra : Courbe (passe par chaque keyframe), Bézier (angles arrondis, le plus fluide) et Linéaire.
 - Chemins de caméra à vitesse constante avec départ et arrêt en douceur : seuls les temps du premier et du dernier keyframe comptent.

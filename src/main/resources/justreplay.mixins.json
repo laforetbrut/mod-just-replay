@@ -12,7 +12,15 @@
     "BossHealthOverlayAccessor",
     "PlayerTabOverlayAccessor",
     "WindowMixin",
-    "MinecraftBlitMixin"
+    "MinecraftBlitMixin",
+    "LivingEntityAccessor",
+    "EntityInvoker",
+    "WalkAnimationStateAccessor",
+    "IronGolemAccessor",
+    "RavagerAccessor",
+    "HoglinAccessor",
+    "ZoglinAccessor",
+    "HumanoidModelMixin"
   ],
   "injectors": {
     "defaultRequire": 1

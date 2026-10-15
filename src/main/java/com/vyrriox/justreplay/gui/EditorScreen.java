@@ -33,7 +33,12 @@ public class EditorScreen extends Screen {
     private ReplayProject.CameraKeyframe selectedCamera;
     private ReplayProject.ActorData selectedActor;
     private ReplayProject.ActorKeyframe selectedActorKey;
+    private ReplayProject.ActorAction selectedAction;
+    private com.vyrriox.justreplay.editor.ActionType actionType = com.vyrriox.justreplay.editor.ActionType.WAVE;
     private int actorScroll;
+    private int actionScroll;
+    private int actionListY;
+    private int actorPanelBottom;
 
     private int tlX, tlY, tlW, tlH;
     private boolean scrubbing;
@@ -139,8 +144,9 @@ public class EditorScreen extends Screen {
         // Actor panel
         int ax = width - 8 - panelW;
         int ay = 16;
-        button(ax, ay, half, tr("justreplay.editor.actor.player"), b -> addPlayerActor());
-        button(ax + half + 2, ay, half, tr("justreplay.editor.actor.entity"), b -> addEntityActor());
+        button(ax, ay, third, tr("justreplay.editor.actor.player"), b -> addPlayerActor());
+        button(ax + third + 2, ay, third, tr("justreplay.editor.actor.entity"), b -> addEntityActor());
+        button(ax + 2 * third + 4, ay, third, tr("justreplay.editor.actor.model"), b -> addModelActor());
         ay += ROW;
         button(ax, ay, third, tr("justreplay.editor.actor.keyframe"), b -> keyframeActor());
         button(ax + third + 2, ay, third, tr("justreplay.editor.actor.edit"), b -> {
@@ -153,21 +159,64 @@ public class EditorScreen extends Screen {
                 confirm(Component.translatable("justreplay.editor.actor.delete.confirm"), this::deleteActor);
             }
         });
+        ay += ROW;
+        // Actions of the selected actor: type, add at the play head, delete the selected one.
+        addRenderableWidget(net.minecraft.client.gui.components.CycleButton.builder(
+                        (com.vyrriox.justreplay.editor.ActionType t) -> Component.translatable(t.translationKey()))
+                .withValues(com.vyrriox.justreplay.editor.ActionType.values()).withInitialValue(actionType).displayOnlyValue()
+                .create(ax, ay, half, ROW - 2, Component.translatable("justreplay.actor.action.type"), (b, v) -> actionType = v))
+                .setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("justreplay.editor.actor.action.tip")));
+        int quarterRight = (panelW - half - 4) / 2;
+        button(ax + half + 2, ay, quarterRight, tr("justreplay.editor.actor.action.add"), b -> addAction());
+        button(ax + half + 4 + quarterRight, ay, quarterRight, tr("justreplay.editor.actor.action.delete"), b -> deleteAction());
         ay += ROW + 4;
         actorListY = ay;
-        actorRows = Math.max(1, (height - 64 - ay) / ROW);
+        int available = Math.max(1, (height - 64 - ay) / ROW);
         List<ReplayProject.ActorData> actors = session.project().actors;
+        boolean showActions = selectedActor != null && !selectedActor.actions.isEmpty();
+        actorRows = showActions ? Math.max(1, Math.min(Math.max(1, actors.size()), available / 2)) : available;
         actorScroll = Math.max(0, Math.min(actorScroll, Math.max(0, actors.size() - actorRows)));
         for (int i = actorScroll; i < Math.min(actors.size(), actorScroll + actorRows); i++) {
             ReplayProject.ActorData actor = actors.get(i);
             Button b = button(ax, ay, panelW, actorLabel(actor), btn -> {
                 selectedActor = actor;
                 selectedActorKey = null;
+                selectedAction = null;
+                actionScroll = 0;
                 rebuildWidgets();
             });
             actorButtons.add(b);
             ay += ROW;
         }
+        int shownActors = Math.min(actorRows, Math.max(1, actors.size() - actorScroll));
+        actorPanelBottom = actorListY + shownActors * ROW + 2;
+        actionListY = actorListY + shownActors * ROW + 4;
+        if (showActions) {
+            List<ReplayProject.ActorAction> actions = selectedActor.actions;
+            int actionRows = Math.max(1, (height - 64 - actionListY) / ROW);
+            actionScroll = Math.max(0, Math.min(actionScroll, Math.max(0, actions.size() - actionRows)));
+            ay = actionListY;
+            for (int i = actionScroll; i < Math.min(actions.size(), actionScroll + actionRows); i++) {
+                ReplayProject.ActorAction action = actions.get(i);
+                button(ax, ay, panelW, actionLabel(action), btn -> {
+                    selectedAction = action;
+                    selectedActorKey = null;
+                    selectedCamera = null;
+                    session.playback().seek(action.tick);
+                    rebuildWidgets();
+                });
+                ay += ROW;
+            }
+            actorPanelBottom = ay + 2;
+        }
+    }
+
+    private String actionLabel(ReplayProject.ActorAction action) {
+        String label = Timeline.formatTicks(action.tick) + " " + Component.translatable(action.actionType().translationKey()).getString();
+        if (action.param != null && !action.param.isBlank()) {
+            label += " " + action.param;
+        }
+        return (action == selectedAction ? "> " : "") + label;
     }
 
     private CameraPath.Curve curve() {
@@ -296,6 +345,10 @@ public class EditorScreen extends Screen {
         } else if (selectedActor != null && selectedActorKey != null) {
             selectedActor.keyframes.remove(selectedActorKey);
             selectedActorKey = null;
+        } else if (selectedActor != null && selectedAction != null) {
+            selectedActor.actions.remove(selectedAction);
+            selectedAction = null;
+            rebuildWidgets();
         } else {
             int cursor = session.playback().cursor();
             session.project().markers.removeIf(m -> Math.abs(m.tick - cursor) <= 2);
@@ -336,6 +389,52 @@ public class EditorScreen extends Screen {
         }));
     }
 
+    private void addModelActor() {
+        minecraft.setScreen(new ModelPickScreen(this, file -> {
+            ReplayProject.ActorData actor = new ReplayProject.ActorData();
+            actor.type = ReplayProject.ActorData.MODEL;
+            actor.model = file;
+            actor.name = file.endsWith(com.vyrriox.justreplay.editor.model.ModelLibrary.EXTENSION)
+                    ? file.substring(0, file.length() - com.vyrriox.justreplay.editor.model.ModelLibrary.EXTENSION.length()) : file;
+            for (String animation : com.vyrriox.justreplay.editor.model.ModelLibrary.animations(file)) {
+                // A model usually has an idle loop: make it the default animation.
+                if (animation.toLowerCase(java.util.Locale.ROOT).contains("idle")) {
+                    actor.modelAnimation = animation;
+                    break;
+                }
+            }
+            addActor(actor);
+        }));
+    }
+
+    private void addAction() {
+        if (selectedActor == null) {
+            return;
+        }
+        String param = actionType.defaultParam;
+        if (actionType == com.vyrriox.justreplay.editor.ActionType.ANIMATION && selectedActor.isModel()) {
+            List<String> animations = com.vyrriox.justreplay.editor.model.ModelLibrary.animations(selectedActor.model);
+            param = animations.isEmpty() ? "" : animations.get(0) + "|once";
+        }
+        ReplayProject.ActorAction action = new ReplayProject.ActorAction(session.playback().cursor(), actionType, 0, param);
+        selectedActor.actions.add(action);
+        selectedActor.sort();
+        selectedAction = action;
+        selectedActorKey = null;
+        selectedCamera = null;
+        session.saveProject();
+        rebuildWidgets();
+    }
+
+    private void deleteAction() {
+        if (selectedActor != null && selectedAction != null) {
+            selectedActor.actions.remove(selectedAction);
+            selectedAction = null;
+            session.saveProject();
+            rebuildWidgets();
+        }
+    }
+
     private void addActor(ReplayProject.ActorData actor) {
         LocalPlayer p = minecraft.player;
         if (p != null) {
@@ -345,6 +444,7 @@ public class EditorScreen extends Screen {
         session.project().actors.add(actor);
         selectedActor = actor;
         selectedActorKey = null;
+        selectedAction = null;
         actorScroll = Math.max(0, session.project().actors.size() - actorRows);
         session.saveProject();
     }
@@ -380,6 +480,7 @@ public class EditorScreen extends Screen {
         session.project().actors.remove(selectedActor);
         selectedActor = null;
         selectedActorKey = null;
+        selectedAction = null;
         session.saveProject();
         rebuildWidgets();
     }
@@ -411,7 +512,17 @@ public class EditorScreen extends Screen {
                     if (Math.abs(Timeline.xOf(k.tick, tlX, tlW, duration) - mx) <= 4) {
                         selectedActorKey = k;
                         selectedCamera = null;
+                        selectedAction = null;
                         startDrag(k, k.tick, mx, duration);
+                        return true;
+                    }
+                }
+                for (ReplayProject.ActorAction a : selectedActor.actions) {
+                    if (Math.abs(Timeline.xOf(a.tick, tlX, tlW, duration) - mx) <= 3) {
+                        selectedAction = a;
+                        selectedActorKey = null;
+                        selectedCamera = null;
+                        startDrag(a, a.tick, mx, duration);
                         return true;
                     }
                 }
@@ -463,6 +574,8 @@ public class EditorScreen extends Screen {
                 k.tick = tick;
             } else if (dragging instanceof ReplayProject.ActorKeyframe k) {
                 k.tick = tick;
+            } else if (dragging instanceof ReplayProject.ActorAction a) {
+                a.tick = tick;
             }
             return true;
         }
@@ -482,6 +595,9 @@ public class EditorScreen extends Screen {
                 selectedActor.sort();
             }
             session.saveProject();
+            if (dragMoved) {
+                rebuildWidgets();
+            }
             return true;
         }
         if (scrubbing) {
@@ -495,6 +611,11 @@ public class EditorScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mx, double my, double sx, double sy) {
+        if (mx >= width - 8 - panelW && my >= actionListY && selectedActor != null && !selectedActor.actions.isEmpty()) {
+            actionScroll = Math.max(0, actionScroll - (int) Math.signum(sy));
+            rebuildWidgets();
+            return true;
+        }
         if (mx >= width - 8 - panelW) {
             actorScroll = Math.max(0, actorScroll - (int) Math.signum(sy));
             rebuildWidgets();
@@ -553,8 +674,7 @@ public class EditorScreen extends Screen {
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         int ax = width - 8 - panelW;
         g.fill(4, 2, 12 + panelW, cameraInfoY + 22, 0x99000000);
-        int shownActors = Math.min(actorRows, Math.max(1, session.project().actors.size() - actorScroll));
-        g.fill(ax - 4, 2, width - 4, actorListY + shownActors * ROW + 2, 0x99000000);
+        g.fill(ax - 4, 2, width - 4, actorPanelBottom, 0x99000000);
         g.fill(0, height - 56, width, height, 0xAA000000);
         g.drawString(font, Component.translatable("justreplay.editor.camera"), 8, 5, 0xFF4FC3F7, true);
         g.drawString(font, Component.translatable("justreplay.editor.actors"), ax, 5, 0xFF81C784, true);
@@ -579,10 +699,37 @@ public class EditorScreen extends Screen {
         }
 
         Timeline.render(g, font, tlX, tlY, tlW, tlH, session, selectedCamera, selectedActor, selectedActorKey, ghostTick);
+        renderActionMarks(g, mouseX, mouseY);
         for (ReplayProject.Marker marker : session.project().markers) {
             int mx = Timeline.xOf(marker.tick, tlX, tlW, Math.max(1, playback.duration()));
             if (Math.abs(mouseX - mx) <= 3 && inTimeline(mouseX, mouseY)) {
                 g.renderTooltip(font, Component.literal(marker.name + "  " + Timeline.formatTicks(marker.tick)), mouseX, mouseY);
+            }
+        }
+    }
+
+    /** Actions of the selected actor on the actor lane: a tick, a bar for their duration and a short label. */
+    private void renderActionMarks(GuiGraphics g, int mouseX, int mouseY) {
+        if (selectedActor == null || selectedActor.actions.isEmpty()) {
+            return;
+        }
+        int duration = Math.max(1, session.playback().duration());
+        int lane = tlH / 2;
+        int lastLabel = Integer.MIN_VALUE;
+        for (ReplayProject.ActorAction action : selectedActor.actions) {
+            int x = Timeline.xOf(action.tick, tlX, tlW, duration);
+            int color = action == selectedAction ? Timeline.SELECTED_COLOR : 0xFFFFB74D;
+            if (action.duration > 0 && action.actionType().kind == com.vyrriox.justreplay.editor.ActionType.Kind.STATE) {
+                int end = Timeline.xOf(Math.min(duration, action.tick + action.duration), tlX, tlW, duration);
+                g.fill(x, tlY + tlH - 1, Math.max(x + 1, end), tlY + tlH, color);
+            }
+            g.fill(x, tlY + lane, x + 1, tlY + tlH, color);
+            if (x - lastLabel >= 14) {
+                g.drawString(font, action.actionType().shortLabel, x - 1, tlY - 9, color, true);
+                lastLabel = x;
+            }
+            if (Math.abs(mouseX - x) <= 2 && inTimeline(mouseX, mouseY) && mouseY >= tlY + lane) {
+                g.renderTooltip(font, Component.literal(actionLabel(action)), mouseX, mouseY);
             }
         }
     }

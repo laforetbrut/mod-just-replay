@@ -18,6 +18,12 @@ NeoForge 1.21.1, client side. Author: vyrriox. License: Apache-2.0.
   retime them, smooth Catmull-Rom camera path with roll and field of view.
 - **Actors**: add players (any skin, by name) or any entity, vanilla or modded, give them equipment and a
   pose, and animate them with keyframes. The recording is never modified, actors live in `project.json`.
+- **Actor actions**: place timed actions on an actor (walk, run, swing, attack, hurt, death, jump, sit,
+  sleep, swim, elytra, use item, shield, bow, eat, wave, look at, wander...) from the actor panel or the
+  actor screen. They show on the timeline and replay identically after a seek.
+- **Blockbench models**: drop `.bbmodel` files in `.minecraft/justreplay/models/` and add them as actors with
+  **+ Model**. Cubes, groups, embedded or neighbouring PNG textures and animations are supported; pick a
+  looping default animation and play others from the timeline with the *Model animation* action.
 - **Video export**: renders the camera path frame by frame to MP4 through FFmpeg, every frame is exact
   whatever the speed of the machine.
 
@@ -40,6 +46,7 @@ NeoForge 1.21.1, client side. Author: vyrriox. License: Apache-2.0.
 
 - Replays: `.minecraft/justreplay/replays/<name>/` (`stream.bin.gz` + `index.bin`, `meta.json`, `project.json`, `registries.bin`)
 - Videos: `.minecraft/justreplay/exports/`
+- Blockbench models: `.minecraft/justreplay/models/`
 
 Video export needs [FFmpeg](https://ffmpeg.org/download.html). Set its path in the export screen if it is
 not on the `PATH`.
@@ -69,6 +76,14 @@ edit and export test in a development client.
 - **Acteurs** : ajouter des joueurs (n'importe quel skin, par pseudo) ou n'importe quelle entité, vanilla ou
   moddée, leur donner un équipement et une posture, et les animer par keyframes. L'enregistrement n'est
   jamais modifié, les acteurs sont stockés dans `project.json`.
+- **Actions d'acteurs** : placer des actions datées sur un acteur (marcher, courir, frapper, attaquer,
+  dégâts, mort, sauter, s'asseoir, dormir, nager, élytres, utiliser un objet, bouclier, arc, manger, saluer,
+  regarder, se promener...) depuis le panneau des acteurs ou l'écran de l'acteur. Elles apparaissent sur la
+  timeline et se rejouent à l'identique après une recherche dans le temps.
+- **Modèles Blockbench** : déposer des fichiers `.bbmodel` dans `.minecraft/justreplay/models/` et les
+  ajouter comme acteurs avec **+ Model**. Cubes, groupes, textures PNG intégrées ou voisines et animations
+  sont pris en charge ; choisir une animation par défaut en boucle et jouer les autres depuis la timeline
+  avec l'action *Model animation*.
 - **Export vidéo** : rend le chemin de caméra image par image en MP4 via FFmpeg, chaque image est exacte
   quelle que soit la puissance du PC.
 
@@ -80,6 +95,7 @@ Voir le tableau de la section anglaise. Toutes les touches se changent dans Opti
 
 - Replays : `.minecraft/justreplay/replays/<nom>/`
 - Vidéos : `.minecraft/justreplay/exports/`
+- Modèles Blockbench : `.minecraft/justreplay/models/`
 
 L'export vidéo demande [FFmpeg](https://ffmpeg.org/download.html). Indiquer son chemin dans l'écran
 d'export s'il n'est pas dans le `PATH`.
