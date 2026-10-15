@@ -3,6 +3,7 @@ package com.vyrriox.justreplay.editor;
 import com.vyrriox.justreplay.editor.audio.AudioTrack;
 import com.vyrriox.justreplay.editor.fx.FxEffect;
 import com.vyrriox.justreplay.editor.fx.TransitionType;
+import com.vyrriox.justreplay.editor.overlay.Overlay;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -10,7 +11,8 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Everything the editor adds on top of a recording: cameras, the cut track, markers, actors and audio tracks. Saved as
+ * Everything the editor adds on top of a recording: cameras, the cut track, markers, actors, audio tracks and
+ * overlays. Saved as
  * {@code project.json} beside the stream, the recording itself is never modified.
  *
  * <p>Projects written before multi-camera editing kept one camera path in {@link #cameraKeyframes},
@@ -61,6 +63,8 @@ public final class ReplayProject {
     public int fadeOut;
     /** The start and end fades go through white instead of black. */
     public boolean fadeWhite;
+    /** Texts and images placed in the world, drawn in the order of the list when at the same distance. */
+    public List<Overlay> overlays = new ArrayList<>();
 
     public static final class CameraKeyframe {
         public int tick;
@@ -319,6 +323,11 @@ public final class ReplayProject {
         if (actors == null) actors = new ArrayList<>();
         if (audioTracks == null) audioTracks = new ArrayList<>();
         if (effects == null) effects = new ArrayList<>();
+        if (overlays == null) overlays = new ArrayList<>();
+        overlays.removeIf(o -> o == null);
+        for (Overlay overlay : overlays) {
+            overlay.normalize();
+        }
         effects.removeIf(e -> e == null);
         for (FxEffect effect : effects) {
             effect.normalize();

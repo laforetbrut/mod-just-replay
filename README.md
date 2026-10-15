@@ -45,6 +45,15 @@ NeoForge 1.21.1, client side. Author: vyrriox. License: Apache-2.0.
   letterbox 2.39:1 / 1.85:1 / 2:1 / 4:3, LUT from `.minecraft/justreplay/luts/`), global or per camera, with
   keyframes on every parameter and ready-made looks (Cinematic, Vintage, Noir, Warm, Cold). Fade in and out at
   the start and end of the export. Rendered on the GPU after shader packs, in the preview and in exports.
+- **Texts and images in the world**: the **Overlays** tab (Simple and Advanced) adds titles, labels and
+  stickers that live in the 3D world. Anchor them to the recording player, an actor or any recorded entity
+  (they follow it smoothly), to a block face, or to a fixed position, by aiming with the crosshair. They face
+  the camera, keep a fixed orientation or lie flat on the block, show between two ticks with fades, and can be
+  drawn through walls. Texts are multi-line with Minecraft colour codes (`&6`, `&l`...), a size, a colour, a
+  rounded glass plate, a shadow or an outline and an alignment; images are PNG or JPG files from
+  `.minecraft/justreplay/images/` with a width in blocks, a tint and the aspect ratio kept. Offset, scale,
+  rotation and opacity take keyframes, and each overlay is a bar on the timeline that drags to move or retime
+  it. They render fullbright in the preview, during playback and in video exports, shader packs included.
 - **Glass interface**: a clear glass look with rounded corners and smooth animations. The editor has a
   collapsible sidebar (Cameras, Actors, Scene, Export), a bottom dock with the transport controls and a
   zoomable multi-lane timeline (Ctrl + wheel), and a shortcut overlay on **F1** or **?**.
@@ -74,6 +83,7 @@ NeoForge 1.21.1, client side. Author: vyrriox. License: Apache-2.0.
 - Blockbench models: `.minecraft/justreplay/models/`
 - Audio files (OGG, WAV): `.minecraft/justreplay/audio/`
 - LUT images (PNG, 1024x32 strip or 512x512 grid): `.minecraft/justreplay/luts/`
+- Overlay images (PNG, JPG): `.minecraft/justreplay/images/`
 
 Video export needs [FFmpeg](https://ffmpeg.org/download.html). Set its path in the export screen if it is
 not on the `PATH`.
@@ -143,6 +153,17 @@ classes and APIs and include none of their code. Not affiliated with Mojang or M
   globale ou par caméra, avec des images clés sur chaque paramètre et des looks prêts à l'emploi (Cinematic,
   Vintage, Noir, Warm, Cold). Fondu d'ouverture et de fermeture de l'export. Rendus sur le GPU après les shader
   packs, dans l'aperçu comme dans les exports.
+- **Textes et images dans le monde** : l'onglet **Overlays** (modes Simple et Avancé) ajoute des titres, des
+  étiquettes et des stickers qui vivent dans le monde en 3D. Les ancrer au joueur enregistré, à un acteur ou à
+  n'importe quelle entité enregistrée (ils la suivent en douceur), à la face d'un bloc ou à une position fixe,
+  en visant avec le viseur. Ils font face à la caméra, gardent une orientation fixe ou se posent à plat sur le
+  bloc, s'affichent entre deux ticks avec des fondus et peuvent se voir à travers les murs. Les textes sont
+  multi-lignes avec les codes couleur de Minecraft (`&6`, `&l`...), une taille, une couleur, une plaque de verre
+  arrondie, une ombre ou un contour et un alignement ; les images sont des fichiers PNG ou JPG de
+  `.minecraft/justreplay/images/` avec une largeur en blocs, une teinte et les proportions conservées. Le
+  décalage, l'échelle, la rotation et l'opacité prennent des images clés, et chaque overlay est une barre sur
+  la timeline qui se déplace ou se redimensionne à la souris. Ils sont rendus en pleine lumière dans l'aperçu,
+  pendant la lecture et dans les exports vidéo, shader packs compris.
 - **Interface en verre** : un style de verre clair aux coins arrondis et aux animations fluides. L'éditeur a
   un panneau latéral repliable (Caméras, Acteurs, Scène, Export), un dock en bas avec les commandes de
   lecture et une timeline à pistes zoomable (Ctrl + molette), et la liste des raccourcis sur **F1** ou **?**.
@@ -158,6 +179,7 @@ Voir le tableau de la section anglaise. Toutes les touches se changent dans Opti
 - Modèles Blockbench : `.minecraft/justreplay/models/`
 - Fichiers audio (OGG, WAV) : `.minecraft/justreplay/audio/`
 - Images LUT (PNG, bande 1024x32 ou grille 512x512) : `.minecraft/justreplay/luts/`
+- Images des overlays (PNG, JPG) : `.minecraft/justreplay/images/`
 
 L'export vidéo demande [FFmpeg](https://ffmpeg.org/download.html). Indiquer son chemin dans l'écran
 d'export s'il n'est pas dans le `PATH`.

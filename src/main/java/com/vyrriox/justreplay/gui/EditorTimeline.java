@@ -36,6 +36,8 @@ final class EditorTimeline {
     enum Lane {
         RULER(EditorTimeline.RULER, EditorTimeline.RULER, null), CUTS(13, 11, Icon.CUT), CAMERA(10, 9, Icon.CAMERA),
         ACTOR(12, 10, Icon.PERSON), MARKERS(10, 9, Icon.FLAG),
+        /** Texts and images in the world: their height comes from {@link OverlaysPanel#laneHeight}, 0 without overlays. */
+        OVERLAYS(0, 0, Icon.SCENE),
         /** Audio tracks: their height comes from {@link AudioLanes#height()}, they draw their own backs and labels. */
         AUDIO(0, 0, null), BAR(4, 4, null), NONE(0, 0, null);
 
@@ -52,9 +54,9 @@ final class EditorTimeline {
     }
 
     /** Every track lane, in display order: the advanced editor. */
-    static final List<Lane> ALL_LANES = List.of(Lane.CUTS, Lane.CAMERA, Lane.ACTOR, Lane.MARKERS, Lane.AUDIO);
+    static final List<Lane> ALL_LANES = List.of(Lane.CUTS, Lane.CAMERA, Lane.ACTOR, Lane.OVERLAYS, Lane.MARKERS, Lane.AUDIO);
     /** The simple editor works with one camera, so it has no cut track. */
-    static final List<Lane> SIMPLE_LANES = List.of(Lane.CAMERA, Lane.ACTOR, Lane.MARKERS);
+    static final List<Lane> SIMPLE_LANES = List.of(Lane.CAMERA, Lane.ACTOR, Lane.OVERLAYS, Lane.MARKERS);
 
     private static final int[] STEPS = {1, 2, 5, 10, 20, 40, 100, 200, 400, 600, 1200, 2400, 6000, 12000, 24000, 72000};
     private static final int MIN_SPAN = 20;
@@ -76,6 +78,8 @@ final class EditorTimeline {
     private int[] rulerTicks = new int[0];
     /** Audio lanes drawn in the AUDIO lane, or null. */
     AudioLanes audio;
+    /** Overlay bars drawn in the OVERLAYS lane, or null. */
+    OverlaysPanel overlays;
 
     void layout(int x, int top, int w) {
         this.x = x;
@@ -109,6 +113,9 @@ final class EditorTimeline {
 
     /** Height of a lane; the audio lane grows with its tracks and is 0 without them. */
     int heightOf(Lane lane) {
+        if (lane == Lane.OVERLAYS) {
+            return overlays == null ? 0 : overlays.laneHeight(compact);
+        }
         return lane == Lane.AUDIO ? (audio == null ? 0 : audio.height()) : compact ? lane.compactHeight : lane.height;
     }
 
@@ -316,7 +323,7 @@ final class EditorTimeline {
                 if (audio != null && audioHeight() > 0) {
                     audio.renderBack(g, font, this);
                 }
-            } else {
+            } else if (heightOf(lane) > 0) {
                 laneBack(g, lx, laneY(lane), heightOf(lane), lane.icon);
             }
         }
@@ -342,6 +349,11 @@ final class EditorTimeline {
             case CAMERA -> cameraKeys(g, project, y, s.cameraKey());
             case ACTOR -> actorLane(g, font, y, s.actor(), s.actorKey(), s.action());
             case MARKERS -> markers(g, font, project, y);
+            case OVERLAYS -> {
+                if (overlays != null && y >= 0) {
+                    overlays.renderLane(g, font, this, y, heightOf(Lane.OVERLAYS));
+                }
+            }
             case AUDIO -> {
                 if (audio != null && y >= 0) {
                     audio.renderClips(g, font, this, session, mouseX, mouseY);
