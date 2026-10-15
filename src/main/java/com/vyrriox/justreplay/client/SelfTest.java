@@ -52,6 +52,8 @@ public final class SelfTest {
     private static net.minecraft.core.BlockPos bedPos;
     private static ReplayProject.ActorData placed;
     private static int fxStep;
+    private static int galleryIndex;
+    private static String galleryName = "";
 
     private SelfTest() {
     }
@@ -450,7 +452,55 @@ public final class SelfTest {
                     }
                 }
                 shot(mc, "8-seat-bed");
-                go(34, 5);
+                // Undo / redo of the last editor change (the bed placement added an actor).
+                ReplaySession us = ReplaySession.current();
+                us.saveProject();
+                int before = us.project().actors.size();
+                boolean undone = us.undo();
+                int afterUndo = us.project().actors.size();
+                boolean redone = us.redo();
+                log("undo/redo: actors {} -> {} -> {} (undo={} redo={})", before, afterUndo, us.project().actors.size(), undone, redone);
+                galleryIndex = 0;
+                go(40, 5);
+            }
+            case 40 -> {
+                // Gallery of every editor tab in both modes, the help overlay and the other screens.
+                ReplaySession gs = ReplaySession.current();
+                java.util.List<String> simpleTabs;
+                com.vyrriox.justreplay.config.JRConfig.EDITOR_MODE.set(com.vyrriox.justreplay.config.JRConfig.EditorMode.SIMPLE);
+                simpleTabs = EditorScreen.tabIds();
+                com.vyrriox.justreplay.config.JRConfig.EDITOR_MODE.set(com.vyrriox.justreplay.config.JRConfig.EditorMode.ADVANCED);
+                java.util.List<String> advancedTabs = EditorScreen.tabIds();
+                int total = simpleTabs.size() + advancedTabs.size();
+                if (galleryIndex < total) {
+                    boolean simpleMode = galleryIndex < simpleTabs.size();
+                    String id = simpleMode ? simpleTabs.get(galleryIndex) : advancedTabs.get(galleryIndex - simpleTabs.size());
+                    com.vyrriox.justreplay.config.JRConfig.EDITOR_MODE.set(simpleMode
+                            ? com.vyrriox.justreplay.config.JRConfig.EditorMode.SIMPLE : com.vyrriox.justreplay.config.JRConfig.EditorMode.ADVANCED);
+                    EditorScreen editor = new EditorScreen(gs);
+                    mc.setScreen(editor);
+                    editor.showTabForTest(id);
+                    galleryName = "ui-" + (simpleMode ? "simple-" : "advanced-") + id;
+                    go(41, 8);
+                } else if (galleryIndex == total) {
+                    EditorScreen editor = new EditorScreen(gs);
+                    mc.setScreen(editor);
+                    editor.setHelpForTest(true);
+                    galleryName = "ui-help";
+                    go(41, 8);
+                } else if (galleryIndex == total + 1) {
+                    mc.setScreen(new com.vyrriox.justreplay.gui.ExportScreen(null, gs));
+                    galleryName = "ui-export";
+                    go(41, 8);
+                } else {
+                    mc.setScreen(null);
+                    go(34, 5);
+                }
+            }
+            case 41 -> {
+                shot(mc, galleryName);
+                galleryIndex++;
+                go(40, 2);
             }
             case 34 -> {
                 // Transitions and filters: runs its own sub-steps, then the test goes on with the export.

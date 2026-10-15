@@ -314,4 +314,16 @@ public final class ActorManager {
             }
         }
     }
+
+    /** Removes every spawned actor; they are spawned again from the project on the next tick. */
+    public void clearAll() {
+        net.minecraft.client.multiplayer.ClientLevel level = Minecraft.getInstance().level;
+        for (Entity entity : spawned.values()) {
+            if (level != null) {
+                level.removeEntity(entity.getId(), Entity.RemovalReason.DISCARDED);
+            }
+        }
+        spawned.clear();
+        failed.clear();
+    }
 }

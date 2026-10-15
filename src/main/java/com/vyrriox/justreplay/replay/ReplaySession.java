@@ -74,6 +74,7 @@ public final class ReplaySession {
         this.meta = meta;
         this.project = project;
         this.playback = new Playback(packets, meta.durationTicks);
+        this.lastState = ReplayStorage.GSON.toJson(project);
         this.actors = new ActorManager(this);
         this.voices = new com.vyrriox.justreplay.voice.VoicePlayer(dir);
         UUID uuid = null;
@@ -160,6 +161,72 @@ public final class ReplaySession {
 
     public void saveProject() {
         project.sort();
+        String json = ReplayStorage.GSON.toJson(project);
+        if (!json.equals(lastState)) {
+            // Every change goes through here, so the undo history needs no hook in each editor control.
+            if (lastState != null) {
+                undo.push(lastState);
+                while (undo.size() > HISTORY) {
+                    undo.removeLast();
+                }
+            }
+            redo.clear();
+            lastState = json;
+        }
+        ReplayStorage.writeProject(dir, project);
+    }
+
+    // ---------------------------------------------------------------- undo / redo
+
+    private static final int HISTORY = 100;
+    private final java.util.ArrayDeque<String> undo = new java.util.ArrayDeque<>();
+    private final java.util.ArrayDeque<String> redo = new java.util.ArrayDeque<>();
+    private String lastState;
+
+    public boolean canUndo() {
+        return !undo.isEmpty();
+    }
+
+    public boolean canRedo() {
+        return !redo.isEmpty();
+    }
+
+    /** Restores the project as it was before the last change. */
+    public boolean undo() {
+        if (undo.isEmpty()) {
+            return false;
+        }
+        redo.push(lastState);
+        restore(undo.pop());
+        return true;
+    }
+
+    /** Applies again the last undone change. */
+    public boolean redo() {
+        if (redo.isEmpty()) {
+            return false;
+        }
+        undo.push(lastState);
+        restore(redo.pop());
+        return true;
+    }
+
+    private void restore(String json) {
+        ReplayProject state = ReplayStorage.GSON.fromJson(json, ReplayProject.class);
+        state.normalize();
+        // Fields are copied into the live project so every panel keeps the same object.
+        for (java.lang.reflect.Field field : ReplayProject.class.getFields()) {
+            if (java.lang.reflect.Modifier.isStatic(field.getModifiers()) || java.lang.reflect.Modifier.isFinal(field.getModifiers())) {
+                continue;
+            }
+            try {
+                field.set(project, field.get(state));
+            } catch (IllegalAccessException e) {
+                JustReplay.LOGGER.warn("Cannot restore project field {}", field.getName(), e);
+            }
+        }
+        actors.clearAll();
+        lastState = json;
         ReplayStorage.writeProject(dir, project);
     }
 

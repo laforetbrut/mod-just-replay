@@ -413,6 +413,19 @@ public class EditorScreen extends GlassScreen {
         placeSidebar();
     }
 
+    /** Tab ids shown in the current mode (used by the self test to capture every panel). */
+    public static List<String> tabIds() {
+        return visibleTabs().stream().map(SidebarTab::id).toList();
+    }
+
+    public void showTabForTest(String id) {
+        selectTab(id);
+    }
+
+    public void setHelpForTest(boolean open) {
+        helpOpen = open;
+    }
+
     private void selectTab(String id) {
         previousTab = currentTab().id();
         TAB.put(mode(), id);
@@ -1447,6 +1460,15 @@ public class EditorScreen extends GlassScreen {
         }
         if (hasPopup()) {
             return super.keyPressed(keyCode, scanCode, modifiers);
+        }
+        if (hasControlDown() && (keyCode == GLFW.GLFW_KEY_Z || keyCode == GLFW.GLFW_KEY_Y)) {
+            boolean redo = keyCode == GLFW.GLFW_KEY_Y || hasShiftDown();
+            boolean done = redo ? session.redo() : session.undo();
+            if (done) {
+                // Selections point at the previous objects: reopen the editor on the restored project.
+                minecraft.setScreen(new EditorScreen(session));
+            }
+            return true;
         }
         if (!simple() && audioLanes.keyPressed(keyCode)) {
             return true;
