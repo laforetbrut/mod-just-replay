@@ -11,9 +11,11 @@ import com.vyrriox.justreplay.gui.ReplayListScreen;
 import com.vyrriox.justreplay.record.Recorder;
 import com.vyrriox.justreplay.replay.Playback;
 import com.vyrriox.justreplay.replay.ReplaySession;
+import com.vyrriox.justreplay.gui.ui.GlassButton;
+import com.vyrriox.justreplay.gui.ui.GlassToast;
+import com.vyrriox.justreplay.gui.ui.Icon;
+import com.vyrriox.justreplay.gui.ui.Theme;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.player.LocalPlayer;
@@ -224,18 +226,21 @@ public final class JustReplayClient {
             if (event.getScreen() instanceof TitleScreen title) {
                 int x = title.width / 2 + 104;
                 int y = title.height / 4 + 48;
-                event.addListener(Button.builder(Component.translatable("justreplay.button.replays"),
-                        b -> mc.setScreen(new ReplayListScreen(title))).bounds(x, y, 72, 20).build());
+                event.addListener(new GlassButton(x, y, 72, 20, Component.translatable("justreplay.button.replays"),
+                        b -> mc.setScreen(new ReplayListScreen(title))).icon(Icon.FILM).iconColor(Theme.ACCENT)
+                        .tip(Component.translatable("justreplay.button.replays.tip")));
             } else if (event.getScreen() instanceof PauseScreen pause && pause.showsPauseMenu()) {
                 if (ReplaySession.isRunning()) {
-                    event.addListener(Button.builder(Component.translatable("justreplay.button.editor"),
-                            b -> mc.setScreen(new EditorScreen(ReplaySession.current()))).bounds(4, 4, 110, 20).build());
+                    event.addListener(new GlassButton(4, 4, 110, 20, Component.translatable("justreplay.button.editor"),
+                            b -> mc.setScreen(new EditorScreen(ReplaySession.current()))).icon(Icon.FILM).iconColor(Theme.ACCENT));
                 } else {
-                    Component label = Component.translatable(Recorder.isRecording() ? "justreplay.button.stop" : "justreplay.button.record");
-                    event.addListener(Button.builder(label, b -> {
+                    boolean recording = Recorder.isRecording();
+                    Component label = Component.translatable(recording ? "justreplay.button.stop" : "justreplay.button.record");
+                    event.addListener(new GlassButton(4, 4, 110, 20, label, b -> {
                         toggleRecording();
                         mc.setScreen(null);
-                    }).bounds(4, 4, 110, 20).build());
+                    }).icon(recording ? Icon.STOP : Icon.RECORD).iconColor(Theme.RECORD)
+                            .tip(Component.translatable("justreplay.button.record.tip", JRKeys.RECORD.getTranslatedKeyMessage())));
                 }
             }
         }
@@ -264,9 +269,23 @@ public final class JustReplayClient {
     }
 
     private static void toast(String key, String detail) {
-        Minecraft mc = Minecraft.getInstance();
-        SystemToast.add(mc.getToasts(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION, Component.translatable(key),
-                detail.isEmpty() ? null : Component.literal(detail));
+        Icon icon = switch (key) {
+            case "justreplay.toast.started" -> Icon.RECORD;
+            case "justreplay.toast.saved" -> Icon.SAVE;
+            case "justreplay.toast.keyframe" -> Icon.KEY;
+            case "justreplay.toast.cut" -> Icon.CUT;
+            case "justreplay.export.cancelled" -> Icon.FILM;
+            case "justreplay.editor.cam.not_path" -> Icon.CAMERA;
+            case "justreplay.toast.failed" -> Icon.CLOSE;
+            default -> Icon.CHECK;
+        };
+        int accent = switch (key) {
+            case "justreplay.toast.started" -> Theme.RECORD;
+            case "justreplay.toast.saved" -> Theme.SUCCESS;
+            case "justreplay.toast.failed", "justreplay.editor.cam.not_path" -> Theme.WARNING;
+            default -> Theme.ACCENT;
+        };
+        GlassToast.show(icon, accent, Component.translatable(key), detail.isEmpty() ? null : Component.literal(detail));
     }
 
     private static void handleKeys(Minecraft mc) {
