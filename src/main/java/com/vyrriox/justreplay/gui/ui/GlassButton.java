@@ -144,7 +144,7 @@ public class GlassButton extends Button implements Tipped {
                 top = Theme.mix(Theme.CONTROL_TOP, 0x66FF6B6B, h);
                 bottom = Theme.mix(Theme.CONTROL_BOTTOM, 0x40FF6B6B, h);
                 edgeTop = Theme.mix(0x40FFFFFF, 0x99FF8A8A, h);
-                edgeBottom = Theme.mix(0x14FFFFFF, 0x40FF6B6B, h);
+                edgeBottom = Theme.mix(0x29FFFFFF, 0x40FF6B6B, h);
             }
             case ROW -> {
                 top = Theme.fade(0x1FFFFFFF, h);
@@ -156,7 +156,8 @@ public class GlassButton extends Button implements Tipped {
                 top = Theme.mix(Theme.CONTROL_TOP, Theme.CONTROL_HOVER_TOP, h);
                 bottom = Theme.mix(Theme.CONTROL_BOTTOM, Theme.CONTROL_HOVER_BOTTOM, h);
                 edgeTop = Theme.mix(0x40FFFFFF, 0x73FFFFFF, h);
-                edgeBottom = Theme.mix(0x14FFFFFF, 0x26FFFFFF, h);
+                // Strong enough for the bottom edge to read: a fainter one looked like a frame open at the bottom.
+                edgeBottom = Theme.mix(0x29FFFFFF, 0x38FFFFFF, h);
             }
         }
         if (o > 0.0F && style != Style.PRIMARY) {
@@ -207,20 +208,30 @@ public class GlassButton extends Button implements Tipped {
         Icon ic = currentIcon();
         float iconSize = Math.min(Theme.ICON, hh - 4);
         boolean row = style == Style.ROW;
-        int pad = row ? 6 : 4;
+        int pad = row ? 5 : 4;
         int avail = w - 2 * pad - (ic != null ? (int) iconSize + 3 : 0);
         String label = label(font, Math.max(0, avail));
         int labelW = label.isEmpty() ? 0 : font.width(label);
-        int content = (ic != null ? (int) iconSize : 0) + (ic != null && labelW > 0 ? 3 : 0) + labelW;
-        int cx = row ? x + pad : x + (w - content) / 2;
+        int ty = Paint.textY(y, hh);
+        if (labelW == 0) {
+            // Icon only: centred in the whole button.
+            if (ic != null) {
+                Paint.iconCentered(g, ic, x, y, w, hh, iconSize, shownIconColor(color, alpha));
+            }
+            return;
+        }
+        // The last column of a glyph is its spacing: leave it out so the content block is truly centred.
+        int content = (ic != null ? (int) iconSize + 3 : 0) + labelW - 1;
+        int cx = row ? x + pad : x + Math.round((w - content) / 2.0F);
         if (ic != null) {
-            int ic0 = iconColor != 0 && active ? Theme.fade(iconColor, alpha < 1.0F ? 0.6F : 1.0F) : color;
-            Paint.icon(g, ic, cx, y + (hh - iconSize) / 2.0F, iconSize, ic0);
+            Paint.iconOnText(g, ic, cx, ty, iconSize, shownIconColor(color, alpha));
             cx += (int) iconSize + 3;
         }
-        if (labelW > 0) {
-            g.drawString(font, label, cx, y + (hh - 7) / 2, color, false);
-        }
+        g.drawString(font, label, cx, ty, color, false);
+    }
+
+    private int shownIconColor(int textColor, float alpha) {
+        return iconColor != 0 && active ? Theme.fade(iconColor, alpha < 1.0F ? 0.6F : 1.0F) : textColor;
     }
 
     /** Message trimmed to the available width, cached. */

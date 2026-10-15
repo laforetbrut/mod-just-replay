@@ -26,9 +26,14 @@ public abstract class GlassScreen extends Screen {
     private final List<ScrollArea> areas = new ArrayList<>();
     private Popup popup;
     private Tipped tipOwner;
+    /** Text and place of the hovered tooltip: a rebuilt widget at the same place keeps its tooltip shown. */
+    private String tipKey = "";
     private long tipSince;
     private Component tipText;
     private List<FormattedCharSequence> tipLines = List.of();
+    /** Tooltip of a drawn element that is not a widget (timeline, status), shown last like the widget ones. */
+    private Component deferredTip;
+    private int deferredX, deferredY;
     /** Blur the world behind the screen (full screens and dialogs); the editor keeps the world sharp. */
     protected boolean blurBackground = true;
     protected final long openedAt = Anim.now();
@@ -56,6 +61,21 @@ public abstract class GlassScreen extends Screen {
         areas.clear();
         popup = null;
         tipOwner = null;
+    }
+
+    /**
+     * Shows a tooltip for something drawn by the screen itself. It is drawn after every widget and overlay, so it
+     * is never covered.
+     */
+    public void deferTooltip(Component text, int mouseX, int mouseY) {
+        deferredTip = text;
+        deferredX = mouseX;
+        deferredY = mouseY;
+    }
+
+    /** False while something covers the widgets (an overlay), so their tooltips stay hidden. */
+    protected boolean tooltipsEnabled() {
+        return true;
     }
 
     public void openPopup(Popup popup) {
@@ -102,15 +122,20 @@ public abstract class GlassScreen extends Screen {
         for (Renderable renderable : renderables) {
             renderable.render(g, mx, my, partialTick);
         }
+        deferredTip = null;
         renderOverlay(g, mx, my, partialTick);
         if (popup != null) {
             g.pose().pushPose();
             g.pose().translate(0, 0, 300);
             popup.render(g, font, mouseX, mouseY);
             g.pose().popPose();
-        } else {
-            renderTooltip(g, mouseX, mouseY);
+        } else if (tooltipsEnabled()) {
+            // Tooltips go last: every widget, overlay and popup is already drawn under them.
+            if (!renderTooltip(g, mouseX, mouseY) && deferredTip != null) {
+                Paint.tooltip(g, font, deferredTip, deferredX, deferredY);
+            }
         }
+        deferredTip = null;
     }
 
     /** Surfaces under the widgets. */
@@ -130,15 +155,24 @@ public abstract class GlassScreen extends Screen {
         return null;
     }
 
-    private void renderTooltip(GuiGraphics g, int mouseX, int mouseY) {
+    /** Draws the tooltip of the hovered widget; true when the widget has one (shown or still waiting). */
+    private boolean renderTooltip(GuiGraphics g, int mouseX, int mouseY) {
         Tipped owner = hoveredTipped();
         Component text = owner == null ? null : owner.tooltip();
         if (owner != tipOwner) {
             tipOwner = owner;
-            tipSince = Anim.now();
+            String key = "";
+            if (owner instanceof AbstractWidget w && text != null) {
+                key = text.getString() + "@" + w.getX() + "," + w.getY();
+            }
+            // A widget rebuilt in place (after a click) keeps the tooltip already shown instead of fading it again.
+            if (key.isEmpty() || !key.equals(tipKey)) {
+                tipSince = Anim.now();
+            }
+            tipKey = key;
         }
         if (text == null) {
-            return;
+            return false;
         }
         if (text != tipText) {
             tipText = text;
@@ -146,8 +180,9 @@ public abstract class GlassScreen extends Screen {
         }
         long shown = Anim.now() - tipSince - Theme.TOOLTIP_DELAY;
         if (shown > 0) {
-            Paint.tooltip(g, font, tipLines, mouseX, mouseY, Anim.clamp01(shown / 120.0F));
+            Paint.tooltip(g, font, tipLines, mouseX, mouseY, Anim.clamp01(shown / 90.0F));
         }
+        return true;
     }
 
     // ---------------------------------------------------------------- input

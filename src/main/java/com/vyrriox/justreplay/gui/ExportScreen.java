@@ -64,10 +64,9 @@ public class ExportScreen extends GlassScreen {
             ffmpegValue = ffmpeg.getValue();
         }
         boxW = Math.min(320, width - 24);
-        boxH = Math.min(300, height - 16);
         boxX = (width - boxW) / 2;
-        boxY = (height - boxH) / 2;
-        ScrollArea area = new ScrollArea(this, boxX + 8, boxY + 28, boxW - 16, boxH - 28 - 34);
+        // Placed once the content height is known: the dialog fits its content instead of leaving a gap.
+        ScrollArea area = new ScrollArea(this, boxX + 8, 0, boxW - 16, 0);
         Form f = new Form(area, boxW - 24);
 
         f.text(() -> Component.translatable("justreplay.export.file"), Theme.TEXT_DIM);
@@ -105,7 +104,11 @@ public class ExportScreen extends GlassScreen {
         f.space(2);
         f.text(this::rangeLine, Theme.TEXT);
         f.text(() -> error, Theme.DANGER);
-        f.end();
+        int content = f.end() + 2;
+        boxH = Math.min(content + 28 + 36, height - 16);
+        boxY = (height - boxH) / 2;
+        area.y = boxY + 28;
+        area.h = boxH - 28 - 36;
 
         int bw = (boxW - 24 - 2 * Theme.GAP) / 3;
         int by = boxY + boxH - 10 - 16;
@@ -174,7 +177,7 @@ public class ExportScreen extends GlassScreen {
 
     @Override
     protected void renderOverlay(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        Paint.icon(g, Icon.FILM, boxX + 12, boxY + 9, 10, Theme.ACCENT);
+        Paint.iconOnText(g, Icon.FILM, boxX + 12, boxY + 11, 10, Theme.ACCENT);
         g.drawString(font, Paint.ellipsize(font, title.getString(), boxW - 40), boxX + 27, boxY + 11, Theme.TEXT, false);
     }
 

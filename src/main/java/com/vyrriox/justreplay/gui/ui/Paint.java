@@ -187,6 +187,22 @@ public final class Paint {
         icon(g, icon, x + (w - size) / 2.0F, y + (h - size) / 2.0F, size, color);
     }
 
+    /** Height of the capitals and digits of the font, from the y a string is drawn at. */
+    public static final int CAP = 7;
+
+    /** Y of a line of text vertically centred in a box (the font draws on whole GUI pixels). */
+    public static int textY(int y, int h) {
+        return y + (h - CAP) / 2;
+    }
+
+    /**
+     * Icon on a line of text drawn at {@code textY}: centred on the capitals, so icon and label share one optical
+     * middle whatever the size of the box around them.
+     */
+    public static void iconOnText(GuiGraphics g, Icon icon, float x, int textY, float size, int color) {
+        icon(g, icon, x, textY + CAP / 2.0F - size / 2.0F, size, color);
+    }
+
     /** Text cut with an ellipsis to fit {@code maxWidth}. */
     public static String ellipsize(Font font, String text, int maxWidth) {
         if (font.width(text) <= maxWidth) {
@@ -220,16 +236,21 @@ public final class Paint {
         if (y + h + 6 > g.guiHeight() - 2) {
             y = g.guiHeight() - h - 8;
         }
+        // Above everything of the screen: popups (300) and overlays (350) included.
+        g.flush();
         g.pose().pushPose();
-        g.pose().translate(0, (1.0F - alpha) * 3.0F, 400);
-        shadow(g, x - 4, y - 4, w + 8, h + 8, Theme.RADIUS_S, 4, Theme.fade(Theme.SHADOW, alpha));
-        rect(g, x - 4, y - 4, w + 8, h + 8, Theme.RADIUS_S, Theme.fade(0xE6161B24, alpha), Theme.fade(0xE60F131A, alpha));
-        outline(g, x - 4, y - 4, w + 8, h + 8, Theme.RADIUS_S, Theme.fade(0x59FFFFFF, alpha), Theme.fade(0x1FFFFFFF, alpha));
+        g.pose().translate(0, (1.0F - alpha) * 3.0F, 500);
+        // Four pixels of padding around the capitals of the first and last lines.
+        int bh = h + 7;
+        shadow(g, x - 4, y - 4, w + 8, bh, Theme.RADIUS_S, 4, Theme.fade(Theme.SHADOW, alpha));
+        rect(g, x - 4, y - 4, w + 8, bh, Theme.RADIUS_S, Theme.fade(0xF0161B24, alpha), Theme.fade(0xF00F131A, alpha));
+        outline(g, x - 4, y - 4, w + 8, bh, Theme.RADIUS_S, Theme.fade(0x59FFFFFF, alpha), Theme.fade(0x1FFFFFFF, alpha));
         int ty = y;
         for (FormattedCharSequence line : lines) {
             g.drawString(font, line, x, ty, Theme.text(Theme.TEXT, alpha), false);
             ty += 10;
         }
+        g.flush();
         g.pose().popPose();
     }
 

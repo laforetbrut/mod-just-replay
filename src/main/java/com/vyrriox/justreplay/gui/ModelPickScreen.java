@@ -71,7 +71,7 @@ public class ModelPickScreen extends GlassScreen {
 
     @Override
     protected void renderOverlay(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        Paint.icon(g, Icon.CUBE, boxX + 12, boxY + 10, 10, Theme.ACCENT);
+        Paint.iconOnText(g, Icon.CUBE, boxX + 12, boxY + 12, 10, Theme.ACCENT);
         g.drawString(font, Paint.ellipsize(font, title.getString(), boxW - 40), boxX + 27, boxY + 12, Theme.TEXT, false);
         if (files.isEmpty()) {
             Component empty = Component.translatable("justreplay.model.pick.empty");

@@ -26,7 +26,7 @@ public final class Theme {
     // ---------------------------------------------------------------- controls
 
     public static final int CONTROL_TOP = 0x1FFFFFFF;
-    public static final int CONTROL_BOTTOM = 0x0FFFFFFF;
+    public static final int CONTROL_BOTTOM = 0x14FFFFFF;
     public static final int CONTROL_HOVER_TOP = 0x40FFFFFF;
     public static final int CONTROL_HOVER_BOTTOM = 0x24FFFFFF;
     public static final int FIELD = 0x590A0D12;

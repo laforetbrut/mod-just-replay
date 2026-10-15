@@ -75,7 +75,7 @@ public class GlassTextField extends EditBox implements Tipped {
         Paint.outline(g, x, y, w, height, Theme.RADIUS_M, Theme.mix(Theme.mix(0x33FFFFFF, 0x59FFFFFF, h), 0xE65AB4FF, f),
                 Theme.mix(Theme.mix(0x1AFFFFFF, 0x33FFFFFF, h), 0x995AB4FF, f));
         if (leading != null) {
-            Paint.iconCentered(g, leading, x, y, leadingWidth + 3, height, 8, Theme.mix(Theme.TEXT_MUTED, Theme.ACCENT, f));
+            Paint.iconOnText(g, leading, x + (leadingWidth + 3 - 8) / 2.0F, y + (height - 8) / 2, 8, Theme.mix(Theme.TEXT_MUTED, Theme.ACCENT, f));
         }
         super.renderWidget(g, mouseX, mouseY, partialTick);
     }

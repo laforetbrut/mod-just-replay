@@ -22,7 +22,10 @@ import java.util.List;
  * @author vyrriox
  */
 final class EditorTimeline {
-    static final int RULER = 10;
+    /** Ruler: a row of time labels over a strip where the ticks and the play head handle sit. */
+    static final int RULER = 13;
+    /** Height of the strip under the labels. */
+    private static final int RULER_STRIP = 5;
     static final int BAR = 4;
     static final int LABELS = 14;
 
@@ -31,7 +34,7 @@ final class EditorTimeline {
      * track adds a constant here with its height and icon, and draws itself in {@link #renderLane}.
      */
     enum Lane {
-        RULER(10, null), CUTS(13, Icon.CUT), CAMERA(10, Icon.CAMERA), ACTOR(12, Icon.PERSON), MARKERS(10, Icon.FLAG),
+        RULER(EditorTimeline.RULER, null), CUTS(13, Icon.CUT), CAMERA(10, Icon.CAMERA), ACTOR(12, Icon.PERSON), MARKERS(10, Icon.FLAG),
         /** Audio tracks: their height comes from {@link AudioLanes#height()}, they draw their own backs and labels. */
         AUDIO(0, null), BAR(4, null), NONE(0, null);
 
@@ -359,15 +362,28 @@ final class EditorTimeline {
         int first = (int) Math.floor(viewStart / minor) * minor;
         int end = (int) Math.ceil(viewStart + viewSpan);
         g.enableScissor(x - 2, top - 1, x + w + 30, lanesY());
+        int strip = lanesY() - 1 - RULER_STRIP;
+        int labelEnd = Integer.MIN_VALUE;
         for (int t = Math.max(0, first); t <= end; t += minor) {
             int tx = xOf(t);
             if (tx < x - 1 || tx > x + w) {
                 continue;
             }
             boolean major = t % step == 0;
-            g.fill(tx, lanesY() - (major ? 4 : 2), tx + 1, lanesY() - 1, major ? 0x8CFFFFFF : 0x33FFFFFF);
-            if (major && tx + 2 < x + w - 8) {
-                g.drawString(font, label(t, step), tx + 2, top, 0xFF8E98A6, false);
+            if (major) {
+                // A faint line beside the label, a brighter tick in the strip: the label starts right of its tick.
+                g.fill(tx, top, tx + 1, strip, 0x26FFFFFF);
+                g.fill(tx, strip, tx + 1, lanesY() - 1, 0x8CFFFFFF);
+                String label = label(t, step);
+                int lw = font.width(label);
+                // The last label goes left of its tick rather than out of the timeline.
+                int lx = tx + 3 + lw <= x + w + 2 ? tx + 3 : tx - 1 - lw;
+                if (lx >= labelEnd + 4) {
+                    g.drawString(font, label, lx, top, 0xFF8E98A6, false);
+                    labelEnd = lx + lw;
+                }
+            } else {
+                g.fill(tx, lanesY() - 3, tx + 1, lanesY() - 1, 0x33FFFFFF);
             }
         }
         g.disableScissor();
@@ -523,8 +539,10 @@ final class EditorTimeline {
     private void playHead(GuiGraphics g, Font font, int cursor, int ghostTick) {
         int cx = xOf(cursor);
         if (cx >= x - 1 && cx <= x + w + 1) {
-            g.fill(cx, lanesY() - 2, cx + 1, lanesBottom(), 0xFFFFFFFF);
-            Paint.rect(g, cx - 3, top - 1, 7, 6, 2, 0xFFFFFFFF, 0xFFDDE6F0);
+            // The handle sits in the tick strip, under the time labels, so it never hides one.
+            int hy = lanesY() - 1 - RULER_STRIP;
+            g.fill(cx, hy, cx + 1, lanesBottom(), 0xFFFFFFFF);
+            Paint.rect(g, cx - 3, hy, 7, RULER_STRIP, 2, 0xFFFFFFFF, 0xFFDDE6F0);
         }
         if (ghostTick >= 0) {
             int gx = xOf(ghostTick);

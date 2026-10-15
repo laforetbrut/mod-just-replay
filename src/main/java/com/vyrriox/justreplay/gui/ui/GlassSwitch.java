@@ -62,18 +62,20 @@ public class GlassSwitch extends AbstractButton implements Tipped {
         int x = getX(), y = getY();
         Paint.rect(g, x, y, width, height, Theme.RADIUS_M, Theme.fade(0x1AFFFFFF, h * alpha));
         int left = x + 5;
+        int textY = Paint.textY(y, height);
         if (icon != null) {
-            Paint.icon(g, icon, left, y + (height - Theme.ICON) / 2.0F, Theme.ICON, Theme.text(Theme.TEXT_DIM, alpha));
+            Paint.iconOnText(g, icon, left, textY, Theme.ICON, Theme.text(Theme.TEXT_DIM, alpha));
             left += Theme.ICON + 4;
         }
         float tw = 18, th = 10;
-        float tx = x + width - tw - 4, ty = y + (height - th) / 2.0F;
+        // The track shares the optical middle of the label.
+        float tx = x + width - tw - 4, ty = textY + Paint.CAP / 2.0F - th / 2.0F;
         int avail = (int) (tx - 4 - left);
         if (avail != cachedWidth) {
             cachedWidth = avail;
             cachedLabel = Paint.ellipsize(font, getMessage().getString(), Math.max(0, avail));
         }
-        g.drawString(font, cachedLabel, left, y + (height - 7) / 2, Theme.text(Theme.mix(Theme.TEXT_DIM, Theme.TEXT, Math.max(h, k)), alpha), false);
+        g.drawString(font, cachedLabel, left, textY, Theme.text(Theme.mix(Theme.TEXT_DIM, Theme.TEXT, Math.max(h, k)), alpha), false);
         int trackTop = Theme.mix(0x33FFFFFF, 0xFF6CC0FF, k);
         int trackBottom = Theme.mix(0x1FFFFFFF, 0xFF3B8FE5, k);
         Paint.rect(g, tx, ty, tw, th, th / 2, Theme.fade(trackTop, alpha), Theme.fade(trackBottom, alpha));

@@ -54,6 +54,11 @@ public final class SelfTest {
     private static int fxStep;
     private static int galleryIndex;
     private static String galleryName = "";
+    /** Export settings and editor mode of the user, saved at the start and put back at the end of the test. */
+    private static int savedCrf = -1;
+    private static int savedFps;
+    private static com.vyrriox.justreplay.export.ExportResolution savedResolution;
+    private static com.vyrriox.justreplay.config.JRConfig.EditorMode savedMode;
 
     private SelfTest() {
     }
@@ -82,6 +87,29 @@ public final class SelfTest {
         wait = delay;
     }
 
+    private static void saveUserConfig() {
+        if (savedCrf >= 0) {
+            return;
+        }
+        savedCrf = com.vyrriox.justreplay.config.JRConfig.EXPORT_CRF.get();
+        savedFps = com.vyrriox.justreplay.config.JRConfig.EXPORT_FPS.get();
+        savedResolution = com.vyrriox.justreplay.config.JRConfig.EXPORT_RESOLUTION.get();
+        savedMode = com.vyrriox.justreplay.config.JRConfig.EDITOR_MODE.get();
+        log("saved user export settings: {} fps, CRF {}, {}", savedFps, savedCrf, savedResolution);
+    }
+
+    private static void restoreUserConfig() {
+        if (savedCrf < 0) {
+            return;
+        }
+        com.vyrriox.justreplay.config.JRConfig.EXPORT_CRF.set(savedCrf);
+        com.vyrriox.justreplay.config.JRConfig.EXPORT_FPS.set(savedFps);
+        com.vyrriox.justreplay.config.JRConfig.EXPORT_RESOLUTION.set(savedResolution);
+        com.vyrriox.justreplay.config.JRConfig.EDITOR_MODE.set(savedMode);
+        com.vyrriox.justreplay.config.JRConfig.SPEC.save();
+        log("restored user export settings: {} fps, CRF {}, {}", savedFps, savedCrf, savedResolution);
+    }
+
     private static void shot(Minecraft mc, String name) {
         Screenshot.grab(mc.gameDirectory, "selftest-" + name + ".png", mc.getMainRenderTarget(), c -> log("screenshot {}", name));
     }
@@ -103,6 +131,7 @@ public final class SelfTest {
             run(mc);
         } catch (Throwable t) {
             JustReplay.LOGGER.error("SELFTEST FAIL at step {}", step, t);
+            restoreUserConfig();
             step = 100;
         }
     }
@@ -111,6 +140,7 @@ public final class SelfTest {
         LocalPlayer p = mc.player;
         switch (step) {
             case 0 -> {
+                saveUserConfig();
                 if (atMenu(mc)) {
                     // Instant replay from the login on, with a short window so the clip starts at a buffer checkpoint.
                     System.setProperty("justreplay.bufferWindowTicks", "160");
@@ -565,7 +595,7 @@ public final class SelfTest {
             }
             case 19 -> {
                 com.vyrriox.justreplay.config.JRConfig.REPLAY_BUFFER.set(false);
-                com.vyrriox.justreplay.config.JRConfig.EDITOR_MODE.set(com.vyrriox.justreplay.config.JRConfig.EditorMode.SIMPLE);
+                restoreUserConfig();
                 log("DONE");
                 Files.deleteIfExists(FLAG);
                 step = 100;

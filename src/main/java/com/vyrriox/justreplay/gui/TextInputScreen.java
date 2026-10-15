@@ -83,7 +83,7 @@ public class TextInputScreen extends GlassScreen {
     @Override
     protected void renderOverlay(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         Paint.circle(g, boxX + 20, boxY + 18, 8, Theme.ACCENT_SOFT);
-        Paint.icon(g, Icon.EDIT, boxX + 16, boxY + 14, 8, Theme.ACCENT);
+        Paint.iconOnText(g, Icon.EDIT, boxX + 16, boxY + 14, 8, Theme.ACCENT);
         g.drawString(font, Paint.ellipsize(font, title.getString(), boxW - 44), boxX + 34, boxY + 14, Theme.TEXT, false);
         g.drawString(font, Paint.ellipsize(font, label.getString(), boxW - 24), boxX + 13, boxY + 31, Theme.TEXT_DIM, false);
     }
