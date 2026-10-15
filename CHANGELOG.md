@@ -10,6 +10,14 @@
   while the replay is paused or away from x1, follows the game sound volume, mute and ducking of the project,
   and is part of the video export audio, placed relative to the camera. The tick where each song starts is
   logged and available to the editor.
+- Player actors can wear a skin file: drop PNG skins (64x64, or legacy 64x32) in `.minecraft/justreplay/skins/`
+  and pick one in the actor screen, with a "Slim arms" switch for the arm model. No Mojang lookup is made for
+  such an actor. A missing or broken file logs one warning and the actor keeps the default skin.
+
+#### Fixed
+- Projects with many named player actors no longer have their skin lookups refused by Mojang (HTTP 429): the
+  lookups are queued, two per tick, and a failed one is retried once after five seconds. Actors wear the
+  default skin until their turn.
 
 ### [1.0.2] - 2026-10-15
 
@@ -141,6 +149,15 @@
   ou hors x1, suit le volume des sons du jeu, leur coupure et l'atténuation du projet, et figure dans l'audio des
   exports vidéo, placée par rapport à la caméra. Le tick de début de chaque morceau est écrit dans le journal et
   disponible pour l'éditeur.
+- Les acteurs joueurs peuvent porter un fichier de skin : déposer des skins PNG (64x64, ou l'ancien format
+  64x32) dans `.minecraft/justreplay/skins/` et en choisir un dans l'écran de l'acteur, avec un interrupteur
+  "Slim arms" pour le modèle des bras. Aucune requête Mojang n'est faite pour un tel acteur. Un fichier absent ou
+  illisible écrit un seul avertissement et l'acteur garde le skin par défaut.
+
+#### Corrigé
+- Les projets avec beaucoup d'acteurs joueurs nommés ne voient plus leurs requêtes de skin refusées par Mojang
+  (HTTP 429) : les requêtes passent dans une file, deux par tick, et une requête échouée est retentée une fois
+  après cinq secondes. Les acteurs portent le skin par défaut en attendant leur tour.
 
 ### [1.0.2] - 2026-10-15
 

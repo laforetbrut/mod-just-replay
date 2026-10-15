@@ -763,5 +763,11 @@
   "justreplay.overlay.place.keys": "Click: confirm   Wheel: distance in the air (Shift: fine)   Ctrl: free position   Esc: cancel",
   "justreplay.overlay.place.on_entity": "Follows %s",
   "justreplay.overlay.place.on_block": "On %s, %s face",
-  "justreplay.overlay.place.free": "In the air, %s blocks away"
+  "justreplay.overlay.place.free": "In the air, %s blocks away",
+  "justreplay.actor.skinfile": "Skin file",
+  "justreplay.actor.skinfile.none": "None (use the name)",
+  "justreplay.actor.skinfile.tip": "Player actors only. Click to cycle through the PNG skins (64x64 or 64x32) of the justreplay/skins folder. A skin file replaces the skin of the account named above.",
+  "justreplay.actor.skinfile.folder": "Open the skins folder",
+  "justreplay.actor.slim": "Slim arms",
+  "justreplay.actor.slim.tip": "Arm model of the skin file: slim (Alex) or classic (Steve)."
 }
