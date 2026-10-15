@@ -4,6 +4,19 @@
 
 ### [Unreleased]
 
+#### Added
+- Texts and images in the world: a new **Overlays** tab, in the Simple and Advanced modes, adds titles,
+  labels and stickers anchored to an entity (the recording player, an actor or a recorded entity, followed
+  smoothly and found again after seeks), a block face or a fixed position, placed with the crosshair. They
+  face the camera, keep a fixed yaw, pitch and roll or lie flat on the block, show between two ticks with fade
+  in and out, and can be drawn through walls. Texts: several lines, `&` colour and style codes, size, colour,
+  rounded glass plate (colour, opacity, padding), shadow or outline, alignment. Images: PNG or JPG files (the
+  first frame of a GIF) from `justreplay/images/`, width in blocks, aspect ratio kept or not, tint; each file
+  is loaded once and released when the replay ends, and a broken file warns once. Offset, scale, rotation and
+  opacity take keyframes at the play head. An overlays lane on the timeline shows each visible range as a bar
+  that drags to move, with ends that drag to change the start and the end. Overlays render fullbright in the
+  editor preview, during playback and in video exports, shader packs included.
+
 ### [1.0.0] - 2026-10-15
 
 #### Added
@@ -104,6 +117,21 @@
 ## Français
 
 ### [Non publié]
+
+#### Ajouté
+- Textes et images dans le monde : un nouvel onglet **Overlays**, en mode Simple et Avancé, ajoute des titres,
+  des étiquettes et des stickers ancrés à une entité (le joueur enregistré, un acteur ou une entité
+  enregistrée, suivie en douceur et retrouvée après un saut dans le temps), à la face d'un bloc ou à une
+  position fixe, placés avec le viseur. Ils font face à la caméra, gardent un lacet, un tangage et un roulis
+  fixes ou se posent à plat sur le bloc, s'affichent entre deux ticks avec fondu d'entrée et de sortie, et
+  peuvent se voir à travers les murs. Textes : plusieurs lignes, codes `&` de couleur et de style, taille,
+  couleur, plaque de verre arrondie (couleur, opacité, marge), ombre ou contour, alignement. Images : fichiers
+  PNG ou JPG (la première image d'un GIF) de `justreplay/images/`, largeur en blocs, proportions conservées ou
+  non, teinte ; chaque fichier est chargé une fois et libéré à la fin du replay, et un fichier illisible
+  prévient une seule fois. Le décalage, l'échelle, la rotation et l'opacité prennent des images clés à la tête
+  de lecture. Une piste Overlays sur la timeline montre chaque plage visible comme une barre qui se déplace à la
+  souris, et dont les bords changent le début et la fin. Les overlays sont rendus en pleine lumière dans
+  l'aperçu de l'éditeur, pendant la lecture et dans les exports vidéo, shader packs compris.
 
 ### [1.0.0] - 2026-10-15
 

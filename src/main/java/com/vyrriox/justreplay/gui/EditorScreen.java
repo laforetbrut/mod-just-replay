@@ -114,6 +114,12 @@ public class EditorScreen extends GlassScreen {
         TABS.add(index, tab);
     }
 
+    static {
+        // Texts and images in the world, in both modes, before the export tab.
+        registerTab(new SidebarTab("overlays", "justreplay.editor.tab.overlays", Icon.SCENE, true, true, (s, f) -> s.overlaysPanel.build(f)),
+                "export");
+    }
+
     /** Editor state kept across rebuilds and reopenings. */
     private static final Map<EditorMode, String> TAB = new EnumMap<>(EditorMode.class);
     private static String previousTab;
@@ -137,6 +143,8 @@ public class EditorScreen extends GlassScreen {
     private final AudioPanel audioPanel;
     // Video effects: the filter stack tab.
     private final EffectsPanel effectsPanel;
+    // Texts and images in the world: the tab and the timeline lane.
+    private final OverlaysPanel overlaysPanel;
     private boolean scrubbing;
     private int ghostTick = -1;
     private Object dragging;
@@ -183,6 +191,8 @@ public class EditorScreen extends GlassScreen {
         this.audioPanel = new AudioPanel(this, session, audioLanes);
         this.timeline.audio = audioLanes;
         this.effectsPanel = new EffectsPanel(this, session);
+        this.overlaysPanel = new OverlaysPanel(this, session);
+        this.timeline.overlays = overlaysPanel;
         this.blurBackground = false;
     }
 
@@ -491,6 +501,22 @@ public class EditorScreen extends GlassScreen {
 
     public void showTabForTest(String id) {
         selectTab(id);
+    }
+
+    /** Selects an overlay and shows it in the Overlays tab. */
+    public void openOverlay(String id) {
+        OverlaysPanel.select(id);
+        openTab("overlays");
+    }
+
+    /** Opens a sidebar tab of the current mode (and the sidebar itself). */
+    public void openTab(String id) {
+        sidebarOpen = true;
+        if (!isTab(id)) {
+            selectTab(id);
+        } else {
+            rebuildWidgets();
+        }
     }
 
     public void setHelpForTest(boolean open) {
@@ -1335,6 +1361,9 @@ public class EditorScreen extends GlassScreen {
             if (timeline.laneAt(my) == EditorTimeline.Lane.AUDIO ? audioLanes.mouseClicked(timeline, mx, my) : clearAudioSelection()) {
                 return true;
             }
+            if (timeline.laneAt(my) == EditorTimeline.Lane.OVERLAYS && overlaysPanel.mouseClicked(timeline, mx, my)) {
+                return true;
+            }
             switch (timeline.laneAt(my)) {
                 case CUTS -> {
                     if (clickCuts(project, mx, duration)) {
@@ -1457,7 +1486,7 @@ public class EditorScreen extends GlassScreen {
 
     @Override
     public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
-        if (timeline.barDragged(mx) || audioLanes.mouseDragged(timeline, mx, my)) {
+        if (timeline.barDragged(mx) || audioLanes.mouseDragged(timeline, mx, my) || overlaysPanel.mouseDragged(timeline, mx)) {
             return true;
         }
         int duration = session.playback().duration();
@@ -1496,7 +1525,7 @@ public class EditorScreen extends GlassScreen {
 
     @Override
     public boolean mouseReleased(double mx, double my, int button) {
-        if (timeline.barReleased() || audioLanes.mouseReleased()) {
+        if (timeline.barReleased() || audioLanes.mouseReleased() || overlaysPanel.mouseReleased()) {
             return true;
         }
         if (dragging != null) {
@@ -1654,7 +1683,8 @@ public class EditorScreen extends GlassScreen {
         }
         Paint.glass(g, 4, dockTop, width - 8, height - 4 - dockTop, Theme.RADIUS_L);
         Playback playback = session.playback();
-        timeline.begin(playback.duration(), playback.cursor(), !playback.isPaused() && dragging == null && !scrubbing && !audioLanes.dragging());
+        timeline.begin(playback.duration(), playback.cursor(), !playback.isPaused() && dragging == null && !scrubbing && !audioLanes.dragging()
+                && !overlaysPanel.dragging());
     }
 
     @Override
@@ -1668,7 +1698,7 @@ public class EditorScreen extends GlassScreen {
         g.drawString(font, timeText, timeX, Paint.textY(dockTop + 4, rowH), Theme.TEXT, false);
         timeline.render(g, font, session, cameras.selectedKey, cameras.selectedCut, selectedActor, selectedActorKey, selectedAction,
                 ghostTick, mouseX, mouseY);
-        if (timeline.contains(mouseX, mouseY) && dragging == null && !scrubbing && !helpOpen && !audioLanes.dragging()) {
+        if (timeline.contains(mouseX, mouseY) && dragging == null && !scrubbing && !helpOpen && !audioLanes.dragging() && !overlaysPanel.dragging()) {
             renderTimelineTooltip(g, mouseX, mouseY);
         }
         if (helpOpen) {
@@ -1742,6 +1772,7 @@ public class EditorScreen extends GlassScreen {
                     }
                 }
             }
+            case OVERLAYS -> deferTooltip(overlaysPanel.tooltip(timeline, mouseX, mouseY), mouseX, mouseY);
             case AUDIO -> {
                 Component tip = audioLanes.tooltip(timeline, mouseX, mouseY);
                 if (tip != null) {
