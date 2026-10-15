@@ -4,6 +4,8 @@
 
 ### [Unreleased]
 
+### [1.0.0] - 2026-10-15
+
 #### Added
 - Recording of every clientbound play packet, mod payloads included, with the local player's movement,
   pose, equipment and swings. Manual start (F8, pause menu) with a snapshot of the current world, or
@@ -102,6 +104,8 @@
 ## Français
 
 ### [Non publié]
+
+### [1.0.0] - 2026-10-15
 
 #### Ajouté
 - Enregistrement de tous les paquets reçus par le client, y compris ceux des mods, avec les mouvements,
