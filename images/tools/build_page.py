@@ -196,9 +196,10 @@ class Page:
             self.warn(f"icon '{name}' is not in {os.path.join(self.images_dir, 'icons')}: run export_icons.py")
         return f'<img src="{self.base}icons/{name}.png" alt="" width="32"> '
 
-    def badge(self, url, image, alt):
+    def badge(self, url, image, alt, width=None):
         # No space inside the link: CurseForge underlines it as if it were text.
-        tag = f'<img src="{image}" alt="{html.escape(alt, quote=True)}">'
+        size = f' width="{width}"' if width else ""
+        tag = f'<img src="{image}" alt="{html.escape(alt, quote=True)}"{size}>'
         return f'<a href="{url}">{tag}</a>' if url else tag
 
     def themed_badge(self, url, file, label, message, icon=None, alt=False, color=None, logo=None, lang=None, row=None, drawn=None):
@@ -218,7 +219,17 @@ class Page:
         self.badge_files[name] = (str(shown[0]).upper(), str(shown[1]).upper(), icon, alt)
         if row:
             self.badge_rows.setdefault(row, []).append(name)
-        return self.badge(url, self.base + name, text)
+        return self.badge(url, self.base + name, text, self.shown_width(name))
+
+    def shown_width(self, name):
+        """Half the width of a badge drawn at twice its size (vector badges are saved at 144 dpi)."""
+        path = os.path.join(self.images_dir, name)
+        if not os.path.exists(path):
+            return None
+        from PIL import Image
+        with Image.open(path) as img:
+            dpi = img.info.get("dpi", (72, 72))[0]
+            return round(img.width * 72 / dpi) if dpi and round(dpi) > 72 else None
 
     def link_badge(self, kind, value, row=None):
         url = value if isinstance(value, str) else value.get("url", "")

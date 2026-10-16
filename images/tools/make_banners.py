@@ -20,13 +20,18 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, HERE)
 
+import fx  # noqa: E402
 import kit  # noqa: E402
 from theme import Theme  # noqa: E402
 
 SRC = os.path.join(ROOT, "run-capture", "screenshots")
 OUT = os.path.dirname(HERE)             # images/, the folder this toolkit sits in
 THEME = Theme.load(os.path.join(HERE, "theme.json"))
-LOGO = os.path.join(HERE, "logo_block.png")
+BRAND_LOGO = os.path.join(ROOT, "Branding", "logo", "png", "just-replay-horizontal-reverse-1024.png")
+
+# Every banner is finished in EffectCraft before it is encoded: a light grade and vignette, nothing that
+# moves on its own, so the footage stays the subject and the files stay light.
+kit.LOOK = fx.look(THEME, vibrance=12, vignette=22)
 
 
 def src(name):
@@ -40,10 +45,10 @@ def out(name):
 # ------------------------------------------------------------------ the banner on top of the page
 
 def hero():
-    # The festival hall seen from above; the dance floor keeps moving on the right.
-    crop = kit.crop_for((800, 300), center=(0.5, 0.55))
-    kit.hero_banner(out("hero.gif"), THEME, src("hero_0001.png"), "JUST REPLAY", logo=LOGO,
-                    frames=kit.clip(SRC, "hero", 1, 68), region=(500, 170, 840, 340), crop=crop, floaters=6, veil=False)
+    # The brand logo of Branding/ on the festival hall seen from above (the tagline is in the page intro).
+    frames = fx.branded_hero(THEME, src("still_050.png"), BRAND_LOGO, tagline=None,
+                             particles=8, particle_type="cube", darken=68)
+    kit.finish([kit.frame_border(f, THEME) for f in frames], out("hero.gif"), look=False)
 
 
 # ------------------------------------------------------------------ the editor, tab by tab

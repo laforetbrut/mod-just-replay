@@ -690,9 +690,17 @@ def contact_sheet(frames, path, count=12, cols=4, thumb=400):
     sheet.save(path)
 
 
-def finish(frames, path, fps=FPS, sheet=True, **kwargs):
-    """Writes the banner, prints its weight, and saves a contact sheet next to it when BANNER_SHEETS names a folder."""
+# A function frames -> frames that finish() applies to every banner before encoding it, such as
+# fx.look(theme, ...) (grade, vignette, particles by EffectCraft). None encodes the frames as drawn.
+LOOK = None
+
+
+def finish(frames, path, fps=FPS, sheet=True, look=True, **kwargs):
+    """Writes the banner, prints its weight, and saves a contact sheet next to it when BANNER_SHEETS names a folder.
+    LOOK, when set, finishes the frames first; look=False skips it for a banner already finished."""
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    if look and LOOK is not None:
+        frames = LOOK(frames)
     size = write_gif(frames, path, fps=fps, **kwargs)
     name = os.path.basename(path)
     flag = "" if size < MAX_BYTES else "   <-- TOO HEAVY: 2 MB is the limit, shorten the clip or tighten the moving area"

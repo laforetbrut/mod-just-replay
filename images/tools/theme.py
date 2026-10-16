@@ -6,11 +6,15 @@ A theme file only needs an accent color; the rest is derived. Usage:
     python theme.py extract <image or folder>... [--out theme.json] [--swatch swatch.png]
     python theme.py new --accent "#b3261e" [--ornament skull] [--shape banner] [--out theme.json] [--swatch swatch.png]
     python theme.py show theme.json [--swatch swatch.png]
+    python theme.py brand <Branding folder> [--shape banner] [--out theme.json] [--swatch swatch.png]
 
 `extract` reads the colors that the mod itself uses (its logo, its GUI and item textures) and
 proposes a theme. Look at the swatch, then edit theme.json by hand: the proposal is a start, the
 choice is a design decision. `new` starts a theme from a color chosen by hand, for a mod that has
 no art of its own (take the color it uses in game: its chat messages, its boss bar, its particles).
+`brand` starts from the mod's brand kit (Branding/, made by the brand-logo skill): its primary and
+secondary colors become the accent and the alt, its icon becomes the ornament, so the page and the
+logo speak with one voice.
 
 Author: vyrriox
 """
@@ -344,6 +348,37 @@ def swatch(theme, path, pal=None):
     img.save(path)
 
 
+def from_brand(branding, shape="pill"):
+    """A theme from Branding/source/brand.json: the brand's primary is the accent, its secondary the alt,
+    and its small icon the ornament. None when there is no brand kit."""
+    folder = os.path.abspath(branding)
+    if os.path.isfile(folder):
+        folder = os.path.dirname(os.path.dirname(folder))
+    config = os.path.join(folder, "source", "brand.json")
+    if not os.path.isfile(config):
+        return None
+    with open(config, encoding="utf-8") as handle:
+        brand = json.load(handle)
+    palette = brand.get("palette", {})
+
+    def color(value):
+        return palette.get(value, value) if isinstance(value, str) else None
+
+    data = {"name": brand.get("name", "mod"), "accent": color(palette.get("primary")) or DEFAULTS["accent"], "shape": shape}
+    if palette.get("secondary"):
+        data["alt"] = color(palette["secondary"])
+    # The ornament is drawn 16 pixels wide: the 16 px favicon is the brand icon at that exact size.
+    for rel in ("icons/favicon-16.png", "minecraft/icon-128.png"):
+        path = os.path.join(folder, rel)
+        if os.path.isfile(path):
+            try:
+                data["ornament"] = os.path.relpath(path).replace(os.sep, "/")
+            except ValueError:  # another drive on Windows
+                data["ornament"] = path.replace(os.sep, "/")
+            break
+    return Theme(data)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -360,6 +395,11 @@ def main():
     n.add_argument("--out", default="theme.json")
     n.add_argument("--swatch")
     n.add_argument("--name")
+    b = sub.add_parser("brand", help="start the theme from the brand kit made by the brand-logo skill")
+    b.add_argument("branding", help="the Branding folder (or its source/brand.json)")
+    b.add_argument("--shape", default="pill", choices=("pill", "plate", "banner"))
+    b.add_argument("--out", default="theme.json")
+    b.add_argument("--swatch")
     s = sub.add_parser("show", help="print a theme with every derived color, and check its contrasts")
     s.add_argument("theme")
     s.add_argument("--swatch")
@@ -373,6 +413,15 @@ def main():
         theme = Theme(data)
         theme.save(args.out)
         print(f"theme written to {args.out}: accent {theme.hex('accent')}, alt {theme.hex('alt')}, ornament {theme.ornament}, shape {theme.shape}")
+        if args.swatch:
+            swatch(theme, args.swatch)
+    elif args.command == "brand":
+        theme = from_brand(args.branding, args.shape)
+        if theme is None:
+            print(f"error: no brand.json under {args.branding}: run the brand-logo skill first, or use extract / new", file=sys.stderr)
+            return 1
+        theme.save(args.out)
+        print(f"theme written to {args.out} from the brand kit: accent {theme.hex('accent')}, alt {theme.hex('alt')}, ornament {theme.ornament}")
         if args.swatch:
             swatch(theme, args.swatch)
     elif args.command == "extract":
