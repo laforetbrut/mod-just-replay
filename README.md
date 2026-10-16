@@ -1,4 +1,4 @@
-<p align="center"><img src="branding/logo.png" alt="Just Replay" width="640"></p>
+<p align="center"><img src="Branding/source/previous/logo.png" alt="Just Replay" width="640"></p>
 
 # Just Replay
 
