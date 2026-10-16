@@ -26,3 +26,9 @@ Thumbs.db
 CLAUDE.md
 test-procedures/
 TEST_PROCEDURE_*.html
+
+# Page images: recording folder, script caches, generated pictures (hosted in Team-Arcadia/images)
+run-*/
+__pycache__/
+images/*
+!images/tools/

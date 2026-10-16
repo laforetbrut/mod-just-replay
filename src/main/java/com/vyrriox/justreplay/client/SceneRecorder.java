@@ -33,6 +33,11 @@ public final class SceneRecorder {
     /** Replay ticks to seek to and take a screenshot of, separated by commas, before the export. */
     private static final String SHOTS = System.getProperty("justreplay.sceneShots", "");
     private static int shotIndex;
+    /** Editor captures: "tick|SIMPLE or ADVANCED|tab,tab,...", one screenshot of the editor per tab. */
+    private static final String EDITOR = System.getProperty("justreplay.sceneEditor", "");
+    private static int editorIndex;
+    private static com.vyrriox.justreplay.config.JRConfig.EditorMode savedMode;
+    private static int savedGuiScale = -1;
 
     private static int step;
     private static int wait;
@@ -170,14 +175,14 @@ public final class SceneRecorder {
                     step = 10;
                     return;
                 }
-                step = 11;
+                step = EDITOR.isBlank() ? 11 : 12;
             }
             case 10 -> {
                 // Screenshots: seek, let the world settle, grab, next.
                 com.vyrriox.justreplay.replay.ReplaySession session = com.vyrriox.justreplay.replay.ReplaySession.current();
                 String[] ticks = SHOTS.split(",");
                 if (session == null || shotIndex >= ticks.length * 2) {
-                    step = 11;
+                    step = EDITOR.isBlank() ? 11 : 12;
                     return;
                 }
                 int t = Integer.parseInt(ticks[shotIndex / 2].trim());
@@ -192,6 +197,52 @@ public final class SceneRecorder {
                     wait = 10;
                 }
                 shotIndex++;
+            }
+            case 12 -> {
+                // Editor captures: the editor open on each tab in turn, the play head on a chosen tick.
+                com.vyrriox.justreplay.replay.ReplaySession session = com.vyrriox.justreplay.replay.ReplaySession.current();
+                String[] parts = EDITOR.split("\\|");
+                String[] tabs = parts[2].split(",");
+                if (session == null || editorIndex >= tabs.length * 2) {
+                    if (savedMode != null) {
+                        com.vyrriox.justreplay.config.JRConfig.EDITOR_MODE.set(savedMode);
+                        com.vyrriox.justreplay.config.JRConfig.SPEC.save();
+                    }
+                    if (savedGuiScale >= 0) {
+                        mc.options.guiScale().set(savedGuiScale);
+                        mc.resizeDisplay();
+                    }
+                    mc.setScreen(null);
+                    step = 11;
+                    return;
+                }
+                String tab = tabs[editorIndex / 2].trim();
+                if (editorIndex == 0) {
+                    // GUI scale 2: at a large window the automatic scale makes the editor tiny in a picture.
+                    savedGuiScale = mc.options.guiScale().get();
+                    mc.options.guiScale().set(2);
+                    mc.resizeDisplay();
+                    savedMode = com.vyrriox.justreplay.config.JRConfig.EDITOR_MODE.get();
+                    com.vyrriox.justreplay.config.JRConfig.EDITOR_MODE.set(
+                            com.vyrriox.justreplay.config.JRConfig.EditorMode.valueOf(parts[1].trim()));
+                    session.setCameraPath(true);
+                    session.playback().seek(Integer.parseInt(parts[0].trim()));
+                    session.playback().setPaused(true);
+                }
+                if (editorIndex % 2 == 0) {
+                    com.vyrriox.justreplay.gui.EditorScreen editor = new com.vyrriox.justreplay.gui.EditorScreen(session);
+                    mc.setScreen(editor);
+                    editor.showTabForTest(tab);
+                    wait = editorIndex == 0 ? 80 : 30;
+                } else {
+                    // The pointer rests over the world, away from every control, so no tooltip shows.
+                    org.lwjgl.glfw.GLFW.glfwSetCursorPos(mc.getWindow().getWindow(), mc.getWindow().getScreenWidth() * 0.72,
+                            mc.getWindow().getScreenHeight() * 0.3);
+                    String name = "scene-editor-" + parts[1].trim().toLowerCase(java.util.Locale.ROOT) + "-" + tab + ".png";
+                    net.minecraft.client.Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), c -> log("editor capture {}", name));
+                    wait = 10;
+                }
+                editorIndex++;
             }
             case 11 -> {
                 com.vyrriox.justreplay.replay.ReplaySession session = com.vyrriox.justreplay.replay.ReplaySession.current();

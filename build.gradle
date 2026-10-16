@@ -40,9 +40,11 @@ neoForge {
                 systemProperty 'justreplay.sceneReplay', project.findProperty('sceneReplay') ?: ''
                 systemProperty 'justreplay.sceneExport', project.findProperty('sceneExport') ?: ''
                 systemProperty 'justreplay.sceneShots', project.findProperty('sceneShots') ?: ''
+                systemProperty 'justreplay.sceneEditor', project.findProperty('sceneEditor') ?: ''
                 systemProperty 'justreplay.sceneCommands', project.findProperty('sceneCommands') ?: ''
                 systemProperty 'justreplay.sceneSeconds', project.findProperty('sceneSeconds') ?: '60'
                 systemProperty 'justreplay.sceneDelay', project.findProperty('sceneDelay') ?: '5'
+                programArguments.addAll '--width', '1600', '--height', '900'
                 jvmArgument '-Xmx8G'
             }
         }
