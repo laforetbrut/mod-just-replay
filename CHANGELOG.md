@@ -4,12 +4,17 @@
 
 ### [Unreleased]
 
+### [1.0.4] - 2026-10-16
+
 #### Added
 - Scene jobs for tools that film a mod: `-Djustreplay.job=<file.json>` (or `./gradlew runClient -Pjob=...`) runs
   a list of steps in one launch (record a world, open a replay, take screenshots, export, quit), each export with
   its own resolution or exact size, frame rate, quality and MP4 or PNG sequence output. Every step is logged
   with the `SCENE` prefix. The `justreplay.scene*` properties keep working as before. See the README, "Scene
   jobs".
+
+#### Changed
+- The mod list shows the Just Replay logo.
 
 ### [1.0.3] - 2026-10-15
 
@@ -159,12 +164,17 @@
 
 ### [Non publié]
 
+### [1.0.4] - 2026-10-16
+
 #### Ajouté
 - Tâches de scène pour les outils qui filment un mod : `-Djustreplay.job=<fichier.json>` (ou
   `./gradlew runClient -Pjob=...`) déroule une liste d'étapes en un seul lancement (enregistrer un monde, ouvrir
   un replay, prendre des captures, exporter, quitter), chaque export avec sa propre résolution ou taille exacte,
   ses images par seconde, sa qualité et une sortie MP4 ou séquence PNG. Chaque étape est écrite dans le log avec
   le préfixe `SCENE`. Les propriétés `justreplay.scene*` marchent comme avant. Voir le README, "Tâches de scène".
+
+#### Modifié
+- La liste des mods affiche le logo de Just Replay.
 
 ### [1.0.3] - 2026-10-15
 
