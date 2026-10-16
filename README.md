@@ -1,3 +1,5 @@
+<p align="center"><img src="branding/logo.png" alt="Just Replay" width="640"></p>
+
 # Just Replay
 
 Record, replay and edit your Minecraft sessions, with a cinematic editor and video export.

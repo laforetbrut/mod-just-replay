@@ -1,0 +1,175 @@
+# The CurseForge page of Just Replay, in one file.
+#
+#   python images/tools/make_banners.py                            the banners (images/*.gif)
+#   python images/tools/export_icons.py images/tools/page.toml     the small icons (images/icons)
+#   python images/tools/titles.py images/tools/page.toml           the title ribbons, language labels, divider, badges
+#   python images/tools/build_page.py images/tools/page.toml       the page itself (curseforge_page.md)
+
+[page]
+languages = ["en", "fr"]
+images_base = "https://cdn.jsdelivr.net/gh/Team-Arcadia/images@main/mods/justreplay/curseforge/"
+images_dir = ".."
+out = "../../curseforge_page.md"
+root = "../.."
+theme = "theme.json"
+author = "vyrriox"
+license = "Apache-2.0"
+
+[mod]
+name = "Just Replay"
+
+[hero]
+file = "hero.gif"
+alt.en = "Just Replay: a festival hall full of dancing players, filmed with the mod"
+alt.fr = "Just Replay : une salle de festival pleine de joueurs qui dansent, filmée avec le mod"
+
+[links]
+discord = "https://discord.gg/xjF8Rtzyd4"
+source = "https://github.com/laforetbrut/mod-just-replay"
+donate = "https://buy.stripe.com/3cI3co6X97Vy4IK50QfIs00"
+partners = "https://www.arcadia-echoes-of-power.fr/partenariat"
+
+[badges]
+minecraft = ["1.21.1"]
+loaders = ["NeoForge"]
+side = "Client only"
+
+[intro]
+pitch.en = "<strong>Just Replay</strong> records your Minecraft sessions and turns them into films: replay them from any angle, place cameras, add actors and music, and export a real video."
+pitch.fr = "<strong>Just Replay</strong> enregistre vos parties Minecraft et en fait des films : rejouez-les sous tous les angles, placez des caméras, ajoutez des acteurs et de la musique, et exportez une vraie vidéo."
+tagline.en = "Press F8, play, then make the movie."
+tagline.fr = "Appuyez sur F8, jouez, puis faites le film."
+
+[[section]]
+id = "features"
+title.en = "What It Does"
+title.fr = "Ce Qu'il Fait"
+icon = "camera"
+
+  [[section.banner]]
+  file = "editor.gif"
+  alt.en = "The replay editor over a recording: camera list, actors, effects, audio tracks and texts, above a timeline"
+  alt.fr = "L'éditeur de replay sur un enregistrement : caméras, acteurs, effets, pistes audio et textes, au-dessus d'une timeline"
+
+  [[section.item]]
+  icon = "camera"
+  name.en = "Records everything"
+  name.fr = "Enregistre tout"
+  text.en = "modded worlds included: <code>F8</code>, or keep the last minutes in memory and save with <code>F7</code>."
+  text.fr = "mondes moddés compris, avec <code>F8</code>, ou gardez les dernières minutes en mémoire et sauvez-les avec <code>F7</code>."
+
+  [[section.item]]
+  icon = "play"
+  name.en = "Free replay"
+  name.fr = "Replay libre"
+  text.en = "fly anywhere, speeds from x0.1 to x8, instant seeking, follow any player or mob."
+  text.fr = "volez partout, vitesses de x0,1 à x8, sauts instantanés, suivez n'importe quel joueur ou mob."
+
+  [[section.item]]
+  icon = "pencil"
+  name.en = "Full editor"
+  name.fr = "Éditeur complet"
+  text.en = "several cameras cut on a timeline, smooth paths, Simple and Advanced modes, undo with <code>Ctrl+Z</code>."
+  text.fr = "plusieurs caméras coupées sur une timeline, trajectoires fluides, modes Simple et Avancé, annuler avec <code>Ctrl+Z</code>."
+
+  [[section.item]]
+  icon = "download"
+  name.en = "Video export"
+  name.fr = "Export vidéo"
+  text.en = "MP4 from 720p to 4K with the mixed sound, shader packs included."
+  text.fr = "MP4 de 720p à 4K avec le son mixé, packs de shaders compris."
+
+[[section]]
+id = "films"
+title.en = "Make Real Films"
+title.fr = "De Vrais Films"
+icon = "star"
+
+  [[section.banner]]
+  file = "montage.gif"
+  alt.en = "Shots of a festival clip made with Just Replay: the stage and its lights, 400 dancing players, the DJ"
+  alt.fr = "Plans d'un clip de festival fait avec Just Replay : la scène et ses lumières, 400 joueurs qui dansent, le DJ"
+
+  [[section.item]]
+  icon = "users"
+  name.en = "Actors"
+  name.fr = "Acteurs"
+  text.en = "any skin or PNG skin, any mob, Blockbench models; seated, walking or following."
+  text.fr = "tout skin ou fichier PNG, tout mob, modèles Blockbench ; assis, en marche ou en suivi."
+
+  [[section.item]]
+  icon = "note"
+  name.en = "Dances on the beat"
+  name.fr = "Danses en rythme"
+  text.en = "ten styles, from bounce to hakken, locked to the tempo of your music."
+  text.fr = "dix styles, du rebond au hakken, calés sur le tempo de votre musique."
+
+  [[section.item]]
+  icon = "sparkle"
+  name.en = "Effects"
+  name.fr = "Effets"
+  text.en = "transitions, colour grading, vignette, letterbox, all with keyframes."
+  text.fr = "transitions, étalonnage, vignette, bandes cinéma, le tout avec images clés."
+
+  [[section.item]]
+  icon = "pin"
+  name.en = "Texts and images"
+  name.fr = "Textes et images"
+  text.en = "titles and stickers anchored to an entity, a block or a point of the world."
+  text.fr = "titres et stickers ancrés à une entité, un bloc ou un point du monde."
+
+  [[section.item]]
+  icon = "bolt"
+  name.en = "Works with your mods"
+  name.fr = "Avec vos mods"
+  text.en = "Iris, Distant Horizons, Create, Voice Chat, Emotecraft, WaterFrames, Drop the Beam."
+  text.fr = "Iris, Distant Horizons, Create, Voice Chat, Emotecraft, WaterFrames, Drop the Beam."
+
+[[section]]
+id = "start"
+title.en = "Getting Started"
+title.fr = "Premiers Pas"
+icon = "rocket"
+layout = "steps"
+
+  [[section.item]]
+  text.en = "Put the jar in the <code>mods</code> folder. For videos, install <a href=\"https://ffmpeg.org/download.html\">FFmpeg</a>."
+  text.fr = "Placez le jar dans le dossier <code>mods</code>. Pour les vidéos, installez <a href=\"https://ffmpeg.org/download.html\">FFmpeg</a>."
+
+  [[section.item]]
+  text.en = "Play and press <code>F8</code> to start and stop a recording."
+  text.fr = "Jouez et appuyez sur <code>F8</code> pour lancer et arrêter un enregistrement."
+
+  [[section.item]]
+  text.en = "Click <strong>Replays</strong> on the title screen and open your recording."
+  text.fr = "Cliquez sur <strong>Replays</strong> à l'écran titre et ouvrez votre enregistrement."
+
+  [[section.item]]
+  text.en = "Press <code>G</code> for the editor, place cameras with <code>K</code>, then <strong>Export</strong>."
+  text.fr = "Appuyez sur <code>G</code> pour l'éditeur, placez des caméras avec <code>K</code>, puis <strong>Exporter</strong>."
+
+[support]
+url = "https://github.com/laforetbrut/mod-just-replay/issues"
+text.en = 'A problem or an idea? Ask on <a href="https://discord.gg/xjF8Rtzyd4">Discord</a> or'
+text.fr = 'Un problème ou une idée ? Demandez sur <a href="https://discord.gg/xjF8Rtzyd4">Discord</a> ou'
+link.en = "open an issue"
+link.fr = "ouvrez un ticket"
+
+[[partner]]
+shared = true
+title.en = "Official Hosting Partner"
+title.fr = "Partenaire d'Hébergement Officiel"
+text.en = "Host your modded Minecraft server with WabbaNode."
+text.fr = "Hébergez votre serveur Minecraft moddé chez WabbaNode."
+image = "https://www.arcadia-echoes-of-power.fr/storage/curseforge/bannerwab.png"
+alt.en = "WabbaNode"
+alt.fr = "WabbaNode"
+url = "https://wabbanode.com/affiliate/vyrriox"
+badge = { label = { en = "All partners", fr = "Tous les partenaires" }, message = "Arcadia", icon = "users", url = "https://www.arcadia-echoes-of-power.fr/partenariat" }
+
+[footer]
+title.en = "Support the Project"
+title.fr = "Soutenir le Projet"
+text.en = "Your support keeps Just Replay growing."
+text.fr = "Votre soutien fait grandir Just Replay."
+badges = ["donate"]
