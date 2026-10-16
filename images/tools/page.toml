@@ -7,7 +7,7 @@
 
 [page]
 languages = ["en", "fr"]
-images_base = "https://cdn.jsdelivr.net/gh/Team-Arcadia/images@main/mods/justreplay/curseforge/"
+images_base = "https://cdn.jsdelivr.net/gh/Team-Arcadia/images@7d35eb95556b/mods/justreplay/curseforge/"
 images_dir = ".."
 out = "../../curseforge_page.md"
 root = "../.."
