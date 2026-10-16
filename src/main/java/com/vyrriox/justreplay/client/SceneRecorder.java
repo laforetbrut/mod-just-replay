@@ -20,6 +20,9 @@ import java.nio.file.Path;
  * With {@code -Djustreplay.sceneReplay} (a folder of the replays folder) it opens that replay instead, waits
  * {@code sceneDelay} seconds, and with {@code -Djustreplay.sceneExport=start-end|name} exports that range at 1080p and
  * 60 fps before quitting. The user's export settings are put back afterwards.
+ * <p>
+ * With {@code -Djustreplay.job} (a JSON file) the steps of that job run instead, several records, replays, screenshots
+ * and exports in one launch: see {@link SceneJob}.
  *
  * @author vyrriox
  */
@@ -35,6 +38,8 @@ public final class SceneRecorder {
     private static int shotIndex;
     /** Editor captures: "tick|SIMPLE or ADVANCED|tab,tab,...", one screenshot of the editor per tab. */
     private static final String EDITOR = System.getProperty("justreplay.sceneEditor", "");
+    /** Job file: steps run in order in one launch, see {@link SceneJob}. */
+    private static final String JOB = System.getProperty("justreplay.job", "");
     private static int editorIndex;
     private static com.vyrriox.justreplay.config.JRConfig.EditorMode savedMode;
     private static int savedGuiScale = -1;
@@ -47,10 +52,10 @@ public final class SceneRecorder {
     }
 
     public static boolean enabled() {
-        return !WORLD.isEmpty() || !REPLAY.isEmpty();
+        return !WORLD.isEmpty() || !REPLAY.isEmpty() || !JOB.isEmpty();
     }
 
-    private static void log(String message, Object... args) {
+    static void log(String message, Object... args) {
         JustReplay.LOGGER.info("SCENE " + message, args);
     }
 
@@ -61,6 +66,10 @@ public final class SceneRecorder {
         mc.options.pauseOnLostFocus = false;
         if (mc.screen instanceof net.minecraft.client.gui.screens.PauseScreen) {
             mc.setScreen(null);
+        }
+        if (!JOB.isEmpty()) {
+            SceneJob.tick(mc, JOB);
+            return;
         }
         if (wait > 0) {
             wait--;
@@ -79,31 +88,9 @@ public final class SceneRecorder {
                 }
             }
             case 1 -> {
-                // A world with an experimental dimension asks for a backup once: go on without one.
-                if (mc.screen instanceof BackupConfirmScreen confirm) {
-                    for (var child : confirm.children()) {
-                        if (child instanceof Button b && b.getMessage().getContents() instanceof TranslatableContents t
-                                && t.getKey().equals("selectWorld.backupJoinSkipButton")) {
-                            b.onPress();
-                        }
-                    }
-                }
+                skipBackupScreen(mc);
                 if (mc.player != null && mc.level != null && mc.screen == null) {
-                    IntegratedServer server = mc.getSingleplayerServer();
-                    if (server != null && !COMMANDS.isBlank()) {
-                        server.execute(() -> {
-                            ServerPlayer player = server.getPlayerList().getPlayers().isEmpty() ? null : server.getPlayerList().getPlayers().get(0);
-                            if (player == null) {
-                                return;
-                            }
-                            for (String command : COMMANDS.split(";")) {
-                                if (!command.isBlank()) {
-                                    server.getCommands().performPrefixedCommand(player.createCommandSourceStack().withPermission(4), command.trim());
-                                    log("ran /{}", command.trim());
-                                }
-                            }
-                        });
-                    }
+                    runCommands(mc, java.util.Arrays.asList(COMMANDS.split(";")));
                     step = 2;
                     wait = DELAY;
                 }
@@ -140,6 +127,38 @@ public final class SceneRecorder {
             default -> {
             }
         }
+    }
+
+    /** A world with an experimental dimension asks for a backup once: go on without one. */
+    static void skipBackupScreen(Minecraft mc) {
+        if (mc.screen instanceof BackupConfirmScreen confirm) {
+            for (var child : confirm.children()) {
+                if (child instanceof Button b && b.getMessage().getContents() instanceof TranslatableContents t
+                        && t.getKey().equals("selectWorld.backupJoinSkipButton")) {
+                    b.onPress();
+                }
+            }
+        }
+    }
+
+    /** Runs commands as the player of the integrated server, with operator rights. */
+    static void runCommands(Minecraft mc, java.util.List<String> commands) {
+        IntegratedServer server = mc.getSingleplayerServer();
+        if (server == null || commands.stream().allMatch(String::isBlank)) {
+            return;
+        }
+        server.execute(() -> {
+            ServerPlayer player = server.getPlayerList().getPlayers().isEmpty() ? null : server.getPlayerList().getPlayers().get(0);
+            if (player == null) {
+                return;
+            }
+            for (String command : commands) {
+                if (!command.isBlank()) {
+                    server.getCommands().performPrefixedCommand(player.createCommandSourceStack().withPermission(4), command.trim());
+                    log("ran /{}", command.trim());
+                }
+            }
+        });
     }
 
     private static int savedCrf = -1;

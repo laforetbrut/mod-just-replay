@@ -101,6 +101,50 @@ not on the `PATH`.
 The jar is written to `build/libs/`. `./gradlew runClient -Pselftest` runs an automated record, replay,
 edit and export test in a development client.
 
+### Scene jobs
+
+A development client can run a job file unattended, for tools that make footage of a mod: several
+recordings, replays, screenshots and exports in one launch, then the game quits.
+
+```bash
+./gradlew runClient -Pjob=/absolute/path/to/job.json
+```
+
+The `-Pjob` Gradle property sets the JVM property `justreplay.job`; a relative path is read from the game
+folder (`run/`). The file lists steps run in order:
+
+```json
+{
+  "steps": [
+    { "type": "record", "world": "Showcase", "commands": ["time set noon", "weather clear"], "delay": 5, "seconds": 30 },
+    { "type": "open", "delay": 5 },
+    { "type": "shots", "ticks": [100, 300], "prefix": "showcase" },
+    { "type": "export", "start": 0, "end": 400, "name": "orbit", "resolution": "1080p", "fps": 60, "crf": 16 },
+    { "type": "export", "start": 200, "end": 260, "name": "loop", "width": 960, "height": 540, "fps": 30, "format": "png" },
+    { "type": "quit" }
+  ]
+}
+```
+
+| Step | Fields |
+|---|---|
+| `record` | `world` (folder of `saves/`, required), `commands` (list, or one string split on `;`, run as an operator), `delay` (seconds before recording, 5), `seconds` (length, 60) |
+| `open` | `replay` (folder of `justreplay/replays/`; left out, the last recording of this job), `delay` (seconds after it starts, 5) |
+| `shots` | `ticks` (list, required), `prefix` (`scene`): one screenshot per tick in `screenshots/<prefix>-<tick>.png` |
+| `export` | `start`, `end` (ticks, required), `name` (`scene`), `resolution` (`window`, `720p`, `1080p`, `1440p`, `2160p`; `1080p`) or `width` and `height`, `fps` (10 to 240, 60), `crf` (0 to 51, 16), `format` (`mp4` or `png`, `mp4`) |
+| `quit` | none; the game also quits after the last step |
+
+Durations are in seconds and can be fractional. Shots and exports follow the camera path of the replay's
+project (`project.json`). An MP4 goes to `justreplay/exports/<name>.mp4`; a PNG sequence goes to the folder
+`justreplay/exports/<name>/` (`frame_00000.png`, ... and `audio.wav` when there is sound). An existing export is
+never overwritten: the new one gets `_2`, `_3`... Job exports never change the export settings of the config.
+
+Every step is logged with the `SCENE` prefix, so a caller can follow the log: `SCENE step 2/6 open: ...`,
+`SCENE replay folder: <name>`, `SCENE screenshot at tick 100: <file>`, `SCENE export finished: <file> (<n>
+frames)`, `SCENE step 2/6 done`. A bad file or a failed step logs `SCENE job error ...` or `SCENE job failed at
+step n/m: <reason>` and the game quits; a full run logs `SCENE job finished`. The last line is always
+`SCENE done`.
+
 ### License
 
 Apache License 2.0, see `LICENSE` and `NOTICE`. The jar bundles no third-party code. FFmpeg is an external
@@ -199,6 +243,38 @@ d'export s'il n'est pas dans le `PATH`.
 
 Le jar est créé dans `build/libs/`. `./gradlew runClient -Pselftest` lance un test automatique complet
 (enregistrement, lecture, édition, export) dans un client de développement.
+
+### Tâches de scène
+
+Un client de développement peut dérouler seul un fichier de tâche, pour les outils qui filment un mod :
+plusieurs enregistrements, replays, captures et exports en un seul lancement, puis le jeu se ferme.
+
+```bash
+./gradlew runClient -Pjob=/chemin/absolu/vers/job.json
+```
+
+La propriété Gradle `-Pjob` règle la propriété JVM `justreplay.job` ; un chemin relatif part du dossier du jeu
+(`run/`). Le fichier liste des étapes exécutées dans l'ordre (exemple complet dans la section anglaise) :
+
+| Étape | Champs |
+|---|---|
+| `record` | `world` (dossier de `saves/`, obligatoire), `commands` (liste, ou une chaîne coupée sur `;`, lancées en opérateur), `delay` (secondes avant l'enregistrement, 5), `seconds` (durée, 60) |
+| `open` | `replay` (dossier de `justreplay/replays/` ; absent, le dernier enregistrement de la tâche), `delay` (secondes après le démarrage, 5) |
+| `shots` | `ticks` (liste, obligatoire), `prefix` (`scene`) : une capture par tick dans `screenshots/<prefix>-<tick>.png` |
+| `export` | `start`, `end` (ticks, obligatoires), `name` (`scene`), `resolution` (`window`, `720p`, `1080p`, `1440p`, `2160p` ; `1080p`) ou `width` et `height`, `fps` (10 à 240, 60), `crf` (0 à 51, 16), `format` (`mp4` ou `png`, `mp4`) |
+| `quit` | aucun ; le jeu se ferme aussi après la dernière étape |
+
+Les durées sont en secondes et peuvent être décimales. Les captures et les exports suivent le chemin de caméra
+du projet du replay (`project.json`). Un MP4 va dans `justreplay/exports/<name>.mp4` ; une séquence PNG va dans
+le dossier `justreplay/exports/<name>/` (`frame_00000.png`, ... et `audio.wav` s'il y a du son). Un export
+existant n'est jamais écrasé : le nouveau prend `_2`, `_3`... Les exports d'une tâche ne touchent jamais aux
+réglages d'export de la config.
+
+Chaque étape est écrite dans le log avec le préfixe `SCENE`, pour qu'un outil suive l'avancement :
+`SCENE step 2/6 open: ...`, `SCENE replay folder: <nom>`, `SCENE screenshot at tick 100: <fichier>`,
+`SCENE export finished: <fichier> (<n> frames)`, `SCENE step 2/6 done`. Un fichier invalide ou une étape ratée
+écrit `SCENE job error ...` ou `SCENE job failed at step n/m: <raison>` et le jeu se ferme ; une tâche complète
+écrit `SCENE job finished`. La dernière ligne est toujours `SCENE done`.
 
 ### Licence
 

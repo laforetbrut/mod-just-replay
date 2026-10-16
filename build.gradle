@@ -35,7 +35,9 @@ neoForge {
                 systemProperty 'justreplay.checkpointTicks', '60'
             }
             // Unattended recording of a world for test footage, see SceneRecorder.
-            if (project.hasProperty('scene') || project.hasProperty('sceneReplay')) {
+            if (project.hasProperty('scene') || project.hasProperty('sceneReplay') || project.hasProperty('job')) {
+                // Job file: several records, replays, screenshots and exports in one launch, see SceneJob.
+                systemProperty 'justreplay.job', project.findProperty('job') ?: ''
                 systemProperty 'justreplay.scene', project.findProperty('scene') ?: ''
                 systemProperty 'justreplay.sceneReplay', project.findProperty('sceneReplay') ?: ''
                 systemProperty 'justreplay.sceneExport', project.findProperty('sceneExport') ?: ''
