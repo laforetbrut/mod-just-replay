@@ -14,9 +14,8 @@ generates it lives here, in `images/tools/`.
 | File | Role |
 |---|---|
 | `page.toml` | The page itself: links, badges, sections, texts in every language |
-| `theme.json` | The colors, the ornament and the shape shared by every image |
+| `theme.json` | The colors, the ornament and the shape shared by every image, taken from the brand kit in `Branding/` (`theme.py brand`) |
 | `make_banners.py` | The animated banners, made from a clip filmed with the mod itself |
-| `logo_block.png` | The block of the mod's logo, used as the emblem of the top banner |
 | `build_page.py` | Writes `curseforge_page.md` from `page.toml` |
 | `titles.py`, `export_icons.py`, `shots.py` | Title ribbons, badges, language labels, divider, feature icons, gallery pictures |
 | `check_page.py`, `preview.py` | Check the page and show it the way CurseForge will |
@@ -51,6 +50,10 @@ Every image weighs less than 2 MB, the limit of CurseForge for an uploaded image
 
 ## Footage
 
+The top banner shows the logo of `Branding/` (its reverse horizontal lockup) on a still of the clip, finished in
+EffectCraft (`fx.branded_hero`); every banner gets a light grade and vignette (`kit.LOOK`).
+
+
 The banners are made from a clip filmed with Just Replay itself: a Drop the Beam festival recorded
 in a replay, edited and exported at 1080p, then cut into 1600 x 900 stills with ffmpeg
 (`still_NNN.png` at second NNN, `hero_*.png` 3.4 s from 0:50 at 20 fps). The editor stills are
@@ -80,9 +83,8 @@ qui le génère se trouve ici, dans `images/tools/`.
 | Fichier | Rôle |
 |---|---|
 | `page.toml` | La page elle-même : liens, badges, sections, textes dans chaque langue |
-| `theme.json` | Les couleurs, l'ornement et la forme communs à toutes les images |
+| `theme.json` | Les couleurs, l'ornement et la forme communs à toutes les images, repris du kit de marque de `Branding/` (`theme.py brand`) |
 | `make_banners.py` | Les bannières animées, faites à partir d'un clip filmé avec le mod lui-même |
-| `logo_block.png` | Le bloc du logo du mod, emblème de la bannière du haut |
 | `build_page.py` | Écrit `curseforge_page.md` à partir de `page.toml` |
 | `titles.py`, `export_icons.py`, `shots.py` | Rubans de titre, badges, étiquettes de langue, séparateur, icônes, images de galerie |
 | `check_page.py`, `preview.py` | Vérifient la page et la montrent comme CurseForge l'affichera |
@@ -117,6 +119,10 @@ Chaque image pèse moins de 2 Mo, la limite de CurseForge pour une image envoyé
 font 800 pixels de large, la largeur de la colonne de description.
 
 ## Séquences
+
+La bannière du haut montre le logo de `Branding/` (sa version horizontale inversée) sur une image du clip,
+finie dans EffectCraft (`fx.branded_hero`) ; chaque bannière reçoit un léger étalonnage et une vignette (`kit.LOOK`).
+
 
 Les bannières viennent d'un clip filmé avec Just Replay lui-même : un festival Drop the Beam
 enregistré dans un replay, monté et exporté en 1080p, puis découpé en images 1600 x 900 avec ffmpeg

@@ -1,0 +1,69 @@
+{
+  "name": "Just Replay",
+  "slug": "just-replay",
+  "kind": "minecraft-mod",
+  "tagline": "Record. Replay. Direct.",
+  "concept": {
+    "en": "A lowercase j drawn as the play head of the editor's timeline: you are the one who directs the replay.",
+    "fr": "Un j minuscule dessiné comme la tête de lecture de la timeline de l'éditeur : c'est vous qui dirigez le replay."
+  },
+  "palette": {
+    "primary": "#F2542D",
+    "secondary": "#5AB4FF",
+    "ink": "#17141A",
+    "paper": "#FAF7F2"
+  },
+
+  "mark": "mark.svg",
+  "mark_reverse": "mark-reverse.svg",
+  "mark_small": "mark-small.svg",
+
+  "wordmark": "wordmark.svg",
+  "wordmark_reverse": "wordmark-reverse.svg",
+  "tagline_font": { "font": "Montserrat", "weight": 600, "tracking": 180, "case": "upper" },
+
+  "lockup": {
+    "icon_padding": 0.06,
+    "horizontal": { "gap": 0.26, "wordmark": 0.5, "tagline": 0.12, "tagline_gap": 0.14 },
+    "stacked": { "gap": 0.18, "wordmark": 0.34, "max_width": 2.6, "tagline": 0.09, "tagline_gap": 0.1 }
+  },
+  "icon": { "background": "ink", "knockout": false, "mark_on_background": "mark-reverse.svg",
+            "app_scale": 0.66, "radius": 0.22, "maskable_scale": 0.52, "avatar_scale": 0.62 },
+  "banner": { "background": "#141118", "light": "#F2542D", "pattern": "none", "pattern_opacity": 0.0,
+              "texture": null, "grain": 0.25, "vignette": 0.3, "shadow": 30, "tagline": true,
+              "colorway": "reverse", "logo_fill": 0.72 },
+  "banners": null,
+  "minecraft": { "logo_layout": "horizontal", "logo_colorway": "reverse", "logo_width": 600, "icon_scale": 0.9 },
+  "ui_font": "Inter",
+
+  "rationale": {
+    "en": [
+      "Just Replay is about directing what was recorded, so the mark is the play head of its own editor, not a camera or a circular arrow like every replay mod around it.",
+      "The play head is also a lowercase j: the knob is the j's dot, the line its stem, and the hook falls below the timeline. The name and the tool are one shape.",
+      "The play head stands right of centre on the track: a timeline already under way, a film in progress.",
+      "One stroke weight, one gap and round ends everywhere, so the mark stays calm and precise, and holds as a flat glyph at 16 pixels like the utility mods it sits next to.",
+      "The wordmark repeats the idea once: the dot of the j in just is the same orange knob."
+    ],
+    "fr": [
+      "Just Replay sert à diriger ce qui a été enregistré : le symbole est la tête de lecture de son propre éditeur, pas une caméra ni une flèche circulaire comme chez tous les mods de replay voisins.",
+      "La tête de lecture est aussi un j minuscule : la poignée est le point du j, la ligne sa hampe, et le crochet passe sous la timeline. Le nom et l'outil ne font qu'une forme.",
+      "La tête de lecture est décalée à droite sur la piste : une timeline déjà entamée, un film en cours.",
+      "Une seule épaisseur, un seul espace et des bouts arrondis partout : le symbole reste calme et précis, et tient en glyphe plat à 16 pixels comme les mods utilitaires à côté desquels il se range.",
+      "Le mot-symbole reprend l'idée une fois : le point du j de just est la même poignée orange."
+    ]
+  },
+  "palette_notes": {
+    "primary": { "en": "Signal orange, the warm light of a recording camera's REC lamp: the colour of the play head and of action.",
+                 "fr": "Orange signal, la lumière chaude du voyant REC d'une caméra : la couleur de la tête de lecture et de l'action." },
+    "secondary": { "en": "The blue accent of the mod's glass editor interface, kept for links, highlights and banners.",
+                   "fr": "Le bleu d'accent de l'interface en verre de l'éditeur, gardé pour les liens, les mises en avant et les bannières." },
+    "ink": { "en": "A near black leaning to plum, the dark of a cinema hall.", "fr": "Un presque noir qui tire vers la prune, le noir d'une salle de cinéma." },
+    "paper": { "en": "A warm off-white, the light of a screen before the film starts.", "fr": "Un blanc cassé chaud, la lumière d'un écran avant le film." }
+  },
+  "type_note": {
+    "en": "Montserrat Bold (OFL), a geometric sans with round terminals that match the round ends of the mark, set in lowercase like the j of the mark. The dot of the j is replaced by the mark's orange knob.",
+    "fr": "Montserrat Bold (OFL), une linéale géométrique aux terminaisons rondes qui répondent aux bouts arrondis du symbole, en minuscules comme le j du symbole. Le point du j est remplacé par la poignée orange du symbole."
+  },
+  "color_sources": ["color-sources/editor-interface.png", "color-sources/editor-timeline.png"],
+  "grid": 16
+}
