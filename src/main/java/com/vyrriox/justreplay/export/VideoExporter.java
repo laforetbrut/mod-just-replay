@@ -51,6 +51,17 @@ public final class VideoExporter {
         PRE_ROLL, SETTLE, CAPTURE
     }
 
+    /**
+     * Frame rate, quality, size and output of one export. A width and height above zero override the resolution;
+     * a PNG sequence writes one picture per frame into a folder, with the sound as a WAV file beside them.
+     */
+    public record Settings(int fps, int crf, ExportResolution resolution, int width, int height, boolean pngSequence) {
+        /** The export settings of the config file, as the export screen leaves them. */
+        public static Settings fromConfig() {
+            return new Settings(JRConfig.EXPORT_FPS.get(), JRConfig.EXPORT_CRF.get(), JRConfig.EXPORT_RESOLUTION.get(), 0, 0, false);
+        }
+    }
+
     /** What the game clock does on one rendered frame: client ticks to run and the partial tick to show. */
     public record TimerStep(int ticks, float deltaTicks, float partialTick) {
         private static final TimerStep HOLD = new TimerStep(0, 0.0F, 0.0F);
@@ -81,16 +92,19 @@ public final class VideoExporter {
     private boolean timerPrepared;
     private int frames;
     private final ExportAudio audio;
+    private final boolean pngSequence;
+    private final java.util.concurrent.CompletableFuture<Boolean> completion = new java.util.concurrent.CompletableFuture<>();
     private volatile boolean failed;
     private boolean finished;
 
-    private VideoExporter(ReplaySession session, int startTick, int endTick, int fps, Path output, Process process, int width, int height,
-                          boolean previousHideGui, boolean previousPauseOnLostFocus) {
+    private VideoExporter(ReplaySession session, int startTick, int endTick, int fps, Path output, boolean pngSequence, Process process,
+                          int width, int height, boolean previousHideGui, boolean previousPauseOnLostFocus) {
         this.session = session;
         this.startTick = startTick;
         this.endTick = endTick;
         this.fps = fps;
         this.output = output;
+        this.pngSequence = pngSequence;
         this.process = process;
         this.stdin = process.getOutputStream();
         this.width = width;
@@ -138,8 +152,31 @@ public final class VideoExporter {
         return Math.min(1.0F, (float) frames / Math.max(1L, total));
     }
 
-    /** Starts an export of the camera path between two ticks. Returns an error message, or null on success. */
+    /** The video file, or the folder of a PNG sequence. */
+    public Path output() {
+        return output;
+    }
+
+    /** Frames written so far. */
+    public int frames() {
+        return frames;
+    }
+
+    /** Completes once the output is fully written (FFmpeg ended, sound added): true on success. */
+    public java.util.concurrent.CompletableFuture<Boolean> completion() {
+        return completion;
+    }
+
+    /**
+     * Starts an export of the camera path between two ticks with the settings of the config file. Returns an error
+     * message, or null on success.
+     */
     public static Component start(ReplaySession session, int startTick, int endTick, String fileName) {
+        return start(session, startTick, endTick, fileName, Settings.fromConfig());
+    }
+
+    /** Starts an export of the camera path between two ticks. Returns an error message, or null on success. */
+    public static Component start(ReplaySession session, int startTick, int endTick, String fileName, Settings settings) {
         if (current != null) {
             return Component.translatable("justreplay.export.error.running");
         }
@@ -150,31 +187,43 @@ public final class VideoExporter {
         RenderTarget target = mc.getMainRenderTarget();
         int windowWidth = target.width;
         int windowHeight = target.height;
-        int fps = JRConfig.EXPORT_FPS.get();
-        ExportResolution resolution = JRConfig.EXPORT_RESOLUTION.get();
+        int fps = settings.fps();
+        boolean png = settings.pngSequence();
         String safeName = fileName.replaceAll("[^A-Za-z0-9._-]", "_");
+        if (safeName.endsWith(".mp4")) {
+            safeName = safeName.substring(0, safeName.length() - 4);
+        }
         if (safeName.isBlank()) {
             safeName = "export";
         }
-        if (!safeName.endsWith(".mp4")) {
-            safeName += ".mp4";
-        }
-        Path output = ReplayStorage.exportRoot().resolve(safeName);
-        String base = safeName.substring(0, safeName.length() - 4);
+        // A PNG sequence is a folder named like the video would be, without the extension.
+        String extension = png ? "" : ".mp4";
+        Path output = ReplayStorage.exportRoot().resolve(safeName + extension);
         for (int n = 2; java.nio.file.Files.exists(output); n++) {
             // Never overwrite an earlier export.
-            output = ReplayStorage.exportRoot().resolve(base + "_" + n + ".mp4");
+            output = ReplayStorage.exportRoot().resolve(safeName + "_" + n + extension);
+        }
+        if (png) {
+            try {
+                java.nio.file.Files.createDirectories(output);
+            } catch (IOException e) {
+                JustReplay.LOGGER.error("Cannot create the folder {}", output, e);
+                return Component.literal("Cannot create " + output);
+            }
         }
 
         // Render at the chosen size when the GPU allows it, otherwise at window size with FFmpeg scaling.
-        int outWidth = resolution.isWindow() ? windowWidth : resolution.width();
-        int outHeight = resolution.isWindow() ? windowHeight : resolution.height();
-        boolean trueSize = resolution.isWindow() || ExportRenderSize.fits(outWidth, outHeight);
+        boolean custom = settings.width() > 0 && settings.height() > 0;
+        boolean window = !custom && settings.resolution().isWindow();
+        int outWidth = window ? windowWidth : custom ? settings.width() : settings.resolution().width();
+        int outHeight = window ? windowHeight : custom ? settings.height() : settings.resolution().height();
+        boolean trueSize = window || ExportRenderSize.fits(outWidth, outHeight);
         int renderWidth = trueSize ? outWidth : windowWidth;
         int renderHeight = trueSize ? outHeight : windowHeight;
+        int crf = settings.crf();
         Process process;
         try {
-            process = launch(output, fps, renderWidth, renderHeight, trueSize ? 0 : outWidth, outHeight);
+            process = launch(output, png, fps, crf, renderWidth, renderHeight, trueSize ? 0 : outWidth, outHeight);
         } catch (IOException e) {
             JustReplay.LOGGER.error("Cannot start ffmpeg", e);
             return Component.translatable("justreplay.export.error.ffmpeg", JRConfig.FFMPEG_PATH.get());
@@ -200,7 +249,7 @@ public final class VideoExporter {
             renderWidth = fallback.width;
             renderHeight = fallback.height;
             try {
-                process = launch(output, fps, renderWidth, renderHeight, outWidth, outHeight);
+                process = launch(output, png, fps, crf, renderWidth, renderHeight, outWidth, outHeight);
             } catch (IOException e) {
                 JustReplay.LOGGER.error("Cannot start ffmpeg", e);
                 ExportRenderSize.unlock();
@@ -212,7 +261,7 @@ public final class VideoExporter {
             }
         }
 
-        VideoExporter exporter = new VideoExporter(session, startTick, endTick, fps, output, process, renderWidth, renderHeight,
+        VideoExporter exporter = new VideoExporter(session, startTick, endTick, fps, output, png, process, renderWidth, renderHeight,
                 previousHideGui, previousPauseOnLostFocus);
         current = exporter;
         com.vyrriox.justreplay.compat.ReplayCompat.onExportStart();
@@ -230,21 +279,28 @@ public final class VideoExporter {
     /**
      * Starts FFmpeg reading raw RGBA frames of the render size. A non-zero {@code scaleWidth} scales the frames
      * to {@code scaleWidth x scaleHeight} (Lanczos, aspect kept by cropping); otherwise only an odd edge is
-     * cropped. The output is H.264 tagged BT.709, limited range.
+     * cropped. The output is H.264 tagged BT.709, limited range, or with {@code png} one RGB PNG per frame in the
+     * {@code output} folder, uncropped.
      */
-    private static Process launch(Path output, int fps, int renderWidth, int renderHeight, int scaleWidth, int scaleHeight) throws IOException {
-        String size = scaleWidth > 0
-                ? "scale=" + scaleWidth + ":" + scaleHeight + ":force_original_aspect_ratio=increase:flags=lanczos,crop=" + scaleWidth + ":" + scaleHeight
-                : "crop=trunc(iw/2)*2:trunc(ih/2)*2";
-        // The YUV conversion happens in this scale filter, so it uses the BT.709 matrix the stream is tagged with.
-        String filter = size + ",scale=iw:ih:flags=lanczos:out_color_matrix=bt709:out_range=tv,format=yuv420p";
+    private static Process launch(Path output, boolean png, int fps, int crf, int renderWidth, int renderHeight, int scaleWidth,
+                                  int scaleHeight) throws IOException {
+        String scale = "scale=" + scaleWidth + ":" + scaleHeight + ":force_original_aspect_ratio=increase:flags=lanczos,crop=" + scaleWidth + ":" + scaleHeight;
         List<String> command = new ArrayList<>(List.of(
                 JRConfig.FFMPEG_PATH.get(), "-y",
-                "-f", "rawvideo", "-pix_fmt", "rgba", "-s", renderWidth + "x" + renderHeight, "-r", Integer.toString(fps), "-i", "-",
-                "-vf", filter,
-                "-c:v", "libx264", "-preset", "medium", "-crf", Integer.toString(JRConfig.EXPORT_CRF.get()),
-                "-pix_fmt", "yuv420p", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv",
-                "-movflags", "+faststart", output.toString()));
+                "-f", "rawvideo", "-pix_fmt", "rgba", "-s", renderWidth + "x" + renderHeight, "-r", Integer.toString(fps), "-i", "-"));
+        if (png) {
+            command.addAll(List.of("-vf", (scaleWidth > 0 ? scale + "," : "") + "format=rgb24",
+                    "-c:v", "png", "-start_number", "0", output.resolve("frame_%05d.png").toString()));
+        } else {
+            String size = scaleWidth > 0 ? scale : "crop=trunc(iw/2)*2:trunc(ih/2)*2";
+            // The YUV conversion happens in this scale filter, so it uses the BT.709 matrix the stream is tagged with.
+            String filter = size + ",scale=iw:ih:flags=lanczos:out_color_matrix=bt709:out_range=tv,format=yuv420p";
+            command.addAll(List.of(
+                    "-vf", filter,
+                    "-c:v", "libx264", "-preset", "medium", "-crf", Integer.toString(crf),
+                    "-pix_fmt", "yuv420p", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv",
+                    "-movflags", "+faststart", output.toString()));
+        }
         return new ProcessBuilder(command)
                 .redirectErrorStream(true)
                 .redirectOutput(output.resolveSibling(output.getFileName() + ".log").toFile())
@@ -415,7 +471,7 @@ public final class VideoExporter {
                 }
                 ok = ok && process.exitValue() == 0;
                 if (ok && !audio.isEmpty()) {
-                    ok = addAudio();
+                    ok = pngSequence ? writeAudioTrack() : addAudio();
                 }
             } catch (InterruptedException e) {
                 ok = false;
@@ -425,9 +481,20 @@ public final class VideoExporter {
                     Component.translatable(result ? "justreplay.export.done" : "justreplay.export.failed"),
                     Component.literal(output.getFileName().toString())));
             JustReplay.LOGGER.info("Export {} ({} frames): {}", result ? "finished" : "failed", frames, output);
+            completion.complete(result);
         }, "JustReplay export finisher");
         waiter.setDaemon(true);
         waiter.start();
+    }
+
+    /** Mixes the logged sounds into {@code audio.wav} beside the frames of a PNG sequence. */
+    private boolean writeAudioTrack() {
+        try {
+            audio.writeWav(output.resolve("audio.wav"), frames);
+        } catch (Exception e) {
+            JustReplay.LOGGER.warn("Could not write the audio track, the frames are kept without sound", e);
+        }
+        return true;
     }
 
     /** Mixes the logged sounds and muxes them into the finished video (video stream copied, AAC audio). */
