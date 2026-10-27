@@ -218,6 +218,22 @@ public final class Recorder {
         return c != null && c.buffer != null;
     }
 
+    /**
+     * A sound or a level event the client played for its own player: its footsteps, the blocks it places and breaks,
+     * its swings. The server sends those to every other player but never back to the one who caused them, so they
+     * are written here as the packets the others received. Client thread only.
+     */
+    public static void recordLocalEffect(Packet<?> packet) {
+        Recorder c = capture;
+        if (c == null || (c.recording == null && c.buffer == null) || com.vyrriox.justreplay.replay.ReplaySession.isRunning()) {
+            return;
+        }
+        ClientPacketListener listener = Minecraft.getInstance().getConnection();
+        if (listener != null && c.connection.getPacketListener() == listener) {
+            c.write(listener, packet);
+        }
+    }
+
     /** Tick of the running recording (0 at its start), or 0. */
     public int tick() {
         Recording r = recording;

@@ -54,6 +54,22 @@ public final class SelfTest {
     private static ReplayProject.ActorData placed;
     private static com.vyrriox.justreplay.editor.ActorPlacement.Spot seatSpot;
     private static int fxStep;
+    /** Sounds the recording player made itself, heard again while the replay plays (see recordLocalEffect). */
+    private static int localBell;
+    private static int localAnvil;
+
+    /** Counts, during a replay, the sounds the self test made for its own player while recording. */
+    public static void onSound(net.neoforged.neoforge.client.event.sound.PlaySoundEvent event) {
+        if (!ENABLED || !ReplaySession.isRunning() || event.getSound() == null) {
+            return;
+        }
+        String id = event.getSound().getLocation().getPath();
+        if (id.equals("block.note_block.bell")) {
+            localBell++;
+        } else if (id.equals("block.anvil.use")) {
+            localAnvil++;
+        }
+    }
     private static int galleryIndex;
     private static String galleryName = "";
     /** Export settings and editor mode of the user, saved at the start and put back at the end of the test. */
@@ -225,6 +241,14 @@ public final class SelfTest {
                 }
                 if (t % 15 == 0) {
                     p.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+                }
+                if (t == 30) {
+                    // Effects the client plays for its own player (as for its footsteps and the blocks it places):
+                    // the server never sends them back, the recording must capture them itself.
+                    mc.level.playSeededSound(p, p.getX(), p.getY(), p.getZ(), net.minecraft.sounds.SoundEvents.NOTE_BLOCK_BELL,
+                            net.minecraft.sounds.SoundSource.PLAYERS, 1.0F, 1.0F, 0L);
+                    mc.level.levelEvent(p, 1030, p.blockPosition(), 0);
+                    log("local effects played at recording tick 30: a bell sound and an anvil level event");
                 }
                 if (t == 100) {
                     p.connection.sendCommand("setblock ~ ~3 ~ minecraft:diamond_block");
@@ -607,6 +631,7 @@ public final class SelfTest {
                         Files.exists(ReplayStorage.exportRoot().resolve("selftest.mp4.audio.log")));
                 log("mods after export: {}", Mods.state(mc, ReplaySession.current()));
                 Mods.logDropTheBeam("after export");
+                log("local effects heard in the replay: bell={} anvil={} (expected at least 1 each)", localBell, localAnvil);
                 log("export frames showing overlays: {} ({} overlays in the project)",
                         com.vyrriox.justreplay.editor.overlay.OverlayRenderer.exportFrames(), ReplaySession.current().project().overlays.size());
                 mc.level.disconnect();

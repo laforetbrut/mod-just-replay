@@ -230,6 +230,7 @@ public final class JustReplayClient {
         @SubscribeEvent
         public static void onPlaySound(net.neoforged.neoforge.client.event.sound.PlaySoundEvent event) {
             VideoExporter.onSound(event);
+            SelfTest.onSound(event);
         }
 
         @SubscribeEvent

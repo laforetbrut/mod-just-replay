@@ -4,6 +4,11 @@
 
 ### [Unreleased]
 
+#### Fixed
+- The recording player's own sounds are back in replays and video exports: footsteps, blocks placed and broken,
+  eating, swings. The server never sends a player the sounds it causes (the game plays them locally), so the
+  recorder now captures them on the client as the packets every other player received.
+
 ### [1.0.4] - 2026-10-16
 
 #### Added
@@ -163,6 +168,11 @@
 ## Français
 
 ### [Non publié]
+
+#### Corrigé
+- Les sons du joueur enregistré reviennent dans les replays et les exports vidéo : pas, blocs posés et cassés,
+  nourriture, coups. Le serveur n'envoie jamais à un joueur les sons qu'il provoque (le jeu les joue en local),
+  l'enregistreur les capte donc côté client, sous la forme des paquets reçus par tous les autres joueurs.
 
 ### [1.0.4] - 2026-10-16
 
