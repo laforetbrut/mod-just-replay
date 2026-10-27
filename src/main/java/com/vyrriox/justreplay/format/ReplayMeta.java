@@ -2,6 +2,8 @@ package com.vyrriox.justreplay.format;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Metadata stored next to a replay stream in {@code meta.json}.
@@ -24,4 +26,9 @@ public final class ReplayMeta {
     /** UUID given to the entity that represents the recording player during playback. */
     public String actorUuid = "";
     public List<String> mods = new ArrayList<>();
+    /**
+     * Distant Horizons level folders of the dimensions visited while recording: dimension id to the folder holding
+     * DH's database, relative to the game folder. Empty for recordings made without DH or before this field existed.
+     */
+    public Map<String, String> distantHorizons = new ConcurrentHashMap<>();
 }

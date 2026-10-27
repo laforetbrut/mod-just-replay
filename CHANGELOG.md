@@ -8,6 +8,12 @@
 - The recording player's own sounds are back in replays and video exports: footsteps, blocks placed and broken,
   eating, swings. The server never sends a player the sounds it causes (the game plays them locally), so the
   recorder now captures them on the client as the packets every other player received.
+- Distant Horizons: the distant terrain (LODs) of the recorded world now shows in replays and exported videos
+  instead of being turned off. Recordings note where DH keeps each visited dimension's LODs; opening the replay
+  copies those databases once to a temporary folder that DH reads in read only mode, so the original LODs are never
+  opened or changed, and the copy is deleted when the replay closes. Distant generation stays off. New options
+  `playback.distantHorizonsLods` (on by default) and `playback.distantHorizonsMaxCopyMb`. Recordings made before
+  this version play without LODs, as before.
 
 ### [1.0.4] - 2026-10-16
 
@@ -173,6 +179,12 @@
 - Les sons du joueur enregistré reviennent dans les replays et les exports vidéo : pas, blocs posés et cassés,
   nourriture, coups. Le serveur n'envoie jamais à un joueur les sons qu'il provoque (le jeu les joue en local),
   l'enregistreur les capte donc côté client, sous la forme des paquets reçus par tous les autres joueurs.
+- Distant Horizons : le terrain lointain (LOD) du monde enregistré s'affiche maintenant dans les replays et les
+  vidéos exportées au lieu d'être coupé. Les enregistrements notent où DH garde les LOD de chaque dimension
+  visitée ; l'ouverture du replay copie une fois ces bases dans un dossier temporaire que DH lit en lecture seule,
+  donc les LOD d'origine ne sont jamais ouverts ni modifiés, et la copie est supprimée à la fermeture du replay. La
+  génération lointaine reste coupée. Nouvelles options `playback.distantHorizonsLods` (activée par défaut) et
+  `playback.distantHorizonsMaxCopyMb`. Les enregistrements antérieurs se lisent sans LOD, comme avant.
 
 ### [1.0.4] - 2026-10-16
 

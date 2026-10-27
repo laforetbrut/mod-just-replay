@@ -247,6 +247,10 @@ public final class ReplaySession {
             try {
                 com.vyrriox.justreplay.format.PacketStream stream = com.vyrriox.justreplay.format.PacketStream.open(dir);
                 stream.lastTick(); // reads the last segment here rather than on the render thread
+                if (!stream.isEmpty()) {
+                    // Copies made for integrations (Distant Horizons LODs) belong off the render thread too.
+                    com.vyrriox.justreplay.compat.ReplayCompat.prepareReplay(ReplayStorage.readMeta(dir));
+                }
                 return stream;
             } catch (Exception e) {
                 throw new java.util.concurrent.CompletionException(e);
@@ -296,6 +300,7 @@ public final class ReplaySession {
         } catch (Throwable t) {
             JustReplay.LOGGER.error("Cannot start the replay world", t);
             current = null;
+            pendingWorldCleanup = true;
             mc.setScreen(parent);
         }
     }
@@ -351,6 +356,7 @@ public final class ReplaySession {
         if (pendingWorldCleanup && mc.level == null && mc.getSingleplayerServer() == null) {
             pendingWorldCleanup = false;
             deleteSessionWorld(mc);
+            com.vyrriox.justreplay.compat.ReplayCompat.onReplayWorldClosed();
         }
         ReplaySession s = current;
         if (s != null && s.state == State.RUNNING && mc.level == null) {

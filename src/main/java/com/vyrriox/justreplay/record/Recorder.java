@@ -437,6 +437,7 @@ public final class Recorder {
         meta.recorderName = profile.getName();
         meta.recorderUuid = profile.getId().toString();
         meta.actorUuid = actor.toString();
+        com.vyrriox.justreplay.compat.ReplayCompat.describeLevel(meta, mc.level, true);
         return meta;
     }
 
@@ -772,6 +773,11 @@ public final class Recorder {
                 if (failedTypes.add(LocalPlayer.class)) {
                     JustReplay.LOGGER.warn("Cannot record the local player", t);
                 }
+            }
+            Recording described = recording;
+            if (described != null) {
+                // Each dimension visited: where its Distant Horizons LODs live, so the replay can show them.
+                com.vyrriox.justreplay.compat.ReplayCompat.describeLevel(described.meta, mc.level, false);
             }
             Packet<?> sample = com.vyrriox.justreplay.compat.ReplayCompat.recordTick(tick);
             if (sample != null) {
