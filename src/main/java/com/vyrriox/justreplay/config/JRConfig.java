@@ -23,6 +23,8 @@ public final class JRConfig {
     public static final ModConfigSpec.IntValue SEEK_STEP_SECONDS;
     public static final ModConfigSpec.BooleanValue CLEAN_HUD;
     public static final ModConfigSpec.IntValue PLAYBACK_VIEW_DISTANCE;
+    public static final ModConfigSpec.BooleanValue DISTANT_HORIZONS_LODS;
+    public static final ModConfigSpec.IntValue DISTANT_HORIZONS_MAX_COPY_MB;
     public static final ModConfigSpec.ConfigValue<String> FFMPEG_PATH;
     public static final ModConfigSpec.IntValue EXPORT_FPS;
     public static final ModConfigSpec.IntValue EXPORT_CRF;
@@ -78,6 +80,14 @@ public final class JRConfig {
         PLAYBACK_VIEW_DISTANCE = b.comment("Chunks kept around the camera while watching a replay. Chunks the recording server unloaded",
                         "stay visible up to this distance instead of disappearing.")
                 .defineInRange("viewDistance", 32, 8, 64);
+        DISTANT_HORIZONS_LODS = b.comment("With Distant Horizons installed, show the distant terrain (LODs) of the recorded world in replays and",
+                        "exported videos. The recorded world's LOD database is copied to a temporary folder when the replay opens and",
+                        "read from there, so the original is never opened or changed; the copy is deleted when the replay closes.",
+                        "Needs a recording made with this option's support (older recordings play without LODs).")
+                .define("distantHorizonsLods", true);
+        DISTANT_HORIZONS_MAX_COPY_MB = b.comment("Largest Distant Horizons database (in MB, per dimension) copied for a replay. A larger one is",
+                        "skipped and that dimension plays without LODs, to spare the drive.")
+                .defineInRange("distantHorizonsMaxCopyMb", 4096, 16, 1048576);
         b.pop();
         b.push("export");
         FFMPEG_PATH = b.comment("Path to the ffmpeg executable, or just 'ffmpeg' when it is on the PATH.")

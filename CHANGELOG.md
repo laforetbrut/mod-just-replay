@@ -4,6 +4,14 @@
 
 ### [Unreleased]
 
+#### Fixed
+- Distant Horizons: the distant terrain (LODs) of the recorded world now shows in replays and exported videos
+  instead of being turned off. Recordings note where DH keeps each visited dimension's LODs; opening the replay
+  copies those databases once to a temporary folder that DH reads in read only mode, so the original LODs are never
+  opened or changed, and the copy is deleted when the replay closes. Distant generation stays off. New options
+  `playback.distantHorizonsLods` (on by default) and `playback.distantHorizonsMaxCopyMb`. Recordings made before
+  this version play without LODs, as before.
+
 ### [1.0.4] - 2026-10-16
 
 #### Added
@@ -163,6 +171,14 @@
 ## Français
 
 ### [Non publié]
+
+#### Corrigé
+- Distant Horizons : le terrain lointain (LOD) du monde enregistré s'affiche maintenant dans les replays et les
+  vidéos exportées au lieu d'être coupé. Les enregistrements notent où DH garde les LOD de chaque dimension
+  visitée ; l'ouverture du replay copie une fois ces bases dans un dossier temporaire que DH lit en lecture seule,
+  donc les LOD d'origine ne sont jamais ouverts ni modifiés, et la copie est supprimée à la fermeture du replay. La
+  génération lointaine reste coupée. Nouvelles options `playback.distantHorizonsLods` (activée par défaut) et
+  `playback.distantHorizonsMaxCopyMb`. Les enregistrements antérieurs se lisent sans LOD, comme avant.
 
 ### [1.0.4] - 2026-10-16
 

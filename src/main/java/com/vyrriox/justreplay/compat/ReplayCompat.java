@@ -90,6 +90,31 @@ public final class ReplayCompat {
 
     // ---------------------------------------------------------------- session hooks
 
+    /**
+     * Called off the render thread when a replay is about to open, before its world is created: integrations copy or
+     * prepare what the replay world needs (Distant Horizons' recorded LODs).
+     */
+    public static void prepareReplay(com.vyrriox.justreplay.format.ReplayMeta meta) {
+        if (DISTANT_HORIZONS) {
+            try {
+                DistantHorizonsCompat.prepare(meta);
+            } catch (Throwable t) {
+                warnOnce("dh.prepare", "Cannot prepare the Distant Horizons LODs for the replay", t);
+            }
+        }
+    }
+
+    /** Called once the replay world has fully closed (its integrated server stopped), or after it failed to open. */
+    public static void onReplayWorldClosed() {
+        if (DISTANT_HORIZONS) {
+            try {
+                DistantHorizonsCompat.onReplayWorldClosed();
+            } catch (Throwable t) {
+                warnOnce("dh.closed", "Cannot clean up the Distant Horizons replay data", t);
+            }
+        }
+    }
+
     /** Called once when replay playback starts. */
     public static void onReplayStart(Minecraft mc) {
         if (DISTANT_HORIZONS) {
@@ -149,6 +174,17 @@ public final class ReplayCompat {
     }
 
     // ---------------------------------------------------------------- recording hooks
+
+    /**
+     * Notes in a recording's meta what integrations need to know about the level being recorded (the Distant Horizons
+     * LOD folder of its dimension). Called every client tick of a recording, and with {@code force} when a meta is made.
+     */
+    public static void describeLevel(com.vyrriox.justreplay.format.ReplayMeta meta, net.minecraft.world.level.Level level,
+                                     boolean force) {
+        if (DISTANT_HORIZONS) {
+            DistantHorizonsCompat.describe(meta, level, force);
+        }
+    }
 
     /** A clientbound packet of a live (recorded) connection, on the network thread; {@code newConnection} on its first. */
     public static void onLivePacket(Packet<?> packet, boolean newConnection) {

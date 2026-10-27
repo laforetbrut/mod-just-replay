@@ -18,7 +18,7 @@ Every integration is optional: it is reached by reflection or by optional mixins
 | **Emotecraft** (player-animation-lib) | Emotes of other players are recorded as packets. The local player's own emotes (never sent back by the server) are polled every tick and written as the packets another client receives, aimed at the recording player's actor. Snapshots and checkpoints carry the emote each player is playing. A seek starts skipped emotes late by the time skipped, or drops them when they are over. The animation stack follows the replay clock (holds while paused, runs once per recorded tick above x1). Editor actors get an `EMOTE` action (parameter: emote name or UUID). | Tested in the Arcadia pack: the local emote is recorded (`"waving"@20` at recording tick 60), the recorder's actor plays an emote after a seek into it and while paused (its tick was not printed: the diagnostic failed on network emote names, now fixed), no emote after a seek past its end, the `EMOTE` action plays on an actor (`"waving"@11` 11 ticks after the action). |
 | **Create** (Flywheel, Ponder) | Create's animation clock (`AnimationTickHolder`) and the level renderer clock read by Flywheel's shaders are set to the replay cursor: kinetic visuals stop with the replay, follow its speed and show the same angles after a seek and in exports. The train network packets (track graphs, edge groups, trains, roll calls), sent once per connection, are kept and written again in every snapshot and checkpoint. Contraptions keep their original spawn packets through the existing spawn cache; block entity data travels in chunk packets. | Clock tested in the Arcadia pack (the counter equals the cursor, stays still while paused). Trains and moving contraptions untested. |
 | **Mekanism** | Machines are block entities synced by update packets and chunk data: no dedicated code. | Machine placed in the self test, no error in the log; visuals not inspected. |
-| **Distant Horizons** | While a replay runs, through DH's public API (`DhApi.Delayed`): LOD rendering and distant generation are turned off with API overrides, and the DH world is set read only so no LOD of the throw-away replay world is saved. The overrides are cleared when the replay ends. | Tested with DH 3.3.3 alone in a development client: overrides applied and restored on every replay, full self test passes. |
+| **Distant Horizons** | The distant terrain (LODs) of the recorded world shows in replays and exports. While recording, the DH level folder of each visited dimension (`IDhApiLevelWrapper.getDhSaveFolder()`, holding `DistantHorizons.sqlite`: `saves/<world>/data`, `saves/<world>/DIM-1/data`... in singleplayer, `Distant_Horizons_server_data/<server>/<dimension>` on a server) is written to `meta.json` (`distantHorizons`, relative to the game folder). When the replay opens, those databases are copied once to `justreplay/dh-session` (DH never opens the originals), and a save structure override (`IDhApiSaveStructure`, only for folders inside the replay world) points the replay world's levels at the copies. The DH world is set read only when its first level loads, before DH opens the database, so neither the void host chunks nor the replayed chunks change the LODs; distant generation is turned off with an API override. The copies are deleted once the replay world has closed. Without a copy (option `playback.distantHorizonsLods` off, recording made before this, missing database, database above `distantHorizonsMaxCopyMb`) LOD rendering is turned off for the replay as before. | Previous version (LODs off) tested with DH 3.3.3. LODs in replays: compiled against DH's public API names, not yet tested in game. |
 | **Bobby** | Bobby reports itself disabled while a replay runs (no cached chunks, nothing saved). | Unchanged. |
 | **Drop the Beam** | Lights, beams, moving heads, haze and particles follow the level game time and need nothing. Everything that follows a song (music, light desk cues, video screens, sound reactive signals) follows the server clock as `ServerClock` estimates it. **Clock:** the recorded `clock_pong` packets plus a clock sample the recorder writes every 2 s (a pong carrying a marker, with the server instant the recording client estimated) map each recorded tick to the server instant; they are read ahead in the background when a replay opens and while playing. During a replay `ServerClock` answers with that mapping at the frame's replay time (cursor and partial tick): it stops with the replay, follows its speed and jumps with seeks. Recorded pongs never reach Drop the Beam; its pings and requests are not sent to the replay host; its "pause with the single-player game" logic is off during a replay. **Recording:** the latest music state, mix and layers per turntable, song offers and analyses, shows per desk, features and libraries are kept per connection and written into every snapshot and checkpoint, so a recording started mid-session plays the music already running. **Live audio:** fed silence while the replay is paused, away from x1 (songs are rendered at their natural pitch) or its game sounds are muted; its volume follows the project's game volume and ducking. **Export:** its audio thread renders nothing during an export; every voice is rendered offline for each frame with the clock pinned to that frame, attenuated (linear to its range, jukebox volume) and panned relative to the camera, then mixed as a game sound (game volume, mute, ducking). **Song starts:** `DropTheBeamCompat.songStartTicks()` gives the replay tick (with decimals) where each song is heard from its start, and each repeat of a song looping on its own; they are logged as `Drop the Beam: turntable ... starts "title" at replay tick ...`. | Compiled against Drop the Beam 0.1.0 sources, not yet tested in game. |
 
@@ -33,6 +33,13 @@ Every integration is optional: it is reached by reflection or by optional mixins
   `image-cache`); a replay watched on another computer that lacks them stays silent or blank, since there is no
   server to send them. A replay recorded before this integration has only the real pongs as clock (one every 2 s,
   late by half a round trip). Music is muted at speeds other than x1.
+- Distant Horizons: the LODs shown are the ones on disk when the replay opens, not the ones of the recorded
+  moment (terrain changed since then shows changed far away). Recordings made before this version, or on another
+  computer, have no LOD database to read and play without LODs. A dimension the replay world does not have
+  (a mod dimension missing from the installed mods) shows no LODs. Opening a replay copies each recorded
+  dimension's database once (time and disk writes grow with its size; `distantHorizonsMaxCopyMb` caps it). The
+  instant replay buffer notes only the dimension the player is in when the clip is saved. LODs load from the copy
+  in the background: the first seconds of an export may show them popping in (raise `export.warmupFrames`).
 
 ### Tier 1: rendering pipeline (blocking for playback and export)
 
@@ -44,7 +51,7 @@ Every integration is optional: it is reached by reflection or by optional mixins
 | ImmediatelyFast, EntityCulling, ModernFix, FerriteCore | Batching and culling may hide entities in free camera | Disable entity culling while a replay is open, check batching with frame capture |
 | Ixeris | Moves window and event handling off the render thread | Check input in the editor (ImGui) and frame pacing during export |
 | Bobby (reneoforged) | Serves cached chunks, would mix stale terrain into replays | Disable Bobby while a replay world is loaded |
-| Distant Horizons | Not in this pack | LOD rendering, generation and saving turned off during a replay (see above) |
+| Distant Horizons | Not in this pack | Recorded LODs read from a temporary copy, generation and saving off during a replay (see above) |
 
 ### Tier 2: animations driven by client time (must follow replay time, pause and speed)
 
@@ -134,9 +141,17 @@ fait rien quand le mod est absent. Le code se trouve dans `com.vyrriox.justrepla
   Arcadia ; trains et contraptions en mouvement non testés.
 - **Mekanism** : aucune intégration nécessaire (données de blocs synchronisées par paquets). Machine posée dans
   le test, aucune erreur ; rendu non vérifié.
-- **Distant Horizons** : pendant un replay, via l'API publique de DH, le rendu et la génération des LOD sont
-  coupés et le monde DH passe en lecture seule, donc rien n'est sauvegardé pour le monde jetable du replay.
-  Les réglages reviennent à la fin du replay. Testé avec DH 3.3.3 seul dans un client de développement : le test complet passe.
+- **Distant Horizons** : le terrain lointain (LOD) du monde enregistré s'affiche dans les replays et les
+  exports. Pendant l'enregistrement, le dossier DH de chaque dimension visitée (celui qui contient
+  `DistantHorizons.sqlite` : `saves/<monde>/data`... en solo, `Distant_Horizons_server_data/<serveur>/<dimension>`
+  sur un serveur) est noté dans `meta.json` (`distantHorizons`, relatif au dossier du jeu). À l'ouverture du
+  replay, ces bases sont copiées une fois dans `justreplay/dh-session` (DH n'ouvre jamais les originaux) et une
+  surcharge de structure de sauvegarde (`IDhApiSaveStructure`, seulement pour les dossiers du monde du replay)
+  dirige les niveaux du replay vers les copies. Le monde DH passe en lecture seule dès le chargement de son
+  premier niveau, avant l'ouverture de la base ; la génération lointaine est coupée. Les copies sont supprimées
+  une fois le monde du replay fermé. Sans copie (option `playback.distantHorizonsLods` coupée, enregistrement
+  plus ancien, base absente ou plus grosse que `distantHorizonsMaxCopyMb`), le rendu des LOD est coupé comme
+  avant. Compilé, pas encore testé en jeu.
 - **Bobby** : désactivé pendant un replay (inchangé).
 - **Drop the Beam** : les lumières, faisceaux, lyres, brouillard et particules suivent le temps de jeu du niveau
   et n'ont besoin de rien. Tout ce qui suit un morceau (musique, cues de la console lumière, écrans vidéo, signaux
@@ -155,4 +170,7 @@ Limites connues : un bloc modifié dans le tick exact où un enregistrement dém
 manquer ; en export, une vidéo WaterFrames peut avoir quelques images de retard ; les trains de Create dans un
 enregistrement démarré en cours de partie ne sont pas testés ; Drop the Beam lit morceaux, vidéos et images
 dans ses caches locaux, un replay regardé sur un autre ordinateur qui ne les a pas reste muet ou vide, et sa
-musique est coupée hors x1.
+musique est coupée hors x1 ; les LOD de Distant Horizons sont ceux présents sur le disque à l'ouverture du
+replay (pas ceux du moment enregistré), absents pour les anciens enregistrements, ceux d'un autre ordinateur et
+les dimensions de mods absentes ; chaque ouverture copie une fois la base de chaque dimension enregistrée, et les
+premières secondes d'un export peuvent montrer les LOD apparaître (augmenter `export.warmupFrames`).
