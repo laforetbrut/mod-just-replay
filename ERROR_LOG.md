@@ -42,3 +42,10 @@
 **Root cause:** the Drop the Beam jar had been moved out of `run/mods` for the vanilla self-test and was not put back. Opening the world without the mod drops its blocks and saves the loss.
 **Fix:** restored the world from the Drop the Beam showcase build, put the jar back, recorded again.
 **Prevention:** before any run on a modded world, list `run/mods` and check the "Drop the Beam detected" log line; keep a pristine copy of test worlds and copy from it for each run.
+
+## [2026-10-27 06:45] — FFmpeg killed at the end of an export (root cause of the 2026-10-15 entry)
+**Context:** vanilla self-test export of 60 ticks at 1080p 60 fps; second occurrence of the "FFmpeg stopped accepting frames" failure.
+**Error:** `FFmpeg stopped accepting frames` / `Le canal de communication a été fermé`, FFmpeg's log stops mid-encode with no error, export marked failed, audio not muxed.
+**Root cause:** `VideoExporter.finish()` used `queue.offer(END)` on the bounded frame queue and, when it was full, assumed the writer was stuck and called `process.destroyForcibly()`. A full queue is normal at the end of a short export: the game renders frames faster than FFmpeg encodes them.
+**Fix:** the end marker is now queued by the background waiter thread, which waits for room and gives up only when FFmpeg is no longer alive.
+**Prevention:** never treat a full producer/consumer queue as a dead consumer; check the consumer itself (process alive, failure flag) before killing anything.

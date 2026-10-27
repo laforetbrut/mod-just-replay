@@ -4,6 +4,25 @@
 
 ### [Unreleased]
 
+### [1.0.5] - 2026-10-27
+
+#### Fixed
+- The recording player's own sounds are back in replays and video exports: footsteps, blocks placed and broken,
+  eating, swings. The server never sends a player the sounds it causes (the game plays them locally), so the
+  recorder now captures them on the client as the packets every other player received.
+- Distant Horizons: the distant terrain (LODs) of the recorded world now shows in replays and exported videos
+  instead of being turned off. Recordings note where DH keeps each visited dimension's LODs; opening the replay
+  copies those databases once to a temporary folder that DH reads in read only mode, so the original LODs are never
+  opened or changed, and the copy is deleted when the replay closes. Distant generation stays off. New options
+  `playback.distantHorizonsLods` (on by default) and `playback.distantHorizonsMaxCopyMb`. Recordings made before
+  this version play without LODs, as before.
+- Distant Horizons could stay switched off after a replay that ended with a crash: Just Replay turned DH rendering
+  off through its API during replays, and DH saves such values in its config file. Rendering is no longer touched;
+  the distant generation setting changed during a replay is noted first and put back at the next start if the
+  replay did not end normally. Players hit by this before can turn DH rendering back on in its settings.
+- A short video export could fail at its very end: when the game rendered faster than FFmpeg encoded, the
+  exporter took the full frame queue for a stuck encoder and stopped FFmpeg. It now waits for the last frames.
+
 ### [1.0.4] - 2026-10-16
 
 #### Added
@@ -163,6 +182,27 @@
 ## Français
 
 ### [Non publié]
+
+### [1.0.5] - 2026-10-27
+
+#### Corrigé
+- Les sons du joueur enregistré reviennent dans les replays et les exports vidéo : pas, blocs posés et cassés,
+  nourriture, coups. Le serveur n'envoie jamais à un joueur les sons qu'il provoque (le jeu les joue en local),
+  l'enregistreur les capte donc côté client, sous la forme des paquets reçus par tous les autres joueurs.
+- Distant Horizons : le terrain lointain (LOD) du monde enregistré s'affiche maintenant dans les replays et les
+  vidéos exportées au lieu d'être coupé. Les enregistrements notent où DH garde les LOD de chaque dimension
+  visitée ; l'ouverture du replay copie une fois ces bases dans un dossier temporaire que DH lit en lecture seule,
+  donc les LOD d'origine ne sont jamais ouverts ni modifiés, et la copie est supprimée à la fermeture du replay. La
+  génération lointaine reste coupée. Nouvelles options `playback.distantHorizonsLods` (activée par défaut) et
+  `playback.distantHorizonsMaxCopyMb`. Les enregistrements antérieurs se lisent sans LOD, comme avant.
+- Distant Horizons pouvait rester désactivé après un replay terminé par un plantage : Just Replay coupait le rendu
+  de DH par son API pendant les replays, et DH enregistre ces valeurs dans son fichier de configuration. Le rendu
+  n'est plus touché ; le réglage de génération lointaine modifié pendant un replay est noté d'abord et remis au
+  démarrage suivant si le replay ne s'est pas terminé normalement. Les joueurs déjà touchés peuvent réactiver le
+  rendu de DH dans ses réglages.
+- Un export vidéo court pouvait échouer à la toute fin : quand le jeu rendait plus vite que FFmpeg n'encodait,
+  l'exporteur prenait la file d'images pleine pour un encodeur bloqué et arrêtait FFmpeg. Il attend maintenant les
+  dernières images.
 
 ### [1.0.4] - 2026-10-16
 

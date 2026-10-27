@@ -26,6 +26,7 @@
     "ActorSkinMixin",
     "GameRendererFxMixin",
     "VertexBufferAccessor",
+    "ClientLevelLocalEffectsMixin",
     "LevelRendererSectionsAccessor",
     "SectionOcclusionGraphAccessor"
   ],

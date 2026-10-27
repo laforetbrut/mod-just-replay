@@ -181,6 +181,8 @@
   "justreplay.configuration.captureExtraChunks": "Record cached chunks",
   "justreplay.configuration.captureVoiceChat": "Record voice chat",
   "justreplay.configuration.viewDistance": "Replay view distance (chunks)",
+  "justreplay.configuration.distantHorizonsLods": "Distant Horizons LODs in replays",
+  "justreplay.configuration.distantHorizonsMaxCopyMb": "Largest Distant Horizons database copied (MB)",
   "justreplay.editor.actor.model": "+ Model",
   "justreplay.editor.actor.action.add": "Add",
   "justreplay.editor.actor.action.delete": "Delete",

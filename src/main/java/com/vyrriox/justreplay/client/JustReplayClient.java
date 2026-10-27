@@ -73,6 +73,7 @@ public final class JustReplayClient {
             handleKeys(mc);
             SelfTest.tick(mc);
             SceneRecorder.tick(mc);
+            com.vyrriox.justreplay.compat.ReplayCompat.clientTick(mc);
         }
 
         @SubscribeEvent
@@ -230,6 +231,7 @@ public final class JustReplayClient {
         @SubscribeEvent
         public static void onPlaySound(net.neoforged.neoforge.client.event.sound.PlaySoundEvent event) {
             VideoExporter.onSound(event);
+            SelfTest.onSound(event);
         }
 
         @SubscribeEvent
