@@ -35,9 +35,10 @@ import java.util.stream.Stream;
  * save structure override ({@code IDhApiSaveStructure}) points the replay world's levels at those copies, and only
  * for folders inside the replay world. DH never opens the original database. The DH world is set read only as soon as
  * its first level loads, so the void chunks of the replay host and the replayed chunks never overwrite the recorded
- * LODs, and distant generation is turned off with an API override. Without a copy (option off, older recording,
- * missing or too large database) LOD rendering is turned off for the replay, as before. The temporary copies are
- * deleted once the replay world has closed.
+ * LODs, and distant generation is turned off with an API override (DH saves it in its config file: the player's value
+ * is noted first and put back even after a crash). Without a copy (option off, older recording, missing or too large
+ * database) the replay world is empty and read only, so no LOD shows; rendering itself is never changed. The temporary
+ * copies are deleted once the replay world has closed.
  * <p>
  * Everything is reached by reflection through DH's public API interfaces: nothing here loads a DH class when DH is
  * missing.
@@ -49,7 +50,6 @@ final class DistantHorizonsCompat {
     private static final String DH_API = "com.seibel.distanthorizons.api.DhApi";
     private static final String API = "com.seibel.distanthorizons.api.interfaces.";
     private static final String INJECTOR = "com.seibel.distanthorizons.coreapi.interfaces.dependencyInjection.IOverrideInjector";
-    private static final String GRAPHICS = "config.client.IDhApiGraphicsConfig";
     private static final String GENERATION = "config.both.IDhApiWorldGenerationConfig";
     private static final String SAVE_STRUCTURE = "override.levelHandling.IDhApiSaveStructure";
     /** Name of DH's level database; its journal files share the prefix. */
@@ -64,7 +64,7 @@ final class DistantHorizonsCompat {
     private static Object saveStructure;
 
     private static boolean overridden;
-    private static boolean renderingOff;
+    private static boolean recoveryChecked;
     private static boolean readOnlyApplied;
     private static int retry;
     private static int describeRetry;
@@ -353,15 +353,77 @@ final class DistantHorizonsCompat {
         }
     }
 
+    /**
+     * DH writes a value set through its API into its config file. A replay that ends normally gives the player's
+     * value back; one that ends with a crash would leave distant generation off for good. So the player's value is
+     * noted in this file before it is changed, and put back at the next start when the file is still there.
+     * Rendering is never touched: without recorded LODs the replay world is empty and read only, nothing shows.
+     */
+    private static Path restoreFile() {
+        return gameDir().resolve("justreplay").resolve("dh-restore.properties");
+    }
+
+    private static Object currentValue(String group, String groupType, String value) throws Exception {
+        Object config = configValue(group, groupType, value);
+        return config == null ? null : api("config.IDhApiConfigValue").getMethod("getValue").invoke(config);
+    }
+
+    /** Puts the player's own value back: set it (DH saves it) and drop the API layer. */
+    private static void restore(boolean generation) throws Exception {
+        override("worldGenerator", GENERATION, "enableDistantWorldGeneration", generation);
+        clear("worldGenerator", GENERATION, "enableDistantWorldGeneration");
+    }
+
+    private static Boolean savedGeneration() {
+        Path file = restoreFile();
+        if (!Files.isRegularFile(file)) {
+            return null;
+        }
+        try {
+            java.util.Properties p = new java.util.Properties();
+            try (java.io.Reader r = Files.newBufferedReader(file)) {
+                p.load(r);
+            }
+            String v = p.getProperty("enableDistantWorldGeneration");
+            return v == null ? null : Boolean.valueOf(v);
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    /** Outside a replay: a note left by a replay that never ended puts the player's DH setting back, once. */
+    static void recoverAfterInterruptedReplay() {
+        if (recoveryChecked) {
+            return;
+        }
+        try {
+            if (delayed("configs") == null) {
+                return;
+            }
+            recoveryChecked = true;
+            Boolean generation = savedGeneration();
+            if (generation != null) {
+                restore(generation);
+                JustReplay.LOGGER.info("Distant Horizons: distant generation set back to {} after a replay that did not end normally",
+                        generation);
+            }
+            Files.deleteIfExists(restoreFile());
+        } catch (Throwable t) {
+            recoveryChecked = true;
+            ReplayCompat.warnOnce("dh.recover", "Cannot restore the Distant Horizons settings after an interrupted replay", t);
+        }
+    }
+
     static void onReplayStart() {
         overridden = false;
-        // No recorded LODs to show: rendering stays off, so nothing of another world shows around the replay.
-        renderingOff = !redirecting || STAGED.isEmpty();
         retry = 0;
+        if (!redirecting || STAGED.isEmpty()) {
+            JustReplay.LOGGER.info("Distant Horizons: no recorded LODs for this replay, the distant terrain stays empty");
+        }
         tick();
     }
 
-    /** Applies the overrides as soon as DH is ready, and the read only mode once DH has loaded the replay world. */
+    /** Turns distant generation off as soon as DH is ready, and the read only mode once DH has loaded the replay world. */
     static void tick() {
         if (overridden && readOnlyApplied) {
             return;
@@ -372,13 +434,15 @@ final class DistantHorizonsCompat {
         }
         try {
             if (!overridden) {
-                boolean generation = override("worldGenerator", GENERATION, "enableDistantWorldGeneration", Boolean.FALSE);
-                boolean rendering = !renderingOff || override("graphics", GRAPHICS, "renderingEnabled", Boolean.FALSE);
-                overridden = rendering && generation;
+                Object current = currentValue("worldGenerator", GENERATION, "enableDistantWorldGeneration");
+                if (current instanceof Boolean value && !Files.exists(restoreFile())) {
+                    Files.createDirectories(restoreFile().getParent());
+                    Files.writeString(restoreFile(), "# Distant Horizons setting of the player, put back if a replay ends with a crash\n"
+                            + "enableDistantWorldGeneration=" + value + "\n");
+                }
+                overridden = current != null && override("worldGenerator", GENERATION, "enableDistantWorldGeneration", Boolean.FALSE);
                 if (overridden) {
-                    JustReplay.LOGGER.info(renderingOff
-                            ? "Distant Horizons: LOD rendering and distant generation turned off for the replay"
-                            : "Distant Horizons: distant generation turned off, recorded LODs shown in the replay");
+                    JustReplay.LOGGER.info("Distant Horizons: distant generation turned off for the replay");
                 }
             }
             applyReadOnly();
@@ -391,17 +455,19 @@ final class DistantHorizonsCompat {
     static void onReplayEnd() {
         try {
             if (overridden) {
-                if (renderingOff) {
-                    clear("graphics", GRAPHICS, "renderingEnabled");
+                Boolean generation = savedGeneration();
+                if (generation != null) {
+                    restore(generation);
+                } else {
+                    clear("worldGenerator", GENERATION, "enableDistantWorldGeneration");
                 }
-                clear("worldGenerator", GENERATION, "enableDistantWorldGeneration");
                 JustReplay.LOGGER.info("Distant Horizons: settings restored after the replay");
             }
+            Files.deleteIfExists(restoreFile());
         } catch (Throwable t) {
             ReplayCompat.warnOnce("dh.clear", "Cannot restore the Distant Horizons settings", t);
         }
         overridden = false;
-        renderingOff = false;
         readOnlyApplied = false;
     }
 

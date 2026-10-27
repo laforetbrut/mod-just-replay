@@ -126,6 +126,13 @@ public final class ReplayCompat {
         }
     }
 
+    /** Called every client tick, replay or not. */
+    public static void clientTick(Minecraft mc) {
+        if (DISTANT_HORIZONS && !ReplaySession.isRunning()) {
+            DistantHorizonsCompat.recoverAfterInterruptedReplay();
+        }
+    }
+
     /** Called every client tick of a running replay, after the playback tick. */
     public static void tick(Minecraft mc, ReplaySession session) {
         if (WATERFRAMES) {

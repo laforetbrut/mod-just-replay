@@ -14,6 +14,10 @@
   opened or changed, and the copy is deleted when the replay closes. Distant generation stays off. New options
   `playback.distantHorizonsLods` (on by default) and `playback.distantHorizonsMaxCopyMb`. Recordings made before
   this version play without LODs, as before.
+- Distant Horizons could stay switched off after a replay that ended with a crash: Just Replay turned DH rendering
+  off through its API during replays, and DH saves such values in its config file. Rendering is no longer touched;
+  the distant generation setting changed during a replay is noted first and put back at the next start if the
+  replay did not end normally. Players hit by this before can turn DH rendering back on in its settings.
 
 ### [1.0.4] - 2026-10-16
 
@@ -185,6 +189,11 @@
   donc les LOD d'origine ne sont jamais ouverts ni modifiés, et la copie est supprimée à la fermeture du replay. La
   génération lointaine reste coupée. Nouvelles options `playback.distantHorizonsLods` (activée par défaut) et
   `playback.distantHorizonsMaxCopyMb`. Les enregistrements antérieurs se lisent sans LOD, comme avant.
+- Distant Horizons pouvait rester désactivé après un replay terminé par un plantage : Just Replay coupait le rendu
+  de DH par son API pendant les replays, et DH enregistre ces valeurs dans son fichier de configuration. Le rendu
+  n'est plus touché ; le réglage de génération lointaine modifié pendant un replay est noté d'abord et remis au
+  démarrage suivant si le replay ne s'est pas terminé normalement. Les joueurs déjà touchés peuvent réactiver le
+  rendu de DH dans ses réglages.
 
 ### [1.0.4] - 2026-10-16
 

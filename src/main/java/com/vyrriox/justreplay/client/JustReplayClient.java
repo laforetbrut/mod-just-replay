@@ -73,6 +73,7 @@ public final class JustReplayClient {
             handleKeys(mc);
             SelfTest.tick(mc);
             SceneRecorder.tick(mc);
+            com.vyrriox.justreplay.compat.ReplayCompat.clientTick(mc);
         }
 
         @SubscribeEvent
