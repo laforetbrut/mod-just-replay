@@ -4,6 +4,8 @@
 
 ### [Unreleased]
 
+### [1.0.5] - 2026-10-27
+
 #### Fixed
 - The recording player's own sounds are back in replays and video exports: footsteps, blocks placed and broken,
   eating, swings. The server never sends a player the sounds it causes (the game plays them locally), so the
@@ -18,6 +20,8 @@
   off through its API during replays, and DH saves such values in its config file. Rendering is no longer touched;
   the distant generation setting changed during a replay is noted first and put back at the next start if the
   replay did not end normally. Players hit by this before can turn DH rendering back on in its settings.
+- A short video export could fail at its very end: when the game rendered faster than FFmpeg encoded, the
+  exporter took the full frame queue for a stuck encoder and stopped FFmpeg. It now waits for the last frames.
 
 ### [1.0.4] - 2026-10-16
 
@@ -179,6 +183,8 @@
 
 ### [Non publié]
 
+### [1.0.5] - 2026-10-27
+
 #### Corrigé
 - Les sons du joueur enregistré reviennent dans les replays et les exports vidéo : pas, blocs posés et cassés,
   nourriture, coups. Le serveur n'envoie jamais à un joueur les sons qu'il provoque (le jeu les joue en local),
@@ -194,6 +200,9 @@
   n'est plus touché ; le réglage de génération lointaine modifié pendant un replay est noté d'abord et remis au
   démarrage suivant si le replay ne s'est pas terminé normalement. Les joueurs déjà touchés peuvent réactiver le
   rendu de DH dans ses réglages.
+- Un export vidéo court pouvait échouer à la toute fin : quand le jeu rendait plus vite que FFmpeg n'encodait,
+  l'exporteur prenait la file d'images pleine pour un encodeur bloqué et arrêtait FFmpeg. Il attend maintenant les
+  dernières images.
 
 ### [1.0.4] - 2026-10-16
 

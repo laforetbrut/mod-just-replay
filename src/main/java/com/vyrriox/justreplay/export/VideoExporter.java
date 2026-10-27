@@ -454,16 +454,20 @@ public final class VideoExporter {
         mc.options.hideGui = previousHideGui;
         mc.options.pauseOnLostFocus = previousPauseOnLostFocus;
         session.playback().setPaused(true);
-        if (!queue.offer(END)) {
-            // Queue full and the writer is stuck: give up on this export instead of freezing the game.
-            failed = true;
-            queue.clear();
-            queue.offer(END);
-            process.destroyForcibly();
-        }
         Thread waiter = new Thread(() -> {
             boolean ok = success;
             try {
+                // A full queue is normal at the end: the game renders faster than FFmpeg encodes. The end marker
+                // waits here, off the render thread, for room; only a dead FFmpeg makes the export give up.
+                while (!queue.offer(END, 1, TimeUnit.SECONDS)) {
+                    if (failed || !process.isAlive()) {
+                        failed = true;
+                        queue.clear();
+                        queue.offer(END);
+                        ok = false;
+                        break;
+                    }
+                }
                 writerThread.join();
                 if (!process.waitFor(10, TimeUnit.MINUTES)) {
                     process.destroy();
