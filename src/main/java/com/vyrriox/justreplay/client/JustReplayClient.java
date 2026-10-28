@@ -258,6 +258,13 @@ public final class JustReplayClient {
                         mc.setScreen(null);
                     }).icon(recording ? Icon.STOP : Icon.RECORD).iconColor(Theme.RECORD)
                             .tip(Component.translatable("justreplay.button.record.tip", JRKeys.RECORD.getTranslatedKeyMessage())));
+                    // Instant replay: saves the minutes kept in memory, as the save buffer key does.
+                    event.addListener(new GlassButton(118, 4, 130, 20,
+                            Component.translatable("justreplay.button.save_buffer", JRConfig.BUFFER_MINUTES.get()), b -> {
+                        mc.setScreen(null);
+                        saveBuffer(mc);
+                    }).icon(Icon.SAVE).iconColor(Theme.ACCENT)
+                            .tip(Component.translatable("justreplay.button.save_buffer.tip", JRKeys.SAVE_BUFFER.getTranslatedKeyMessage())));
                 }
             }
         }

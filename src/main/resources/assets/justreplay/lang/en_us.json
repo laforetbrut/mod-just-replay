@@ -33,6 +33,8 @@
   "justreplay.button.editor": "Replay editor",
   "justreplay.button.record": "Start recording",
   "justreplay.button.stop": "Stop recording",
+  "justreplay.button.save_buffer": "Save last %s min",
+  "justreplay.button.save_buffer.tip": "Saves the instant replay buffer. Also with the %s key in game",
 
   "justreplay.toast.started": "Recording started",
   "justreplay.toast.saved": "Replay saved",

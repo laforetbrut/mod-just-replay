@@ -49,3 +49,10 @@
 **Root cause:** `VideoExporter.finish()` used `queue.offer(END)` on the bounded frame queue and, when it was full, assumed the writer was stuck and called `process.destroyForcibly()`. A full queue is normal at the end of a short export: the game renders frames faster than FFmpeg encodes them.
 **Fix:** the end marker is now queued by the background waiter thread, which waits for room and gives up only when FFmpeg is no longer alive.
 **Prevention:** never treat a full producer/consumer queue as a dead consumer; check the consumer itself (process alive, failure flag) before killing anything.
+
+## [2026-10-28 16:30] — Dev client crashed after a compile during the session
+**Context:** the user was testing in the dev client (`runClient`) while a new button was being compiled with `./gradlew compileJava`.
+**Error:** `NoClassDefFoundError: com/vyrriox/justreplay/record/ChunkCapture` on "Start recording", reported as `mouseClicked event handler`.
+**Root cause:** the dev client loads the mod from `build/classes`; the compile rewrote that folder under the running game, so a class not yet loaded could no longer be found.
+**Fix:** relaunch the client after the compile. No code change.
+**Prevention:** never run a Gradle compile or build in the main checkout while a dev client is running; compile in a worktree or wait for the game to close.
