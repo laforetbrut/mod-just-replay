@@ -97,6 +97,8 @@ public final class ReplayProject {
         public int hiddenParts;
         /** For a recorded player: skins worn from given ticks, sorted by tick. */
         public List<SkinChange> skinChanges = new ArrayList<>();
+        /** Uniform render scale around the feet, 0.05 to 10; 1 leaves the entity unchanged. */
+        public float scale = 1.0F;
 
         public EntityEdit() {
         }
@@ -112,7 +114,8 @@ public final class ReplayProject {
 
         /** True when the edit changes nothing and can be dropped. */
         public boolean isEmpty() {
-            return !hidden && offsets.isEmpty() && !muted && !hideSkinLayers && hiddenParts == 0 && skinChanges.isEmpty() && Math.abs(soundGain - 1.0F) < 0.001F;
+            return !hidden && offsets.isEmpty() && !muted && !hideSkinLayers && hiddenParts == 0 && skinChanges.isEmpty() && Math.abs(soundGain - 1.0F) < 0.001F
+                    && Math.abs(scale - 1.0F) < 0.001F;
         }
 
         public void normalize() {
@@ -125,6 +128,7 @@ public final class ReplayProject {
             hideFrom = Math.max(0, hideFrom);
             if (hideTo < -1) hideTo = -1;
             if (!(soundGain >= 0.0F && soundGain <= 4.0F)) soundGain = 1.0F;
+            scale = clampScale(scale);
         }
     }
 
@@ -341,6 +345,12 @@ public final class ReplayProject {
         }
     }
 
+    /** Clamps a render scale to 0.05..10, 1 for an invalid value. */
+    public static float clampScale(float scale) {
+        if (!(scale > 0.0F) || Float.isInfinite(scale)) return 1.0F;
+        return Math.max(0.05F, Math.min(10.0F, scale));
+    }
+
     public static final class ActorKeyframe {
         public int tick;
         public double x, y, z;
@@ -415,6 +425,11 @@ public final class ReplayProject {
         public String modelAnimation = "";
         /** Model scale for model actors. */
         public float modelScale = 1.0F;
+        /**
+         * Uniform render scale around the feet, 0.05 to 10, for every kind of actor. For model actors it multiplies
+         * {@link #modelScale}.
+         */
+        public float scale = 1.0F;
         /**
          * Skin file of a player actor, a PNG of the skins folder (64x64 or legacy 64x32). Empty: the skin of the
          * Mojang account named by {@link #name}.
@@ -526,6 +541,7 @@ public final class ReplayProject {
             if (actor.modelAnimation == null) actor.modelAnimation = "";
             if (actor.skin == null) actor.skin = "";
             if (!(actor.modelScale > 0.01F && actor.modelScale < 100F)) actor.modelScale = 1.0F;
+            actor.scale = clampScale(actor.scale);
             actor.sort();
         }
         sort();

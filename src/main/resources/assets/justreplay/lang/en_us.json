@@ -890,5 +890,17 @@
   "justreplay.entities.skinchange.save.tip": "Writes the skin shown right now into the skins folder as a new PNG, ready to paint on",
   "justreplay.entities.skinchange.save.done": "Skin saved",
   "justreplay.entities.skinchange.save.failed": "Cannot save the skin",
-  "justreplay.entities.skinchange.save.noentity": "The player is not loaded at the play head"
+  "justreplay.entities.skinchange.save.noentity": "The player is not loaded at the play head",
+  "justreplay.transform.section": "Transform",
+  "justreplay.transform.x": "X",
+  "justreplay.transform.y": "Y",
+  "justreplay.transform.z": "Z",
+  "justreplay.transform.yaw": "Yaw",
+  "justreplay.transform.pitch": "Pitch",
+  "justreplay.transform.scale": "Scale",
+  "justreplay.transform.actor.hint": "Keyframe at %s (created on Done if missing). Scale applies to the whole replay.",
+  "justreplay.transform.entity.hint": "Offset from the recorded position at %s. Steps save at once.",
+  "justreplay.transform.apply": "Apply typed values",
+  "justreplay.transform.apply.tip": "Saves the typed offset into the keyframe at the play head (created if missing) and the scale",
+  "justreplay.transform.absolute": "Drawn at %s, %s, %s"
 }

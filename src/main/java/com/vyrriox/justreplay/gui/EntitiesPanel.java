@@ -40,6 +40,8 @@ final class EntitiesPanel {
 
     /** Skin changes section of a selected player; keeps the picked file across refreshes. */
     private final SkinChangesSection skinSection;
+    /** Offset x, y, z, yaw at the play head, then the render scale; each step saves at once. */
+    private final TransformFields transform;
 
     EntitiesPanel(EditorScreen screen, ReplaySession session) {
         this.screen = screen;
@@ -48,6 +50,58 @@ final class EntitiesPanel {
             ReplayProject.EntityEdit e = edit(false);
             return e == null ? List.of() : e.skinChanges;
         }, () -> session.playback().cursor(), next -> change(e -> e.skinChanges = next), screen::refresh);
+        this.transform = new TransformFields(Minecraft.getInstance().font,
+                new String[]{"justreplay.transform.x", "justreplay.transform.y", "justreplay.transform.z",
+                        "justreplay.transform.yaw", "justreplay.transform.scale"},
+                new double[]{0.1, 0.1, 0.1, 5, 0.05},
+                new double[]{-1.0E5, -2048, -1.0E5, -360, 0.05},
+                new double[]{1.0E5, 2048, 1.0E5, 360, 10}, this::applyTransform);
+    }
+
+    /** Offset x, y, z, yaw at the play head: the keyframe there if any, else the interpolated offset, else zeros. */
+    private double[] offsetAt(ReplayProject.EntityEdit e, int tick) {
+        if (e == null || e.offsets.isEmpty()) {
+            return new double[4];
+        }
+        for (ReplayProject.ActorKeyframe k : e.offsets) {
+            if (k.tick == tick) {
+                return new double[]{k.x, k.y, k.z, k.yaw};
+            }
+        }
+        double[] v = com.vyrriox.justreplay.editor.Interpolation.actor(e.offsets, tick);
+        return v == null ? new double[4] : v;
+    }
+
+    /** Saves the typed offset into the keyframe at the play head (created when missing) and the scale. */
+    private void applyTransform() {
+        transform.read();
+        double[] v = transform.values.clone();
+        boolean moved = transform.dirty();
+        int tick = session.playback().cursor();
+        change(e -> {
+            e.scale = ReplayProject.clampScale((float) v[4]);
+            double[] was = offsetAt(e, tick);
+            boolean offsetChanged = Math.abs(was[0] - v[0]) > 1.0E-4 || Math.abs(was[1] - v[1]) > 1.0E-4
+                    || Math.abs(was[2] - v[2]) > 1.0E-4 || Math.abs(was[3] - v[3]) > 1.0E-4;
+            if (!moved || !offsetChanged) {
+                return;
+            }
+            ReplayProject.ActorKeyframe key = null;
+            for (ReplayProject.ActorKeyframe k : e.offsets) {
+                if (k.tick == tick) {
+                    key = k;
+                }
+            }
+            if (key == null) {
+                e.offsets.add(new ReplayProject.ActorKeyframe(tick, v[0], v[1], v[2], (float) v[3], 0.0F));
+                e.offsets.sort(Comparator.comparingInt(k -> k.tick));
+            } else {
+                key.x = v[0];
+                key.y = v[1];
+                key.z = v[2];
+                key.yaw = (float) v[3];
+            }
+        });
     }
 
     private static Component tc(String key) {
@@ -226,6 +280,22 @@ final class EntitiesPanel {
                     e.hideTo < 0 ? tr("justreplay.entities.range.end") : Timeline.formatTicks(e.hideTo));
         }, Theme.TEXT_DIM);
 
+        ReplayProject.EntityEdit shown = edit(false);
+        int cursor = session.playback().cursor();
+        double[] off = offsetAt(shown, cursor);
+        transform.set(new double[]{off[0], off[1], off[2], off[3], shown == null ? 1.0 : shown.scale});
+        f.paragraph(Component.translatable("justreplay.transform.entity.hint", Timeline.formatTicks(cursor)), Theme.TEXT_MUTED);
+        transform.build(f);
+        f.full(new GlassButton(tc("justreplay.transform.apply"), b -> applyTransform()).icon(Icon.CHECK)
+                .tip(tc("justreplay.transform.apply.tip")));
+        if (entity != null) {
+            f.text(() -> {
+                ReplayProject.EntityEdit e = edit(false);
+                double[] o = offsetAt(e, session.playback().cursor());
+                return Component.translatable("justreplay.transform.absolute", TransformFields.format(entity.getX() + o[0]),
+                        TransformFields.format(entity.getY() + o[1]), TransformFields.format(entity.getZ() + o[2]));
+            }, Theme.TEXT_DIM);
+        }
         f.put(new GlassButton(tc("justreplay.entities.move"), b -> EntityTool.start(screen, session, EntityTool.Mode.MOVE))
                 .icon(Icon.PIN).tip(tc("justreplay.entities.move.tip")), 0, 2);
         f.put(new GlassButton(tc("justreplay.entities.move.reset"), b -> change(e -> e.offsets.clear()))
