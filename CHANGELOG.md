@@ -12,6 +12,9 @@
   emote, linear, step and catmullrom keyframes) or Emotecraft legacy JSON emotes (bend and axis are not played) in
   `justreplay/emotes/`, then pick them in the new *Custom emote* action (optional "|speed"). Files reload when they
   change; a broken file is reported once. An example file with a wave and a bow is created on first use.
+- **Weather and time**: a new **World** tab in the editor (Simple and Advanced). Recorded, clear, rain or thunder
+  weather, a fixed time of day with presets, keyframes for the time and the rain and thunder strengths, frozen
+  time and the moon phase. Identical in previews and exports. Off by default.
 
 #### Fixed
 - Footsteps were nearly silent in exported videos: the game plays a step at 15% of its volume and the export
@@ -206,6 +209,9 @@
   et l'axe ne sont pas joués) dans `justreplay/emotes/`, puis les choisir dans la nouvelle action *Custom emote*
   ("|vitesse" en option). Les fichiers sont relus quand ils changent ; un fichier cassé est signalé une fois. Un
   fichier d'exemple avec un salut et une révérence est créé au premier usage.
+- **Météo et heure** : nouvel onglet **World** dans l'éditeur (modes Simple et Avancé). Météo enregistrée,
+  dégagée, pluie ou orage, heure fixe avec préréglages, keyframes de l'heure et de la force de la pluie et de
+  l'orage, heure figée et phase de la lune. Identique dans les aperçus et les exports. Désactivé par défaut.
 
 #### Corrigé
 - Les pas étaient presque muets dans les vidéos exportées : le jeu joue un pas à 15 % de son volume et l'export
