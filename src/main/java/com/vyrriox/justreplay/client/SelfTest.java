@@ -224,6 +224,10 @@ public final class SelfTest {
                 p.connection.sendCommand(String.format("setblock %d %d %d minecraft:oak_stairs[facing=west]", stairPos.getX(), stairPos.getY(), stairPos.getZ()));
                 p.connection.sendCommand(String.format("setblock %d %d %d minecraft:red_bed[facing=south,part=head]", bedPos.getX(), bedPos.getY(), bedPos.getZ()));
                 p.connection.sendCommand(String.format("setblock %d %d %d minecraft:red_bed[facing=south,part=foot]", bedPos.getX(), bedPos.getY(), bedPos.getZ() - 1));
+                if (Mods.loaded("bettercombat")) {
+                    // A weapon Better Combat animates, given before the recording: the swings below become its attacks.
+                    p.connection.sendCommand("item replace entity @s weapon.mainhand with minecraft:iron_sword");
+                }
                 boolean started = Recorder.startManual();
                 log("record started: {}", started);
                 next(5);
@@ -253,13 +257,11 @@ public final class SelfTest {
                 if (t % 40 == 0 && p.onGround() && !emoting) {
                     p.jumpFromGround();
                 }
-                if (t == 5 && Mods.loaded("bettercombat")) {
-                    // A weapon Better Combat animates: the swings below become its attacks.
-                    p.connection.sendCommand("item replace entity @s weapon.mainhand with minecraft:iron_sword");
-                }
                 if (t % 15 == 0) {
                     if (Mods.loaded("bettercombat") && t > 5 && mc.screen == null) {
                         net.minecraft.client.KeyMapping.click(mc.options.keyAttack.getKey());
+                        log("attack click at recording tick {} holding {} aiming at {}", t, p.getMainHandItem().getItem(),
+                                mc.hitResult != null ? mc.hitResult.getType() : null);
                     } else {
                         p.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
                     }
