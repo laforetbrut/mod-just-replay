@@ -5,6 +5,13 @@
 ### [Unreleased]
 
 #### Added
+- **Edit recorded entities**: a new **Entities** tab (Simple and Advanced) lists the recorded players and mobs
+  near the camera and picks one under the crosshair. Hide it for the whole replay, from the play head or until the
+  play head (model, name tag, shadow, fire and held items, and its sounds); move it to a new spot at the play head
+  with the crosshair (offset keyframes, turned with the wheel); set the volume of its own sounds from 0 to 400% or
+  mute them. The selected entity is outlined while the editor is open. Edits apply in playback, previews and video
+  exports; physics and recorded movement are untouched. A sound belongs to an entity when it follows it or starts
+  within 0.75 block of it; hidden entities are also left out of the spectate pick.
 - **Sound types** in the editor's Audio tab: the volume of each kind of game sound, from 0 to 400%, in the
   replay and in exports (footsteps, players, blocks, hostile mobs, friendly mobs, ambient, weather, jukebox and note
   blocks).
@@ -194,6 +201,14 @@
 ### [Non publié]
 
 #### Ajouté
+- **Modifier les entités enregistrées** : un nouvel onglet **Entités** (modes Simple et Avancé) liste les joueurs
+  et les mobs enregistrés près de la caméra et en sélectionne un au viseur. Le masquer pour tout le replay, à partir
+  de la tête de lecture ou jusqu'à elle (modèle, nom, ombre, feu, objets tenus, et ses sons) ; le déplacer à un
+  nouvel endroit à la tête de lecture avec le viseur (images clés de décalage, tourné à la molette) ; régler le
+  volume de ses propres sons de 0 à 400 % ou les couper. L'entité sélectionnée est surlignée tant que l'éditeur est
+  ouvert. Les modifications s'appliquent à la lecture, aux aperçus et aux exports vidéo ; la physique et les
+  mouvements enregistrés ne changent pas. Un son appartient à une entité quand il la suit ou démarre à moins de
+  0,75 bloc d'elle ; les entités masquées ne sont plus sélectionnables pour le mode spectateur.
 - **Types de sons** dans l'onglet Audio de l'éditeur : le volume de chaque type de son du jeu, de 0 à 400 %,
   dans le replay et dans les exports (pas, joueurs, blocs, monstres, animaux, ambiance, météo, jukebox et blocs
   musicaux).

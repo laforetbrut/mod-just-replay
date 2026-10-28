@@ -99,7 +99,8 @@ public final class ExportAudio {
                 return;
             }
             // The kind's volume may go above 1: quiet sounds such as footsteps can be turned up; the final mix is soft limited.
-            float kind = session != null ? SoundKinds.gain(session.project(), instance) : 1.0F;
+            float kind = session != null ? SoundKinds.gain(session.project(), instance)
+                    * com.vyrriox.justreplay.editor.EntityEdits.soundGain(instance) : 1.0F;
             float volume = Math.min(1.0F, instance.getVolume()) * mc.options.getSoundSourceVolume(instance.getSource()) * gameGain() * kind;
             if (instance.getLocation().getPath().endsWith(".step")) {
                 footsteps++;

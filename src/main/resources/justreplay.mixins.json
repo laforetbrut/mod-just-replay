@@ -28,7 +28,10 @@
     "VertexBufferAccessor",
     "ClientLevelLocalEffectsMixin",
     "LevelRendererSectionsAccessor",
-    "SectionOcclusionGraphAccessor"
+    "SectionOcclusionGraphAccessor",
+    "EntityBoundSoundAccessor",
+    "EntityEditRenderMixin",
+    "EntityEditGlowMixin"
   ],
   "injectors": {
     "defaultRequire": 1

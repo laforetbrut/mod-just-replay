@@ -71,6 +71,63 @@ public final class ReplayProject {
     public boolean fadeWhite;
     /** Texts and images placed in the world, drawn in the order of the list when at the same distance. */
     public List<Overlay> overlays = new ArrayList<>();
+    /** Edits of entities that were recorded (hidden, moved, sound volume), by entity UUID. */
+    public List<EntityEdit> entityEdits = new ArrayList<>();
+
+    /**
+     * Edit of one recorded entity. Hidden from {@code hideFrom} to {@code hideTo} (-1: the end of the replay);
+     * moved by offset keyframes (x, y, z hold the position offset, yaw the turn; pitch is unused); its sounds
+     * scaled by {@code soundGain} (0 to 4) or muted.
+     */
+    public static final class EntityEdit {
+        public String uuid = "";
+        /** Readable label: entity type and name when it was picked. */
+        public String label = "";
+        public boolean hidden;
+        public int hideFrom;
+        public int hideTo = -1;
+        public List<ActorKeyframe> offsets = new ArrayList<>();
+        public float soundGain = 1.0F;
+        public boolean muted;
+
+        public EntityEdit() {
+        }
+
+        public EntityEdit(String uuid, String label) {
+            this.uuid = uuid;
+            this.label = label;
+        }
+
+        public boolean hiddenAt(double time) {
+            return hidden && time >= hideFrom && (hideTo < 0 || time <= hideTo);
+        }
+
+        /** True when the edit changes nothing and can be dropped. */
+        public boolean isEmpty() {
+            return !hidden && offsets.isEmpty() && !muted && Math.abs(soundGain - 1.0F) < 0.001F;
+        }
+
+        public void normalize() {
+            if (uuid == null) uuid = "";
+            if (label == null) label = "";
+            if (offsets == null) offsets = new ArrayList<>();
+            offsets.removeIf(k -> k == null);
+            offsets.sort(java.util.Comparator.comparingInt(k -> k.tick));
+            hideFrom = Math.max(0, hideFrom);
+            if (hideTo < -1) hideTo = -1;
+            if (!(soundGain >= 0.0F && soundGain <= 4.0F)) soundGain = 1.0F;
+        }
+    }
+
+    /** Edit of a recorded entity, or null. */
+    public EntityEdit entityEdit(String uuid) {
+        for (EntityEdit edit : entityEdits) {
+            if (edit.uuid.equals(uuid)) {
+                return edit;
+            }
+        }
+        return null;
+    }
 
     public static final class CameraKeyframe {
         public int tick;
@@ -342,6 +399,11 @@ public final class ReplayProject {
         if (audioTracks == null) audioTracks = new ArrayList<>();
         if (effects == null) effects = new ArrayList<>();
         if (overlays == null) overlays = new ArrayList<>();
+        if (entityEdits == null) entityEdits = new ArrayList<>();
+        entityEdits.removeIf(e -> e == null || e.uuid == null || e.uuid.isBlank());
+        for (EntityEdit edit : entityEdits) {
+            edit.normalize();
+        }
         overlays.removeIf(o -> o == null);
         for (Overlay overlay : overlays) {
             overlay.normalize();

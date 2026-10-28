@@ -58,6 +58,9 @@ NeoForge 1.21.1, client side. Author: vyrriox. License: Apache-2.0.
   `.minecraft/justreplay/images/` with a width in blocks, a tint and the aspect ratio kept. Offset, scale,
   rotation and opacity take keyframes, and each overlay is a bar on the timeline that drags to move or retime
   it. They render fullbright in the preview, during playback and in video exports, shader packs included.
+- **Edit recorded entities**: the **Entities** tab hides a recorded player or mob (for the whole replay or
+  before or after the play head), moves it to a new spot with the crosshair, and sets the volume of its sounds
+  (0 to 400%, or muted), in playback and in video exports.
 - **Glass interface**: a clear glass look with rounded corners and smooth animations. The editor has a
   collapsible sidebar (Cameras, Actors, Scene, Export), a bottom dock with the transport controls and a
   zoomable multi-lane timeline (Ctrl + wheel), and a shortcut overlay on **F1** or **?**.
@@ -215,6 +218,9 @@ classes and APIs and include none of their code. Not affiliated with Mojang or M
   décalage, l'échelle, la rotation et l'opacité prennent des images clés, et chaque overlay est une barre sur
   la timeline qui se déplace ou se redimensionne à la souris. Ils sont rendus en pleine lumière dans l'aperçu,
   pendant la lecture et dans les exports vidéo, shader packs compris.
+- **Modifier les entités enregistrées** : l'onglet **Entités** masque un joueur ou un mob enregistré (pour tout
+  le replay, ou avant ou après la tête de lecture), le déplace au viseur et règle le volume de ses sons (0 à 400 %,
+  ou coupés), en lecture et dans les exports vidéo.
 - **Interface en verre** : un style de verre clair aux coins arrondis et aux animations fluides. L'éditeur a
   un panneau latéral repliable (Caméras, Acteurs, Scène, Export), un dock en bas avec les commandes de
   lecture et une timeline à pistes zoomable (Ctrl + molette), et la liste des raccourcis sur **F1** ou **?**.

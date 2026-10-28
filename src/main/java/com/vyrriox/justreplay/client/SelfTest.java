@@ -40,6 +40,10 @@ public final class SelfTest {
     private static final String WORLD = "justreplay-selftest";
 
     private static int step;
+    private static Entity hiddenMob;
+    private static Entity movedMob;
+    private static int skippedBefore;
+    private static int offsetBefore;
     private static int wait;
     private static int settle;
     private static int speedStart;
@@ -607,6 +611,58 @@ public final class SelfTest {
             case 53 -> {
                 shot(mc, "ui-overlays-" + com.vyrriox.justreplay.config.JRConfig.EDITOR_MODE.get().name().toLowerCase(java.util.Locale.ROOT));
                 mc.setScreen(null);
+                go(54, 5);
+            }
+            case 54 -> {
+                // Entity edits: hide one recorded mob, move another, and check render and sound gains.
+                ReplaySession s = ReplaySession.current();
+                hiddenMob = null;
+                movedMob = null;
+                for (Entity e : mc.level.entitiesForRendering()) {
+                    if (e == mc.player || com.vyrriox.justreplay.editor.ActorManager.isActorEntity(e)
+                            || !(e instanceof net.minecraft.world.entity.Mob)) {
+                        continue;
+                    }
+                    if (hiddenMob == null) {
+                        hiddenMob = e;
+                    } else if (movedMob == null) {
+                        movedMob = e;
+                    }
+                }
+                skippedBefore = com.vyrriox.justreplay.editor.EntityEdits.skippedRenders();
+                offsetBefore = com.vyrriox.justreplay.editor.EntityEdits.offsetRenders();
+                if (hiddenMob != null) {
+                    ReplayProject.EntityEdit hide = new ReplayProject.EntityEdit(hiddenMob.getUUID().toString(), "test hidden");
+                    hide.hidden = true;
+                    s.project().entityEdits.add(hide);
+                }
+                if (movedMob != null) {
+                    ReplayProject.EntityEdit move = new ReplayProject.EntityEdit(movedMob.getUUID().toString(), "test moved");
+                    move.offsets.add(new ReplayProject.ActorKeyframe(0, 0, 2, 0, 90, 0));
+                    move.soundGain = 2.5F;
+                    s.project().entityEdits.add(move);
+                }
+                log("entity edits: hidden {} moved {}", hiddenMob, movedMob);
+                go(55, 20);
+            }
+            case 55 -> {
+                ReplaySession s = ReplaySession.current();
+                int skipped = com.vyrriox.justreplay.editor.EntityEdits.skippedRenders() - skippedBefore;
+                int offset = com.vyrriox.justreplay.editor.EntityEdits.offsetRenders() - offsetBefore;
+                log("entity edits: skipped renders {} -> {}, offset renders {} -> {}", skipped,
+                        hiddenMob == null || skipped > 0 ? "OK" : "FAIL", offset, movedMob == null || offset > 0 ? "OK" : "FAIL");
+                if (hiddenMob != null) {
+                    float g = com.vyrriox.justreplay.editor.EntityEdits.soundGainAt(hiddenMob.getX(), hiddenMob.getY(), hiddenMob.getZ());
+                    log("entity edits: sound gain at the hidden mob {} -> {}", g, g == 0.0F ? "OK" : "FAIL");
+                }
+                if (movedMob != null) {
+                    float g = com.vyrriox.justreplay.editor.EntityEdits.soundGainAt(movedMob.getX(), movedMob.getY(), movedMob.getZ());
+                    log("entity edits: sound gain at the adjusted mob {} -> {}", g, Math.abs(g - 2.5F) < 0.001F ? "OK" : "FAIL");
+                }
+                shot(mc, "entity-edits");
+                s.project().entityEdits.clear();
+                hiddenMob = null;
+                movedMob = null;
                 go(13, 5);
             }
             case 13 -> {
