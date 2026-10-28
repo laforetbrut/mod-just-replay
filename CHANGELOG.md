@@ -5,6 +5,10 @@
 ### [Unreleased]
 
 #### Added
+- **Skin overlay and body parts**: player actors now show the outer layer of their skin (hat, jacket, sleeves,
+  trousers), with a switch to turn it off; recorded players get the same switch in the Entities tab. Each player
+  actor or recorded player can also hide its head, body, left or right arm, left or right leg; a hidden arm takes
+  its held item with it.
 - **Edit recorded entities**: a new **Entities** tab (Simple and Advanced) lists the recorded players and mobs
   near the camera and picks one under the crosshair. Hide it for the whole replay, from the play head or until the
   play head (model, name tag, shadow, fire and held items, and its sounds); move it to a new spot at the play head
@@ -218,6 +222,10 @@
 ### [Non publié]
 
 #### Ajouté
+- **Surcouche du skin et parties du corps** : les acteurs joueurs affichent désormais la couche extérieure de leur
+  skin (chapeau, veste, manches, pantalon), avec un interrupteur pour la retirer ; les joueurs enregistrés ont le
+  même interrupteur dans l'onglet Entités. Chaque acteur joueur ou joueur enregistré peut aussi masquer sa tête, son
+  corps, son bras ou sa jambe gauche ou droite ; un bras masqué emporte l'objet qu'il tient.
 - **Modifier les entités enregistrées** : un nouvel onglet **Entités** (modes Simple et Avancé) liste les joueurs
   et les mobs enregistrés près de la caméra et en sélectionne un au viseur. Le masquer pour tout le replay, à partir
   de la tête de lecture ou jusqu'à elle (modèle, nom, ombre, feu, objets tenus, et ses sons) ; le déplacer à un
