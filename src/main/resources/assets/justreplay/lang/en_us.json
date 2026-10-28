@@ -813,5 +813,11 @@
   "justreplay.entities.tool.pick": "Pick an entity: %s",
   "justreplay.entities.tool.move": "Move %s",
   "justreplay.entities.tool.keys.pick": "Click: select   Esc: back",
-  "justreplay.entities.tool.keys.move": "Click: place   Wheel: turn   Right click: quarter turn   Ctrl: block center   Esc: back"
+  "justreplay.entities.tool.keys.move": "Click: place   Wheel: turn   Right click: quarter turn   Ctrl: block center   Esc: back",
+  "justreplay.action.custom_emote": "Custom emote",
+  "justreplay.action.hint.custom_emote": "emote file or file:animation, then |speed (optional)",
+  "justreplay.actor.emote.pick": "Emote",
+  "justreplay.actor.emote.none": "No emote in the emotes folder",
+  "justreplay.actor.emote.broken": "%s emote file(s) could not be read, see the log",
+  "justreplay.actor.emote.folder": "Open the emotes folder"
 }
