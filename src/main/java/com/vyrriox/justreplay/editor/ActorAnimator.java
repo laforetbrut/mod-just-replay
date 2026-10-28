@@ -220,7 +220,7 @@ public final class ActorAnimator {
      * the motion is smooth between ticks and stays on the beat in exports. Arm gestures still win over the arms.
      */
     /** A custom emote played by an actor: the emote, the replay tick it starts at and its speed. */
-    private record CustomEmote(EmoteLibrary.Emote emote, int start, double speed) {
+    private record CustomEmote(EmoteLibrary.Emote emote, int start, double speed, int clipFrom, int clipTo) {
     }
 
     /**
@@ -238,7 +238,7 @@ public final class ActorAnimator {
         }
         float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
         double ticks = (CameraController.frameTime(session, partial) - custom.start()) * custom.speed();
-        EmoteLibrary.apply(model, EmoteLibrary.sample(custom.emote(), ticks));
+        EmoteLibrary.apply(model, EmoteLibrary.sample(custom.emote(), ticks, custom.clipFrom(), custom.clipTo()));
     }
 
     /**
@@ -256,7 +256,7 @@ public final class ActorAnimator {
         }
         float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
         double ticks = (CameraController.frameTime(session, partial) - custom.start()) * custom.speed();
-        EmoteLibrary.applyWholeBody(stack, EmoteLibrary.sample(custom.emote(), ticks));
+        EmoteLibrary.applyWholeBody(stack, EmoteLibrary.sample(custom.emote(), ticks, custom.clipFrom(), custom.clipTo()));
     }
 
     /** Emote and speed of a {@link ActionType#CUSTOM_EMOTE} parameter ("id|speed"); null emote when unknown. */
@@ -988,14 +988,20 @@ public final class ActorAnimator {
             customEmote = customEmote(custom.param, speed);
         }
         if (customEmote != null) {
-            CUSTOM_EMOTES.put(entity.getId(), new CustomEmote(customEmote, custom.tick, speed[0]));
+            CUSTOM_EMOTES.put(entity.getId(), new CustomEmote(customEmote, custom.tick, speed[0], custom.clipFrom, custom.clipTo));
         } else {
             CUSTOM_EMOTES.remove(entity.getId());
         }
         if (entity instanceof Player) {
             ReplayProject.ActorAction emote = activeState(actor.actions, cursor, ActionType.EMOTE);
             if (emote != null && emote.param != null && !emote.param.isBlank()) {
-                com.vyrriox.justreplay.compat.EmotecraftCompat.applyActorEmote(entity, emote.param, cursor - emote.tick);
+                int emoteTick = Math.max(0, emote.clipFrom) + cursor - emote.tick;
+                if (emote.clipTo >= 0 && emoteTick > emote.clipTo) {
+                    // Past the end of the clip: Emotecraft has no clip, so the emote stops there.
+                    com.vyrriox.justreplay.compat.EmotecraftCompat.stopActorEmote(entity);
+                } else {
+                    com.vyrriox.justreplay.compat.EmotecraftCompat.applyActorEmote(entity, emote.param, emoteTick);
+                }
             } else {
                 com.vyrriox.justreplay.compat.EmotecraftCompat.stopActorEmote(entity);
             }

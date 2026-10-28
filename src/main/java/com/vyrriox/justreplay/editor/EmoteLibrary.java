@@ -552,7 +552,6 @@ public final class EmoteLibrary {
      * pose, plus the blend weight in {@code [6][0]} (1 while playing, falling to 0 when a finished emote returns).
      */
     public static double[][] sample(Emote emote, double ticks) {
-        double[][] pose = new double[WHOLE_ROW + 1][CHANNELS];
         double t = Math.max(0, ticks);
         double weight = 1;
         if (emote.loop && t > emote.length) {
@@ -564,6 +563,38 @@ public final class EmoteLibrary {
             }
             t = emote.length;
         }
+        return pose(emote, t, weight);
+    }
+
+    /**
+     * Like {@link #sample(Emote, double)} for the part {@code [from, to]} of the emote ({@code to} below 0 means the
+     * end): {@code ticks} after the start shows emote tick {@code from + ticks}. A looping emote loops inside the
+     * clip; any other emote holds or returns from the clip end like it does from its own end.
+     */
+    public static double[][] sample(Emote emote, double ticks, double from, double to) {
+        double end = to < 0 ? emote.length : Math.min(to, emote.length);
+        double start = Math.max(0, Math.min(from, end));
+        if (start <= 0 && end >= emote.length) {
+            return sample(emote, ticks);
+        }
+        double t = start + Math.max(0, ticks);
+        double weight = 1;
+        if (t > end) {
+            if (emote.loop) {
+                double span = Math.max(1e-3, end - start);
+                t = start + (t - start) % span;
+            } else {
+                if (!emote.hold) {
+                    weight = Math.max(0, 1 - (t - end) / RETURN_TICKS);
+                }
+                t = end;
+            }
+        }
+        return pose(emote, t, weight);
+    }
+
+    private static double[][] pose(Emote emote, double t, double weight) {
+        double[][] pose = new double[WHOLE_ROW + 1][CHANNELS];
         pose[WEIGHT_ROW][0] = weight;
         for (int b = 0; b <= WHOLE; b++) {
             double[] row = pose[b == WHOLE ? WHOLE_ROW : b];

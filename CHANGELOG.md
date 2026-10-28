@@ -5,6 +5,12 @@
 ### [Unreleased]
 
 #### Added
+- **Action start and end**: the actor Actions tab sets a start and an end tick on the replay timeline for every
+  action, with "Start = play head" and "End = play head" buttons; an empty end lasts until the next action. The list
+  shows each action as start → end.
+- **Emote clip**: custom emotes and Emotecraft emotes can play only part of their animation ("Emote from" and "Emote
+  to", in emote ticks). A looping custom emote loops inside the clip; an Emotecraft emote starts at the clip start
+  and stops at its end.
 - **Timed skin changes**: a player actor or a recorded player can switch skin at a chosen tick ("Skin changes" in
   the actor screen and in the Entities tab, "Add at cursor"), for staged scenes such as the same skin with blood
   from tick 120. The change shows in playback and in video exports. "Save current skin" writes the skin shown now
@@ -235,6 +241,12 @@
 ### [Non publié]
 
 #### Ajouté
+- **Début et fin des actions** : l'onglet Actions de l'acteur règle un tick de début et un tick de fin sur la
+  timeline pour chaque action, avec les boutons "Start = play head" et "End = play head" ; une fin vide dure jusqu'à
+  l'action suivante. La liste affiche chaque action sous la forme début → fin.
+- **Extrait d'emote** : les emotes personnalisées et les emotes Emotecraft peuvent ne jouer qu'une partie de leur
+  animation ("Emote from" et "Emote to", en ticks d'emote). Une emote personnalisée en boucle boucle dans l'extrait ;
+  une emote Emotecraft commence au début de l'extrait et s'arrête à sa fin.
 - **Changements de skin datés** : un acteur joueur ou un joueur enregistré peut changer de skin à un tick choisi
   ("Skin changes" dans l'écran de l'acteur et dans l'onglet Entités, "Add at cursor"), pour des scènes mises en
   scène comme le même skin couvert de sang à partir du tick 120. Le changement apparaît en lecture et dans les
