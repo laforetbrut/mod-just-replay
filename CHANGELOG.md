@@ -4,6 +4,16 @@
 
 ### [Unreleased]
 
+#### Added
+- **Sound types** in the editor's Audio tab: the volume of each kind of game sound, from 0 to 400%, in the
+  replay and in exports (footsteps, players, blocks, hostile mobs, friendly mobs, ambient, weather, jukebox and note
+  blocks).
+
+#### Fixed
+- Footsteps were nearly silent in exported videos: the game plays a step at 15% of its volume and the export
+  fades it with the distance to the camera, so from a camera a few blocks away it could not be heard. Footsteps now
+  play at 200% by default in replays and exports, adjustable in Sound types.
+
 ### [1.0.5] - 2026-10-27
 
 #### Fixed
@@ -182,6 +192,16 @@
 ## Français
 
 ### [Non publié]
+
+#### Ajouté
+- **Types de sons** dans l'onglet Audio de l'éditeur : le volume de chaque type de son du jeu, de 0 à 400 %,
+  dans le replay et dans les exports (pas, joueurs, blocs, monstres, animaux, ambiance, météo, jukebox et blocs
+  musicaux).
+
+#### Corrigé
+- Les pas étaient presque muets dans les vidéos exportées : le jeu joue un pas à 15 % de son volume et l'export
+  l'atténue avec la distance à la caméra, si bien qu'avec une caméra à quelques blocs on ne l'entendait pas. Les
+  pas sont maintenant joués à 200 % par défaut dans les replays et les exports, réglables dans Types de sons.
 
 ### [1.0.5] - 2026-10-27
 
