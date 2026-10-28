@@ -47,6 +47,12 @@ public final class ReplayProject {
     public List<AudioTrack> audioTracks = new ArrayList<>();
     /** Volume of the recorded game sounds, 0 to 1. */
     public float gameVolume = 1.0F;
+    /**
+     * Volume of each kind of game sound, 0 to 4 (400 percent), by key of {@link com.vyrriox.justreplay.editor.audio.SoundKinds}:
+     * footsteps, players, blocks, hostile, neutral, ambient, weather, records. A missing key takes the kind's default
+     * (2 for footsteps, 1 for the others).
+     */
+    public java.util.Map<String, Float> soundGains = new java.util.LinkedHashMap<>();
     /** Silence the recorded game sounds (the voices keep their own switch). */
     public boolean muteGame;
     /** Lower the game sounds and voices while an audio clip plays. */
@@ -351,6 +357,8 @@ public final class ReplayProject {
             track.normalize();
         }
         if (!(gameVolume >= 0.0F && gameVolume <= 1.0F)) gameVolume = 1.0F;
+        if (soundGains == null) soundGains = new java.util.LinkedHashMap<>();
+        soundGains.entrySet().removeIf(e -> e.getKey() == null || e.getValue() == null || !(e.getValue() >= 0.0F && e.getValue() <= 4.0F));
         if (!(duckAmount >= 0.0F && duckAmount <= 1.0F)) duckAmount = 0.5F;
         cameras.removeIf(c -> c == null);
         if (cameras.isEmpty()) {

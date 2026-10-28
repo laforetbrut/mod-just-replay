@@ -111,6 +111,25 @@ final class AudioPanel {
         }).icon(Icon.ARROW_DOWN).tip(tc("justreplay.audio.ducking.tip")));
         f.full(new Stepper(tc("justreplay.audio.ducking.amount"), () -> Math.round(project().duckAmount * 100), "%", 0,
                 () -> duckAmount(-0.1), () -> duckAmount(0.1)).icon(Icon.ARROW_DOWN).enabled(() -> project().ducking));
+        // One volume per kind of game sound, up to 400 percent: footsteps are quiet in the game and often wanted louder.
+        f.header(tc("justreplay.audio.kinds"), Icon.SPEAKER);
+        for (String kind : com.vyrriox.justreplay.editor.audio.SoundKinds.ALL) {
+            f.full(new Stepper(tc("justreplay.audio.kind." + kind),
+                    () -> Math.round(com.vyrriox.justreplay.editor.audio.SoundKinds.gain(project(), kind) * 100), "%", 0,
+                    () -> kindVolume(kind, -0.1), () -> kindVolume(kind, 0.1))
+                    .icon(Icon.SPEAKER).enabled(() -> !project().muteGame).tip(tc("justreplay.audio.kinds.tip")));
+        }
+    }
+
+    private void kindVolume(String kind, double delta) {
+        float value = (float) clamp(Math.round((com.vyrriox.justreplay.editor.audio.SoundKinds.gain(project(), kind) + delta) * 10) / 10.0,
+                0.0, com.vyrriox.justreplay.editor.audio.SoundKinds.MAX);
+        if (Math.abs(value - com.vyrriox.justreplay.editor.audio.SoundKinds.defaultGain(kind)) < 0.001F) {
+            project().soundGains.remove(kind);
+        } else {
+            project().soundGains.put(kind, value);
+        }
+        save();
     }
 
     private void gameVolume(double delta) {

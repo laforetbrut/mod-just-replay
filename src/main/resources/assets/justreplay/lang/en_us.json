@@ -771,5 +771,15 @@
   "justreplay.actor.skinfile.tip": "Player actors only. Click to cycle through the PNG skins (64x64) of the justreplay/skins folder. A skin file replaces the skin of the account named above.",
   "justreplay.actor.skinfile.folder": "Open the skins folder",
   "justreplay.actor.slim": "Slim arms",
-  "justreplay.actor.slim.tip": "Arm model of the skin file: slim (Alex) or classic (Steve)."
+  "justreplay.actor.slim.tip": "Arm model of the skin file: slim (Alex) or classic (Steve).",
+  "justreplay.audio.kinds": "Sound types",
+  "justreplay.audio.kinds.tip": "Volume of one kind of game sound in the replay and in exports, from 0 to 400%. Footsteps are quiet in the game, so they start at 200%.",
+  "justreplay.audio.kind.footsteps": "Footsteps",
+  "justreplay.audio.kind.players": "Players",
+  "justreplay.audio.kind.blocks": "Blocks",
+  "justreplay.audio.kind.hostile": "Hostile mobs",
+  "justreplay.audio.kind.neutral": "Friendly mobs",
+  "justreplay.audio.kind.ambient": "Ambient",
+  "justreplay.audio.kind.weather": "Weather",
+  "justreplay.audio.kind.records": "Jukebox and note blocks"
 }

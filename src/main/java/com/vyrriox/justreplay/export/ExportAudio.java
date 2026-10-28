@@ -6,6 +6,7 @@ import com.vyrriox.justreplay.editor.audio.AudioLibrary;
 import com.vyrriox.justreplay.editor.audio.AudioMixer;
 import com.vyrriox.justreplay.editor.audio.AudioPcm;
 import com.vyrriox.justreplay.editor.audio.AudioTrack;
+import com.vyrriox.justreplay.editor.audio.SoundKinds;
 import com.vyrriox.justreplay.replay.ReplaySession;
 import com.vyrriox.justreplay.voice.VoiceBridge;
 import com.vyrriox.justreplay.voice.VoiceTrack;
@@ -69,6 +70,8 @@ public final class ExportAudio {
     private int voiceStartTick = -1;
     private List<AudioTrack> tracks = List.of();
     private float gameGain = 1.0F;
+    private int footsteps;
+    private double footstepVolume;
     private boolean ducking;
     private float duckAmount;
     private static volatile int lastMixedClips;
@@ -95,7 +98,13 @@ public final class ExportAudio {
             if (sound == null || sound == SoundManager.EMPTY_SOUND || sound == SoundManager.INTENTIONALLY_EMPTY_SOUND) {
                 return;
             }
-            float volume = Math.min(1.0F, instance.getVolume()) * mc.options.getSoundSourceVolume(instance.getSource()) * gameGain();
+            // The kind's volume may go above 1: quiet sounds such as footsteps can be turned up; the final mix is soft limited.
+            float kind = session != null ? SoundKinds.gain(session.project(), instance) : 1.0F;
+            float volume = Math.min(1.0F, instance.getVolume()) * mc.options.getSoundSourceVolume(instance.getSource()) * gameGain() * kind;
+            if (instance.getLocation().getPath().endsWith(".step")) {
+                footsteps++;
+                footstepVolume += volume;
+            }
             if (volume <= 0.0F) {
                 return;
             }
@@ -197,6 +206,8 @@ public final class ExportAudio {
     /** Mixes the logged sounds into a WAV file covering {@code frames} video frames. */
     public void writeWav(Path wav, int frames) throws IOException {
         int samples = (int) ((long) frames * RATE / fps);
+        JustReplay.LOGGER.info("Export audio: {} game sounds, {} footsteps (average volume {})", events.size(), footsteps,
+                footsteps == 0 ? "-" : String.format(java.util.Locale.ROOT, "%.3f", footstepVolume / footsteps));
         float[] left = new float[samples];
         float[] right = new float[samples];
         Map<ResourceLocation, float[][]> decoded = new HashMap<>();
