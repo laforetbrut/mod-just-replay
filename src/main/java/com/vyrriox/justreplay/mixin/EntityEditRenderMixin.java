@@ -33,6 +33,8 @@ public abstract class EntityEditRenderMixin {
             return;
         }
         if (EntityEdits.isHidden(entity)) {
+            // Skipped here, before the renderer is even asked: count it now, render() never runs for it.
+            EntityEdits.countSkipped();
             cir.setReturnValue(false);
         } else if (EntityEdits.offset(entity) != null) {
             // Drawn away from its own box: the frustum test of the real position does not apply.

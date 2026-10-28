@@ -648,13 +648,14 @@ public final class SelfTest {
                 go(57, 5);
             }
             case 57 -> {
-                // Entity edits: hide one recorded mob, move another, and check render and sound gains.
+                // Entity edits: hide one recorded living entity, move another (the recording player counts), and check
+                // render and sound gains.
                 ReplaySession s = ReplaySession.current();
                 hiddenMob = null;
                 movedMob = null;
                 for (Entity e : mc.level.entitiesForRendering()) {
                     if (e == mc.player || com.vyrriox.justreplay.editor.ActorManager.isActorEntity(e)
-                            || !(e instanceof net.minecraft.world.entity.Mob)) {
+                            || !(e instanceof net.minecraft.world.entity.LivingEntity)) {
                         continue;
                     }
                     if (hiddenMob == null) {
