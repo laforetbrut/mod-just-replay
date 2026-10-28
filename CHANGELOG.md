@@ -4,6 +4,8 @@
 
 ### [Unreleased]
 
+### [1.0.6] - 2026-10-28
+
 #### Added
 - **Action start and end**: the actor Actions tab sets a start and an end tick on the replay timeline for every
   action, with "Start = play head" and "End = play head" buttons; an empty end lasts until the next action. The list
@@ -46,7 +48,8 @@
   dropped. Both mods' requests are not sent to the replay host.
 - Recorded packets of a mod that is not installed when the replay plays are now skipped quietly (one line in the
   log per payload), instead of a warning for every packet.
-
+- **Instant replay button**: the pause menu has a "Save last N min" button next to "Start recording", which
+  saves the instant replay buffer like its key.
 - **Precise transform and scale**: the actor screen has a "Transform" section with X, Y, Z, yaw and pitch typed as
   numbers (with 0.1 block and 5 degree steps) for the keyframe at the play head, created when missing. The Entities
   tab gets the same fields for the offset of a recorded entity, with its resulting absolute position. Actors and
@@ -240,6 +243,8 @@
 
 ### [Non publié]
 
+### [1.0.6] - 2026-10-28
+
 #### Ajouté
 - **Début et fin des actions** : l'onglet Actions de l'acteur règle un tick de début et un tick de fin sur la
   timeline pour chaque action, avec les boutons "Start = play head" et "End = play head" ; une fin vide dure jusqu'à
@@ -286,7 +291,8 @@
   des deux mods ne sont pas envoyées à l'hôte du replay.
 - Les paquets enregistrés d'un mod absent au moment de la lecture sont ignorés sans bruit (une ligne dans le
   journal par type de paquet) au lieu d'un avertissement par paquet.
-
+- **Bouton de replay instantané** : le menu pause a un bouton "Save last N min" à côté de "Start recording",
+  qui enregistre la mémoire tampon du replay instantané comme sa touche.
 - **Transformation précise et échelle** : l'écran d'acteur a une section "Transformation" avec X, Y, Z, lacet et
   tangage saisis en nombres (pas de 0,1 bloc et de 5 degrés) pour l'image clé à la tête de lecture, créée si besoin.
   L'onglet Entités reçoit les mêmes champs pour le décalage d'une entité enregistrée, avec sa position absolue.
