@@ -902,5 +902,17 @@
   "justreplay.transform.entity.hint": "Offset from the recorded position at %s. Steps save at once.",
   "justreplay.transform.apply": "Apply typed values",
   "justreplay.transform.apply.tip": "Saves the typed offset into the keyframe at the play head (created if missing) and the scale",
-  "justreplay.transform.absolute": "Drawn at %s, %s, %s"
+  "justreplay.transform.absolute": "Drawn at %s, %s, %s",
+  "justreplay.actor.action.start": "Start",
+  "justreplay.actor.action.start.tip": "Replay tick the action starts at",
+  "justreplay.actor.action.end": "End",
+  "justreplay.actor.action.end.tip": "Replay tick the action ends at; empty or not after the start means until the next action",
+  "justreplay.actor.action.start.playhead": "Start = play head",
+  "justreplay.actor.action.end.playhead": "End = play head",
+  "justreplay.actor.action.next": "next",
+  "justreplay.actor.action.clip.from": "Emote from",
+  "justreplay.actor.action.clip.from.tip": "First emote tick played",
+  "justreplay.actor.action.clip.to": "Emote to",
+  "justreplay.actor.action.clip.to.tip": "Last emote tick played; empty means the end of the emote",
+  "justreplay.actor.action.clip.length": "Emote length: %s ticks"
 }

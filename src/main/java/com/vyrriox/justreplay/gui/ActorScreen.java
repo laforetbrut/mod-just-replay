@@ -64,8 +64,8 @@ public class ActorScreen extends GlassScreen {
     private final List<ReplayProject.ActorAction> actions = new ArrayList<>();
     private ReplayProject.ActorAction selected;
     private ActionType actionType = ActionType.WAVE;
-    private GlassTextField duration, param;
-    private String durationValue = "0";
+    private GlassTextField start, end, clipFrom, clipTo, param;
+    private String startValue, endValue = "", clipFromValue = "0", clipToValue = "";
     private String paramValue;
     private List<String> shownEmotes;
     private java.util.Map<String, String> shownBroken;
@@ -119,7 +119,10 @@ public class ActorScreen extends GlassScreen {
         double[] at = transformAt(actor, transformTick);
         this.transform.set(new double[]{at[0], at[1], at[2], at[3], at[4], actor.scale});
         for (ReplayProject.ActorAction a : actor.actions) {
-            actions.add(new ReplayProject.ActorAction(a.tick, a.actionType(), a.duration, a.param));
+            ReplayProject.ActorAction copy = new ReplayProject.ActorAction(a.tick, a.actionType(), a.duration, a.param);
+            copy.clipFrom = a.clipFrom;
+            copy.clipTo = a.clipTo;
+            actions.add(copy);
         }
     }
 
@@ -311,12 +314,14 @@ public class ActorScreen extends GlassScreen {
 
     private void initActions(Form f) {
         f.caption(Component.translatable("justreplay.actor.action.type"), 0, 2, 6);
-        f.caption(Component.translatable("justreplay.actor.action.duration.short"), 2, 1, 6);
-        f.caption(Component.translatable("justreplay.actor.action.param"), 3, 3, 6);
+        f.caption(Component.translatable("justreplay.actor.action.start"), 2, 1, 6);
+        f.caption(Component.translatable("justreplay.actor.action.end"), 3, 1, 6);
+        f.caption(Component.translatable("justreplay.actor.action.param"), 4, 2, 6);
         f.next(9);
         f.put(new Dropdown<>(this, Component.empty(), List.of(ActionType.values()), actionType,
                 t -> Component.translatable(t.translationKey()), v -> {
-            boolean rebuild = v == ActionType.CUSTOM_EMOTE || actionType == ActionType.CUSTOM_EMOTE;
+            boolean rebuild = v == ActionType.CUSTOM_EMOTE || actionType == ActionType.CUSTOM_EMOTE
+                    || hasClip(v) != hasClip(actionType);
             actionType = v;
             param.setValue(defaultParam(v));
             updateHint();
@@ -326,13 +331,38 @@ public class ActorScreen extends GlassScreen {
                 rebuildWidgets();
             }
         }), 0, 2, 6).setHeight(16);
-        duration = f.put(field(selected != null ? Integer.toString(selected.duration) : durationValue, "justreplay.actor.action.duration", 7), 2, 1, 6);
-        duration.tip(Component.translatable("justreplay.actor.action.duration"));
+        int cursor = session.playback().cursor();
+        start = f.put(field(selected != null ? Integer.toString(selected.tick) : startValue != null ? startValue : Integer.toString(cursor),
+                "justreplay.actor.action.start", 9), 2, 1, 6);
+        start.tip(Component.translatable("justreplay.actor.action.start.tip"));
+        end = f.put(field(selected != null ? (selected.duration > 0 ? Integer.toString(selected.tick + selected.duration) : "") : endValue,
+                "justreplay.actor.action.end", 9), 3, 1, 6);
+        end.tip(Component.translatable("justreplay.actor.action.end.tip"));
         param = f.put(field(selected != null ? selected.param : paramValue != null ? paramValue : defaultParam(actionType),
-                "justreplay.actor.action.param", 128), 3, 3, 6);
+                "justreplay.actor.action.param", 128), 4, 2, 6);
         updateHint();
         param.tip(animationsTooltip());
         f.next(16);
+        f.put(new GlassButton(Component.translatable("justreplay.actor.action.start.playhead"),
+                b -> start.setValue(Integer.toString(session.playback().cursor()))), 0, 2);
+        f.put(new GlassButton(Component.translatable("justreplay.actor.action.end.playhead"),
+                b -> end.setValue(Integer.toString(session.playback().cursor()))), 1, 2);
+        f.next();
+        clipFrom = null;
+        clipTo = null;
+        if (hasClip(actionType)) {
+            f.caption(Component.translatable("justreplay.actor.action.clip.from"), 0, 1, 4);
+            f.caption(Component.translatable("justreplay.actor.action.clip.to"), 1, 1, 4);
+            f.next(9);
+            clipFrom = f.put(field(selected != null ? Integer.toString(selected.clipFrom) : clipFromValue,
+                    "justreplay.actor.action.clip.from", 7), 0, 1, 4);
+            clipFrom.tip(Component.translatable("justreplay.actor.action.clip.from.tip"));
+            clipTo = f.put(field(selected != null ? (selected.clipTo >= 0 ? Integer.toString(selected.clipTo) : "") : clipToValue,
+                    "justreplay.actor.action.clip.to", 7), 1, 1, 4);
+            clipTo.tip(Component.translatable("justreplay.actor.action.clip.to.tip"));
+            f.next(16);
+            f.text(this::emoteLength, Theme.TEXT_MUTED);
+        }
         if (actionType == ActionType.CUSTOM_EMOTE) {
             initEmotePicker(f);
         }
@@ -416,9 +446,14 @@ public class ActorScreen extends GlassScreen {
 
     /** Keeps what was typed in the action fields across rebuilds. */
     private void stashActionFields() {
-        if (duration != null && param != null && actionsPage) {
-            durationValue = duration.getValue();
+        if (start != null && end != null && param != null && actionsPage) {
+            startValue = start.getValue();
+            endValue = end.getValue();
             paramValue = param.getValue();
+            if (clipFrom != null && clipTo != null) {
+                clipFromValue = clipFrom.getValue();
+                clipToValue = clipTo.getValue();
+            }
         }
     }
 
@@ -442,9 +477,15 @@ public class ActorScreen extends GlassScreen {
 
     private String actionLabel(ReplayProject.ActorAction action) {
         StringBuilder label = new StringBuilder();
-        label.append(Timeline.formatTicks(action.tick)).append("  ").append(Component.translatable(action.actionType().translationKey()).getString());
-        if (action.duration > 0 && action.actionType().kind == ActionType.Kind.STATE) {
-            label.append("  ").append(action.duration).append("t");
+        label.append(Timeline.formatTicks(action.tick));
+        if (action.actionType().kind == ActionType.Kind.STATE) {
+            label.append(" \u2192 ").append(action.duration > 0 ? Timeline.formatTicks(action.tick + action.duration)
+                    : Component.translatable("justreplay.actor.action.next").getString());
+        }
+        label.append("  ").append(Component.translatable(action.actionType().translationKey()).getString());
+        if (hasClip(action.actionType()) && (action.clipFrom > 0 || action.clipTo >= 0)) {
+            label.append("  [").append(action.clipFrom).append("..").append(action.clipTo >= 0 ? Integer.toString(action.clipTo) : "end")
+                    .append("]");
         }
         if (action.param != null && !action.param.isBlank()) {
             label.append("  ").append(action.param);
@@ -452,17 +493,60 @@ public class ActorScreen extends GlassScreen {
         return label.toString();
     }
 
-    private int parseDuration() {
+    /** Action types whose emote can be clipped: custom emotes, and Emotecraft emotes started at an offset. */
+    private static boolean hasClip(ActionType type) {
+        return type == ActionType.CUSTOM_EMOTE || type == ActionType.EMOTE;
+    }
+
+    private static int parseInt(GlassTextField box, int fallback) {
+        if (box == null) {
+            return fallback;
+        }
         try {
-            return Math.max(0, Integer.parseInt(duration.getValue().trim()));
+            return Integer.parseInt(box.getValue().trim());
         } catch (NumberFormatException e) {
-            return 0;
+            return fallback;
         }
     }
 
+    private int parseStart() {
+        return Math.max(0, parseInt(start, session.playback().cursor()));
+    }
+
+    /** Duration from the start and end fields: 0 (until the next action) when the end is empty or not after the start. */
+    private int parseDuration(int startTick) {
+        int endTick = parseInt(end, 0);
+        return endTick > startTick ? endTick - startTick : 0;
+    }
+
+    private void applyClip(ReplayProject.ActorAction action) {
+        if (hasClip(action.actionType())) {
+            action.clipFrom = parseInt(clipFrom, 0);
+            action.clipTo = parseInt(clipTo, -1);
+        } else {
+            action.clipFrom = 0;
+            action.clipTo = -1;
+        }
+        action.normalizeClip();
+    }
+
+    /** Length of the picked custom emote, when known. */
+    private Component emoteLength() {
+        if (actionType != ActionType.CUSTOM_EMOTE || param == null) {
+            return null;
+        }
+        String value = param.getValue();
+        int bar = value.indexOf('|');
+        EmoteLibrary.Emote emote = EmoteLibrary.get((bar >= 0 ? value.substring(0, bar) : value).trim());
+        return emote == null ? null
+                : Component.translatable("justreplay.actor.action.clip.length", (int) Math.ceil(emote.length()));
+    }
+
     private void addAction() {
-        ReplayProject.ActorAction action = new ReplayProject.ActorAction(session.playback().cursor(), actionType, parseDuration(),
+        int tick = parseStart();
+        ReplayProject.ActorAction action = new ReplayProject.ActorAction(tick, actionType, parseDuration(tick),
                 param.getValue().trim());
+        applyClip(action);
         actions.add(action);
         actions.sort(java.util.Comparator.comparingInt(a -> a.tick));
         selected = action;
@@ -476,8 +560,11 @@ public class ActorScreen extends GlassScreen {
             return;
         }
         selected.type = actionType.name();
-        selected.duration = parseDuration();
+        selected.tick = parseStart();
+        selected.duration = parseDuration(selected.tick);
         selected.param = param.getValue().trim();
+        applyClip(selected);
+        actions.sort(java.util.Comparator.comparingInt(a -> a.tick));
         pageScroll = area.scrollTarget();
         rebuildWidgets();
     }

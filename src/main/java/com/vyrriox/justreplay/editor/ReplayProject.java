@@ -380,6 +380,10 @@ public final class ReplayProject {
         public int duration;
         /** Type specific value: look target, animation name, wander radius, entity event id... */
         public String param = "";
+        /** Emote actions: first emote tick played. */
+        public int clipFrom;
+        /** Emote actions: last emote tick played, -1 for the end of the emote. */
+        public int clipTo = -1;
 
         public ActorAction() {
         }
@@ -393,6 +397,14 @@ public final class ReplayProject {
 
         public ActionType actionType() {
             return ActionType.parse(type);
+        }
+
+        /** Keeps the emote clip valid: a start of 0 or more, an end after the start or -1. */
+        public void normalizeClip() {
+            clipFrom = Math.max(0, clipFrom);
+            if (clipTo < 0 || clipTo <= clipFrom) {
+                clipTo = -1;
+            }
         }
     }
 
@@ -536,6 +548,7 @@ public final class ReplayProject {
             for (ActorAction action : actor.actions) {
                 if (action.type == null) action.type = ActionType.IDLE.name();
                 if (action.param == null) action.param = "";
+                action.normalizeClip();
             }
             if (actor.model == null) actor.model = "";
             if (actor.modelAnimation == null) actor.modelAnimation = "";
