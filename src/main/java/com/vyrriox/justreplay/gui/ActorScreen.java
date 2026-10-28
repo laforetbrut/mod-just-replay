@@ -1,6 +1,7 @@
 package com.vyrriox.justreplay.gui;
 
 import com.vyrriox.justreplay.editor.ActionType;
+import com.vyrriox.justreplay.editor.EmoteLibrary;
 import com.vyrriox.justreplay.editor.ReplayProject;
 import com.vyrriox.justreplay.editor.SkinLibrary;
 import com.vyrriox.justreplay.editor.model.ModelLibrary;
@@ -44,9 +45,17 @@ public class ActorScreen extends GlassScreen {
     private Pose pose;
     private boolean visible;
     private boolean showName;
+    private boolean skinLayers;
+    private int hiddenParts;
     /** Skin file of a player actor, empty for the skin of the account named by the name field. */
     private String skinFile;
     private boolean slim;
+    /** Timed skin changes of a player actor, copied back on apply. */
+    private final List<ReplayProject.SkinChange> skinChanges = new ArrayList<>();
+    private final SkinChangesSection skinSection;
+    /** Position and angles at the play head, then the render scale; written back on apply. */
+    private final TransformFields transform;
+    private final int transformTick;
     /** Field values kept across the two pages. */
     private final String[] values;
 
@@ -55,9 +64,12 @@ public class ActorScreen extends GlassScreen {
     private final List<ReplayProject.ActorAction> actions = new ArrayList<>();
     private ReplayProject.ActorAction selected;
     private ActionType actionType = ActionType.WAVE;
-    private GlassTextField duration, param;
-    private String durationValue = "0";
+    private GlassTextField start, end, clipFrom, clipTo, param;
+    private String startValue, endValue = "", clipFromValue = "0", clipToValue = "";
     private String paramValue;
+    private List<String> shownEmotes;
+    private java.util.Map<String, String> shownBroken;
+    private int emoteCheck;
     private ScrollArea area;
     private float pageScroll;
     private int boxX, boxY, boxW, boxH;
@@ -70,8 +82,24 @@ public class ActorScreen extends GlassScreen {
         this.actor = actor;
         this.visible = actor.visible;
         this.showName = actor.showName;
+        this.skinLayers = !actor.hideSkinLayers;
+        this.hiddenParts = actor.hiddenParts;
         this.skinFile = actor.skin == null ? "" : actor.skin;
         this.slim = actor.slim;
+        for (ReplayProject.SkinChange c : actor.skinChanges) {
+            skinChanges.add(new ReplayProject.SkinChange(c.tick, c.file, c.slim));
+        }
+        Runnable rebuild = () -> {
+            stash();
+            pageScroll = area.scrollTarget();
+            rebuildWidgets();
+        };
+        this.skinSection = new SkinChangesSection("justreplay.actor.skinchange", () -> skinChanges, () -> session.playback().cursor(),
+                next -> {
+                    skinChanges.clear();
+                    skinChanges.addAll(next);
+                    rebuild.run();
+                }, rebuild);
         Pose p;
         try {
             p = Pose.valueOf(actor.pose);
@@ -81,8 +109,57 @@ public class ActorScreen extends GlassScreen {
         this.pose = p;
         this.values = new String[]{actor.type, actor.name, actor.mainHand, actor.offHand, actor.head, actor.chest, actor.legs,
                 actor.feet, actor.model, actor.modelAnimation, trimFloat(actor.modelScale)};
+        this.transformTick = session.playback().cursor();
+        this.transform = new TransformFields(net.minecraft.client.Minecraft.getInstance().font,
+                new String[]{"justreplay.transform.x", "justreplay.transform.y", "justreplay.transform.z",
+                        "justreplay.transform.yaw", "justreplay.transform.pitch", "justreplay.transform.scale"},
+                new double[]{0.1, 0.1, 0.1, 5, 5, 0.05},
+                new double[]{-3.0E7, -2048, -3.0E7, -360, -90, 0.05},
+                new double[]{3.0E7, 2048, 3.0E7, 360, 90, 10}, null);
+        double[] at = transformAt(actor, transformTick);
+        this.transform.set(new double[]{at[0], at[1], at[2], at[3], at[4], actor.scale});
         for (ReplayProject.ActorAction a : actor.actions) {
-            actions.add(new ReplayProject.ActorAction(a.tick, a.actionType(), a.duration, a.param));
+            ReplayProject.ActorAction copy = new ReplayProject.ActorAction(a.tick, a.actionType(), a.duration, a.param);
+            copy.clipFrom = a.clipFrom;
+            copy.clipTo = a.clipTo;
+            actions.add(copy);
+        }
+    }
+
+    /** The keyframe at this tick if there is one, else the interpolated state; zeros without keyframes. */
+    private static double[] transformAt(ReplayProject.ActorData actor, int tick) {
+        for (ReplayProject.ActorKeyframe k : actor.keyframes) {
+            if (k.tick == tick) {
+                return new double[]{k.x, k.y, k.z, k.yaw, k.pitch};
+            }
+        }
+        double[] v = actor.keyframes.isEmpty() ? null : com.vyrriox.justreplay.editor.Interpolation.actor(actor.keyframes, tick);
+        return v == null ? new double[5] : v;
+    }
+
+    /** Writes the typed transform: the keyframe at the play head is updated, or created when missing. */
+    private void applyTransform() {
+        transform.read();
+        double[] v = transform.values;
+        actor.scale = ReplayProject.clampScale((float) v[5]);
+        if (!transform.dirty()) {
+            return;
+        }
+        ReplayProject.ActorKeyframe key = null;
+        for (ReplayProject.ActorKeyframe k : actor.keyframes) {
+            if (k.tick == transformTick) {
+                key = k;
+            }
+        }
+        if (key == null) {
+            key = new ReplayProject.ActorKeyframe(transformTick, v[0], v[1], v[2], (float) v[3], (float) v[4]);
+            actor.keyframes.add(key);
+        } else {
+            key.x = v[0];
+            key.y = v[1];
+            key.z = v[2];
+            key.yaw = (float) v[3];
+            key.pitch = (float) v[4];
         }
     }
 
@@ -162,6 +239,9 @@ public class ActorScreen extends GlassScreen {
         f.at(new GlassSwitch(Component.translatable("justreplay.actor.slim"), () -> slim, () -> slim = !slim).icon(Icon.PERSON)
                 .tip(Component.translatable("justreplay.actor.slim.tip")), f.cellX(1, 2), skinW);
         f.next();
+        if (actor.isPlayer()) {
+            skinSection.build(f, () -> session.actors().entityOf(actor), () -> actor.name.isBlank() ? "actor" : actor.name);
+        }
         f.header(Component.translatable("justreplay.actor.section.equipment"), Icon.PUZZLE);
         row = pair(f, 2, "justreplay.actor.mainhand", 3, "justreplay.actor.offhand");
         mainHand = row[0];
@@ -193,6 +273,10 @@ public class ActorScreen extends GlassScreen {
         scale.tip(Component.translatable("justreplay.actor.scale"));
         f.next(16);
 
+        f.header(Component.translatable("justreplay.transform.section"), Icon.PIN);
+        f.paragraph(Component.translatable("justreplay.transform.actor.hint", Timeline.formatTicks(transformTick)), Theme.TEXT_MUTED);
+        transform.build(f);
+
         f.header(Component.translatable("justreplay.actor.section.look"), Icon.EYE);
         f.full(new Dropdown<>(this, Component.translatable("justreplay.actor.pose"), POSES, pose,
                 p -> Component.translatable("justreplay.actor.pose." + p.name().toLowerCase(java.util.Locale.ROOT)), v -> pose = v)
@@ -201,6 +285,18 @@ public class ActorScreen extends GlassScreen {
         f.put(new GlassSwitch(Component.translatable("justreplay.actor.showname"), () -> showName, () -> showName = !showName)
                 .icon(Icon.EDIT), 1, 2);
         f.next();
+        f.full(new GlassSwitch(Component.translatable("justreplay.actor.skinlayers"), () -> skinLayers, () -> skinLayers = !skinLayers)
+                .icon(Icon.PERSON).tip(Component.translatable("justreplay.actor.skinlayers.tip")));
+        f.paragraph(Component.translatable("justreplay.bodyparts.title"), Theme.TEXT_MUTED);
+        int column = 0;
+        for (com.vyrriox.justreplay.editor.BodyParts.Part part : com.vyrriox.justreplay.editor.BodyParts.PARTS) {
+            f.put(new GlassSwitch(Component.translatable("justreplay.bodyparts." + part.key()), () -> (hiddenParts & part.bit()) == 0,
+                    () -> hiddenParts ^= part.bit()), column, 2);
+            if (++column == 2) {
+                f.next();
+                column = 0;
+            }
+        }
     }
 
     private Component skinLabel() {
@@ -218,22 +314,58 @@ public class ActorScreen extends GlassScreen {
 
     private void initActions(Form f) {
         f.caption(Component.translatable("justreplay.actor.action.type"), 0, 2, 6);
-        f.caption(Component.translatable("justreplay.actor.action.duration.short"), 2, 1, 6);
-        f.caption(Component.translatable("justreplay.actor.action.param"), 3, 3, 6);
+        f.caption(Component.translatable("justreplay.actor.action.start"), 2, 1, 6);
+        f.caption(Component.translatable("justreplay.actor.action.end"), 3, 1, 6);
+        f.caption(Component.translatable("justreplay.actor.action.param"), 4, 2, 6);
         f.next(9);
         f.put(new Dropdown<>(this, Component.empty(), List.of(ActionType.values()), actionType,
                 t -> Component.translatable(t.translationKey()), v -> {
+            boolean rebuild = v == ActionType.CUSTOM_EMOTE || actionType == ActionType.CUSTOM_EMOTE
+                    || hasClip(v) != hasClip(actionType);
             actionType = v;
             param.setValue(defaultParam(v));
             updateHint();
+            if (rebuild) {
+                stashActionFields();
+                pageScroll = area.scrollTarget();
+                rebuildWidgets();
+            }
         }), 0, 2, 6).setHeight(16);
-        duration = f.put(field(selected != null ? Integer.toString(selected.duration) : durationValue, "justreplay.actor.action.duration", 7), 2, 1, 6);
-        duration.tip(Component.translatable("justreplay.actor.action.duration"));
+        int cursor = session.playback().cursor();
+        start = f.put(field(selected != null ? Integer.toString(selected.tick) : startValue != null ? startValue : Integer.toString(cursor),
+                "justreplay.actor.action.start", 9), 2, 1, 6);
+        start.tip(Component.translatable("justreplay.actor.action.start.tip"));
+        end = f.put(field(selected != null ? (selected.duration > 0 ? Integer.toString(selected.tick + selected.duration) : "") : endValue,
+                "justreplay.actor.action.end", 9), 3, 1, 6);
+        end.tip(Component.translatable("justreplay.actor.action.end.tip"));
         param = f.put(field(selected != null ? selected.param : paramValue != null ? paramValue : defaultParam(actionType),
-                "justreplay.actor.action.param", 128), 3, 3, 6);
+                "justreplay.actor.action.param", 128), 4, 2, 6);
         updateHint();
         param.tip(animationsTooltip());
         f.next(16);
+        f.put(new GlassButton(Component.translatable("justreplay.actor.action.start.playhead"),
+                b -> start.setValue(Integer.toString(session.playback().cursor()))), 0, 2);
+        f.put(new GlassButton(Component.translatable("justreplay.actor.action.end.playhead"),
+                b -> end.setValue(Integer.toString(session.playback().cursor()))), 1, 2);
+        f.next();
+        clipFrom = null;
+        clipTo = null;
+        if (hasClip(actionType)) {
+            f.caption(Component.translatable("justreplay.actor.action.clip.from"), 0, 1, 4);
+            f.caption(Component.translatable("justreplay.actor.action.clip.to"), 1, 1, 4);
+            f.next(9);
+            clipFrom = f.put(field(selected != null ? Integer.toString(selected.clipFrom) : clipFromValue,
+                    "justreplay.actor.action.clip.from", 7), 0, 1, 4);
+            clipFrom.tip(Component.translatable("justreplay.actor.action.clip.from.tip"));
+            clipTo = f.put(field(selected != null ? (selected.clipTo >= 0 ? Integer.toString(selected.clipTo) : "") : clipToValue,
+                    "justreplay.actor.action.clip.to", 7), 1, 1, 4);
+            clipTo.tip(Component.translatable("justreplay.actor.action.clip.to.tip"));
+            f.next(16);
+            f.text(this::emoteLength, Theme.TEXT_MUTED);
+        }
+        if (actionType == ActionType.CUSTOM_EMOTE) {
+            initEmotePicker(f);
+        }
         f.put(new GlassButton(Component.translatable("justreplay.actor.action.add"), b -> addAction()).icon(Icon.PLUS)
                 .style(GlassButton.Style.PRIMARY), 0, 2);
         f.put(new GlassButton(Component.translatable("justreplay.actor.action.update"), b -> updateSelected()).icon(Icon.CHECK)
@@ -264,11 +396,64 @@ public class ActorScreen extends GlassScreen {
         }
     }
 
+    /** Emote list of the custom emote action, and a button to open the emotes folder. */
+    private void initEmotePicker(Form f) {
+        List<String> ids = EmoteLibrary.list();
+        java.util.Map<String, String> broken = EmoteLibrary.broken();
+        shownEmotes = ids;
+        shownBroken = broken;
+        int w = f.cellWidth(2, 2);
+        if (ids.isEmpty()) {
+            f.at(new GlassButton(Component.translatable("justreplay.actor.emote.none"), b -> {
+            }).icon(Icon.PERSON), 0, w - Theme.ROW - 2);
+        } else {
+            String current = param.getValue().contains("|") ? param.getValue().substring(0, param.getValue().indexOf('|')).trim()
+                    : param.getValue().trim();
+            String initial = ids.contains(current) ? current : null;
+            f.at(new Dropdown<>(this, Component.translatable("justreplay.actor.emote.pick"), ids, initial, v -> {
+                EmoteLibrary.Emote e = EmoteLibrary.get(v);
+                return Component.literal(e == null || e.name().equals(v) ? v : e.name() + " (" + v + ")");
+            }, v -> {
+                String value = param.getValue();
+                int bar = value.indexOf('|');
+                param.setValue(bar >= 0 ? v + value.substring(bar) : v);
+            }).icon(Icon.PERSON), 0, w - Theme.ROW - 2);
+        }
+        f.at(new GlassButton(Component.empty(), b -> Util.getPlatform().openPath(EmoteLibrary.folder())).icon(Icon.FOLDER)
+                .tip(Component.translatable("justreplay.actor.emote.folder")), w - Theme.ROW, Theme.ROW);
+        f.next();
+        if (!broken.isEmpty()) {
+            f.paragraph(Component.translatable("justreplay.actor.emote.broken", broken.size()), Theme.TEXT_MUTED);
+            for (java.util.Map.Entry<String, String> entry : broken.entrySet()) {
+                f.paragraph(Component.translatable("justreplay.actor.emote.broken_file", entry.getKey(), entry.getValue()),
+                        Theme.TEXT_MUTED);
+            }
+        }
+    }
+
+    /** Rebuilds the emote picker when files were added, changed or removed in the emotes folder. */
+    @Override
+    public void tick() {
+        super.tick();
+        if (shownEmotes != null && actionsPage && actionType == ActionType.CUSTOM_EMOTE && ++emoteCheck >= 20) {
+            emoteCheck = 0;
+            if (!EmoteLibrary.list().equals(shownEmotes) || !EmoteLibrary.broken().equals(shownBroken)) {
+                stashActionFields();
+                rebuildWidgets();
+            }
+        }
+    }
+
     /** Keeps what was typed in the action fields across rebuilds. */
     private void stashActionFields() {
-        if (duration != null && param != null && actionsPage) {
-            durationValue = duration.getValue();
+        if (start != null && end != null && param != null && actionsPage) {
+            startValue = start.getValue();
+            endValue = end.getValue();
             paramValue = param.getValue();
+            if (clipFrom != null && clipTo != null) {
+                clipFromValue = clipFrom.getValue();
+                clipToValue = clipTo.getValue();
+            }
         }
     }
 
@@ -292,9 +477,15 @@ public class ActorScreen extends GlassScreen {
 
     private String actionLabel(ReplayProject.ActorAction action) {
         StringBuilder label = new StringBuilder();
-        label.append(Timeline.formatTicks(action.tick)).append("  ").append(Component.translatable(action.actionType().translationKey()).getString());
-        if (action.duration > 0 && action.actionType().kind == ActionType.Kind.STATE) {
-            label.append("  ").append(action.duration).append("t");
+        label.append(Timeline.formatTicks(action.tick));
+        if (action.actionType().kind == ActionType.Kind.STATE) {
+            label.append(" \u2192 ").append(action.duration > 0 ? Timeline.formatTicks(action.tick + action.duration)
+                    : Component.translatable("justreplay.actor.action.next").getString());
+        }
+        label.append("  ").append(Component.translatable(action.actionType().translationKey()).getString());
+        if (hasClip(action.actionType()) && (action.clipFrom > 0 || action.clipTo >= 0)) {
+            label.append("  [").append(action.clipFrom).append("..").append(action.clipTo >= 0 ? Integer.toString(action.clipTo) : "end")
+                    .append("]");
         }
         if (action.param != null && !action.param.isBlank()) {
             label.append("  ").append(action.param);
@@ -302,17 +493,60 @@ public class ActorScreen extends GlassScreen {
         return label.toString();
     }
 
-    private int parseDuration() {
+    /** Action types whose emote can be clipped: custom emotes, and Emotecraft emotes started at an offset. */
+    private static boolean hasClip(ActionType type) {
+        return type == ActionType.CUSTOM_EMOTE || type == ActionType.EMOTE;
+    }
+
+    private static int parseInt(GlassTextField box, int fallback) {
+        if (box == null) {
+            return fallback;
+        }
         try {
-            return Math.max(0, Integer.parseInt(duration.getValue().trim()));
+            return Integer.parseInt(box.getValue().trim());
         } catch (NumberFormatException e) {
-            return 0;
+            return fallback;
         }
     }
 
+    private int parseStart() {
+        return Math.max(0, parseInt(start, session.playback().cursor()));
+    }
+
+    /** Duration from the start and end fields: 0 (until the next action) when the end is empty or not after the start. */
+    private int parseDuration(int startTick) {
+        int endTick = parseInt(end, 0);
+        return endTick > startTick ? endTick - startTick : 0;
+    }
+
+    private void applyClip(ReplayProject.ActorAction action) {
+        if (hasClip(action.actionType())) {
+            action.clipFrom = parseInt(clipFrom, 0);
+            action.clipTo = parseInt(clipTo, -1);
+        } else {
+            action.clipFrom = 0;
+            action.clipTo = -1;
+        }
+        action.normalizeClip();
+    }
+
+    /** Length of the picked custom emote, when known. */
+    private Component emoteLength() {
+        if (actionType != ActionType.CUSTOM_EMOTE || param == null) {
+            return null;
+        }
+        String value = param.getValue();
+        int bar = value.indexOf('|');
+        EmoteLibrary.Emote emote = EmoteLibrary.get((bar >= 0 ? value.substring(0, bar) : value).trim());
+        return emote == null ? null
+                : Component.translatable("justreplay.actor.action.clip.length", (int) Math.ceil(emote.length()));
+    }
+
     private void addAction() {
-        ReplayProject.ActorAction action = new ReplayProject.ActorAction(session.playback().cursor(), actionType, parseDuration(),
+        int tick = parseStart();
+        ReplayProject.ActorAction action = new ReplayProject.ActorAction(tick, actionType, parseDuration(tick),
                 param.getValue().trim());
+        applyClip(action);
         actions.add(action);
         actions.sort(java.util.Comparator.comparingInt(a -> a.tick));
         selected = action;
@@ -326,8 +560,11 @@ public class ActorScreen extends GlassScreen {
             return;
         }
         selected.type = actionType.name();
-        selected.duration = parseDuration();
+        selected.tick = parseStart();
+        selected.duration = parseDuration(selected.tick);
         selected.param = param.getValue().trim();
+        applyClip(selected);
+        actions.sort(java.util.Comparator.comparingInt(a -> a.tick));
         pageScroll = area.scrollTarget();
         rebuildWidgets();
     }
@@ -361,11 +598,15 @@ public class ActorScreen extends GlassScreen {
         } catch (NumberFormatException e) {
             actor.modelScale = 1.0F;
         }
+        applyTransform();
         actor.pose = pose.name();
         actor.visible = visible;
         actor.showName = showName;
+        actor.hideSkinLayers = !skinLayers;
+        actor.hiddenParts = hiddenParts;
         actor.skin = skinFile;
         actor.slim = slim;
+        actor.skinChanges = new ArrayList<>(skinChanges);
         actor.actions = new ArrayList<>(actions);
         actor.sort();
         session.actors().refresh(actor);

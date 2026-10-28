@@ -144,6 +144,8 @@ public final class Recorder {
 
     private final Connection connection;
     private final UUID actorUuid;
+    /** UUID of the recording player's own profile, the one its actor's UUID is derived from. */
+    private final UUID localUuid;
     private final Set<Object> failedTypes = Collections.newSetFromMap(new ConcurrentHashMap<>());
     private final Consumer<byte[]> sink = this::accept;
     private volatile boolean stopped;
@@ -193,6 +195,7 @@ public final class Recorder {
     private Recorder(Connection connection) {
         this.connection = connection;
         GameProfile profile = Minecraft.getInstance().getGameProfile();
+        this.localUuid = profile.getId();
         this.actorUuid = UUID.nameUUIDFromBytes(("justreplay:actor:" + profile.getId()).getBytes(StandardCharsets.UTF_8));
     }
 
@@ -362,7 +365,7 @@ public final class Recorder {
         }
         chunks.onPacket(packet);
         try {
-            c.encode(packet, sink);
+            c.encode(com.vyrriox.justreplay.compat.ReplayCompat.rewriteRecorded(packet, localUuid, actorUuid), sink);
         } catch (Throwable t) {
             Object type = packet instanceof net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket custom
                     ? custom.payload().type().id() : packet.getClass();
@@ -998,7 +1001,7 @@ public final class Recorder {
             equipment.add(Pair.of(slot, player.getItemBySlot(slot).copy()));
         }
         write(listener, new ClientboundSetEquipmentPacket(player.getId(), equipment), sink);
-        com.vyrriox.justreplay.compat.EmotecraftCompat.writeCurrent(player, actorUuid, packet -> write(listener, packet, sink));
+        com.vyrriox.justreplay.compat.ReplayCompat.writePlayerState(player, actorUuid, packet -> write(listener, packet, sink));
     }
 
     // ---------------------------------------------------------------- packet writing
@@ -1272,10 +1275,10 @@ public final class Recorder {
         for (Entity vehicle : withPassengers) {
             write(listener, new ClientboundSetPassengersPacket(vehicle), sink);
         }
-        // Emotes in progress: their start packets lie before the snapshot.
+        // Emotes and parkour actions in progress: their start packets lie before the snapshot.
         for (net.minecraft.world.entity.player.Player other : level.players()) {
             if (other != player) {
-                com.vyrriox.justreplay.compat.EmotecraftCompat.writeCurrent(other, other.getUUID(), packet -> write(listener, packet, sink));
+                com.vyrriox.justreplay.compat.ReplayCompat.writePlayerState(other, other.getUUID(), packet -> write(listener, packet, sink));
             }
         }
     }

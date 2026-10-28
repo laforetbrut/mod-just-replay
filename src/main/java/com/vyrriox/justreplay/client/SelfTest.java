@@ -40,6 +40,10 @@ public final class SelfTest {
     private static final String WORLD = "justreplay-selftest";
 
     private static int step;
+    private static Entity hiddenMob;
+    private static Entity movedMob;
+    private static int skippedBefore;
+    private static int offsetBefore;
     private static int wait;
     private static int settle;
     private static int speedStart;
@@ -57,6 +61,8 @@ public final class SelfTest {
     /** Sounds the recording player made itself, heard again while the replay plays (see recordLocalEffect). */
     private static int localBell;
     private static int localAnvil;
+    private static int replaySteps;
+    private static int recorderSteps;
 
     /** Counts, during a replay, the sounds the self test made for its own player while recording. */
     public static void onSound(net.neoforged.neoforge.client.event.sound.PlaySoundEvent event) {
@@ -68,6 +74,14 @@ public final class SelfTest {
             localBell++;
         } else if (id.equals("block.anvil.use")) {
             localAnvil++;
+        } else if (id.endsWith(".step")) {
+            replaySteps++;
+            // Footsteps of the recording player itself: they only exist if the recorder captured them.
+            Minecraft mc = Minecraft.getInstance();
+            Entity recorder = ReplaySession.current() != null ? ReplaySession.current().findRecorder(mc) : null;
+            if (recorder != null && recorder.distanceToSqr(event.getSound().getX(), event.getSound().getY(), event.getSound().getZ()) < 2.25) {
+                recorderSteps++;
+            }
         }
     }
     private static int galleryIndex;
@@ -210,6 +224,10 @@ public final class SelfTest {
                 p.connection.sendCommand(String.format("setblock %d %d %d minecraft:oak_stairs[facing=west]", stairPos.getX(), stairPos.getY(), stairPos.getZ()));
                 p.connection.sendCommand(String.format("setblock %d %d %d minecraft:red_bed[facing=south,part=head]", bedPos.getX(), bedPos.getY(), bedPos.getZ()));
                 p.connection.sendCommand(String.format("setblock %d %d %d minecraft:red_bed[facing=south,part=foot]", bedPos.getX(), bedPos.getY(), bedPos.getZ() - 1));
+                if (Mods.loaded("bettercombat")) {
+                    // A weapon Better Combat animates, given before the recording: the swings below become its attacks.
+                    p.connection.sendCommand("item replace entity @s weapon.mainhand with minecraft:iron_sword");
+                }
                 boolean started = Recorder.startManual();
                 log("record started: {}", started);
                 next(5);
@@ -240,7 +258,13 @@ public final class SelfTest {
                     p.jumpFromGround();
                 }
                 if (t % 15 == 0) {
-                    p.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+                    if (Mods.loaded("bettercombat") && t > 5 && mc.screen == null) {
+                        net.minecraft.client.KeyMapping.click(mc.options.keyAttack.getKey());
+                        log("attack click at recording tick {} holding {} aiming at {}", t, p.getMainHandItem().getItem(),
+                                mc.hitResult != null ? mc.hitResult.getType() : null);
+                    } else {
+                        p.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+                    }
                 }
                 if (t == 30) {
                     // Effects the client plays for its own player (as for its footsteps and the blocks it places):
@@ -270,6 +294,7 @@ public final class SelfTest {
                             ReplayStorage.readStream(replay).size(), Files.size(replay.resolve(ReplayStorage.STREAM)),
                             folderSize(replay.resolve(com.vyrriox.justreplay.format.Checkpoints.FOLDER)),
                             com.vyrriox.justreplay.format.Checkpoints.list(replay).length);
+                    Mods.logParkourCombat("recorded");
                     mc.level.disconnect();
                     mc.disconnect(new TitleScreen());
                     next(40);
@@ -354,6 +379,15 @@ public final class SelfTest {
                 player.actions.add(new ReplayProject.ActorAction(25, com.vyrriox.justreplay.editor.ActionType.WAVE, 40, ""));
                 if (Mods.loaded("emotecraft")) {
                     player.actions.add(new ReplayProject.ActorAction(70, com.vyrriox.justreplay.editor.ActionType.EMOTE, 60, "waving"));
+                }
+                // A custom emote from the emotes folder, no other mod needed.
+                com.vyrriox.justreplay.editor.EmoteLibrary.Emote wave = com.vyrriox.justreplay.editor.EmoteLibrary.get("example_emotes:wave");
+                if (wave != null) {
+                    zombie.actions.add(new ReplayProject.ActorAction(90, com.vyrriox.justreplay.editor.ActionType.CUSTOM_EMOTE, 40, "example_emotes:wave"));
+                    double[][] pose = com.vyrriox.justreplay.editor.EmoteLibrary.sample(wave, 5.0);
+                    log("custom emote {} right arm zRot at tick 5 = {} rad ({} emotes listed)", wave.id,
+                            String.format(java.util.Locale.ROOT, "%.3f", pose[com.vyrriox.justreplay.editor.EmoteLibrary.Bone.RIGHT_ARM.ordinal()][2]),
+                            com.vyrriox.justreplay.editor.EmoteLibrary.list().size());
                 }
                 // Walk from the keyframe to a point 6 blocks away, and the zombie follows the recording player.
                 player.actions.add(new ReplayProject.ActorAction(30, com.vyrriox.justreplay.editor.ActionType.WALK_TO, 0,
@@ -604,6 +638,84 @@ public final class SelfTest {
             case 53 -> {
                 shot(mc, "ui-overlays-" + com.vyrriox.justreplay.config.JRConfig.EDITOR_MODE.get().name().toLowerCase(java.util.Locale.ROOT));
                 mc.setScreen(null);
+                go(54, 5);
+            }
+            case 54 -> {
+                // World override: night and thunder at the play head, then back to the recorded values.
+                ReplaySession s = ReplaySession.current();
+                logLevelWeather(mc, "world recorded");
+                com.vyrriox.justreplay.editor.WorldSettings w = s.project().world;
+                w.timeMode = com.vyrriox.justreplay.editor.WorldSettings.TIME_FIXED;
+                w.time = 18000.0F;
+                w.weather = com.vyrriox.justreplay.editor.WorldSettings.WEATHER_THUNDER;
+                w.rain = 1.0F;
+                w.thunder = 1.0F;
+                s.saveProject();
+                go(55, 10);
+            }
+            case 55 -> {
+                logLevelWeather(mc, "world override (expect dayTime%24000=18000 rain=1 thunder=1)");
+                shot(mc, "world-night-thunder");
+                ReplaySession s = ReplaySession.current();
+                s.project().world = new com.vyrriox.justreplay.editor.WorldSettings();
+                s.saveProject();
+                go(56, 10);
+            }
+            case 56 -> {
+                logLevelWeather(mc, "world cleared (expect the recorded values back)");
+                go(57, 5);
+            }
+            case 57 -> {
+                // Entity edits: hide one recorded living entity, move another (the recording player counts), and check
+                // render and sound gains.
+                ReplaySession s = ReplaySession.current();
+                hiddenMob = null;
+                movedMob = null;
+                for (Entity e : mc.level.entitiesForRendering()) {
+                    if (e == mc.player || com.vyrriox.justreplay.editor.ActorManager.isActorEntity(e)
+                            || !(e instanceof net.minecraft.world.entity.LivingEntity)) {
+                        continue;
+                    }
+                    if (hiddenMob == null) {
+                        hiddenMob = e;
+                    } else if (movedMob == null) {
+                        movedMob = e;
+                    }
+                }
+                skippedBefore = com.vyrriox.justreplay.editor.EntityEdits.skippedRenders();
+                offsetBefore = com.vyrriox.justreplay.editor.EntityEdits.offsetRenders();
+                if (hiddenMob != null) {
+                    ReplayProject.EntityEdit hide = new ReplayProject.EntityEdit(hiddenMob.getUUID().toString(), "test hidden");
+                    hide.hidden = true;
+                    s.project().entityEdits.add(hide);
+                }
+                if (movedMob != null) {
+                    ReplayProject.EntityEdit move = new ReplayProject.EntityEdit(movedMob.getUUID().toString(), "test moved");
+                    move.offsets.add(new ReplayProject.ActorKeyframe(0, 0, 2, 0, 90, 0));
+                    move.soundGain = 2.5F;
+                    s.project().entityEdits.add(move);
+                }
+                log("entity edits: hidden {} moved {}", hiddenMob, movedMob);
+                go(58, 20);
+            }
+            case 58 -> {
+                ReplaySession s = ReplaySession.current();
+                int skipped = com.vyrriox.justreplay.editor.EntityEdits.skippedRenders() - skippedBefore;
+                int offset = com.vyrriox.justreplay.editor.EntityEdits.offsetRenders() - offsetBefore;
+                log("entity edits: skipped renders {} -> {}, offset renders {} -> {}", skipped,
+                        hiddenMob == null || skipped > 0 ? "OK" : "FAIL", offset, movedMob == null || offset > 0 ? "OK" : "FAIL");
+                if (hiddenMob != null) {
+                    float g = com.vyrriox.justreplay.editor.EntityEdits.soundGainAt(hiddenMob.getX(), hiddenMob.getY(), hiddenMob.getZ());
+                    log("entity edits: sound gain at the hidden mob {} -> {}", g, g == 0.0F ? "OK" : "FAIL");
+                }
+                if (movedMob != null) {
+                    float g = com.vyrriox.justreplay.editor.EntityEdits.soundGainAt(movedMob.getX(), movedMob.getY(), movedMob.getZ());
+                    log("entity edits: sound gain at the adjusted mob {} -> {}", g, Math.abs(g - 2.5F) < 0.001F ? "OK" : "FAIL");
+                }
+                shot(mc, "entity-edits");
+                s.project().entityEdits.clear();
+                hiddenMob = null;
+                movedMob = null;
                 go(13, 5);
             }
             case 13 -> {
@@ -631,7 +743,8 @@ public final class SelfTest {
                         Files.exists(ReplayStorage.exportRoot().resolve("selftest.mp4.audio.log")));
                 log("mods after export: {}", Mods.state(mc, ReplaySession.current()));
                 Mods.logDropTheBeam("after export");
-                log("local effects heard in the replay: bell={} anvil={} (expected at least 1 each)", localBell, localAnvil);
+                log("local effects heard in the replay: bell={} anvil={} footsteps={} of which the recording player's own={} -> {}", localBell,
+                        localAnvil, replaySteps, recorderSteps, localBell > 0 && localAnvil > 0 && recorderSteps > 0 ? "OK" : "FAIL");
                 log("export frames showing overlays: {} ({} overlays in the project)",
                         com.vyrriox.justreplay.editor.overlay.OverlayRenderer.exportFrames(), ReplaySession.current().project().overlays.size());
                 mc.level.disconnect();
@@ -1012,11 +1125,46 @@ public final class SelfTest {
                     com.vyrriox.justreplay.compat.DropTheBeamCompat.lastExport());
         }
 
-        static String state(Minecraft mc, ReplaySession s) {
-            return "cursor=" + s.playback().cursor() + " createTicks=" + createTicks()
-                    + " recorderEmote=" + com.vyrriox.justreplay.compat.EmotecraftCompat.describe(s.findRecorder(mc))
-                    + " waterframes=[" + com.vyrriox.justreplay.compat.WaterFramesCompat.describe() + "]";
+        /**
+         * ParCool actions and Better Combat attacks of the recording player written for its actor (counts since the
+         * game started); nothing when both mods are absent.
+         */
+        static void logParkourCombat(String label) {
+            if (loaded("parcool")) {
+                log("parcool {}: local action changes={} starts={}", label,
+                        com.vyrriox.justreplay.compat.ParCoolCompat.localChanges(),
+                        com.vyrriox.justreplay.compat.ParCoolCompat.localStarts());
+            }
+            if (loaded("bettercombat")) {
+                log("bettercombat {}: local attacks={} cancelled={}", label,
+                        com.vyrriox.justreplay.compat.BetterCombatCompat.localAttacks(),
+                        com.vyrriox.justreplay.compat.BetterCombatCompat.localStops());
+            }
         }
+
+        static String state(Minecraft mc, ReplaySession s) {
+            Entity recorder = s.findRecorder(mc);
+            String state = "cursor=" + s.playback().cursor() + " createTicks=" + createTicks()
+                    + " recorderEmote=" + com.vyrriox.justreplay.compat.EmotecraftCompat.describe(recorder)
+                    + " waterframes=[" + com.vyrriox.justreplay.compat.WaterFramesCompat.describe() + "]";
+            if (loaded("parcool")) {
+                state += " recorderParcool=" + com.vyrriox.justreplay.compat.ParCoolCompat.describe(recorder);
+            }
+            if (loaded("bettercombat")) {
+                state += " recorderAttack=" + com.vyrriox.justreplay.compat.BetterCombatCompat.describe(recorder)
+                        + " replayedAttacks(all/actor)=" + com.vyrriox.justreplay.compat.BetterCombatCompat.replayed();
+            }
+            return state;
+        }
+    }
+
+    private static void logLevelWeather(Minecraft mc, String label) {
+        if (mc.level == null) {
+            log("{}: no level", label);
+            return;
+        }
+        log("{}: dayTime={} rain={} thunder={} raining={} recorded[{}]", label, mc.level.getDayTime(), mc.level.getRainLevel(1.0F),
+                mc.level.getThunderLevel(1.0F), mc.level.isRaining(), com.vyrriox.justreplay.replay.WorldOverride.recorded());
     }
 
     private static void logWorld(Minecraft mc, ReplaySession s, String label) {

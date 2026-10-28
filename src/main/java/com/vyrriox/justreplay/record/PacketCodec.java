@@ -97,6 +97,93 @@ public final class PacketCodec {
 
     private static final ThreadLocal<Scratch> SCRATCH = ThreadLocal.withInitial(Scratch::new);
 
+    /** Id of the clientbound custom payload packet in this codec, found once by encoding one; -2 until known, -1 if unknown. */
+    private int customPayloadId = -2;
+
+    /**
+     * The id of a recorded mod payload this client cannot decode (its mod is not installed or does not receive it on
+     * the client), read from the raw bytes; null for any other packet. Decoding such a payload would log a warning per
+     * packet and give a payload nothing handles.
+     */
+    public net.minecraft.resources.ResourceLocation unregisteredPayload(byte[] data) {
+        if (customPayloadId == -2) {
+            customPayloadId = -1;
+            try {
+                byte[][] probe = new byte[1][];
+                encode(new net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket(
+                        new net.minecraft.network.protocol.common.custom.BrandPayload("justreplay")), b -> probe[0] = b);
+                customPayloadId = new net.minecraft.network.FriendlyByteBuf(Unpooled.wrappedBuffer(probe[0])).readVarInt();
+            } catch (Throwable t) {
+                return null;
+            }
+        }
+        if (customPayloadId < 0) {
+            return null;
+        }
+        net.minecraft.network.FriendlyByteBuf buf = new net.minecraft.network.FriendlyByteBuf(Unpooled.wrappedBuffer(data));
+        try {
+            if (buf.readVarInt() != customPayloadId) {
+                return null;
+            }
+            net.minecraft.resources.ResourceLocation id = buf.readResourceLocation();
+            return PayloadIds.receivable(id) ? null : id;
+        } catch (Throwable t) {
+            return null;
+        } finally {
+            buf.release();
+        }
+    }
+
+    /** Mod payload ids the client can decode, read from NeoForge's payload registry. */
+    private static final class PayloadIds {
+        private static java.util.Set<net.minecraft.resources.ResourceLocation> known;
+        private static boolean failed;
+
+        private PayloadIds() {
+        }
+
+        static synchronized boolean receivable(net.minecraft.resources.ResourceLocation id) {
+            if ("minecraft".equals(id.getNamespace())) {
+                return true;
+            }
+            if (known == null && !failed) {
+                try {
+                    known = load();
+                } catch (Throwable t) {
+                    failed = true;
+                    com.vyrriox.justreplay.JustReplay.LOGGER.debug("Payload registry not readable: {}", t.toString());
+                }
+            }
+            return known == null || known.contains(id);
+        }
+
+        private static java.util.Set<net.minecraft.resources.ResourceLocation> load() throws ReflectiveOperationException {
+            Class<?> registry = net.neoforged.neoforge.network.registration.NetworkRegistry.class;
+            java.util.Set<net.minecraft.resources.ResourceLocation> ids = new java.util.HashSet<>();
+            java.lang.reflect.Field builtin = registry.getDeclaredField("BUILTIN_PAYLOADS");
+            builtin.setAccessible(true);
+            for (Object key : ((java.util.Map<?, ?>) builtin.get(null)).keySet()) {
+                ids.add((net.minecraft.resources.ResourceLocation) key);
+            }
+            java.lang.reflect.Field field = registry.getDeclaredField("PAYLOAD_REGISTRATIONS");
+            field.setAccessible(true);
+            Object play = ((java.util.Map<?, ?>) field.get(null)).get(net.minecraft.network.ConnectionProtocol.PLAY);
+            if (play instanceof java.util.Map<?, ?> registrations) {
+                for (java.util.Map.Entry<?, ?> entry : registrations.entrySet()) {
+                    java.lang.reflect.Method flowOf = entry.getValue().getClass().getMethod("flow");
+                    flowOf.setAccessible(true);
+                    Object flow = flowOf.invoke(entry.getValue());
+                    if (flow instanceof java.util.Optional<?> optional && optional.isPresent()
+                            && optional.get() != net.minecraft.network.protocol.PacketFlow.CLIENTBOUND) {
+                        continue;
+                    }
+                    ids.add((net.minecraft.resources.ResourceLocation) entry.getKey());
+                }
+            }
+            return ids;
+        }
+    }
+
     public Packet<? super ClientGamePacketListener> decode(byte[] data) {
         ByteBuf buf = Unpooled.wrappedBuffer(data);
         try {

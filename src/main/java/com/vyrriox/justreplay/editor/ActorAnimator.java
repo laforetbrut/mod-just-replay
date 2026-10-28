@@ -130,6 +130,7 @@ public final class ActorAnimator {
     /** Render side state, read by the humanoid model mixin and the model renderer. Keyed by entity id. */
     private static final Map<Integer, Gesture> GESTURES = new HashMap<>();
     private static final Map<Integer, Dance> DANCES = new HashMap<>();
+    private static final Map<Integer, CustomEmote> CUSTOM_EMOTES = new HashMap<>();
     private static final java.util.Set<Integer> SITTING = new java.util.HashSet<>();
 
     private final Map<String, State> states = new HashMap<>();
@@ -218,6 +219,61 @@ public final class ActorAnimator {
      * Dance of a humanoid actor, after vanilla posed it: the beat phase comes from the replay time of the frame, so
      * the motion is smooth between ticks and stays on the beat in exports. Arm gestures still win over the arms.
      */
+    /** A custom emote played by an actor: the emote, the replay tick it starts at and its speed. */
+    private record CustomEmote(EmoteLibrary.Emote emote, int start, double speed, int clipFrom, int clipTo) {
+    }
+
+    /**
+     * Custom emote of a humanoid actor, after vanilla and the dance posed it. Its time comes from the replay time
+     * of the frame, so it is smooth between ticks and identical in exports.
+     */
+    public static void applyCustomEmote(Entity entity, net.minecraft.client.model.HumanoidModel<?> model) {
+        if (!ActorManager.isActorEntity(entity)) {
+            return;
+        }
+        CustomEmote custom = CUSTOM_EMOTES.get(entity.getId());
+        com.vyrriox.justreplay.replay.ReplaySession session = com.vyrriox.justreplay.replay.ReplaySession.current();
+        if (custom == null || session == null) {
+            return;
+        }
+        float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+        double ticks = (CameraController.frameTime(session, partial) - custom.start()) * custom.speed();
+        EmoteLibrary.apply(model, EmoteLibrary.sample(custom.emote(), ticks, custom.clipFrom(), custom.clipTo()));
+    }
+
+    /**
+     * Whole-body part of the custom emote of an actor, applied to the pose stack after the renderer's rotations. Costs
+     * one map lookup for entities without a custom emote.
+     */
+    public static void applyCustomEmoteBody(Entity entity, com.mojang.blaze3d.vertex.PoseStack stack) {
+        CustomEmote custom = CUSTOM_EMOTES.get(entity.getId());
+        if (custom == null || !custom.emote().movesWholeBody() || !ActorManager.isActorEntity(entity)) {
+            return;
+        }
+        com.vyrriox.justreplay.replay.ReplaySession session = com.vyrriox.justreplay.replay.ReplaySession.current();
+        if (session == null) {
+            return;
+        }
+        float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+        double ticks = (CameraController.frameTime(session, partial) - custom.start()) * custom.speed();
+        EmoteLibrary.applyWholeBody(stack, EmoteLibrary.sample(custom.emote(), ticks, custom.clipFrom(), custom.clipTo()));
+    }
+
+    /** Emote and speed of a {@link ActionType#CUSTOM_EMOTE} parameter ("id|speed"); null emote when unknown. */
+    public static EmoteLibrary.Emote customEmote(String param, double[] speed) {
+        String id = param == null ? "" : param.trim();
+        speed[0] = 1.0;
+        int bar = id.indexOf('|');
+        if (bar >= 0) {
+            try {
+                speed[0] = Math.max(0.05, Double.parseDouble(id.substring(bar + 1).trim()));
+            } catch (NumberFormatException ignored) {
+            }
+            id = id.substring(0, bar).trim();
+        }
+        return EmoteLibrary.get(id);
+    }
+
     public static void applyDance(Entity entity, net.minecraft.client.model.HumanoidModel<?> model) {
         if (!ActorManager.isActorEntity(entity)) {
             return;
@@ -370,6 +426,7 @@ public final class ActorAnimator {
     public static void forget(Entity entity) {
         if (entity != null) {
             DANCES.remove(entity.getId());
+            CUSTOM_EMOTES.remove(entity.getId());
             GESTURES.remove(entity.getId());
             SITTING.remove(entity.getId());
         }
@@ -381,6 +438,7 @@ public final class ActorAnimator {
 
     public static void clearAllRenderState() {
         DANCES.clear();
+        CUSTOM_EMOTES.clear();
         GESTURES.clear();
         SITTING.clear();
     }
@@ -923,10 +981,27 @@ public final class ActorAnimator {
         } else {
             DANCES.remove(entity.getId());
         }
+        ReplayProject.ActorAction custom = isHumanoid(entity) ? activeState(actor.actions, cursor, ActionType.CUSTOM_EMOTE) : null;
+        EmoteLibrary.Emote customEmote = null;
+        double[] speed = {1.0};
+        if (custom != null) {
+            customEmote = customEmote(custom.param, speed);
+        }
+        if (customEmote != null) {
+            CUSTOM_EMOTES.put(entity.getId(), new CustomEmote(customEmote, custom.tick, speed[0], custom.clipFrom, custom.clipTo));
+        } else {
+            CUSTOM_EMOTES.remove(entity.getId());
+        }
         if (entity instanceof Player) {
             ReplayProject.ActorAction emote = activeState(actor.actions, cursor, ActionType.EMOTE);
             if (emote != null && emote.param != null && !emote.param.isBlank()) {
-                com.vyrriox.justreplay.compat.EmotecraftCompat.applyActorEmote(entity, emote.param, cursor - emote.tick);
+                int emoteTick = Math.max(0, emote.clipFrom) + cursor - emote.tick;
+                if (emote.clipTo >= 0 && emoteTick > emote.clipTo) {
+                    // Past the end of the clip: Emotecraft has no clip, so the emote stops there.
+                    com.vyrriox.justreplay.compat.EmotecraftCompat.stopActorEmote(entity);
+                } else {
+                    com.vyrriox.justreplay.compat.EmotecraftCompat.applyActorEmote(entity, emote.param, emoteTick);
+                }
             } else {
                 com.vyrriox.justreplay.compat.EmotecraftCompat.stopActorEmote(entity);
             }

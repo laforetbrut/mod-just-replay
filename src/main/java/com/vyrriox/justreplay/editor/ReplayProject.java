@@ -47,6 +47,12 @@ public final class ReplayProject {
     public List<AudioTrack> audioTracks = new ArrayList<>();
     /** Volume of the recorded game sounds, 0 to 1. */
     public float gameVolume = 1.0F;
+    /**
+     * Volume of each kind of game sound, 0 to 4 (400 percent), by key of {@link com.vyrriox.justreplay.editor.audio.SoundKinds}:
+     * footsteps, players, blocks, hostile, neutral, ambient, weather, records. A missing key takes the kind's default
+     * (2 for footsteps, 1 for the others).
+     */
+    public java.util.Map<String, Float> soundGains = new java.util.LinkedHashMap<>();
     /** Silence the recorded game sounds (the voices keep their own switch). */
     public boolean muteGame;
     /** Lower the game sounds and voices while an audio clip plays. */
@@ -65,6 +71,118 @@ public final class ReplayProject {
     public boolean fadeWhite;
     /** Texts and images placed in the world, drawn in the order of the list when at the same distance. */
     public List<Overlay> overlays = new ArrayList<>();
+    /** Time and weather set on top of the recording (all off by default). */
+    public WorldSettings world = new WorldSettings();
+    /** Edits of entities that were recorded (hidden, moved, sound volume), by entity UUID. */
+    public List<EntityEdit> entityEdits = new ArrayList<>();
+
+    /**
+     * Edit of one recorded entity. Hidden from {@code hideFrom} to {@code hideTo} (-1: the end of the replay);
+     * moved by offset keyframes (x, y, z hold the position offset, yaw the turn; pitch is unused); its sounds
+     * scaled by {@code soundGain} (0 to 4) or muted.
+     */
+    public static final class EntityEdit {
+        public String uuid = "";
+        /** Readable label: entity type and name when it was picked. */
+        public String label = "";
+        public boolean hidden;
+        public int hideFrom;
+        public int hideTo = -1;
+        public List<ActorKeyframe> offsets = new ArrayList<>();
+        public float soundGain = 1.0F;
+        public boolean muted;
+        /** For a recorded player: hides the outer layer of its skin (hat, jacket, sleeves, trousers). */
+        public boolean hideSkinLayers;
+        /** For a recorded player: body parts hidden, a mask of {@link com.vyrriox.justreplay.editor.BodyParts}. */
+        public int hiddenParts;
+        /** For a recorded player: skins worn from given ticks, sorted by tick. */
+        public List<SkinChange> skinChanges = new ArrayList<>();
+        /** Uniform render scale around the feet, 0.05 to 10; 1 leaves the entity unchanged. */
+        public float scale = 1.0F;
+
+        public EntityEdit() {
+        }
+
+        public EntityEdit(String uuid, String label) {
+            this.uuid = uuid;
+            this.label = label;
+        }
+
+        public boolean hiddenAt(double time) {
+            return hidden && time >= hideFrom && (hideTo < 0 || time <= hideTo);
+        }
+
+        /** True when the edit changes nothing and can be dropped. */
+        public boolean isEmpty() {
+            return !hidden && offsets.isEmpty() && !muted && !hideSkinLayers && hiddenParts == 0 && skinChanges.isEmpty() && Math.abs(soundGain - 1.0F) < 0.001F
+                    && Math.abs(scale - 1.0F) < 0.001F;
+        }
+
+        public void normalize() {
+            if (uuid == null) uuid = "";
+            if (label == null) label = "";
+            if (offsets == null) offsets = new ArrayList<>();
+            offsets.removeIf(k -> k == null);
+            offsets.sort(java.util.Comparator.comparingInt(k -> k.tick));
+            skinChanges = SkinChange.normalize(skinChanges);
+            hideFrom = Math.max(0, hideFrom);
+            if (hideTo < -1) hideTo = -1;
+            if (!(soundGain >= 0.0F && soundGain <= 4.0F)) soundGain = 1.0F;
+            scale = clampScale(scale);
+        }
+    }
+
+    /**
+     * A skin worn from a tick on, until the next change. An empty {@link #file} goes back to the base skin.
+     */
+    public static final class SkinChange {
+        public int tick;
+        public String file = "";
+        public boolean slim;
+
+        public SkinChange() {
+        }
+
+        public SkinChange(int tick, String file, boolean slim) {
+            this.tick = tick;
+            this.file = file == null ? "" : file;
+            this.slim = slim;
+        }
+
+        /** The change in effect at this time (last one with tick at or before it), or null for the base skin. */
+        public static SkinChange at(List<SkinChange> changes, double time) {
+            SkinChange found = null;
+            for (int i = 0, n = changes.size(); i < n; i++) {
+                SkinChange c = changes.get(i);
+                if (c.tick > time) {
+                    break;
+                }
+                found = c;
+            }
+            return found;
+        }
+
+        static List<SkinChange> normalize(List<SkinChange> changes) {
+            List<SkinChange> out = changes == null ? new ArrayList<>() : changes;
+            out.removeIf(c -> c == null);
+            for (SkinChange c : out) {
+                if (c.file == null) c.file = "";
+                c.tick = Math.max(0, c.tick);
+            }
+            out.sort(java.util.Comparator.comparingInt(c -> c.tick));
+            return out;
+        }
+    }
+
+    /** Edit of a recorded entity, or null. */
+    public EntityEdit entityEdit(String uuid) {
+        for (EntityEdit edit : entityEdits) {
+            if (edit.uuid.equals(uuid)) {
+                return edit;
+            }
+        }
+        return null;
+    }
 
     public static final class CameraKeyframe {
         public int tick;
@@ -227,6 +345,12 @@ public final class ReplayProject {
         }
     }
 
+    /** Clamps a render scale to 0.05..10, 1 for an invalid value. */
+    public static float clampScale(float scale) {
+        if (!(scale > 0.0F) || Float.isInfinite(scale)) return 1.0F;
+        return Math.max(0.05F, Math.min(10.0F, scale));
+    }
+
     public static final class ActorKeyframe {
         public int tick;
         public double x, y, z;
@@ -256,6 +380,10 @@ public final class ReplayProject {
         public int duration;
         /** Type specific value: look target, animation name, wander radius, entity event id... */
         public String param = "";
+        /** Emote actions: first emote tick played. */
+        public int clipFrom;
+        /** Emote actions: last emote tick played, -1 for the end of the emote. */
+        public int clipTo = -1;
 
         public ActorAction() {
         }
@@ -269,6 +397,14 @@ public final class ReplayProject {
 
         public ActionType actionType() {
             return ActionType.parse(type);
+        }
+
+        /** Keeps the emote clip valid: a start of 0 or more, an end after the start or -1. */
+        public void normalizeClip() {
+            clipFrom = Math.max(0, clipFrom);
+            if (clipTo < 0 || clipTo <= clipFrom) {
+                clipTo = -1;
+            }
         }
     }
 
@@ -302,12 +438,23 @@ public final class ReplayProject {
         /** Model scale for model actors. */
         public float modelScale = 1.0F;
         /**
+         * Uniform render scale around the feet, 0.05 to 10, for every kind of actor. For model actors it multiplies
+         * {@link #modelScale}.
+         */
+        public float scale = 1.0F;
+        /**
          * Skin file of a player actor, a PNG of the skins folder (64x64 or legacy 64x32). Empty: the skin of the
          * Mojang account named by {@link #name}.
          */
         public String skin = "";
         /** Slim (Alex) arms for a player actor wearing a skin file. */
         public boolean slim;
+        /** For a player actor: hides the outer layer of its skin (hat, jacket, sleeves, trousers), shown by default. */
+        public boolean hideSkinLayers;
+        /** For a player actor: body parts hidden, a mask of {@link com.vyrriox.justreplay.editor.BodyParts}. */
+        public int hiddenParts;
+        /** For a player actor: skins worn from given ticks, sorted by tick. */
+        public List<SkinChange> skinChanges = new ArrayList<>();
 
         public boolean isPlayer() {
             return PLAYER.equals(type);
@@ -336,6 +483,13 @@ public final class ReplayProject {
         if (audioTracks == null) audioTracks = new ArrayList<>();
         if (effects == null) effects = new ArrayList<>();
         if (overlays == null) overlays = new ArrayList<>();
+        if (world == null) world = new WorldSettings();
+        world.normalize();
+        if (entityEdits == null) entityEdits = new ArrayList<>();
+        entityEdits.removeIf(e -> e == null || e.uuid == null || e.uuid.isBlank());
+        for (EntityEdit edit : entityEdits) {
+            edit.normalize();
+        }
         overlays.removeIf(o -> o == null);
         for (Overlay overlay : overlays) {
             overlay.normalize();
@@ -351,6 +505,8 @@ public final class ReplayProject {
             track.normalize();
         }
         if (!(gameVolume >= 0.0F && gameVolume <= 1.0F)) gameVolume = 1.0F;
+        if (soundGains == null) soundGains = new java.util.LinkedHashMap<>();
+        soundGains.entrySet().removeIf(e -> e.getKey() == null || e.getValue() == null || !(e.getValue() >= 0.0F && e.getValue() <= 4.0F));
         if (!(duckAmount >= 0.0F && duckAmount <= 1.0F)) duckAmount = 0.5F;
         cameras.removeIf(c -> c == null);
         if (cameras.isEmpty()) {
@@ -385,17 +541,20 @@ public final class ReplayProject {
         if (camera(selectedCamera) == null) selectedCamera = cameras.get(0).id;
         for (ActorData actor : actors) {
             if (actor.keyframes == null) actor.keyframes = new ArrayList<>();
+            actor.skinChanges = SkinChange.normalize(actor.skinChanges);
             if (actor.pose == null) actor.pose = "STANDING";
             if (actor.actions == null) actor.actions = new ArrayList<>();
             actor.actions.removeIf(a -> a == null);
             for (ActorAction action : actor.actions) {
                 if (action.type == null) action.type = ActionType.IDLE.name();
                 if (action.param == null) action.param = "";
+                action.normalizeClip();
             }
             if (actor.model == null) actor.model = "";
             if (actor.modelAnimation == null) actor.modelAnimation = "";
             if (actor.skin == null) actor.skin = "";
             if (!(actor.modelScale > 0.01F && actor.modelScale < 100F)) actor.modelScale = 1.0F;
+            actor.scale = clampScale(actor.scale);
             actor.sort();
         }
         sort();

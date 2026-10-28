@@ -50,9 +50,18 @@ public final class ActorManager {
     private final Map<String, Entity> spawned = new HashMap<>();
     /** Player actors whose name tag is hidden: players always show theirs, so the tag is cancelled when drawn. */
     private static final java.util.Set<Integer> HIDDEN_NAMES = new java.util.HashSet<>();
+    /** Player actors drawn without the outer layer of their skin. */
+    private static final java.util.Set<Integer> NO_SKIN_LAYERS = new java.util.HashSet<>();
+    /** Body parts hidden on player actors, by entity id (see {@link BodyParts}). */
+    private static final java.util.Map<Integer, Integer> HIDDEN_PARTS = new java.util.HashMap<>();
     private final Map<String, Integer> ids = new HashMap<>();
-    /** Player actors wearing a skin file, by entity id; read by the skin mixin. */
-    private static final Map<Integer, SkinRef> CUSTOM_SKINS = new HashMap<>();
+    /** Actor data by entity id, kept live so the render scale follows edits without a respawn. */
+    private static final Map<Integer, ReplayProject.ActorData> SCALED = new HashMap<>();
+    /**
+     * Player actors by entity id; read by the skin mixin. The actor data is kept live so its skin file and its timed
+     * skin changes apply at every frame without a respawn.
+     */
+    private static final Map<Integer, ReplayProject.ActorData> CUSTOM_SKINS = new HashMap<>();
     /** At most this many Mojang profile lookups start per client tick: many at once get answered 429. */
     private static final int LOOKUPS_PER_TICK = 2;
     private static final long LOOKUP_RETRY_MS = 5000L;
@@ -66,9 +75,6 @@ public final class ActorManager {
     /** Actor shown at a placement preview instead of where its keyframes put it, or null. */
     private String previewId;
     private ActorPlacement.Spot preview;
-
-    private record SkinRef(String file, boolean slim) {
-    }
 
     /** Profile lookup of a named player actor: queued, started when its turn comes, retried once on failure. */
     private static final class Lookup {
@@ -172,6 +178,26 @@ public final class ActorManager {
         }
     }
 
+    /** Body parts hidden on a player actor (see {@link BodyParts}). */
+    public static int hiddenParts(Entity entity) {
+        Integer mask = HIDDEN_PARTS.get(entity.getId());
+        return mask == null ? 0 : mask;
+    }
+
+    /** Render scale of an actor entity, 1 when unscaled or not an actor. */
+    public static float renderScale(Entity entity) {
+        if (!isActorEntity(entity)) {
+            return 1.0F;
+        }
+        ReplayProject.ActorData actor = SCALED.get(entity.getId());
+        return actor == null ? 1.0F : actor.scale;
+    }
+
+    /** True for a player actor whose outer skin layer is switched off. */
+    public static boolean hidesSkinLayers(Entity entity) {
+        return isActorEntity(entity) && NO_SKIN_LAYERS.contains(entity.getId());
+    }
+
     /** True for a player actor whose name tag is switched off. */
     public static boolean hidesName(Entity entity) {
         return isActorEntity(entity) && HIDDEN_NAMES.contains(entity.getId());
@@ -185,15 +211,29 @@ public final class ActorManager {
         if (!isActorEntity(entity)) {
             return null;
         }
-        SkinRef ref = CUSTOM_SKINS.get(entity.getId());
-        if (ref == null) {
+        ReplayProject.ActorData actor = CUSTOM_SKINS.get(entity.getId());
+        if (actor == null) {
             return null;
         }
-        ResourceLocation texture = SkinLibrary.get(ref.file());
+        if (!actor.skinChanges.isEmpty()) {
+            ReplayProject.SkinChange change = ReplayProject.SkinChange.at(actor.skinChanges, EntityEdits.time());
+            if (change != null && !change.file.isBlank()) {
+                PlayerSkin skin = fileSkin(change.file, change.slim);
+                if (skin != null) {
+                    return skin;
+                }
+            }
+        }
+        return actor.hasSkinFile() ? fileSkin(actor.skin, actor.slim) : null;
+    }
+
+    /** The skin of a file of the skins folder, or null when it cannot be loaded. */
+    public static PlayerSkin fileSkin(String file, boolean slim) {
+        ResourceLocation texture = SkinLibrary.get(file);
         if (texture == null) {
             return null;
         }
-        return new PlayerSkin(texture, null, null, null, ref.slim() ? PlayerSkin.Model.SLIM : PlayerSkin.Model.WIDE, true);
+        return new PlayerSkin(texture, null, null, null, slim ? PlayerSkin.Model.SLIM : PlayerSkin.Model.WIDE, true);
     }
 
     static boolean hasCustomSkins() {
@@ -207,6 +247,7 @@ public final class ActorManager {
     private static void forgetEntity(Entity entity) {
         HIDDEN_NAMES.remove(entity.getId());
         CUSTOM_SKINS.remove(entity.getId());
+        SCALED.remove(entity.getId());
         ActorAnimator.forget(entity);
         com.vyrriox.justreplay.editor.model.ModelRenderer.unregister(entity.getId());
     }
@@ -255,6 +296,14 @@ public final class ActorManager {
                 }
                 spawned.put(actor.id, entity);
             }
+            if (actor.isPlayer()) {
+                // Skin changes added in the editor apply at once; the entry follows the live actor data.
+                if (actor.hasSkinFile() || !actor.skinChanges.isEmpty()) {
+                    CUSTOM_SKINS.put(entity.getId(), actor);
+                } else {
+                    CUSTOM_SKINS.remove(entity.getId());
+                }
+            }
             fillMoveTargets(mc, actor);
             animate(actor, entity, cursor, paused);
             if (actor.id.equals(previewId)) {
@@ -302,13 +351,24 @@ public final class ActorManager {
             }
         }
         entity.setId(ids.computeIfAbsent(actor.id, k -> nextId--));
+        SCALED.put(entity.getId(), actor);
+        if (actor.isPlayer() && (actor.hiddenParts & BodyParts.ALL) != 0) {
+            HIDDEN_PARTS.put(entity.getId(), actor.hiddenParts & BodyParts.ALL);
+        } else {
+            HIDDEN_PARTS.remove(entity.getId());
+        }
+        if (actor.isPlayer() && actor.hideSkinLayers) {
+            NO_SKIN_LAYERS.add(entity.getId());
+        } else {
+            NO_SKIN_LAYERS.remove(entity.getId());
+        }
         if (actor.isPlayer() && !actor.showName) {
             HIDDEN_NAMES.add(entity.getId());
         } else {
             HIDDEN_NAMES.remove(entity.getId());
         }
-        if (actor.hasSkinFile()) {
-            CUSTOM_SKINS.put(entity.getId(), new SkinRef(actor.skin, actor.slim));
+        if (actor.hasSkinFile() || (actor.isPlayer() && !actor.skinChanges.isEmpty())) {
+            CUSTOM_SKINS.put(entity.getId(), actor);
         } else {
             CUSTOM_SKINS.remove(entity.getId());
         }

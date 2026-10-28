@@ -43,6 +43,8 @@ public final class Playback {
     private final PacketStream packets;
     private final int duration;
     private final Set<Class<?>> failedTypes = Collections.synchronizedSet(new HashSet<>());
+    /** Ids of recorded mod payloads skipped because no installed mod receives them, logged once each. */
+    private final Set<net.minecraft.resources.ResourceLocation> skippedPayloads = new HashSet<>();
     private PacketCodec codec;
     private int cursor;
     private boolean paused;
@@ -244,6 +246,14 @@ public final class Playback {
     private void handle(Minecraft mc, RecordedPacket recorded) {
         ClientPacketListener listener = mc.getConnection();
         if (listener == null) {
+            return;
+        }
+        net.minecraft.resources.ResourceLocation unregistered = codec.unregisteredPayload(recorded.data());
+        if (unregistered != null) {
+            // A mod of the recording missing here (ParCool, Better Combat...): its packets are skipped quietly.
+            if (skippedPayloads.add(unregistered)) {
+                JustReplay.LOGGER.info("Skipping recorded {} packets: no mod here receives them", unregistered);
+            }
             return;
         }
         Packet<? super ClientGamePacketListener> packet;

@@ -30,12 +30,17 @@ NeoForge 1.21.1, client side. Author: vyrriox. License: Apache-2.0.
   pose, and animate them with keyframes. The recording is never modified, actors live in `project.json`.
 - **Skin files**: drop PNG skins (64x64) in `.minecraft/justreplay/skins/` and give one to a
   player actor in the actor screen ("Skin file", with a "Slim arms" switch). No Mojang account is needed.
+- **Timed skin changes**: switch the skin of a player actor or a recorded player at a chosen tick ("Skin changes",
+  "Add at cursor"). "Save current skin" writes the skin shown now as a PNG in the skins folder, to paint on.
 - **Actor actions**: place timed actions on an actor (walk, run, swing, attack, hurt, death, jump, sit,
   sleep, swim, elytra, use item, shield, bow, eat, wave, dance on the beat, look at, wander...) from the actor panel or the
   actor screen. They show on the timeline and replay identically after a seek.
 - **Blockbench models**: drop `.bbmodel` files in `.minecraft/justreplay/models/` and add them as actors with
   **+ Model**. Cubes, groups, embedded or neighbouring PNG textures and animations are supported; pick a
   looping default animation and play others from the timeline with the *Model animation* action.
+- **Custom emotes**: drop Blockbench Bedrock animation files or Emotecraft JSON emotes in
+  `.minecraft/justreplay/emotes/` and play them on player and humanoid actors with the *Custom emote* action. No
+  other mod is needed; an example file (wave and bow) is created in the folder on first use.
 - **Video export**: renders the camera path frame by frame to MP4 through FFmpeg, every frame is exact
   whatever the speed of the machine.
 - **Audio editor**: put OGG or WAV files in `.minecraft/justreplay/audio/` and place them on audio tracks
@@ -58,6 +63,14 @@ NeoForge 1.21.1, client side. Author: vyrriox. License: Apache-2.0.
   `.minecraft/justreplay/images/` with a width in blocks, a tint and the aspect ratio kept. Offset, scale,
   rotation and opacity take keyframes, and each overlay is a bar on the timeline that drags to move or retime
   it. They render fullbright in the preview, during playback and in video exports, shader packs included.
+- **Weather and time**: the **World** tab (Simple and Advanced) sets the weather (recorded, clear, rain,
+  thunder) and the time of day (slider and dawn, noon, dusk, night presets) on top of the recording. The
+  Advanced mode adds keyframes at the play head so a day passes or a storm fades in during a shot, freezes
+  the time and picks the moon phase. Previews and exports show the same sky, light, rain and sounds, shader
+  packs included. Off by default: the recorded time and weather are kept.
+- **Edit recorded entities**: the **Entities** tab hides a recorded player or mob (for the whole replay or
+  before or after the play head), moves it to a new spot with the crosshair, and sets the volume of its sounds
+  (0 to 400%, or muted), in playback and in video exports.
 - **Glass interface**: a clear glass look with rounded corners and smooth animations. The editor has a
   collapsible sidebar (Cameras, Actors, Scene, Export), a bottom dock with the transport controls and a
   zoomable multi-lane timeline (Ctrl + wheel), and a shortcut overlay on **F1** or **?**.
@@ -149,7 +162,7 @@ step n/m: <reason>` and the game quits; a full run logs `SCENE job finished`. Th
 
 Apache License 2.0, see `LICENSE` and `NOTICE`. The jar bundles no third-party code. FFmpeg is an external
 program you install yourself; Just Replay only starts it for video export. Optional integrations (Simple
-Voice Chat, Distant Horizons, Emotecraft, WaterFrames, Create, Drop the Beam, Bobby, Iris) work through those mods'
+Voice Chat, Distant Horizons, Emotecraft, ParCool, Better Combat, WaterFrames, Create, Drop the Beam, Bobby, Iris) work through those mods'
 classes and APIs and include none of their code. Not affiliated with Mojang or Microsoft.
 
 ## Français
@@ -180,6 +193,9 @@ classes and APIs and include none of their code. Not affiliated with Mojang or M
 - **Fichiers de skin** : déposer des skins PNG (64x64) dans
   `.minecraft/justreplay/skins/` et en donner un à un acteur joueur dans l'écran de l'acteur ("Skin file", avec
   un interrupteur "Slim arms"). Aucun compte Mojang n'est nécessaire.
+- **Changements de skin datés** : changer le skin d'un acteur joueur ou d'un joueur enregistré à un tick choisi
+  ("Skin changes", "Add at cursor"). "Save current skin" enregistre le skin affiché en PNG dans le dossier des
+  skins, pour le peindre.
 - **Actions d'acteurs** : placer des actions datées sur un acteur (marcher, courir, frapper, attaquer,
   dégâts, mort, sauter, s'asseoir, dormir, nager, élytres, utiliser un objet, bouclier, arc, manger, saluer, danser en rythme,
   regarder, se promener...) depuis le panneau des acteurs ou l'écran de l'acteur. Elles apparaissent sur la
@@ -188,6 +204,9 @@ classes and APIs and include none of their code. Not affiliated with Mojang or M
   ajouter comme acteurs avec **+ Model**. Cubes, groupes, textures PNG intégrées ou voisines et animations
   sont pris en charge ; choisir une animation par défaut en boucle et jouer les autres depuis la timeline
   avec l'action *Model animation*.
+- **Emotes personnalisées** : déposer des animations Blockbench Bedrock ou des emotes Emotecraft JSON dans
+  `.minecraft/justreplay/emotes/` et les jouer sur les acteurs joueurs et humanoïdes avec l'action *Custom emote*.
+  Aucun autre mod n'est nécessaire ; un fichier d'exemple (salut et révérence) est créé dans le dossier au premier usage.
 - **Export vidéo** : rend le chemin de caméra image par image en MP4 via FFmpeg, chaque image est exacte
   quelle que soit la puissance du PC.
 - **Éditeur audio** : déposer des fichiers OGG ou WAV dans `.minecraft/justreplay/audio/` et les placer sur
@@ -215,6 +234,15 @@ classes and APIs and include none of their code. Not affiliated with Mojang or M
   décalage, l'échelle, la rotation et l'opacité prennent des images clés, et chaque overlay est une barre sur
   la timeline qui se déplace ou se redimensionne à la souris. Ils sont rendus en pleine lumière dans l'aperçu,
   pendant la lecture et dans les exports vidéo, shader packs compris.
+- **Météo et heure** : l'onglet **World** (modes Simple et Avancé) règle la météo (enregistrée, dégagée,
+  pluie, orage) et l'heure (curseur et préréglages aube, midi, crépuscule, nuit) par-dessus l'enregistrement.
+  Le mode Avancé ajoute des keyframes à la tête de lecture pour faire passer une journée ou monter un orage
+  pendant un plan, fige l'heure et choisit la phase de la lune. Les aperçus et les exports montrent le même
+  ciel, la même lumière, la même pluie et les mêmes sons, shaders compris. Désactivé par défaut : l'heure et
+  la météo enregistrées sont conservées.
+- **Modifier les entités enregistrées** : l'onglet **Entités** masque un joueur ou un mob enregistré (pour tout
+  le replay, ou avant ou après la tête de lecture), le déplace au viseur et règle le volume de ses sons (0 à 400 %,
+  ou coupés), en lecture et dans les exports vidéo.
 - **Interface en verre** : un style de verre clair aux coins arrondis et aux animations fluides. L'éditeur a
   un panneau latéral repliable (Caméras, Acteurs, Scène, Export), un dock en bas avec les commandes de
   lecture et une timeline à pistes zoomable (Ctrl + molette), et la liste des raccourcis sur **F1** ou **?**.
@@ -280,5 +308,5 @@ Chaque étape est écrite dans le log avec le préfixe `SCENE`, pour qu'un outil
 
 Licence Apache 2.0, voir `LICENSE` et `NOTICE`. Le jar n'embarque aucun code tiers. FFmpeg est un programme
 externe que tu installes toi-même ; Just Replay ne fait que le lancer pour l'export vidéo. Les intégrations
-optionnelles (Simple Voice Chat, Distant Horizons, Emotecraft, WaterFrames, Create, Drop the Beam, Bobby, Iris) passent par les
+optionnelles (Simple Voice Chat, Distant Horizons, Emotecraft, ParCool, Better Combat, WaterFrames, Create, Drop the Beam, Bobby, Iris) passent par les
 classes et API de ces mods et n'incluent aucun de leur code. Projet non affilié à Mojang ou Microsoft.

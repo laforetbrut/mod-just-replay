@@ -22,13 +22,21 @@
     "HoglinAccessor",
     "ZoglinAccessor",
     "HumanoidModelMixin",
+    "ActorWholeBodyMixin",
     "ActorBedMixin",
     "ActorSkinMixin",
     "GameRendererFxMixin",
     "VertexBufferAccessor",
     "ClientLevelLocalEffectsMixin",
+    "LocalPlayerSoundsMixin",
+    "PlayerSkinLayersMixin",
+    "PlayerBodyPartsMixin",
+    "HiddenArmItemMixin",
     "LevelRendererSectionsAccessor",
-    "SectionOcclusionGraphAccessor"
+    "SectionOcclusionGraphAccessor",
+    "EntityBoundSoundAccessor",
+    "EntityEditRenderMixin",
+    "EntityEditGlowMixin"
   ],
   "injectors": {
     "defaultRequire": 1

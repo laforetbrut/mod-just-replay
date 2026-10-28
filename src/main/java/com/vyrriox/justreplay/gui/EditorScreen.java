@@ -118,6 +118,12 @@ public class EditorScreen extends GlassScreen {
         // Texts and images in the world, in both modes, before the export tab.
         registerTab(new SidebarTab("overlays", "justreplay.editor.tab.overlays", Icon.SCENE, true, true, (s, f) -> s.overlaysPanel.build(f)),
                 "export");
+        // Weather and time of day over the recording, in both modes.
+        registerTab(new SidebarTab("world", "justreplay.editor.tab.world", Icon.CLOCK, true, true, (s, f) -> s.worldPanel.build(f, !simple())),
+                "overlays");
+        // Recorded entities: hide, move, sound volume; in both modes, before the export tab.
+        registerTab(new SidebarTab("entities", "justreplay.editor.tab.entities", Icon.PERSON, true, true, (s, f) -> s.entitiesPanel.build(f)),
+                "export");
     }
 
     /** Editor state kept across rebuilds and reopenings. */
@@ -143,6 +149,9 @@ public class EditorScreen extends GlassScreen {
     private final AudioPanel audioPanel;
     // Video effects: the filter stack tab.
     private final EffectsPanel effectsPanel;
+    private final WorldPanel worldPanel;
+    // Recorded entities: the Entities tab.
+    private final EntitiesPanel entitiesPanel;
     // Texts and images in the world: the tab and the timeline lane.
     private final OverlaysPanel overlaysPanel;
     private boolean scrubbing;
@@ -191,6 +200,8 @@ public class EditorScreen extends GlassScreen {
         this.audioPanel = new AudioPanel(this, session, audioLanes);
         this.timeline.audio = audioLanes;
         this.effectsPanel = new EffectsPanel(this, session);
+        this.worldPanel = new WorldPanel(this, session);
+        this.entitiesPanel = new EntitiesPanel(this, session);
         this.overlaysPanel = new OverlaysPanel(this, session);
         this.timeline.overlays = overlaysPanel;
         this.blurBackground = false;
@@ -1426,8 +1437,42 @@ public class EditorScreen extends GlassScreen {
         if (super.mouseClicked(mx, my, button)) {
             return true;
         }
-        // A click on the world itself selects the actor under the mouse.
-        return button == 0 && !overPanels(mx, my) && pickActor(mx, my);
+        // A click on the world itself selects the actor under the mouse, else the recorded player or mob under it.
+        return button == 0 && !overPanels(mx, my) && (pickActor(mx, my) || pickRecordedEntity(mx, my));
+    }
+
+    /**
+     * Selects the recorded entity (a player, the recording player, a mob) under the mouse and opens the Entities tab
+     * on it: hide, move, sound volume. Actors have their own selection, hidden entities cannot be clicked.
+     */
+    private boolean pickRecordedEntity(double mx, double my) {
+        if (minecraft == null || minecraft.level == null) {
+            return false;
+        }
+        Vec3[] ray = mouseRay(mx, my);
+        Vec3 from = ray[0];
+        Vec3 to = ray[1];
+        Entity best = null;
+        double bestDistance = Double.MAX_VALUE;
+        for (Entity e : minecraft.level.entitiesForRendering()) {
+            if (e == minecraft.player || com.vyrriox.justreplay.editor.ActorManager.isActorEntity(e) || com.vyrriox.justreplay.editor.EntityEdits.isHidden(e)) {
+                continue;
+            }
+            java.util.Optional<Vec3> hit = e.getBoundingBox().inflate(0.15).clip(from, to);
+            if (hit.isPresent()) {
+                double d = hit.get().distanceToSqr(from);
+                if (d < bestDistance) {
+                    bestDistance = d;
+                    best = e;
+                }
+            }
+        }
+        if (best == null) {
+            return false;
+        }
+        EntitiesPanel.select(best);
+        openTab("entities");
+        return true;
     }
 
     /** Drops the audio clip selection when another lane is clicked; never consumes the click. */

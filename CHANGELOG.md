@@ -4,6 +4,66 @@
 
 ### [Unreleased]
 
+### [1.0.6] - 2026-10-28
+
+#### Added
+- **Action start and end**: the actor Actions tab sets a start and an end tick on the replay timeline for every
+  action, with "Start = play head" and "End = play head" buttons; an empty end lasts until the next action. The list
+  shows each action as start → end.
+- **Emote clip**: custom emotes and Emotecraft emotes can play only part of their animation ("Emote from" and "Emote
+  to", in emote ticks). A looping custom emote loops inside the clip; an Emotecraft emote starts at the clip start
+  and stops at its end.
+- **Timed skin changes**: a player actor or a recorded player can switch skin at a chosen tick ("Skin changes" in
+  the actor screen and in the Entities tab, "Add at cursor"), for staged scenes such as the same skin with blood
+  from tick 120. The change shows in playback and in video exports. "Save current skin" writes the skin shown now
+  into the skins folder as a new PNG, ready to paint on in any image editor.
+- **Skin overlay and body parts**: player actors now show the outer layer of their skin (hat, jacket, sleeves,
+  trousers), with a switch to turn it off; recorded players get the same switch in the Entities tab. Each player
+  actor or recorded player can also hide its head, body, left or right arm, left or right leg; a hidden arm takes
+  its held item with it.
+- **Edit recorded entities**: a new **Entities** tab (Simple and Advanced) lists the recorded players and mobs
+  near the camera and picks one under the crosshair. Hide it for the whole replay, from the play head or until the
+  play head (model, name tag, shadow, fire and held items, and its sounds); move it to a new spot at the play head
+  with the crosshair (offset keyframes, turned with the wheel); set the volume of its own sounds from 0 to 400% or
+  mute them. The selected entity is outlined while the editor is open. Edits apply in playback, previews and video
+  exports; physics and recorded movement are untouched. A sound belongs to an entity when it follows it or starts
+  within 0.75 block of it; hidden entities are also left out of the spectate pick.
+- **Sound types** in the editor's Audio tab: the volume of each kind of game sound, from 0 to 400%, in the
+  replay and in exports (footsteps, players, blocks, hostile mobs, friendly mobs, ambient, weather, jukebox and note
+  blocks).
+- **Custom emotes** for actors, without Emotecraft: drop Blockbench Bedrock animation files (every animation is an
+  emote, linear, step and catmullrom keyframes) or Emotecraft legacy JSON emotes (bend and axis are not played) in
+  `justreplay/emotes/`, then pick them in the new *Custom emote* action (optional "|speed"). Files reload when they
+  change; a broken file is reported once. An example file with a wave and a bow is created on first use.
+  Emotecraft binary emotes (`*.emotecraft`) are read too, with their stored name, and the Emotecraft `body` part now
+  moves and turns the whole actor (a headspin plays upside down); new files show up in the picker while it is open,
+  and broken files are listed with their reason.
+- **Weather and time**: a new **World** tab in the editor (Simple and Advanced). Recorded, clear, rain or thunder
+  weather, a fixed time of day with presets, keyframes for the time and the rain and thunder strengths, frozen
+  time and the moon phase. Identical in previews and exports. Off by default.
+- **ParCool and Better Combat**: the recording player's parkour actions (vault, roll, dodge, wall run, crawl,
+  cling...) and its Better Combat attack animations now play on its actor in the replay, as other clients see
+  them; other players' actions and attacks were already in the recorded packets. Checkpoints carry the lasting
+  ParCool actions of every player, so a seek lands in the right action; attacks already over at a seek target are
+  dropped. Both mods' requests are not sent to the replay host.
+- Recorded packets of a mod that is not installed when the replay plays are now skipped quietly (one line in the
+  log per payload), instead of a warning for every packet.
+- **Instant replay button**: the pause menu has a "Save last N min" button next to "Start recording", which
+  saves the instant replay buffer like its key.
+- **Precise transform and scale**: the actor screen has a "Transform" section with X, Y, Z, yaw and pitch typed as
+  numbers (with 0.1 block and 5 degree steps) for the keyframe at the play head, created when missing. The Entities
+  tab gets the same fields for the offset of a recorded entity, with its resulting absolute position. Actors and
+  recorded entities also get a scale (0.05 to 10), drawn around the feet, with the name tag and shadow following.
+  For model actors it multiplies the model scale.
+
+#### Fixed
+- Footsteps were nearly silent in exported videos: the game plays a step at 15% of its volume and the export
+  fades it with the distance to the camera, so from a camera a few blocks away it could not be heard. Footsteps now
+  play at 200% by default in replays and exports, adjustable in Sound types.
+- The recording player's own footsteps were still missing: the local player plays its entity sounds (steps,
+  landing, swimming, eating) through its own path, which the recorder did not hear. They are now recorded too.
+- Clicking a recorded player or mob in the editor's view selects it and opens the Entities tab on it.
+
 ### [1.0.5] - 2026-10-27
 
 #### Fixed
@@ -182,6 +242,70 @@
 ## Français
 
 ### [Non publié]
+
+### [1.0.6] - 2026-10-28
+
+#### Ajouté
+- **Début et fin des actions** : l'onglet Actions de l'acteur règle un tick de début et un tick de fin sur la
+  timeline pour chaque action, avec les boutons "Start = play head" et "End = play head" ; une fin vide dure jusqu'à
+  l'action suivante. La liste affiche chaque action sous la forme début → fin.
+- **Extrait d'emote** : les emotes personnalisées et les emotes Emotecraft peuvent ne jouer qu'une partie de leur
+  animation ("Emote from" et "Emote to", en ticks d'emote). Une emote personnalisée en boucle boucle dans l'extrait ;
+  une emote Emotecraft commence au début de l'extrait et s'arrête à sa fin.
+- **Changements de skin datés** : un acteur joueur ou un joueur enregistré peut changer de skin à un tick choisi
+  ("Skin changes" dans l'écran de l'acteur et dans l'onglet Entités, "Add at cursor"), pour des scènes mises en
+  scène comme le même skin couvert de sang à partir du tick 120. Le changement apparaît en lecture et dans les
+  exports vidéo. "Save current skin" enregistre le skin affiché dans le dossier des skins en un nouveau PNG, prêt à
+  être peint dans n'importe quel éditeur d'image.
+- **Surcouche du skin et parties du corps** : les acteurs joueurs affichent désormais la couche extérieure de leur
+  skin (chapeau, veste, manches, pantalon), avec un interrupteur pour la retirer ; les joueurs enregistrés ont le
+  même interrupteur dans l'onglet Entités. Chaque acteur joueur ou joueur enregistré peut aussi masquer sa tête, son
+  corps, son bras ou sa jambe gauche ou droite ; un bras masqué emporte l'objet qu'il tient.
+- **Modifier les entités enregistrées** : un nouvel onglet **Entités** (modes Simple et Avancé) liste les joueurs
+  et les mobs enregistrés près de la caméra et en sélectionne un au viseur. Le masquer pour tout le replay, à partir
+  de la tête de lecture ou jusqu'à elle (modèle, nom, ombre, feu, objets tenus, et ses sons) ; le déplacer à un
+  nouvel endroit à la tête de lecture avec le viseur (images clés de décalage, tourné à la molette) ; régler le
+  volume de ses propres sons de 0 à 400 % ou les couper. L'entité sélectionnée est surlignée tant que l'éditeur est
+  ouvert. Les modifications s'appliquent à la lecture, aux aperçus et aux exports vidéo ; la physique et les
+  mouvements enregistrés ne changent pas. Un son appartient à une entité quand il la suit ou démarre à moins de
+  0,75 bloc d'elle ; les entités masquées ne sont plus sélectionnables pour le mode spectateur.
+- **Types de sons** dans l'onglet Audio de l'éditeur : le volume de chaque type de son du jeu, de 0 à 400 %,
+  dans le replay et dans les exports (pas, joueurs, blocs, monstres, animaux, ambiance, météo, jukebox et blocs
+  musicaux).
+- **Emotes personnalisées** pour les acteurs, sans Emotecraft : déposer des animations Blockbench Bedrock (chaque
+  animation est une emote, images clés linéaires, en escalier et catmullrom) ou des emotes Emotecraft JSON (le pli
+  et l'axe ne sont pas joués) dans `justreplay/emotes/`, puis les choisir dans la nouvelle action *Custom emote*
+  ("|vitesse" en option). Les fichiers sont relus quand ils changent ; un fichier cassé est signalé une fois. Un
+  fichier d'exemple avec un salut et une révérence est créé au premier usage.
+  Les emotes Emotecraft binaires (`*.emotecraft`) sont lues aussi, avec leur nom, et la partie Emotecraft `body`
+  déplace et tourne maintenant tout l'acteur (un headspin se joue tête en bas) ; les nouveaux fichiers apparaissent
+  dans la liste pendant qu'elle est ouverte, et les fichiers cassés sont listés avec leur raison.
+- **Météo et heure** : nouvel onglet **World** dans l'éditeur (modes Simple et Avancé). Météo enregistrée,
+  dégagée, pluie ou orage, heure fixe avec préréglages, keyframes de l'heure et de la force de la pluie et de
+  l'orage, heure figée et phase de la lune. Identique dans les aperçus et les exports. Désactivé par défaut.
+- **ParCool et Better Combat** : les actions de parkour du joueur enregistré (saut d'obstacle, roulade, esquive,
+  course sur les murs, ramper, s'agripper...) et ses animations d'attaque Better Combat sont jouées par son acteur
+  dans le replay, comme les autres clients les voient ; celles des autres joueurs étaient déjà dans les paquets
+  enregistrés. Les points de reprise contiennent les actions ParCool en cours de chaque joueur, un saut dans le
+  temps tombe donc dans la bonne action ; une attaque déjà finie à la cible d'un saut est ignorée. Les requêtes
+  des deux mods ne sont pas envoyées à l'hôte du replay.
+- Les paquets enregistrés d'un mod absent au moment de la lecture sont ignorés sans bruit (une ligne dans le
+  journal par type de paquet) au lieu d'un avertissement par paquet.
+- **Bouton de replay instantané** : le menu pause a un bouton "Save last N min" à côté de "Start recording",
+  qui enregistre la mémoire tampon du replay instantané comme sa touche.
+- **Transformation précise et échelle** : l'écran d'acteur a une section "Transformation" avec X, Y, Z, lacet et
+  tangage saisis en nombres (pas de 0,1 bloc et de 5 degrés) pour l'image clé à la tête de lecture, créée si besoin.
+  L'onglet Entités reçoit les mêmes champs pour le décalage d'une entité enregistrée, avec sa position absolue.
+  Acteurs et entités enregistrées ont aussi une échelle (0,05 à 10), appliquée depuis les pieds, avec l'étiquette
+  de nom et l'ombre. Pour les acteurs modèles, elle multiplie l'échelle du modèle.
+
+#### Corrigé
+- Les pas étaient presque muets dans les vidéos exportées : le jeu joue un pas à 15 % de son volume et l'export
+  l'atténue avec la distance à la caméra, si bien qu'avec une caméra à quelques blocs on ne l'entendait pas. Les
+  pas sont maintenant joués à 200 % par défaut dans les replays et les exports, réglables dans Types de sons.
+- Les pas du joueur enregistré manquaient encore : le joueur local joue ses sons d'entité (pas, atterrissage,
+  nage, nourriture) par son propre chemin, que l'enregistreur n'entendait pas. Ils sont maintenant enregistrés.
+- Un clic sur un joueur ou un mob enregistré dans la vue de l'éditeur le sélectionne et ouvre l'onglet Entités.
 
 ### [1.0.5] - 2026-10-27
 
