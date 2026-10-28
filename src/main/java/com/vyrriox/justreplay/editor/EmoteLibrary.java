@@ -25,16 +25,23 @@ import java.util.Map;
 
 /**
  * Custom emotes of the {@code justreplay/emotes} folder of the game directory, played by humanoid actors without any
- * other mod. Two JSON formats are read:
+ * other mod. Three formats are read:
  * <ul>
  *     <li>Blockbench "Bedrock entity animation" files: every animation of a file is one emote, {@code file:animation}.
  *     Keyframes are seconds to {@code [x, y, z]} (or {@code pre}/{@code post} objects), linear, step or catmullrom;
  *     rotations in degrees, positions in pixels. Molang expressions are not evaluated (read as 0).</li>
  *     <li>Emotecraft legacy JSON emotes ({@code "emote": {..., "moves": [...]}}): one emote per file, {@code file}.
- *     Pitch, yaw, roll and x, y, z of head, torso, arms and legs are played; bend, axis and item parts are ignored.</li>
+ *     Pitch, yaw, roll and x, y, z of head, torso, arms and legs are played; bend, axis and item parts are ignored.
+ *     The {@code body} part is the whole player (see below), {@code torso} the torso.</li>
+ *     <li>Emotecraft binary emotes ({@code *.emotecraft}, see {@link EmotecraftBinary}): one emote per file,
+ *     {@code file}; the name stored in the file is the display name. Same parts and channels as the legacy JSON.
+ *     Easings: linear, constant, sine, cubic, quad and quart; other ids are played linear.</li>
  * </ul>
+ * The Emotecraft {@code body} part moves the whole actor: position in pixels and pitch, yaw, roll around the middle
+ * of the model, applied to the pose stack by {@link #applyWholeBody}. In Blockbench files {@code body} stays the torso,
+ * as in the Bedrock player geometry.
  * Files are parsed once and cached; the folder is checked again (file times) when the list is asked for. A broken
- * file logs one warning and is listed as broken.
+ * file logs one warning and is listed as broken. The folder is checked again at most once a second.
  *
  * @author vyrriox
  */
@@ -48,6 +55,14 @@ public final class EmoteLibrary {
     private static final int CHANNELS = 6;
     /** Ticks a finished emote that does not hold takes to blend back to the vanilla pose. */
     private static final double RETURN_TICKS = 4.0;
+    /** Keys index of the whole-body channels, after the bones. */
+    private static final int WHOLE = 6;
+    /** Pose row of the blend weight, then of the whole-body channels. */
+    public static final int WEIGHT_ROW = 6, WHOLE_ROW = 7;
+    /** Height of the whole-body pivot above the feet, in pixels: the middle of the 32 pixel tall model. */
+    private static final float PIVOT = 16.0F;
+    private static final long RESCAN_MS = 1000;
+    private static long lastScan;
 
     private static final Map<String, Emote> EMOTES = new LinkedHashMap<>();
     private static final Map<String, String> BROKEN = new LinkedHashMap<>();
@@ -58,7 +73,7 @@ public final class EmoteLibrary {
 
     // ---------------------------------------------------------------- data
 
-    private static final class Key {
+    static final class Key {
         final double t;
         final double pre, post;
         /** 0 linear, 1 catmullrom, 2 step, 3+ easing ids of {@link #ease}. */
@@ -75,13 +90,29 @@ public final class EmoteLibrary {
     /** One playable emote. Times are in ticks. */
     public static final class Emote {
         public final String id;
-        final Key[][][] keys = new Key[Bone.values().length][CHANNELS][];
+        final Key[][][] keys = new Key[Bone.values().length + 1][CHANNELS][];
+        String name;
         double length;
         boolean loop, hold;
         double loopStart;
 
         Emote(String id) {
             this.id = id;
+        }
+
+        /** Display name: the name stored in the file, else the id. */
+        public String name() {
+            return name == null || name.isBlank() ? id : name;
+        }
+
+        /** True when the emote moves the whole body, not only the limbs. */
+        public boolean movesWholeBody() {
+            for (Key[] k : keys[WHOLE]) {
+                if (k != null && k.length > 0) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         public double length() {
@@ -119,7 +150,9 @@ public final class EmoteLibrary {
 
     /** Ids of every playable emote, after reloading changed files. */
     public static synchronized List<String> list() {
-        refresh();
+        if (STAMPS.isEmpty() || System.currentTimeMillis() - lastScan > RESCAN_MS) {
+            refresh();
+        }
         return new ArrayList<>(EMOTES.keySet());
     }
 
@@ -133,7 +166,7 @@ public final class EmoteLibrary {
      * picks its first animation. Does not touch the disk once the folder was read.
      */
     public static synchronized Emote get(String id) {
-        if (STAMPS.isEmpty()) {
+        if (STAMPS.isEmpty() || System.currentTimeMillis() - lastScan > RESCAN_MS) {
             refresh();
         }
         if (id == null || id.isBlank()) {
@@ -146,9 +179,7 @@ public final class EmoteLibrary {
         }
         String file = key.contains(":") ? key.substring(0, key.indexOf(':')) : key;
         String anim = key.contains(":") ? key.substring(key.indexOf(':') + 1) : null;
-        if (file.toLowerCase(Locale.ROOT).endsWith(".json")) {
-            file = file.substring(0, file.length() - 5);
-        }
+        file = baseName(file);
         for (Emote e : EMOTES.values()) {
             String eFile = e.id.contains(":") ? e.id.substring(0, e.id.indexOf(':')) : e.id;
             String eAnim = e.id.contains(":") ? e.id.substring(e.id.indexOf(':') + 1) : null;
@@ -161,9 +192,10 @@ public final class EmoteLibrary {
 
     /** Reads new and changed files again and drops removed ones. */
     private static void refresh() {
+        lastScan = System.currentTimeMillis();
         Path dir = folder();
         Map<String, Long> seen = new HashMap<>();
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir, "*.json")) {
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir, "*.{json,emotecraft}")) {
             for (Path p : stream) {
                 if (Files.isRegularFile(p)) {
                     seen.put(p.getFileName().toString(), Files.getLastModifiedTime(p).toMillis());
@@ -188,8 +220,15 @@ public final class EmoteLibrary {
                 continue;
             }
             STAMPS.put(name, seen.get(name));
-            try (Reader reader = Files.newBufferedReader(dir.resolve(name), StandardCharsets.UTF_8)) {
-                List<Emote> parsed = parse(baseName(name), JsonParser.parseReader(reader));
+            try {
+                List<Emote> parsed;
+                if (name.toLowerCase(Locale.ROOT).endsWith(".emotecraft")) {
+                    parsed = List.of(EmotecraftBinary.read(baseName(name), Files.readAllBytes(dir.resolve(name))));
+                } else {
+                    try (Reader reader = Files.newBufferedReader(dir.resolve(name), StandardCharsets.UTF_8)) {
+                        parsed = parse(baseName(name), JsonParser.parseReader(reader));
+                    }
+                }
                 if (parsed.isEmpty()) {
                     throw new IllegalArgumentException("no animation found");
                 }
@@ -210,7 +249,11 @@ public final class EmoteLibrary {
     }
 
     private static String baseName(String name) {
-        return name.toLowerCase(Locale.ROOT).endsWith(".json") ? name.substring(0, name.length() - 5) : name;
+        String lower = name.toLowerCase(Locale.ROOT);
+        if (lower.endsWith(".json")) {
+            return name.substring(0, name.length() - 5);
+        }
+        return lower.endsWith(".emotecraft") ? name.substring(0, name.length() - 11) : name;
     }
 
     // ---------------------------------------------------------------- parsing
@@ -378,8 +421,8 @@ public final class EmoteLibrary {
                 int mode = move.has("easing") ? easing(move.get("easing").getAsString()) : 0;
                 last = Math.max(last, tick);
                 for (Map.Entry<String, JsonElement> part : move.entrySet()) {
-                    Bone bone = bone(part.getKey());
-                    if (bone == null || !part.getValue().isJsonObject()) {
+                    int bone = emotecraftPart(part.getKey());
+                    if (bone < 0 || !part.getValue().isJsonObject()) {
                         continue;
                     }
                     for (Map.Entry<String, JsonElement> axis : part.getValue().getAsJsonObject().entrySet()) {
@@ -399,22 +442,78 @@ public final class EmoteLibrary {
                         if (ch < 3 && degrees) {
                             v *= Mth.DEG_TO_RAD;
                         }
-                        channels.computeIfAbsent(bone.ordinal() * CHANNELS + ch, k -> new ArrayList<>()).add(new Key(tick, v, v, mode));
+                        channels.computeIfAbsent(bone * CHANNELS + ch, k -> new ArrayList<>()).add(new Key(tick, v, v, mode));
                     }
                 }
             }
         }
+        fillEmotecraft(emote, channels, begin, end, last);
+        return emote;
+    }
+
+    /** Keys index of an Emotecraft part: a bone, the whole body for "body", or -1. */
+    static int emotecraftPart(String name) {
+        String n = name.toLowerCase(Locale.ROOT);
+        if (n.equals("body")) {
+            return WHOLE;
+        }
+        Bone bone = bone(n);
+        return bone == null ? -1 : bone.ordinal();
+    }
+
+    /** Fills the keys of an Emotecraft emote from {@code part * CHANNELS + channel} lists (sorted in place). */
+    static void fillEmotecraft(Emote emote, Map<Integer, List<Key>> channels, int begin, int end, int last) {
+        emote.length = Math.max(1, Math.max(end, last));
         for (Map.Entry<Integer, List<Key>> entry : channels.entrySet()) {
             List<Key> keys = entry.getValue();
+            if (keys.isEmpty()) {
+                continue;
+            }
             keys.sort((a, b) -> Double.compare(a.t, b.t));
             if (keys.get(0).t > begin) {
                 // Emotecraft starts from the default pose.
                 keys.add(0, new Key(begin, 0, 0, 0));
             }
+            if (emote.loop && keys.get(keys.size() - 1).t < emote.length) {
+                // Glide back to the loop start value instead of holding the last key until the jump.
+                Key[] arr = keys.toArray(new Key[0]);
+                double back = value(arr, emote.loopStart);
+                keys.add(new Key(emote.length, back, back, 0));
+            }
             emote.keys[entry.getKey() / CHANNELS][entry.getKey() % CHANNELS] = keys.toArray(new Key[0]);
         }
-        emote.length = Math.max(1, Math.max(end, last));
-        return emote;
+    }
+
+    static Key key(double t, double value, int mode) {
+        return new Key(t, value, value, mode);
+    }
+
+    static Emote newEmote(String id, String name, boolean loop, double loopStart) {
+        Emote e = new Emote(id);
+        e.name = name;
+        e.loop = loop;
+        e.loopStart = loopStart;
+        return e;
+    }
+
+    /**
+     * Mode of an Emotecraft binary ease id, or -1 when unknown. Read as 0 linear, 1 constant, then in, out and in-out
+     * of sine, cubic, quad and quart (ids 2 to 13).
+     */
+    static int binaryEase(int id) {
+        if (id == 0) {
+            return 0;
+        }
+        if (id == 1) {
+            return 2;
+        }
+        if (id >= 2 && id <= 13) {
+            int fileShape = (id - 2) / 3;
+            int kind = (id - 2) % 3;
+            int shape = fileShape == 1 ? 2 : fileShape == 2 ? 1 : fileShape; // ours: sine, quad, cubic, quart
+            return 3 + shape * 3 + kind;
+        }
+        return -1;
     }
 
     private static int easing(String name) {
@@ -453,7 +552,7 @@ public final class EmoteLibrary {
      * pose, plus the blend weight in {@code [6][0]} (1 while playing, falling to 0 when a finished emote returns).
      */
     public static double[][] sample(Emote emote, double ticks) {
-        double[][] pose = new double[Bone.values().length + 1][CHANNELS];
+        double[][] pose = new double[WHOLE_ROW + 1][CHANNELS];
         double t = Math.max(0, ticks);
         double weight = 1;
         if (emote.loop && t > emote.length) {
@@ -465,11 +564,12 @@ public final class EmoteLibrary {
             }
             t = emote.length;
         }
-        pose[Bone.values().length][0] = weight;
-        for (int b = 0; b < Bone.values().length; b++) {
+        pose[WEIGHT_ROW][0] = weight;
+        for (int b = 0; b <= WHOLE; b++) {
+            double[] row = pose[b == WHOLE ? WHOLE_ROW : b];
             for (int c = 0; c < CHANNELS; c++) {
                 Key[] keys = emote.keys[b][c];
-                pose[b][c] = keys == null || keys.length == 0 ? Double.NaN : value(keys, t);
+                row[c] = keys == null || keys.length == 0 ? Double.NaN : value(keys, t);
             }
         }
         return pose;
@@ -518,7 +618,7 @@ public final class EmoteLibrary {
 
     /** Poses the model after vanilla did; rotations replace the vanilla ones, positions are offsets from rest. */
     public static void apply(HumanoidModel<?> model, double[][] pose) {
-        float w = (float) pose[Bone.values().length][0];
+        float w = (float) pose[WEIGHT_ROW][0];
         if (w <= 0) {
             return;
         }
@@ -534,5 +634,33 @@ public final class EmoteLibrary {
             if (!Double.isNaN(v[5])) part.z = Mth.lerp(w, part.z, REST[b][2] + (float) v[5]);
         }
         model.hat.copyFrom(model.head);
+    }
+
+    /**
+     * Whole-body transform of a pose, applied to the pose stack of a living entity renderer after its rotations (feet
+     * at the origin, y up, facing the body yaw). Positions are model pixels; rotations turn around the middle of the
+     * model, {@link #PIVOT} pixels up, in the order of a model part (roll, then yaw, then pitch). The model is drawn
+     * mirrored on x and y, so x, y and the pitch and yaw signs flip from model space.
+     */
+    public static void applyWholeBody(com.mojang.blaze3d.vertex.PoseStack stack, double[][] pose) {
+        float w = (float) pose[WEIGHT_ROW][0];
+        double[] v = pose[WHOLE_ROW];
+        if (w <= 0) {
+            return;
+        }
+        float x = part(v[3], w), y = part(v[4], w), z = part(v[5], w);
+        float pitch = part(v[0], w), yaw = part(v[1], w), roll = part(v[2], w);
+        if (x == 0 && y == 0 && z == 0 && pitch == 0 && yaw == 0 && roll == 0) {
+            return;
+        }
+        stack.translate(-x / 16.0F, -y / 16.0F + PIVOT / 16.0F, z / 16.0F);
+        if (roll != 0) stack.mulPose(com.mojang.math.Axis.ZP.rotation(roll));
+        if (yaw != 0) stack.mulPose(com.mojang.math.Axis.YP.rotation(-yaw));
+        if (pitch != 0) stack.mulPose(com.mojang.math.Axis.XP.rotation(-pitch));
+        stack.translate(0, -PIVOT / 16.0F, 0);
+    }
+
+    private static float part(double value, float w) {
+        return Double.isNaN(value) ? 0 : (float) value * w;
     }
 }

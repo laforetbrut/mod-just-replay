@@ -64,6 +64,9 @@ public class ActorScreen extends GlassScreen {
     private GlassTextField duration, param;
     private String durationValue = "0";
     private String paramValue;
+    private List<String> shownEmotes;
+    private java.util.Map<String, String> shownBroken;
+    private int emoteCheck;
     private ScrollArea area;
     private float pageScroll;
     private int boxX, boxY, boxW, boxH;
@@ -313,7 +316,9 @@ public class ActorScreen extends GlassScreen {
     /** Emote list of the custom emote action, and a button to open the emotes folder. */
     private void initEmotePicker(Form f) {
         List<String> ids = EmoteLibrary.list();
-        int broken = EmoteLibrary.broken().size();
+        java.util.Map<String, String> broken = EmoteLibrary.broken();
+        shownEmotes = ids;
+        shownBroken = broken;
         int w = f.cellWidth(2, 2);
         if (ids.isEmpty()) {
             f.at(new GlassButton(Component.translatable("justreplay.actor.emote.none"), b -> {
@@ -322,7 +327,10 @@ public class ActorScreen extends GlassScreen {
             String current = param.getValue().contains("|") ? param.getValue().substring(0, param.getValue().indexOf('|')).trim()
                     : param.getValue().trim();
             String initial = ids.contains(current) ? current : null;
-            f.at(new Dropdown<>(this, Component.translatable("justreplay.actor.emote.pick"), ids, initial, Component::literal, v -> {
+            f.at(new Dropdown<>(this, Component.translatable("justreplay.actor.emote.pick"), ids, initial, v -> {
+                EmoteLibrary.Emote e = EmoteLibrary.get(v);
+                return Component.literal(e == null || e.name().equals(v) ? v : e.name() + " (" + v + ")");
+            }, v -> {
                 String value = param.getValue();
                 int bar = value.indexOf('|');
                 param.setValue(bar >= 0 ? v + value.substring(bar) : v);
@@ -331,8 +339,25 @@ public class ActorScreen extends GlassScreen {
         f.at(new GlassButton(Component.empty(), b -> Util.getPlatform().openPath(EmoteLibrary.folder())).icon(Icon.FOLDER)
                 .tip(Component.translatable("justreplay.actor.emote.folder")), w - Theme.ROW, Theme.ROW);
         f.next();
-        if (broken > 0) {
-            f.paragraph(Component.translatable("justreplay.actor.emote.broken", broken), Theme.TEXT_MUTED);
+        if (!broken.isEmpty()) {
+            f.paragraph(Component.translatable("justreplay.actor.emote.broken", broken.size()), Theme.TEXT_MUTED);
+            for (java.util.Map.Entry<String, String> entry : broken.entrySet()) {
+                f.paragraph(Component.translatable("justreplay.actor.emote.broken_file", entry.getKey(), entry.getValue()),
+                        Theme.TEXT_MUTED);
+            }
+        }
+    }
+
+    /** Rebuilds the emote picker when files were added, changed or removed in the emotes folder. */
+    @Override
+    public void tick() {
+        super.tick();
+        if (shownEmotes != null && actionsPage && actionType == ActionType.CUSTOM_EMOTE && ++emoteCheck >= 20) {
+            emoteCheck = 0;
+            if (!EmoteLibrary.list().equals(shownEmotes) || !EmoteLibrary.broken().equals(shownBroken)) {
+                stashActionFields();
+                rebuildWidgets();
+            }
         }
     }
 
