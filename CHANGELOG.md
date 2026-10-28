@@ -27,6 +27,9 @@
 - Footsteps were nearly silent in exported videos: the game plays a step at 15% of its volume and the export
   fades it with the distance to the camera, so from a camera a few blocks away it could not be heard. Footsteps now
   play at 200% by default in replays and exports, adjustable in Sound types.
+- The recording player's own footsteps were still missing: the local player plays its entity sounds (steps,
+  landing, swimming, eating) through its own path, which the recorder did not hear. They are now recorded too.
+- Clicking a recorded player or mob in the editor's view selects it and opens the Entities tab on it.
 
 ### [1.0.5] - 2026-10-27
 
@@ -232,6 +235,9 @@
 - Les pas étaient presque muets dans les vidéos exportées : le jeu joue un pas à 15 % de son volume et l'export
   l'atténue avec la distance à la caméra, si bien qu'avec une caméra à quelques blocs on ne l'entendait pas. Les
   pas sont maintenant joués à 200 % par défaut dans les replays et les exports, réglables dans Types de sons.
+- Les pas du joueur enregistré manquaient encore : le joueur local joue ses sons d'entité (pas, atterrissage,
+  nage, nourriture) par son propre chemin, que l'enregistreur n'entendait pas. Ils sont maintenant enregistrés.
+- Un clic sur un joueur ou un mob enregistré dans la vue de l'éditeur le sélectionne et ouvre l'onglet Entités.
 
 ### [1.0.5] - 2026-10-27
 

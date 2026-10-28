@@ -27,6 +27,7 @@
     "GameRendererFxMixin",
     "VertexBufferAccessor",
     "ClientLevelLocalEffectsMixin",
+    "LocalPlayerSoundsMixin",
     "LevelRendererSectionsAccessor",
     "SectionOcclusionGraphAccessor",
     "EntityBoundSoundAccessor",

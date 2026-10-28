@@ -62,6 +62,7 @@ public final class SelfTest {
     private static int localBell;
     private static int localAnvil;
     private static int replaySteps;
+    private static int recorderSteps;
 
     /** Counts, during a replay, the sounds the self test made for its own player while recording. */
     public static void onSound(net.neoforged.neoforge.client.event.sound.PlaySoundEvent event) {
@@ -75,6 +76,12 @@ public final class SelfTest {
             localAnvil++;
         } else if (id.endsWith(".step")) {
             replaySteps++;
+            // Footsteps of the recording player itself: they only exist if the recorder captured them.
+            Minecraft mc = Minecraft.getInstance();
+            Entity recorder = ReplaySession.current() != null ? ReplaySession.current().findRecorder(mc) : null;
+            if (recorder != null && recorder.distanceToSqr(event.getSound().getX(), event.getSound().getY(), event.getSound().getZ()) < 2.25) {
+                recorderSteps++;
+            }
         }
     }
     private static int galleryIndex;
@@ -725,7 +732,8 @@ public final class SelfTest {
                         Files.exists(ReplayStorage.exportRoot().resolve("selftest.mp4.audio.log")));
                 log("mods after export: {}", Mods.state(mc, ReplaySession.current()));
                 Mods.logDropTheBeam("after export");
-                log("local effects heard in the replay: bell={} anvil={} footsteps={} (expected at least 1 each)", localBell, localAnvil, replaySteps);
+                log("local effects heard in the replay: bell={} anvil={} footsteps={} of which the recording player's own={} -> {}", localBell,
+                        localAnvil, replaySteps, recorderSteps, localBell > 0 && localAnvil > 0 && recorderSteps > 0 ? "OK" : "FAIL");
                 log("export frames showing overlays: {} ({} overlays in the project)",
                         com.vyrriox.justreplay.editor.overlay.OverlayRenderer.exportFrames(), ReplaySession.current().project().overlays.size());
                 mc.level.disconnect();
