@@ -53,6 +53,9 @@ public class ActorScreen extends GlassScreen {
     /** Timed skin changes of a player actor, copied back on apply. */
     private final List<ReplayProject.SkinChange> skinChanges = new ArrayList<>();
     private final SkinChangesSection skinSection;
+    /** Position and angles at the play head, then the render scale; written back on apply. */
+    private final TransformFields transform;
+    private final int transformTick;
     /** Field values kept across the two pages. */
     private final String[] values;
 
@@ -103,8 +106,54 @@ public class ActorScreen extends GlassScreen {
         this.pose = p;
         this.values = new String[]{actor.type, actor.name, actor.mainHand, actor.offHand, actor.head, actor.chest, actor.legs,
                 actor.feet, actor.model, actor.modelAnimation, trimFloat(actor.modelScale)};
+        this.transformTick = session.playback().cursor();
+        this.transform = new TransformFields(net.minecraft.client.Minecraft.getInstance().font,
+                new String[]{"justreplay.transform.x", "justreplay.transform.y", "justreplay.transform.z",
+                        "justreplay.transform.yaw", "justreplay.transform.pitch", "justreplay.transform.scale"},
+                new double[]{0.1, 0.1, 0.1, 5, 5, 0.05},
+                new double[]{-3.0E7, -2048, -3.0E7, -360, -90, 0.05},
+                new double[]{3.0E7, 2048, 3.0E7, 360, 90, 10}, null);
+        double[] at = transformAt(actor, transformTick);
+        this.transform.set(new double[]{at[0], at[1], at[2], at[3], at[4], actor.scale});
         for (ReplayProject.ActorAction a : actor.actions) {
             actions.add(new ReplayProject.ActorAction(a.tick, a.actionType(), a.duration, a.param));
+        }
+    }
+
+    /** The keyframe at this tick if there is one, else the interpolated state; zeros without keyframes. */
+    private static double[] transformAt(ReplayProject.ActorData actor, int tick) {
+        for (ReplayProject.ActorKeyframe k : actor.keyframes) {
+            if (k.tick == tick) {
+                return new double[]{k.x, k.y, k.z, k.yaw, k.pitch};
+            }
+        }
+        double[] v = actor.keyframes.isEmpty() ? null : com.vyrriox.justreplay.editor.Interpolation.actor(actor.keyframes, tick);
+        return v == null ? new double[5] : v;
+    }
+
+    /** Writes the typed transform: the keyframe at the play head is updated, or created when missing. */
+    private void applyTransform() {
+        transform.read();
+        double[] v = transform.values;
+        actor.scale = ReplayProject.clampScale((float) v[5]);
+        if (!transform.dirty()) {
+            return;
+        }
+        ReplayProject.ActorKeyframe key = null;
+        for (ReplayProject.ActorKeyframe k : actor.keyframes) {
+            if (k.tick == transformTick) {
+                key = k;
+            }
+        }
+        if (key == null) {
+            key = new ReplayProject.ActorKeyframe(transformTick, v[0], v[1], v[2], (float) v[3], (float) v[4]);
+            actor.keyframes.add(key);
+        } else {
+            key.x = v[0];
+            key.y = v[1];
+            key.z = v[2];
+            key.yaw = (float) v[3];
+            key.pitch = (float) v[4];
         }
     }
 
@@ -217,6 +266,10 @@ public class ActorScreen extends GlassScreen {
         scale = f.at(field(values[10], "justreplay.actor.scale", 8), rightX + cellW - 41, 41);
         scale.tip(Component.translatable("justreplay.actor.scale"));
         f.next(16);
+
+        f.header(Component.translatable("justreplay.transform.section"), Icon.PIN);
+        f.paragraph(Component.translatable("justreplay.transform.actor.hint", Timeline.formatTicks(transformTick)), Theme.TEXT_MUTED);
+        transform.build(f);
 
         f.header(Component.translatable("justreplay.actor.section.look"), Icon.EYE);
         f.full(new Dropdown<>(this, Component.translatable("justreplay.actor.pose"), POSES, pose,
@@ -433,6 +486,7 @@ public class ActorScreen extends GlassScreen {
         } catch (NumberFormatException e) {
             actor.modelScale = 1.0F;
         }
+        applyTransform();
         actor.pose = pose.name();
         actor.visible = visible;
         actor.showName = showName;

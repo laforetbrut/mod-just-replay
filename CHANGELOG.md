@@ -38,6 +38,12 @@
 - Recorded packets of a mod that is not installed when the replay plays are now skipped quietly (one line in the
   log per payload), instead of a warning for every packet.
 
+- **Precise transform and scale**: the actor screen has a "Transform" section with X, Y, Z, yaw and pitch typed as
+  numbers (with 0.1 block and 5 degree steps) for the keyframe at the play head, created when missing. The Entities
+  tab gets the same fields for the offset of a recorded entity, with its resulting absolute position. Actors and
+  recorded entities also get a scale (0.05 to 10), drawn around the feet, with the name tag and shadow following.
+  For model actors it multiplies the model scale.
+
 #### Fixed
 - Footsteps were nearly silent in exported videos: the game plays a step at 15% of its volume and the export
   fades it with the distance to the camera, so from a camera a few blocks away it could not be heard. Footsteps now
@@ -262,6 +268,12 @@
   des deux mods ne sont pas envoyées à l'hôte du replay.
 - Les paquets enregistrés d'un mod absent au moment de la lecture sont ignorés sans bruit (une ligne dans le
   journal par type de paquet) au lieu d'un avertissement par paquet.
+
+- **Transformation précise et échelle** : l'écran d'acteur a une section "Transformation" avec X, Y, Z, lacet et
+  tangage saisis en nombres (pas de 0,1 bloc et de 5 degrés) pour l'image clé à la tête de lecture, créée si besoin.
+  L'onglet Entités reçoit les mêmes champs pour le décalage d'une entité enregistrée, avec sa position absolue.
+  Acteurs et entités enregistrées ont aussi une échelle (0,05 à 10), appliquée depuis les pieds, avec l'étiquette
+  de nom et l'ombre. Pour les acteurs modèles, elle multiplie l'échelle du modèle.
 
 #### Corrigé
 - Les pas étaient presque muets dans les vidéos exportées : le jeu joue un pas à 15 % de son volume et l'export

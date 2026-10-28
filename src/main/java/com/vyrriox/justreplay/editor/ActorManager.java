@@ -55,6 +55,8 @@ public final class ActorManager {
     /** Body parts hidden on player actors, by entity id (see {@link BodyParts}). */
     private static final java.util.Map<Integer, Integer> HIDDEN_PARTS = new java.util.HashMap<>();
     private final Map<String, Integer> ids = new HashMap<>();
+    /** Actor data by entity id, kept live so the render scale follows edits without a respawn. */
+    private static final Map<Integer, ReplayProject.ActorData> SCALED = new HashMap<>();
     /**
      * Player actors by entity id; read by the skin mixin. The actor data is kept live so its skin file and its timed
      * skin changes apply at every frame without a respawn.
@@ -182,6 +184,15 @@ public final class ActorManager {
         return mask == null ? 0 : mask;
     }
 
+    /** Render scale of an actor entity, 1 when unscaled or not an actor. */
+    public static float renderScale(Entity entity) {
+        if (!isActorEntity(entity)) {
+            return 1.0F;
+        }
+        ReplayProject.ActorData actor = SCALED.get(entity.getId());
+        return actor == null ? 1.0F : actor.scale;
+    }
+
     /** True for a player actor whose outer skin layer is switched off. */
     public static boolean hidesSkinLayers(Entity entity) {
         return isActorEntity(entity) && NO_SKIN_LAYERS.contains(entity.getId());
@@ -236,6 +247,7 @@ public final class ActorManager {
     private static void forgetEntity(Entity entity) {
         HIDDEN_NAMES.remove(entity.getId());
         CUSTOM_SKINS.remove(entity.getId());
+        SCALED.remove(entity.getId());
         ActorAnimator.forget(entity);
         com.vyrriox.justreplay.editor.model.ModelRenderer.unregister(entity.getId());
     }
@@ -339,6 +351,7 @@ public final class ActorManager {
             }
         }
         entity.setId(ids.computeIfAbsent(actor.id, k -> nextId--));
+        SCALED.put(entity.getId(), actor);
         if (actor.isPlayer() && (actor.hiddenParts & BodyParts.ALL) != 0) {
             HIDDEN_PARTS.put(entity.getId(), actor.hiddenParts & BodyParts.ALL);
         } else {
