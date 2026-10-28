@@ -58,6 +58,11 @@ NeoForge 1.21.1, client side. Author: vyrriox. License: Apache-2.0.
   `.minecraft/justreplay/images/` with a width in blocks, a tint and the aspect ratio kept. Offset, scale,
   rotation and opacity take keyframes, and each overlay is a bar on the timeline that drags to move or retime
   it. They render fullbright in the preview, during playback and in video exports, shader packs included.
+- **Weather and time**: the **World** tab (Simple and Advanced) sets the weather (recorded, clear, rain,
+  thunder) and the time of day (slider and dawn, noon, dusk, night presets) on top of the recording. The
+  Advanced mode adds keyframes at the play head so a day passes or a storm fades in during a shot, freezes
+  the time and picks the moon phase. Previews and exports show the same sky, light, rain and sounds, shader
+  packs included. Off by default: the recorded time and weather are kept.
 - **Glass interface**: a clear glass look with rounded corners and smooth animations. The editor has a
   collapsible sidebar (Cameras, Actors, Scene, Export), a bottom dock with the transport controls and a
   zoomable multi-lane timeline (Ctrl + wheel), and a shortcut overlay on **F1** or **?**.
@@ -215,6 +220,12 @@ classes and APIs and include none of their code. Not affiliated with Mojang or M
   décalage, l'échelle, la rotation et l'opacité prennent des images clés, et chaque overlay est une barre sur
   la timeline qui se déplace ou se redimensionne à la souris. Ils sont rendus en pleine lumière dans l'aperçu,
   pendant la lecture et dans les exports vidéo, shader packs compris.
+- **Météo et heure** : l'onglet **World** (modes Simple et Avancé) règle la météo (enregistrée, dégagée,
+  pluie, orage) et l'heure (curseur et préréglages aube, midi, crépuscule, nuit) par-dessus l'enregistrement.
+  Le mode Avancé ajoute des keyframes à la tête de lecture pour faire passer une journée ou monter un orage
+  pendant un plan, fige l'heure et choisit la phase de la lune. Les aperçus et les exports montrent le même
+  ciel, la même lumière, la même pluie et les mêmes sons, shaders compris. Désactivé par défaut : l'heure et
+  la météo enregistrées sont conservées.
 - **Interface en verre** : un style de verre clair aux coins arrondis et aux animations fluides. L'éditeur a
   un panneau latéral repliable (Caméras, Acteurs, Scène, Export), un dock en bas avec les commandes de
   lecture et une timeline à pistes zoomable (Ctrl + molette), et la liste des raccourcis sur **F1** ou **?**.

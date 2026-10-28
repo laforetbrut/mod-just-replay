@@ -118,6 +118,9 @@ public class EditorScreen extends GlassScreen {
         // Texts and images in the world, in both modes, before the export tab.
         registerTab(new SidebarTab("overlays", "justreplay.editor.tab.overlays", Icon.SCENE, true, true, (s, f) -> s.overlaysPanel.build(f)),
                 "export");
+        // Weather and time of day over the recording, in both modes.
+        registerTab(new SidebarTab("world", "justreplay.editor.tab.world", Icon.CLOCK, true, true, (s, f) -> s.worldPanel.build(f, !simple())),
+                "overlays");
     }
 
     /** Editor state kept across rebuilds and reopenings. */
@@ -143,6 +146,7 @@ public class EditorScreen extends GlassScreen {
     private final AudioPanel audioPanel;
     // Video effects: the filter stack tab.
     private final EffectsPanel effectsPanel;
+    private final WorldPanel worldPanel;
     // Texts and images in the world: the tab and the timeline lane.
     private final OverlaysPanel overlaysPanel;
     private boolean scrubbing;
@@ -191,6 +195,7 @@ public class EditorScreen extends GlassScreen {
         this.audioPanel = new AudioPanel(this, session, audioLanes);
         this.timeline.audio = audioLanes;
         this.effectsPanel = new EffectsPanel(this, session);
+        this.worldPanel = new WorldPanel(this, session);
         this.overlaysPanel = new OverlaysPanel(this, session);
         this.timeline.overlays = overlaysPanel;
         this.blurBackground = false;

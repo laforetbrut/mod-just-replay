@@ -144,6 +144,7 @@ public final class JustReplayClient {
                 session.spectate().stop(Minecraft.getInstance());
             }
             CameraController.onRenderFrame(event.getPartialTick().getGameTimeDeltaPartialTick(false));
+            com.vyrriox.justreplay.replay.WorldOverride.onRenderFrame(event.getPartialTick().getGameTimeDeltaPartialTick(false));
         }
 
         @SubscribeEvent

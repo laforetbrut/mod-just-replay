@@ -8,6 +8,9 @@
 - **Sound types** in the editor's Audio tab: the volume of each kind of game sound, from 0 to 400%, in the
   replay and in exports (footsteps, players, blocks, hostile mobs, friendly mobs, ambient, weather, jukebox and note
   blocks).
+- **Weather and time**: a new **World** tab in the editor (Simple and Advanced). Recorded, clear, rain or thunder
+  weather, a fixed time of day with presets, keyframes for the time and the rain and thunder strengths, frozen
+  time and the moon phase. Identical in previews and exports. Off by default.
 
 #### Fixed
 - Footsteps were nearly silent in exported videos: the game plays a step at 15% of its volume and the export
@@ -197,6 +200,9 @@
 - **Types de sons** dans l'onglet Audio de l'éditeur : le volume de chaque type de son du jeu, de 0 à 400 %,
   dans le replay et dans les exports (pas, joueurs, blocs, monstres, animaux, ambiance, météo, jukebox et blocs
   musicaux).
+- **Météo et heure** : nouvel onglet **World** dans l'éditeur (modes Simple et Avancé). Météo enregistrée,
+  dégagée, pluie ou orage, heure fixe avec préréglages, keyframes de l'heure et de la force de la pluie et de
+  l'orage, heure figée et phase de la lune. Identique dans les aperçus et les exports. Désactivé par défaut.
 
 #### Corrigé
 - Les pas étaient presque muets dans les vidéos exportées : le jeu joue un pas à 15 % de son volume et l'export

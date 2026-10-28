@@ -71,6 +71,8 @@ public final class ReplayProject {
     public boolean fadeWhite;
     /** Texts and images placed in the world, drawn in the order of the list when at the same distance. */
     public List<Overlay> overlays = new ArrayList<>();
+    /** Time and weather set on top of the recording (all off by default). */
+    public WorldSettings world = new WorldSettings();
 
     public static final class CameraKeyframe {
         public int tick;
@@ -342,6 +344,8 @@ public final class ReplayProject {
         if (audioTracks == null) audioTracks = new ArrayList<>();
         if (effects == null) effects = new ArrayList<>();
         if (overlays == null) overlays = new ArrayList<>();
+        if (world == null) world = new WorldSettings();
+        world.normalize();
         overlays.removeIf(o -> o == null);
         for (Overlay overlay : overlays) {
             overlay.normalize();

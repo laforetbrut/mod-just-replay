@@ -607,6 +607,31 @@ public final class SelfTest {
             case 53 -> {
                 shot(mc, "ui-overlays-" + com.vyrriox.justreplay.config.JRConfig.EDITOR_MODE.get().name().toLowerCase(java.util.Locale.ROOT));
                 mc.setScreen(null);
+                go(54, 5);
+            }
+            case 54 -> {
+                // World override: night and thunder at the play head, then back to the recorded values.
+                ReplaySession s = ReplaySession.current();
+                logLevelWeather(mc, "world recorded");
+                com.vyrriox.justreplay.editor.WorldSettings w = s.project().world;
+                w.timeMode = com.vyrriox.justreplay.editor.WorldSettings.TIME_FIXED;
+                w.time = 18000.0F;
+                w.weather = com.vyrriox.justreplay.editor.WorldSettings.WEATHER_THUNDER;
+                w.rain = 1.0F;
+                w.thunder = 1.0F;
+                s.saveProject();
+                go(55, 10);
+            }
+            case 55 -> {
+                logLevelWeather(mc, "world override (expect dayTime%24000=18000 rain=1 thunder=1)");
+                shot(mc, "world-night-thunder");
+                ReplaySession s = ReplaySession.current();
+                s.project().world = new com.vyrriox.justreplay.editor.WorldSettings();
+                s.saveProject();
+                go(56, 10);
+            }
+            case 56 -> {
+                logLevelWeather(mc, "world cleared (expect the recorded values back)");
                 go(13, 5);
             }
             case 13 -> {
@@ -1020,6 +1045,15 @@ public final class SelfTest {
                     + " recorderEmote=" + com.vyrriox.justreplay.compat.EmotecraftCompat.describe(s.findRecorder(mc))
                     + " waterframes=[" + com.vyrriox.justreplay.compat.WaterFramesCompat.describe() + "]";
         }
+    }
+
+    private static void logLevelWeather(Minecraft mc, String label) {
+        if (mc.level == null) {
+            log("{}: no level", label);
+            return;
+        }
+        log("{}: dayTime={} rain={} thunder={} raining={} recorded[{}]", label, mc.level.getDayTime(), mc.level.getRainLevel(1.0F),
+                mc.level.getThunderLevel(1.0F), mc.level.isRaining(), com.vyrriox.justreplay.replay.WorldOverride.recorded());
     }
 
     private static void logWorld(Minecraft mc, ReplaySession s, String label) {
