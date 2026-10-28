@@ -16,6 +16,8 @@ Every integration is optional: it is reached by reflection or by optional mixins
 |---|---|---|
 | **WaterFrames** (WaterMedia) | The play time of a display (`DisplayData.tick`) is rebuilt from the replay cursor: every time the stream loads display data (chunk, block entity update, WaterFrames control packet), the tick it carries is anchored to the recorded tick of that packet. The WaterMedia player then follows it: paused with the replay, played at the replay speed, moved after a seek or when it drifts by more than 1 s. During an export the video is held paused and moved to the exact time of every rendered frame, with its sound muted (the export sound track is built from game sounds only). | Code complete, partly tested: the Arcadia self test placed a frame, but it was placed in the same tick as the recording start and was missed by the recording (see "Known limits"); the self test now places it after the start. Video sync not yet observed in game. |
 | **Emotecraft** (player-animation-lib) | Emotes of other players are recorded as packets. The local player's own emotes (never sent back by the server) are polled every tick and written as the packets another client receives, aimed at the recording player's actor. Snapshots and checkpoints carry the emote each player is playing. A seek starts skipped emotes late by the time skipped, or drops them when they are over. The animation stack follows the replay clock (holds while paused, runs once per recorded tick above x1). Editor actors get an `EMOTE` action (parameter: emote name or UUID). | Tested in the Arcadia pack: the local emote is recorded (`"waving"@20` at recording tick 60), the recorder's actor plays an emote after a seek into it and while paused (its tick was not printed: the diagnostic failed on network emote names, now fixed), no emote after a seek past its end, the `EMOTE` action plays on an actor (`"waving"@11` 11 ticks after the action). |
+| **ParCool** | A client sends its action changes (start, data, finish) to the server as `parcool:action.set` with its UUID; the server sends them to every player, batched in `parcool:action.compose`, and each client runs the action on the player with that UUID, which plays its animation. Other players' actions are recorded and replayed as they are. The recording player gets its own changes back flagged as sent by itself (ignored by ParCool): the recorder writes them for its actor's UUID instead, as received from the server (the packet the live client handles is untouched). Checkpoints and snapshots write the lasting actions (`ContinuableAction` in progress) of every player as a start with their synchronized values, read without touching ParCool's change flags. ParCool's serverbound packets are dropped during a replay. | Compiled against ParCool 4.0.1.6 (NeoForge 21.1.248 or newer), not yet tested in game. |
+| **Better Combat** (player-animation-lib) | A client that attacks plays the animation and sends `bettercombat:attack_animation` (animation, hand, length, upswing, particles; `!STOP!` cancels) to the server, which sends it to the players tracking the attacker with its entity id; their clients play it on that player. Other players' attacks are recorded as they are. The server never sends an attack back to its attacker: the recorder copies the attack the client sends, with the local player's entity id (the actor keeps it), into the recording. Attacks already over at a seek target are dropped. Weapon poses follow the held item. The attack layer follows the replay clock through the player animation library mixins. Better Combat's serverbound packets are dropped during a replay. | Compiled against Better Combat 2.4.0 and player-animation-lib 2.0.4, not yet tested in game. |
 | **Create** (Flywheel, Ponder) | Create's animation clock (`AnimationTickHolder`) and the level renderer clock read by Flywheel's shaders are set to the replay cursor: kinetic visuals stop with the replay, follow its speed and show the same angles after a seek and in exports. The train network packets (track graphs, edge groups, trains, roll calls), sent once per connection, are kept and written again in every snapshot and checkpoint. Contraptions keep their original spawn packets through the existing spawn cache; block entity data travels in chunk packets. | Clock tested in the Arcadia pack (the counter equals the cursor, stays still while paused). Trains and moving contraptions untested. |
 | **Mekanism** | Machines are block entities synced by update packets and chunk data: no dedicated code. | Machine placed in the self test, no error in the log; visuals not inspected. |
 | **Distant Horizons** | The distant terrain (LODs) of the recorded world shows in replays and exports. While recording, the DH level folder of each visited dimension (`IDhApiLevelWrapper.getDhSaveFolder()`, holding `DistantHorizons.sqlite`: `saves/<world>/data`, `saves/<world>/DIM-1/data`... in singleplayer, `Distant_Horizons_server_data/<server>/<dimension>` on a server) is written to `meta.json` (`distantHorizons`, relative to the game folder). When the replay opens, those databases are copied once to `justreplay/dh-session` (DH never opens the originals), and a save structure override (`IDhApiSaveStructure`, only for folders inside the replay world) points the replay world's levels at the copies. The DH world is set read only when its first level loads, before DH opens the database, so neither the void host chunks nor the replayed chunks change the LODs; distant generation is turned off with an API override. The copies are deleted once the replay world has closed. Without a copy (option `playback.distantHorizonsLods` off, recording made before this, missing database, database above `distantHorizonsMaxCopyMb`) LOD rendering is turned off for the replay as before. | Previous version (LODs off) tested with DH 3.3.3. LODs in replays: compiled against DH's public API names, not yet tested in game. |
@@ -29,6 +31,14 @@ Every integration is optional: it is reached by reflection or by optional mixins
 - WaterFrames in exports: WaterMedia seeks are asynchronous, so a video can lag a few frames behind the exported
   time on a fast export.
 - Create trains in a recording started mid-session depend on the kept train network packets; this path is untested.
+- ParCool: the recording player's actions come from the server's echo, so a recording on a server without
+  ParCool has none (ParCool needs it on both sides anyway). Short actions (vault, roll, dodge) cut by a seek are
+  not resumed; only lasting actions are written in checkpoints. ParCool animates players with its own renderer,
+  not the player animation library: its animations may keep moving while the replay is paused (unverified).
+- Better Combat: an attack is replayed from its start when a seek lands in it (the attack animation has no start
+  tick to resume from). Recordings made before this version have no attacks for the recording player.
+- A recording made with a mod that is missing at replay time plays without that mod's packets (logged once per
+  payload as `Skipping recorded ... packets`).
 - Drop the Beam: song, video and image files come from the local caches (`dropthebeam/song-cache`, `video-cache`,
   `image-cache`); a replay watched on another computer that lacks them stays silent or blank, since there is no
   server to send them. A replay recorded before this integration has only the real pongs as clock (one every 2 s,
@@ -165,6 +175,20 @@ fait rien quand le mod est absent. Le code se trouve dans `com.vyrriox.justrepla
   `DropTheBeamCompat.songStartTicks()` donne le tick du replay où chaque morceau commence (et chaque répétition
   d'un morceau en boucle), aussi écrit dans le journal (`Drop the Beam: turntable ...`). Compilé avec les sources
   de Drop the Beam 0.1.0, pas encore testé en jeu.
+- **ParCool** : un client envoie ses changements d'action au serveur (`parcool:action.set`, avec son UUID), le
+  serveur les renvoie à tous les joueurs (`parcool:action.compose`) et chaque client joue l'action, donc son
+  animation, sur le joueur de cet UUID. Les actions des autres joueurs sont enregistrées telles quelles. Le joueur
+  enregistré reçoit aussi les siennes, marquées comme envoyées par lui (ignorées par ParCool) : l'enregistreur les
+  écrit pour l'UUID de son acteur, comme reçues du serveur. Les points de reprise et instantanés contiennent les
+  actions durables en cours de chaque joueur, avec leurs valeurs synchronisées. Les paquets de ParCool vers le
+  serveur sont bloqués pendant un replay. Compilé avec ParCool 4.0.1.6 (NeoForge 21.1.248 ou plus récent), pas
+  encore testé en jeu.
+- **Better Combat** : un client qui attaque joue l'animation et envoie `bettercombat:attack_animation` au
+  serveur, qui la renvoie aux joueurs proches avec l'id d'entité de l'attaquant. Les attaques des autres joueurs
+  sont enregistrées telles quelles ; celle du joueur local (jamais renvoyée) est copiée depuis le paquet envoyé,
+  avec son id d'entité, que l'acteur conserve. Une attaque déjà finie à la cible d'un saut dans le temps est
+  ignorée ; les poses d'arme suivent l'objet tenu. Les paquets de Better Combat vers le serveur sont bloqués
+  pendant un replay. Compilé avec Better Combat 2.4.0 et player-animation-lib 2.0.4, pas encore testé en jeu.
 
 Limites connues : un bloc modifié dans le tick exact où un enregistrement démarre en cours de partie peut
 manquer ; en export, une vidéo WaterFrames peut avoir quelques images de retard ; les trains de Create dans un
@@ -173,4 +197,8 @@ dans ses caches locaux, un replay regardé sur un autre ordinateur qui ne les a 
 musique est coupée hors x1 ; les LOD de Distant Horizons sont ceux présents sur le disque à l'ouverture du
 replay (pas ceux du moment enregistré), absents pour les anciens enregistrements, ceux d'un autre ordinateur et
 les dimensions de mods absentes ; chaque ouverture copie une fois la base de chaque dimension enregistrée, et les
-premières secondes d'un export peuvent montrer les LOD apparaître (augmenter `export.warmupFrames`).
+premières secondes d'un export peuvent montrer les LOD apparaître (augmenter `export.warmupFrames`) ; les
+actions ParCool courtes (saut d'obstacle, roulade, esquive) coupées par un saut dans le temps ne reprennent pas,
+et ses animations peuvent continuer pendant la pause (non vérifié) ; une attaque Better Combat dans laquelle tombe
+un saut dans le temps repart de son début ; les paquets d'un mod absent à la lecture sont ignorés (une ligne
+`Skipping recorded ... packets` par type).
