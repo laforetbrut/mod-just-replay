@@ -188,7 +188,8 @@ public final class AudioPlayer {
         if (source == SoundSource.MASTER || source == SoundSource.MUSIC || source == SoundSource.VOICE) {
             return;
         }
-        float gain = gameGain(s.project()) * SoundKinds.gain(s.project(), sound);
+        float gain = gameGain(s.project()) * SoundKinds.gain(s.project(), sound)
+                * com.vyrriox.justreplay.editor.EntityEdits.soundGain(sound);
         if (gain <= 0.001F) {
             event.setSound(null);
         } else if (Math.abs(gain - 1.0F) > 0.001F && sound.getClass() == SimpleSoundInstance.class && source != SoundSource.RECORDS) {

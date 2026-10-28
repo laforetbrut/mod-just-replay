@@ -66,6 +66,9 @@ NeoForge 1.21.1, client side. Author: vyrriox. License: Apache-2.0.
   Advanced mode adds keyframes at the play head so a day passes or a storm fades in during a shot, freezes
   the time and picks the moon phase. Previews and exports show the same sky, light, rain and sounds, shader
   packs included. Off by default: the recorded time and weather are kept.
+- **Edit recorded entities**: the **Entities** tab hides a recorded player or mob (for the whole replay or
+  before or after the play head), moves it to a new spot with the crosshair, and sets the volume of its sounds
+  (0 to 400%, or muted), in playback and in video exports.
 - **Glass interface**: a clear glass look with rounded corners and smooth animations. The editor has a
   collapsible sidebar (Cameras, Actors, Scene, Export), a bottom dock with the transport controls and a
   zoomable multi-lane timeline (Ctrl + wheel), and a shortcut overlay on **F1** or **?**.
@@ -232,6 +235,9 @@ classes and APIs and include none of their code. Not affiliated with Mojang or M
   pendant un plan, fige l'heure et choisit la phase de la lune. Les aperçus et les exports montrent le même
   ciel, la même lumière, la même pluie et les mêmes sons, shaders compris. Désactivé par défaut : l'heure et
   la météo enregistrées sont conservées.
+- **Modifier les entités enregistrées** : l'onglet **Entités** masque un joueur ou un mob enregistré (pour tout
+  le replay, ou avant ou après la tête de lecture), le déplace au viseur et règle le volume de ses sons (0 à 400 %,
+  ou coupés), en lecture et dans les exports vidéo.
 - **Interface en verre** : un style de verre clair aux coins arrondis et aux animations fluides. L'éditeur a
   un panneau latéral repliable (Caméras, Acteurs, Scène, Export), un dock en bas avec les commandes de
   lecture et une timeline à pistes zoomable (Ctrl + molette), et la liste des raccourcis sur **F1** ou **?**.

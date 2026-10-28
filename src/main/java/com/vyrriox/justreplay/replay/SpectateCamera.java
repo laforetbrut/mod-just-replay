@@ -158,7 +158,8 @@ public final class SpectateCamera {
         Vec3 end = eye.add(look.scale(range));
         AABB box = camera.getBoundingBox().expandTowards(look.scale(range)).inflate(1.0);
         EntityHitResult hit = ProjectileUtil.getEntityHitResult(camera, eye, end, box,
-                e -> e != mc.player && !e.isSpectator() && e.isPickable(), range * range);
+                e -> e != mc.player && !e.isSpectator() && e.isPickable()
+                        && !com.vyrriox.justreplay.editor.EntityEdits.isHidden(e), range * range);
         return hit == null ? null : hit.getEntity();
     }
 }
