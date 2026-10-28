@@ -95,6 +95,8 @@ public final class ReplayProject {
         public boolean hideSkinLayers;
         /** For a recorded player: body parts hidden, a mask of {@link com.vyrriox.justreplay.editor.BodyParts}. */
         public int hiddenParts;
+        /** For a recorded player: skins worn from given ticks, sorted by tick. */
+        public List<SkinChange> skinChanges = new ArrayList<>();
 
         public EntityEdit() {
         }
@@ -110,7 +112,7 @@ public final class ReplayProject {
 
         /** True when the edit changes nothing and can be dropped. */
         public boolean isEmpty() {
-            return !hidden && offsets.isEmpty() && !muted && !hideSkinLayers && hiddenParts == 0 && Math.abs(soundGain - 1.0F) < 0.001F;
+            return !hidden && offsets.isEmpty() && !muted && !hideSkinLayers && hiddenParts == 0 && skinChanges.isEmpty() && Math.abs(soundGain - 1.0F) < 0.001F;
         }
 
         public void normalize() {
@@ -119,9 +121,52 @@ public final class ReplayProject {
             if (offsets == null) offsets = new ArrayList<>();
             offsets.removeIf(k -> k == null);
             offsets.sort(java.util.Comparator.comparingInt(k -> k.tick));
+            skinChanges = SkinChange.normalize(skinChanges);
             hideFrom = Math.max(0, hideFrom);
             if (hideTo < -1) hideTo = -1;
             if (!(soundGain >= 0.0F && soundGain <= 4.0F)) soundGain = 1.0F;
+        }
+    }
+
+    /**
+     * A skin worn from a tick on, until the next change. An empty {@link #file} goes back to the base skin.
+     */
+    public static final class SkinChange {
+        public int tick;
+        public String file = "";
+        public boolean slim;
+
+        public SkinChange() {
+        }
+
+        public SkinChange(int tick, String file, boolean slim) {
+            this.tick = tick;
+            this.file = file == null ? "" : file;
+            this.slim = slim;
+        }
+
+        /** The change in effect at this time (last one with tick at or before it), or null for the base skin. */
+        public static SkinChange at(List<SkinChange> changes, double time) {
+            SkinChange found = null;
+            for (int i = 0, n = changes.size(); i < n; i++) {
+                SkinChange c = changes.get(i);
+                if (c.tick > time) {
+                    break;
+                }
+                found = c;
+            }
+            return found;
+        }
+
+        static List<SkinChange> normalize(List<SkinChange> changes) {
+            List<SkinChange> out = changes == null ? new ArrayList<>() : changes;
+            out.removeIf(c -> c == null);
+            for (SkinChange c : out) {
+                if (c.file == null) c.file = "";
+                c.tick = Math.max(0, c.tick);
+            }
+            out.sort(java.util.Comparator.comparingInt(c -> c.tick));
+            return out;
         }
     }
 
@@ -381,6 +426,8 @@ public final class ReplayProject {
         public boolean hideSkinLayers;
         /** For a player actor: body parts hidden, a mask of {@link com.vyrriox.justreplay.editor.BodyParts}. */
         public int hiddenParts;
+        /** For a player actor: skins worn from given ticks, sorted by tick. */
+        public List<SkinChange> skinChanges = new ArrayList<>();
 
         public boolean isPlayer() {
             return PLAYER.equals(type);
@@ -467,6 +514,7 @@ public final class ReplayProject {
         if (camera(selectedCamera) == null) selectedCamera = cameras.get(0).id;
         for (ActorData actor : actors) {
             if (actor.keyframes == null) actor.keyframes = new ArrayList<>();
+            actor.skinChanges = SkinChange.normalize(actor.skinChanges);
             if (actor.pose == null) actor.pose = "STANDING";
             if (actor.actions == null) actor.actions = new ArrayList<>();
             actor.actions.removeIf(a -> a == null);

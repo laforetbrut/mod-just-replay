@@ -5,6 +5,10 @@
 ### [Unreleased]
 
 #### Added
+- **Timed skin changes**: a player actor or a recorded player can switch skin at a chosen tick ("Skin changes" in
+  the actor screen and in the Entities tab, "Add at cursor"), for staged scenes such as the same skin with blood
+  from tick 120. The change shows in playback and in video exports. "Save current skin" writes the skin shown now
+  into the skins folder as a new PNG, ready to paint on in any image editor.
 - **Skin overlay and body parts**: player actors now show the outer layer of their skin (hat, jacket, sleeves,
   trousers), with a switch to turn it off; recorded players get the same switch in the Entities tab. Each player
   actor or recorded player can also hide its head, body, left or right arm, left or right leg; a hidden arm takes
@@ -222,6 +226,11 @@
 ### [Non publié]
 
 #### Ajouté
+- **Changements de skin datés** : un acteur joueur ou un joueur enregistré peut changer de skin à un tick choisi
+  ("Skin changes" dans l'écran de l'acteur et dans l'onglet Entités, "Add at cursor"), pour des scènes mises en
+  scène comme le même skin couvert de sang à partir du tick 120. Le changement apparaît en lecture et dans les
+  exports vidéo. "Save current skin" enregistre le skin affiché dans le dossier des skins en un nouveau PNG, prêt à
+  être peint dans n'importe quel éditeur d'image.
 - **Surcouche du skin et parties du corps** : les acteurs joueurs affichent désormais la couche extérieure de leur
   skin (chapeau, veste, manches, pantalon), avec un interrupteur pour la retirer ; les joueurs enregistrés ont le
   même interrupteur dans l'onglet Entités. Chaque acteur joueur ou joueur enregistré peut aussi masquer sa tête, son
