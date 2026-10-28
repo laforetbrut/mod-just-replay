@@ -61,7 +61,12 @@ public enum ActionType {
      * Dances on a beat: "style|bpm|origin", origin being the replay tick (decimals allowed) of a beat. Styles: bounce,
      * pump, hands, wave, shuffle, headbang, jump, dj, hakken, jumpstyle. Humanoid actors only.
      */
-    DANCE("DA", Kind.STATE, 0, "bounce|128|0");
+    DANCE("DA", Kind.STATE, 0, "bounce|128|0"),
+    /**
+     * Plays an emote file of the {@code justreplay/emotes} folder on a humanoid actor: "file" or "file:animation",
+     * then optionally "|" and the speed. No other mod needed.
+     */
+    CUSTOM_EMOTE("CE", Kind.STATE, 0, "example_emotes:wave");
 
     public enum Kind { ONE_SHOT, STATE, MARKER }
 

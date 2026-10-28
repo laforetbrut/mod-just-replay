@@ -8,6 +8,10 @@
 - **Sound types** in the editor's Audio tab: the volume of each kind of game sound, from 0 to 400%, in the
   replay and in exports (footsteps, players, blocks, hostile mobs, friendly mobs, ambient, weather, jukebox and note
   blocks).
+- **Custom emotes** for actors, without Emotecraft: drop Blockbench Bedrock animation files (every animation is an
+  emote, linear, step and catmullrom keyframes) or Emotecraft legacy JSON emotes (bend and axis are not played) in
+  `justreplay/emotes/`, then pick them in the new *Custom emote* action (optional "|speed"). Files reload when they
+  change; a broken file is reported once. An example file with a wave and a bow is created on first use.
 
 #### Fixed
 - Footsteps were nearly silent in exported videos: the game plays a step at 15% of its volume and the export
@@ -197,6 +201,11 @@
 - **Types de sons** dans l'onglet Audio de l'éditeur : le volume de chaque type de son du jeu, de 0 à 400 %,
   dans le replay et dans les exports (pas, joueurs, blocs, monstres, animaux, ambiance, météo, jukebox et blocs
   musicaux).
+- **Emotes personnalisées** pour les acteurs, sans Emotecraft : déposer des animations Blockbench Bedrock (chaque
+  animation est une emote, images clés linéaires, en escalier et catmullrom) ou des emotes Emotecraft JSON (le pli
+  et l'axe ne sont pas joués) dans `justreplay/emotes/`, puis les choisir dans la nouvelle action *Custom emote*
+  ("|vitesse" en option). Les fichiers sont relus quand ils changent ; un fichier cassé est signalé une fois. Un
+  fichier d'exemple avec un salut et une révérence est créé au premier usage.
 
 #### Corrigé
 - Les pas étaient presque muets dans les vidéos exportées : le jeu joue un pas à 15 % de son volume et l'export

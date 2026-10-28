@@ -781,5 +781,11 @@
   "justreplay.audio.kind.neutral": "Friendly mobs",
   "justreplay.audio.kind.ambient": "Ambient",
   "justreplay.audio.kind.weather": "Weather",
-  "justreplay.audio.kind.records": "Jukebox and note blocks"
+  "justreplay.audio.kind.records": "Jukebox and note blocks",
+  "justreplay.action.custom_emote": "Custom emote",
+  "justreplay.action.hint.custom_emote": "emote file or file:animation, then |speed (optional)",
+  "justreplay.actor.emote.pick": "Emote",
+  "justreplay.actor.emote.none": "No emote in the emotes folder",
+  "justreplay.actor.emote.broken": "%s emote file(s) could not be read, see the log",
+  "justreplay.actor.emote.folder": "Open the emotes folder"
 }

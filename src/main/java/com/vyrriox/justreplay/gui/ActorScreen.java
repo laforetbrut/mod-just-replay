@@ -1,6 +1,7 @@
 package com.vyrriox.justreplay.gui;
 
 import com.vyrriox.justreplay.editor.ActionType;
+import com.vyrriox.justreplay.editor.EmoteLibrary;
 import com.vyrriox.justreplay.editor.ReplayProject;
 import com.vyrriox.justreplay.editor.SkinLibrary;
 import com.vyrriox.justreplay.editor.model.ModelLibrary;
@@ -223,9 +224,15 @@ public class ActorScreen extends GlassScreen {
         f.next(9);
         f.put(new Dropdown<>(this, Component.empty(), List.of(ActionType.values()), actionType,
                 t -> Component.translatable(t.translationKey()), v -> {
+            boolean rebuild = v == ActionType.CUSTOM_EMOTE || actionType == ActionType.CUSTOM_EMOTE;
             actionType = v;
             param.setValue(defaultParam(v));
             updateHint();
+            if (rebuild) {
+                stashActionFields();
+                pageScroll = area.scrollTarget();
+                rebuildWidgets();
+            }
         }), 0, 2, 6).setHeight(16);
         duration = f.put(field(selected != null ? Integer.toString(selected.duration) : durationValue, "justreplay.actor.action.duration", 7), 2, 1, 6);
         duration.tip(Component.translatable("justreplay.actor.action.duration"));
@@ -234,6 +241,9 @@ public class ActorScreen extends GlassScreen {
         updateHint();
         param.tip(animationsTooltip());
         f.next(16);
+        if (actionType == ActionType.CUSTOM_EMOTE) {
+            initEmotePicker(f);
+        }
         f.put(new GlassButton(Component.translatable("justreplay.actor.action.add"), b -> addAction()).icon(Icon.PLUS)
                 .style(GlassButton.Style.PRIMARY), 0, 2);
         f.put(new GlassButton(Component.translatable("justreplay.actor.action.update"), b -> updateSelected()).icon(Icon.CHECK)
@@ -261,6 +271,32 @@ public class ActorScreen extends GlassScreen {
                         }
                         rebuildWidgets();
                     }));
+        }
+    }
+
+    /** Emote list of the custom emote action, and a button to open the emotes folder. */
+    private void initEmotePicker(Form f) {
+        List<String> ids = EmoteLibrary.list();
+        int broken = EmoteLibrary.broken().size();
+        int w = f.cellWidth(2, 2);
+        if (ids.isEmpty()) {
+            f.at(new GlassButton(Component.translatable("justreplay.actor.emote.none"), b -> {
+            }).icon(Icon.PERSON), 0, w - Theme.ROW - 2);
+        } else {
+            String current = param.getValue().contains("|") ? param.getValue().substring(0, param.getValue().indexOf('|')).trim()
+                    : param.getValue().trim();
+            String initial = ids.contains(current) ? current : null;
+            f.at(new Dropdown<>(this, Component.translatable("justreplay.actor.emote.pick"), ids, initial, Component::literal, v -> {
+                String value = param.getValue();
+                int bar = value.indexOf('|');
+                param.setValue(bar >= 0 ? v + value.substring(bar) : v);
+            }).icon(Icon.PERSON), 0, w - Theme.ROW - 2);
+        }
+        f.at(new GlassButton(Component.empty(), b -> Util.getPlatform().openPath(EmoteLibrary.folder())).icon(Icon.FOLDER)
+                .tip(Component.translatable("justreplay.actor.emote.folder")), w - Theme.ROW, Theme.ROW);
+        f.next();
+        if (broken > 0) {
+            f.paragraph(Component.translatable("justreplay.actor.emote.broken", broken), Theme.TEXT_MUTED);
         }
     }
 
