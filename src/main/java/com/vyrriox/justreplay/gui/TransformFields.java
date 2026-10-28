@@ -2,6 +2,7 @@ package com.vyrriox.justreplay.gui;
 
 import com.vyrriox.justreplay.gui.ui.Form;
 import com.vyrriox.justreplay.gui.ui.GlassButton;
+import com.vyrriox.justreplay.gui.ui.Icon;
 import com.vyrriox.justreplay.gui.ui.GlassTextField;
 import net.minecraft.client.gui.Font;
 import net.minecraft.network.chat.Component;
@@ -97,8 +98,8 @@ final class TransformFields {
                 box.setResponder(s -> dirty = true);
                 box.tip(Component.translatable(labelKeys[i]));
                 fields[i] = f.at(box, x, w - 2 * STEP_W - 2);
-                f.at(new GlassButton(Component.literal("-"), b -> step(index, -1)), x + w - 2 * STEP_W - 1, STEP_W).setHeight(16);
-                f.at(new GlassButton(Component.literal("+"), b -> step(index, 1)), x + w - STEP_W, STEP_W).setHeight(16);
+                f.at(new GlassButton(Component.empty(), b -> step(index, -1)).icon(Icon.MINUS), x + w - 2 * STEP_W - 1, STEP_W).setHeight(16);
+                f.at(new GlassButton(Component.empty(), b -> step(index, 1)).icon(Icon.PLUS), x + w - STEP_W, STEP_W).setHeight(16);
             }
             f.next(16);
         }
