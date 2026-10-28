@@ -27,6 +27,9 @@
   emote, linear, step and catmullrom keyframes) or Emotecraft legacy JSON emotes (bend and axis are not played) in
   `justreplay/emotes/`, then pick them in the new *Custom emote* action (optional "|speed"). Files reload when they
   change; a broken file is reported once. An example file with a wave and a bow is created on first use.
+  Emotecraft binary emotes (`*.emotecraft`) are read too, with their stored name, and the Emotecraft `body` part now
+  moves and turns the whole actor (a headspin plays upside down); new files show up in the picker while it is open,
+  and broken files are listed with their reason.
 - **Weather and time**: a new **World** tab in the editor (Simple and Advanced). Recorded, clear, rain or thunder
   weather, a fixed time of day with presets, keyframes for the time and the rain and thunder strengths, frozen
   time and the moon phase. Identical in previews and exports. Off by default.
@@ -251,6 +254,9 @@
   et l'axe ne sont pas joués) dans `justreplay/emotes/`, puis les choisir dans la nouvelle action *Custom emote*
   ("|vitesse" en option). Les fichiers sont relus quand ils changent ; un fichier cassé est signalé une fois. Un
   fichier d'exemple avec un salut et une révérence est créé au premier usage.
+  Les emotes Emotecraft binaires (`*.emotecraft`) sont lues aussi, avec leur nom, et la partie Emotecraft `body`
+  déplace et tourne maintenant tout l'acteur (un headspin se joue tête en bas) ; les nouveaux fichiers apparaissent
+  dans la liste pendant qu'elle est ouverte, et les fichiers cassés sont listés avec leur raison.
 - **Météo et heure** : nouvel onglet **World** dans l'éditeur (modes Simple et Avancé). Météo enregistrée,
   dégagée, pluie ou orage, heure fixe avec préréglages, keyframes de l'heure et de la force de la pluie et de
   l'orage, heure figée et phase de la lune. Identique dans les aperçus et les exports. Désactivé par défaut.

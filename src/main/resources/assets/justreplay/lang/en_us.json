@@ -832,6 +832,7 @@
   "justreplay.actor.emote.pick": "Emote",
   "justreplay.actor.emote.none": "No emote in the emotes folder",
   "justreplay.actor.emote.broken": "%s emote file(s) could not be read, see the log",
+  "justreplay.actor.emote.broken_file": "Broken: %s (%s)",
   "justreplay.actor.emote.folder": "Open the emotes folder",
   "justreplay.editor.tab.world": "World",
   "justreplay.world.weather": "Weather",

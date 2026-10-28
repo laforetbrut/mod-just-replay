@@ -241,6 +241,24 @@ public final class ActorAnimator {
         EmoteLibrary.apply(model, EmoteLibrary.sample(custom.emote(), ticks));
     }
 
+    /**
+     * Whole-body part of the custom emote of an actor, applied to the pose stack after the renderer's rotations. Costs
+     * one map lookup for entities without a custom emote.
+     */
+    public static void applyCustomEmoteBody(Entity entity, com.mojang.blaze3d.vertex.PoseStack stack) {
+        CustomEmote custom = CUSTOM_EMOTES.get(entity.getId());
+        if (custom == null || !custom.emote().movesWholeBody() || !ActorManager.isActorEntity(entity)) {
+            return;
+        }
+        com.vyrriox.justreplay.replay.ReplaySession session = com.vyrriox.justreplay.replay.ReplaySession.current();
+        if (session == null) {
+            return;
+        }
+        float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+        double ticks = (CameraController.frameTime(session, partial) - custom.start()) * custom.speed();
+        EmoteLibrary.applyWholeBody(stack, EmoteLibrary.sample(custom.emote(), ticks));
+    }
+
     /** Emote and speed of a {@link ActionType#CUSTOM_EMOTE} parameter ("id|speed"); null emote when unknown. */
     public static EmoteLibrary.Emote customEmote(String param, double[] speed) {
         String id = param == null ? "" : param.trim();
