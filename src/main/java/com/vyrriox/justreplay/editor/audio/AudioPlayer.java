@@ -188,10 +188,10 @@ public final class AudioPlayer {
         if (source == SoundSource.MASTER || source == SoundSource.MUSIC || source == SoundSource.VOICE) {
             return;
         }
-        float gain = gameGain(s.project());
+        float gain = gameGain(s.project()) * SoundKinds.gain(s.project(), sound);
         if (gain <= 0.001F) {
             event.setSound(null);
-        } else if (gain < 0.999F && sound.getClass() == SimpleSoundInstance.class && source != SoundSource.RECORDS) {
+        } else if (Math.abs(gain - 1.0F) > 0.001F && sound.getClass() == SimpleSoundInstance.class && source != SoundSource.RECORDS) {
             // Only plain one shot sounds: nobody keeps them to stop them later, so wrapping them is safe.
             event.setSound(new ScaledSoundInstance(sound, gain));
         }

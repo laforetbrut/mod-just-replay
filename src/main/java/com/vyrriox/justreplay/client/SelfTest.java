@@ -57,6 +57,7 @@ public final class SelfTest {
     /** Sounds the recording player made itself, heard again while the replay plays (see recordLocalEffect). */
     private static int localBell;
     private static int localAnvil;
+    private static int replaySteps;
 
     /** Counts, during a replay, the sounds the self test made for its own player while recording. */
     public static void onSound(net.neoforged.neoforge.client.event.sound.PlaySoundEvent event) {
@@ -68,6 +69,8 @@ public final class SelfTest {
             localBell++;
         } else if (id.equals("block.anvil.use")) {
             localAnvil++;
+        } else if (id.endsWith(".step")) {
+            replaySteps++;
         }
     }
     private static int galleryIndex;
@@ -631,7 +634,7 @@ public final class SelfTest {
                         Files.exists(ReplayStorage.exportRoot().resolve("selftest.mp4.audio.log")));
                 log("mods after export: {}", Mods.state(mc, ReplaySession.current()));
                 Mods.logDropTheBeam("after export");
-                log("local effects heard in the replay: bell={} anvil={} (expected at least 1 each)", localBell, localAnvil);
+                log("local effects heard in the replay: bell={} anvil={} footsteps={} (expected at least 1 each)", localBell, localAnvil, replaySteps);
                 log("export frames showing overlays: {} ({} overlays in the project)",
                         com.vyrriox.justreplay.editor.overlay.OverlayRenderer.exportFrames(), ReplaySession.current().project().overlays.size());
                 mc.level.disconnect();
