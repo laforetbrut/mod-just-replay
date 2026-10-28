@@ -38,9 +38,16 @@ final class EntitiesPanel {
     private final EditorScreen screen;
     private final ReplaySession session;
 
+    /** Skin changes section of a selected player; keeps the picked file across refreshes. */
+    private final SkinChangesSection skinSection;
+
     EntitiesPanel(EditorScreen screen, ReplaySession session) {
         this.screen = screen;
         this.session = session;
+        this.skinSection = new SkinChangesSection("justreplay.entities.skinchange", () -> {
+            ReplayProject.EntityEdit e = edit(false);
+            return e == null ? List.of() : e.skinChanges;
+        }, () -> session.playback().cursor(), next -> change(e -> e.skinChanges = next), screen::refresh);
     }
 
     private static Component tc(String key) {
@@ -251,6 +258,10 @@ final class EntitiesPanel {
                     column = 0;
                 }
             }
+            if (column != 0) {
+                f.next();
+            }
+            skinSection.build(f, EntitiesPanel::selectedEntity, () -> labelOf(entity));
         }
 
         f.full(new GlassButton(tc("justreplay.entities.reset"), b -> {

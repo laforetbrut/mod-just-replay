@@ -45,12 +45,29 @@ public final class EntityEdits {
         return s.project().entityEdit(entity.getUUID().toString());
     }
 
-    private static double time() {
+    /** Time of the frame being drawn, in ticks: the same clock for live playback, previews and exports. */
+    public static double time() {
         ReplaySession s = active();
         if (s == null) {
             return 0.0;
         }
         return CameraController.frameTime(s, Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false));
+    }
+
+    /**
+     * Skin of a recorded player at the current frame from its timed skin changes, or null to keep its own skin.
+     * Called for every player at every frame: bails out early when the project has no entity edits.
+     */
+    public static net.minecraft.client.resources.PlayerSkin skinOf(Entity entity) {
+        ReplayProject.EntityEdit edit = editOf(entity);
+        if (edit == null || edit.skinChanges.isEmpty()) {
+            return null;
+        }
+        ReplayProject.SkinChange change = ReplayProject.SkinChange.at(edit.skinChanges, time());
+        if (change == null || change.file.isBlank()) {
+            return null;
+        }
+        return ActorManager.fileSkin(change.file, change.slim);
     }
 
     /** True when the project switches off the outer skin layer of this recorded player. */

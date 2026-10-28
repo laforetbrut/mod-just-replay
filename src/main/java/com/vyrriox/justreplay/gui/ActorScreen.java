@@ -50,6 +50,9 @@ public class ActorScreen extends GlassScreen {
     /** Skin file of a player actor, empty for the skin of the account named by the name field. */
     private String skinFile;
     private boolean slim;
+    /** Timed skin changes of a player actor, copied back on apply. */
+    private final List<ReplayProject.SkinChange> skinChanges = new ArrayList<>();
+    private final SkinChangesSection skinSection;
     /** Field values kept across the two pages. */
     private final String[] values;
 
@@ -77,6 +80,20 @@ public class ActorScreen extends GlassScreen {
         this.hiddenParts = actor.hiddenParts;
         this.skinFile = actor.skin == null ? "" : actor.skin;
         this.slim = actor.slim;
+        for (ReplayProject.SkinChange c : actor.skinChanges) {
+            skinChanges.add(new ReplayProject.SkinChange(c.tick, c.file, c.slim));
+        }
+        Runnable rebuild = () -> {
+            stash();
+            pageScroll = area.scrollTarget();
+            rebuildWidgets();
+        };
+        this.skinSection = new SkinChangesSection("justreplay.actor.skinchange", () -> skinChanges, () -> session.playback().cursor(),
+                next -> {
+                    skinChanges.clear();
+                    skinChanges.addAll(next);
+                    rebuild.run();
+                }, rebuild);
         Pose p;
         try {
             p = Pose.valueOf(actor.pose);
@@ -167,6 +184,9 @@ public class ActorScreen extends GlassScreen {
         f.at(new GlassSwitch(Component.translatable("justreplay.actor.slim"), () -> slim, () -> slim = !slim).icon(Icon.PERSON)
                 .tip(Component.translatable("justreplay.actor.slim.tip")), f.cellX(1, 2), skinW);
         f.next();
+        if (actor.isPlayer()) {
+            skinSection.build(f, () -> session.actors().entityOf(actor), () -> actor.name.isBlank() ? "actor" : actor.name);
+        }
         f.header(Component.translatable("justreplay.actor.section.equipment"), Icon.PUZZLE);
         row = pair(f, 2, "justreplay.actor.mainhand", 3, "justreplay.actor.offhand");
         mainHand = row[0];
@@ -420,6 +440,7 @@ public class ActorScreen extends GlassScreen {
         actor.hiddenParts = hiddenParts;
         actor.skin = skinFile;
         actor.slim = slim;
+        actor.skinChanges = new ArrayList<>(skinChanges);
         actor.actions = new ArrayList<>(actions);
         actor.sort();
         session.actors().refresh(actor);

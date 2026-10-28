@@ -30,6 +30,8 @@ NeoForge 1.21.1, client side. Author: vyrriox. License: Apache-2.0.
   pose, and animate them with keyframes. The recording is never modified, actors live in `project.json`.
 - **Skin files**: drop PNG skins (64x64) in `.minecraft/justreplay/skins/` and give one to a
   player actor in the actor screen ("Skin file", with a "Slim arms" switch). No Mojang account is needed.
+- **Timed skin changes**: switch the skin of a player actor or a recorded player at a chosen tick ("Skin changes",
+  "Add at cursor"). "Save current skin" writes the skin shown now as a PNG in the skins folder, to paint on.
 - **Actor actions**: place timed actions on an actor (walk, run, swing, attack, hurt, death, jump, sit,
   sleep, swim, elytra, use item, shield, bow, eat, wave, dance on the beat, look at, wander...) from the actor panel or the
   actor screen. They show on the timeline and replay identically after a seek.
@@ -191,6 +193,9 @@ classes and APIs and include none of their code. Not affiliated with Mojang or M
 - **Fichiers de skin** : déposer des skins PNG (64x64) dans
   `.minecraft/justreplay/skins/` et en donner un à un acteur joueur dans l'écran de l'acteur ("Skin file", avec
   un interrupteur "Slim arms"). Aucun compte Mojang n'est nécessaire.
+- **Changements de skin datés** : changer le skin d'un acteur joueur ou d'un joueur enregistré à un tick choisi
+  ("Skin changes", "Add at cursor"). "Save current skin" enregistre le skin affiché en PNG dans le dossier des
+  skins, pour le peindre.
 - **Actions d'acteurs** : placer des actions datées sur un acteur (marcher, courir, frapper, attaquer,
   dégâts, mort, sauter, s'asseoir, dormir, nager, élytres, utiliser un objet, bouclier, arc, manger, saluer, danser en rythme,
   regarder, se promener...) depuis le panneau des acteurs ou l'écran de l'acteur. Elles apparaissent sur la

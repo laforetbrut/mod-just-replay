@@ -10,7 +10,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * Player actors wearing a skin file: the skin and arm model come from the file instead of the player list entry.
- * Every other player keeps its vanilla skin.
+ * Recorded players follow the timed skin changes of their entity edit. Every other player keeps its vanilla skin.
  *
  * @author vyrriox
  */
@@ -19,6 +19,9 @@ public abstract class ActorSkinMixin {
     @Inject(method = "getSkin", at = @At("HEAD"), cancellable = true)
     private void justreplay$actorSkin(CallbackInfoReturnable<PlayerSkin> cir) {
         PlayerSkin skin = ActorManager.customSkin((AbstractClientPlayer) (Object) this);
+        if (skin == null) {
+            skin = com.vyrriox.justreplay.editor.EntityEdits.skinOf((AbstractClientPlayer) (Object) this);
+        }
         if (skin != null) {
             cir.setReturnValue(skin);
         }
