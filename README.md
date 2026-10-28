@@ -36,6 +36,9 @@ NeoForge 1.21.1, client side. Author: vyrriox. License: Apache-2.0.
 - **Blockbench models**: drop `.bbmodel` files in `.minecraft/justreplay/models/` and add them as actors with
   **+ Model**. Cubes, groups, embedded or neighbouring PNG textures and animations are supported; pick a
   looping default animation and play others from the timeline with the *Model animation* action.
+- **Custom emotes**: drop Blockbench Bedrock animation files or Emotecraft JSON emotes in
+  `.minecraft/justreplay/emotes/` and play them on player and humanoid actors with the *Custom emote* action. No
+  other mod is needed; an example file (wave and bow) is created in the folder on first use.
 - **Video export**: renders the camera path frame by frame to MP4 through FFmpeg, every frame is exact
   whatever the speed of the machine.
 - **Audio editor**: put OGG or WAV files in `.minecraft/justreplay/audio/` and place them on audio tracks
@@ -188,6 +191,9 @@ classes and APIs and include none of their code. Not affiliated with Mojang or M
   ajouter comme acteurs avec **+ Model**. Cubes, groupes, textures PNG intégrées ou voisines et animations
   sont pris en charge ; choisir une animation par défaut en boucle et jouer les autres depuis la timeline
   avec l'action *Model animation*.
+- **Emotes personnalisées** : déposer des animations Blockbench Bedrock ou des emotes Emotecraft JSON dans
+  `.minecraft/justreplay/emotes/` et les jouer sur les acteurs joueurs et humanoïdes avec l'action *Custom emote*.
+  Aucun autre mod n'est nécessaire ; un fichier d'exemple (salut et révérence) est créé dans le dossier au premier usage.
 - **Export vidéo** : rend le chemin de caméra image par image en MP4 via FFmpeg, chaque image est exacte
   quelle que soit la puissance du PC.
 - **Éditeur audio** : déposer des fichiers OGG ou WAV dans `.minecraft/justreplay/audio/` et les placer sur

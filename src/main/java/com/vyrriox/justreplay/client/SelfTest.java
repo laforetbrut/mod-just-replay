@@ -358,6 +358,15 @@ public final class SelfTest {
                 if (Mods.loaded("emotecraft")) {
                     player.actions.add(new ReplayProject.ActorAction(70, com.vyrriox.justreplay.editor.ActionType.EMOTE, 60, "waving"));
                 }
+                // A custom emote from the emotes folder, no other mod needed.
+                com.vyrriox.justreplay.editor.EmoteLibrary.Emote wave = com.vyrriox.justreplay.editor.EmoteLibrary.get("example_emotes:wave");
+                if (wave != null) {
+                    zombie.actions.add(new ReplayProject.ActorAction(90, com.vyrriox.justreplay.editor.ActionType.CUSTOM_EMOTE, 40, "example_emotes:wave"));
+                    double[][] pose = com.vyrriox.justreplay.editor.EmoteLibrary.sample(wave, 5.0);
+                    log("custom emote {} right arm zRot at tick 5 = {} rad ({} emotes listed)", wave.id,
+                            String.format(java.util.Locale.ROOT, "%.3f", pose[com.vyrriox.justreplay.editor.EmoteLibrary.Bone.RIGHT_ARM.ordinal()][2]),
+                            com.vyrriox.justreplay.editor.EmoteLibrary.list().size());
+                }
                 // Walk from the keyframe to a point 6 blocks away, and the zombie follows the recording player.
                 player.actions.add(new ReplayProject.ActorAction(30, com.vyrriox.justreplay.editor.ActionType.WALK_TO, 0,
                         String.format(java.util.Locale.ROOT, "%.2f %.2f %.2f", c.x + 2, c.y, c.z + 8)));
