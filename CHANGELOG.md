@@ -22,6 +22,13 @@
 - **Weather and time**: a new **World** tab in the editor (Simple and Advanced). Recorded, clear, rain or thunder
   weather, a fixed time of day with presets, keyframes for the time and the rain and thunder strengths, frozen
   time and the moon phase. Identical in previews and exports. Off by default.
+- **ParCool and Better Combat**: the recording player's parkour actions (vault, roll, dodge, wall run, crawl,
+  cling...) and its Better Combat attack animations now play on its actor in the replay, as other clients see
+  them; other players' actions and attacks were already in the recorded packets. Checkpoints carry the lasting
+  ParCool actions of every player, so a seek lands in the right action; attacks already over at a seek target are
+  dropped. Both mods' requests are not sent to the replay host.
+- Recorded packets of a mod that is not installed when the replay plays are now skipped quietly (one line in the
+  log per payload), instead of a warning for every packet.
 
 #### Fixed
 - Footsteps were nearly silent in exported videos: the game plays a step at 15% of its volume and the export
@@ -230,6 +237,14 @@
 - **Météo et heure** : nouvel onglet **World** dans l'éditeur (modes Simple et Avancé). Météo enregistrée,
   dégagée, pluie ou orage, heure fixe avec préréglages, keyframes de l'heure et de la force de la pluie et de
   l'orage, heure figée et phase de la lune. Identique dans les aperçus et les exports. Désactivé par défaut.
+- **ParCool et Better Combat** : les actions de parkour du joueur enregistré (saut d'obstacle, roulade, esquive,
+  course sur les murs, ramper, s'agripper...) et ses animations d'attaque Better Combat sont jouées par son acteur
+  dans le replay, comme les autres clients les voient ; celles des autres joueurs étaient déjà dans les paquets
+  enregistrés. Les points de reprise contiennent les actions ParCool en cours de chaque joueur, un saut dans le
+  temps tombe donc dans la bonne action ; une attaque déjà finie à la cible d'un saut est ignorée. Les requêtes
+  des deux mods ne sont pas envoyées à l'hôte du replay.
+- Les paquets enregistrés d'un mod absent au moment de la lecture sont ignorés sans bruit (une ligne dans le
+  journal par type de paquet) au lieu d'un avertissement par paquet.
 
 #### Corrigé
 - Les pas étaient presque muets dans les vidéos exportées : le jeu joue un pas à 15 % de son volume et l'export

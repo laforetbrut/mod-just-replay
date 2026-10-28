@@ -39,9 +39,15 @@ public abstract class ConnectionMixin {
             at = @At("HEAD"), cancellable = true)
     private void justreplay$onSend(Packet<?> packet, PacketSendListener listener, boolean flush, CallbackInfo ci) {
         Connection self = (Connection) (Object) this;
-        if (self.getSending() == PacketFlow.SERVERBOUND && ReplaySession.shouldBlock(self)
-                && (packet instanceof ServerboundMovePlayerPacket || com.vyrriox.justreplay.compat.ReplayCompat.blockServerbound(packet))) {
-            ci.cancel();
+        if (self.getSending() != PacketFlow.SERVERBOUND) {
+            return;
+        }
+        if (ReplaySession.shouldBlock(self)) {
+            if (packet instanceof ServerboundMovePlayerPacket || com.vyrriox.justreplay.compat.ReplayCompat.blockServerbound(packet)) {
+                ci.cancel();
+            }
+        } else if (!ReplaySession.isReplayConnection(self)) {
+            com.vyrriox.justreplay.compat.ReplayCompat.onLiveServerbound(packet);
         }
     }
 

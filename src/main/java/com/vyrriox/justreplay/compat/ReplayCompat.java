@@ -29,6 +29,8 @@ public final class ReplayCompat {
     static final boolean EMOTECRAFT = isLoaded("emotecraft");
     static final boolean DISTANT_HORIZONS = isLoaded("distanthorizons");
     static final boolean DROP_THE_BEAM = isLoaded("dropthebeam");
+    static final boolean PARCOOL = isLoaded("parcool");
+    static final boolean BETTER_COMBAT = isLoaded("bettercombat");
     private static final Set<String> FAILED = Collections.synchronizedSet(new HashSet<>());
 
     private ReplayCompat() {
@@ -120,6 +122,9 @@ public final class ReplayCompat {
         if (DISTANT_HORIZONS) {
             DistantHorizonsCompat.onReplayStart();
         }
+        if (BETTER_COMBAT) {
+            BetterCombatCompat.onReplayStart();
+        }
         if (DROP_THE_BEAM) {
             ReplaySession session = ReplaySession.current();
             DropTheBeamCompat.onReplayStart(session != null ? session.dir() : null);
@@ -172,12 +177,17 @@ public final class ReplayCompat {
      * it and it must not reach the client (Drop the Beam's clock packets, which belong to the recording process).
      */
     public static boolean consumeRecorded(Packet<?> packet, int tick) {
+        if (BETTER_COMBAT) {
+            BetterCombatCompat.onRecorded(packet);
+        }
         return DROP_THE_BEAM && DropTheBeamCompat.consumeRecorded(packet, tick);
     }
 
     /** A packet the client is about to send to the replay host: true to drop it (requests of mods with no server there). */
     public static boolean blockServerbound(Packet<?> packet) {
-        return DROP_THE_BEAM && DropTheBeamCompat.blockServerbound(packet);
+        return DROP_THE_BEAM && DropTheBeamCompat.blockServerbound(packet)
+                || PARCOOL && ParCoolCompat.blockServerbound(packet)
+                || BETTER_COMBAT && BetterCombatCompat.blockServerbound(packet);
     }
 
     // ---------------------------------------------------------------- recording hooks
@@ -190,6 +200,48 @@ public final class ReplayCompat {
                                      boolean force) {
         if (DISTANT_HORIZONS) {
             DistantHorizonsCompat.describe(meta, level, force);
+        }
+    }
+
+    /**
+     * A packet the client sends on a live connection (any thread): integrations record what the server never sends
+     * back to its sender (Better Combat's attack animations).
+     */
+    public static void onLiveServerbound(Packet<?> packet) {
+        if (BETTER_COMBAT) {
+            try {
+                BetterCombatCompat.onLiveServerbound(packet);
+            } catch (Throwable t) {
+                warnOnce("bettercombat.serverbound", "Cannot record a Better Combat attack", t);
+            }
+        }
+    }
+
+    /**
+     * A captured clientbound packet about to be written into the recording (network thread): returns the packet to
+     * write in its place. ParCool echoes the recording player's own actions back to it under its real UUID; they are
+     * written for its actor, as another client receives them. The packet the client handles is never changed.
+     */
+    public static Packet<?> rewriteRecorded(Packet<?> packet, java.util.UUID localUuid, java.util.UUID actorUuid) {
+        if (PARCOOL) {
+            try {
+                return ParCoolCompat.rewriteRecorded(packet, localUuid, actorUuid);
+            } catch (Throwable t) {
+                warnOnce("parcool.rewrite", "Cannot record the local player's ParCool actions", t);
+            }
+        }
+        return packet;
+    }
+
+    /**
+     * Mod animation state a player is in now (snapshots and checkpoints), written as another client receives it, for
+     * the player with this UUID in the replay (the actor for the recording player).
+     */
+    public static void writePlayerState(net.minecraft.world.entity.player.Player player, java.util.UUID target,
+                                        java.util.function.Consumer<Packet<?>> out) {
+        EmotecraftCompat.writeCurrent(player, target, out);
+        if (PARCOOL) {
+            ParCoolCompat.writeCurrent(player, target, out);
         }
     }
 
@@ -254,7 +306,10 @@ public final class ReplayCompat {
      */
     public static Packet<?> adjustSkipped(Packet<?> packet, int late) {
         if (EMOTECRAFT && late > 0) {
-            return EmotecraftCompat.adjustSkipped(packet, late);
+            packet = EmotecraftCompat.adjustSkipped(packet, late);
+        }
+        if (BETTER_COMBAT && late > 0 && packet != null) {
+            packet = BetterCombatCompat.adjustSkipped(packet, late);
         }
         return packet;
     }

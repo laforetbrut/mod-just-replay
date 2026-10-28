@@ -253,8 +253,16 @@ public final class SelfTest {
                 if (t % 40 == 0 && p.onGround() && !emoting) {
                     p.jumpFromGround();
                 }
+                if (t == 5 && Mods.loaded("bettercombat")) {
+                    // A weapon Better Combat animates: the swings below become its attacks.
+                    p.connection.sendCommand("item replace entity @s weapon.mainhand with minecraft:iron_sword");
+                }
                 if (t % 15 == 0) {
-                    p.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+                    if (Mods.loaded("bettercombat") && t > 5 && mc.screen == null) {
+                        net.minecraft.client.KeyMapping.click(mc.options.keyAttack.getKey());
+                    } else {
+                        p.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+                    }
                 }
                 if (t == 30) {
                     // Effects the client plays for its own player (as for its footsteps and the blocks it places):
@@ -284,6 +292,7 @@ public final class SelfTest {
                             ReplayStorage.readStream(replay).size(), Files.size(replay.resolve(ReplayStorage.STREAM)),
                             folderSize(replay.resolve(com.vyrriox.justreplay.format.Checkpoints.FOLDER)),
                             com.vyrriox.justreplay.format.Checkpoints.list(replay).length);
+                    Mods.logParkourCombat("recorded");
                     mc.level.disconnect();
                     mc.disconnect(new TitleScreen());
                     next(40);
@@ -1114,10 +1123,36 @@ public final class SelfTest {
                     com.vyrriox.justreplay.compat.DropTheBeamCompat.lastExport());
         }
 
+        /**
+         * ParCool actions and Better Combat attacks of the recording player written for its actor (counts since the
+         * game started); nothing when both mods are absent.
+         */
+        static void logParkourCombat(String label) {
+            if (loaded("parcool")) {
+                log("parcool {}: local action changes={} starts={}", label,
+                        com.vyrriox.justreplay.compat.ParCoolCompat.localChanges(),
+                        com.vyrriox.justreplay.compat.ParCoolCompat.localStarts());
+            }
+            if (loaded("bettercombat")) {
+                log("bettercombat {}: local attacks={} cancelled={}", label,
+                        com.vyrriox.justreplay.compat.BetterCombatCompat.localAttacks(),
+                        com.vyrriox.justreplay.compat.BetterCombatCompat.localStops());
+            }
+        }
+
         static String state(Minecraft mc, ReplaySession s) {
-            return "cursor=" + s.playback().cursor() + " createTicks=" + createTicks()
-                    + " recorderEmote=" + com.vyrriox.justreplay.compat.EmotecraftCompat.describe(s.findRecorder(mc))
+            Entity recorder = s.findRecorder(mc);
+            String state = "cursor=" + s.playback().cursor() + " createTicks=" + createTicks()
+                    + " recorderEmote=" + com.vyrriox.justreplay.compat.EmotecraftCompat.describe(recorder)
                     + " waterframes=[" + com.vyrriox.justreplay.compat.WaterFramesCompat.describe() + "]";
+            if (loaded("parcool")) {
+                state += " recorderParcool=" + com.vyrriox.justreplay.compat.ParCoolCompat.describe(recorder);
+            }
+            if (loaded("bettercombat")) {
+                state += " recorderAttack=" + com.vyrriox.justreplay.compat.BetterCombatCompat.describe(recorder)
+                        + " replayedAttacks(all/actor)=" + com.vyrriox.justreplay.compat.BetterCombatCompat.replayed();
+            }
+            return state;
         }
     }
 
