@@ -50,6 +50,10 @@ public final class ActorManager {
     private final Map<String, Entity> spawned = new HashMap<>();
     /** Player actors whose name tag is hidden: players always show theirs, so the tag is cancelled when drawn. */
     private static final java.util.Set<Integer> HIDDEN_NAMES = new java.util.HashSet<>();
+    /** Player actors drawn without the outer layer of their skin. */
+    private static final java.util.Set<Integer> NO_SKIN_LAYERS = new java.util.HashSet<>();
+    /** Body parts hidden on player actors, by entity id (see {@link BodyParts}). */
+    private static final java.util.Map<Integer, Integer> HIDDEN_PARTS = new java.util.HashMap<>();
     private final Map<String, Integer> ids = new HashMap<>();
     /** Player actors wearing a skin file, by entity id; read by the skin mixin. */
     private static final Map<Integer, SkinRef> CUSTOM_SKINS = new HashMap<>();
@@ -170,6 +174,17 @@ public final class ActorManager {
             // Picks up a model file edited in Blockbench meanwhile.
             com.vyrriox.justreplay.editor.model.ModelLibrary.reload(actor.model);
         }
+    }
+
+    /** Body parts hidden on a player actor (see {@link BodyParts}). */
+    public static int hiddenParts(Entity entity) {
+        Integer mask = HIDDEN_PARTS.get(entity.getId());
+        return mask == null ? 0 : mask;
+    }
+
+    /** True for a player actor whose outer skin layer is switched off. */
+    public static boolean hidesSkinLayers(Entity entity) {
+        return isActorEntity(entity) && NO_SKIN_LAYERS.contains(entity.getId());
     }
 
     /** True for a player actor whose name tag is switched off. */
@@ -302,6 +317,16 @@ public final class ActorManager {
             }
         }
         entity.setId(ids.computeIfAbsent(actor.id, k -> nextId--));
+        if (actor.isPlayer() && (actor.hiddenParts & BodyParts.ALL) != 0) {
+            HIDDEN_PARTS.put(entity.getId(), actor.hiddenParts & BodyParts.ALL);
+        } else {
+            HIDDEN_PARTS.remove(entity.getId());
+        }
+        if (actor.isPlayer() && actor.hideSkinLayers) {
+            NO_SKIN_LAYERS.add(entity.getId());
+        } else {
+            NO_SKIN_LAYERS.remove(entity.getId());
+        }
         if (actor.isPlayer() && !actor.showName) {
             HIDDEN_NAMES.add(entity.getId());
         } else {

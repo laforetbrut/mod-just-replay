@@ -234,6 +234,24 @@ final class EntitiesPanel {
             ReplayProject.EntityEdit e = edit(false);
             return e != null && e.muted;
         }, () -> change(e -> e.muted = !e.muted)).icon(Icon.SPEAKER_OFF));
+        if (entity instanceof net.minecraft.world.entity.player.Player) {
+            f.full(new GlassSwitch(tc("justreplay.entities.skinlayers"), () -> {
+                ReplayProject.EntityEdit e = edit(false);
+                return e == null || !e.hideSkinLayers;
+            }, () -> change(e -> e.hideSkinLayers = !e.hideSkinLayers)).icon(Icon.PERSON).tip(tc("justreplay.entities.skinlayers.tip")));
+            f.paragraph(tc("justreplay.bodyparts.title"), Theme.TEXT_MUTED);
+            int column = 0;
+            for (com.vyrriox.justreplay.editor.BodyParts.Part part : com.vyrriox.justreplay.editor.BodyParts.PARTS) {
+                f.put(new GlassSwitch(tc("justreplay.bodyparts." + part.key()), () -> {
+                    ReplayProject.EntityEdit e = edit(false);
+                    return e == null || (e.hiddenParts & part.bit()) == 0;
+                }, () -> change(e -> e.hiddenParts ^= part.bit())), column, 2);
+                if (++column == 2) {
+                    f.next();
+                    column = 0;
+                }
+            }
+        }
 
         f.full(new GlassButton(tc("justreplay.entities.reset"), b -> {
             session.project().entityEdits.removeIf(e -> e.uuid.equals(uuid.toString()));

@@ -53,6 +53,12 @@ public final class EntityEdits {
         return CameraController.frameTime(s, Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false));
     }
 
+    /** True when the project switches off the outer skin layer of this recorded player. */
+    public static boolean hidesSkinLayers(Entity entity) {
+        ReplayProject.EntityEdit edit = editOf(entity);
+        return edit != null && edit.hideSkinLayers;
+    }
+
     public static boolean isHidden(Entity entity) {
         ReplayProject.EntityEdit edit = editOf(entity);
         return edit != null && edit.hiddenAt(time());

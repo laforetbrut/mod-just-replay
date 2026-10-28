@@ -91,6 +91,10 @@ public final class ReplayProject {
         public List<ActorKeyframe> offsets = new ArrayList<>();
         public float soundGain = 1.0F;
         public boolean muted;
+        /** For a recorded player: hides the outer layer of its skin (hat, jacket, sleeves, trousers). */
+        public boolean hideSkinLayers;
+        /** For a recorded player: body parts hidden, a mask of {@link com.vyrriox.justreplay.editor.BodyParts}. */
+        public int hiddenParts;
 
         public EntityEdit() {
         }
@@ -106,7 +110,7 @@ public final class ReplayProject {
 
         /** True when the edit changes nothing and can be dropped. */
         public boolean isEmpty() {
-            return !hidden && offsets.isEmpty() && !muted && Math.abs(soundGain - 1.0F) < 0.001F;
+            return !hidden && offsets.isEmpty() && !muted && !hideSkinLayers && hiddenParts == 0 && Math.abs(soundGain - 1.0F) < 0.001F;
         }
 
         public void normalize() {
@@ -373,6 +377,10 @@ public final class ReplayProject {
         public String skin = "";
         /** Slim (Alex) arms for a player actor wearing a skin file. */
         public boolean slim;
+        /** For a player actor: hides the outer layer of its skin (hat, jacket, sleeves, trousers), shown by default. */
+        public boolean hideSkinLayers;
+        /** For a player actor: body parts hidden, a mask of {@link com.vyrriox.justreplay.editor.BodyParts}. */
+        public int hiddenParts;
 
         public boolean isPlayer() {
             return PLAYER.equals(type);
