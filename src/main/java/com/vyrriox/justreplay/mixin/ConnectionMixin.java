@@ -38,6 +38,13 @@ public abstract class ConnectionMixin {
     @Inject(method = "send(Lnet/minecraft/network/protocol/Packet;Lnet/minecraft/network/PacketSendListener;Z)V",
             at = @At("HEAD"), cancellable = true)
     private void justreplay$onSend(Packet<?> packet, PacketSendListener listener, boolean flush, CallbackInfo ci) {
+        if (packet instanceof net.minecraft.network.protocol.game.ClientboundUpdateRecipesPacket && ReplaySession.current() != null
+                && ((Connection) (Object) this).getSending() == PacketFlow.CLIENTBOUND) {
+            // The replay world's own server has nothing to say about recipes (the recording carries its own), and a
+            // recipe it cannot encode would close the replay.
+            ci.cancel();
+            return;
+        }
         Connection self = (Connection) (Object) this;
         if (self.getSending() != PacketFlow.SERVERBOUND) {
             return;
