@@ -141,9 +141,9 @@ folder (`run/`). The file lists steps run in order:
 
 | Step | Fields |
 |---|---|
-| `record` | `world` (folder of `saves/`, required), `commands` (list, or one string split on `;`, run as an operator), `delay` (seconds before recording, 5), `seconds` (length, 60) |
+| `record` | `world` (folder of `saves/`, required), `commands` (list, or one string split on `;`, run as an operator), `delay` (seconds before recording, counted in server ticks from the moment the commands ran, 5), `seconds` (length, 60) |
 | `open` | `replay` (folder of `justreplay/replays/`; left out, the last recording of this job), `delay` (seconds after it starts, 5) |
-| `shots` | `ticks` (list, required), `prefix` (`scene`): one screenshot per tick in `screenshots/<prefix>-<tick>.png` |
+| `shots` | `ticks` (list, required), `prefix` (`scene`): one screenshot per tick in `screenshots/<prefix>-<tick>.png`. The replay plays the second before each tick, so mobs move and particles show as in an export |
 | `export` | `start`, `end` (ticks, required), `name` (`scene`), `resolution` (`window`, `720p`, `1080p`, `1440p`, `2160p`; `1080p`) or `width` and `height`, `fps` (10 to 240, 60), `crf` (0 to 51, 16), `format` (`mp4` or `png`, `mp4`) |
 | `quit` | none; the game also quits after the last step |
 
@@ -151,6 +151,13 @@ Durations are in seconds and can be fractional. Shots and exports follow the cam
 project (`project.json`). An MP4 goes to `justreplay/exports/<name>.mp4`; a PNG sequence goes to the folder
 `justreplay/exports/<name>/` (`frame_00000.png`, ... and `audio.wav` when there is sound). An existing export is
 never overwritten: the new one gets `_2`, `_3`... Job exports never change the export settings of the config.
+
+To line up events with the recording, a `record` step writes in the replay's `meta.json` the game time of tick 0
+(`startGameTime`) and the replay tick its commands ran at (`sceneCommandsTick`, negative). An event scheduled
+`n` ticks after the commands (`/schedule function ... <n>t`) happens at replay tick `sceneCommandsTick + n`.
+
+In `project.json`, a camera keyframe `y` is the height of the feet: the view is 1.62 blocks above it, like a
+player's eyes. Aim a hand-written keyframe from `y + 1.62`.
 
 Every step is logged with the `SCENE` prefix, so a caller can follow the log: `SCENE step 2/6 open: ...`,
 `SCENE replay folder: <name>`, `SCENE screenshot at tick 100: <file>`, `SCENE export finished: <file> (<n>
@@ -286,9 +293,9 @@ La propriété Gradle `-Pjob` règle la propriété JVM `justreplay.job` ; un ch
 
 | Étape | Champs |
 |---|---|
-| `record` | `world` (dossier de `saves/`, obligatoire), `commands` (liste, ou une chaîne coupée sur `;`, lancées en opérateur), `delay` (secondes avant l'enregistrement, 5), `seconds` (durée, 60) |
+| `record` | `world` (dossier de `saves/`, obligatoire), `commands` (liste, ou une chaîne coupée sur `;`, lancées en opérateur), `delay` (secondes avant l'enregistrement, comptées en ticks serveur depuis l'exécution des commandes, 5), `seconds` (durée, 60) |
 | `open` | `replay` (dossier de `justreplay/replays/` ; absent, le dernier enregistrement de la tâche), `delay` (secondes après le démarrage, 5) |
-| `shots` | `ticks` (liste, obligatoire), `prefix` (`scene`) : une capture par tick dans `screenshots/<prefix>-<tick>.png` |
+| `shots` | `ticks` (liste, obligatoire), `prefix` (`scene`) : une capture par tick dans `screenshots/<prefix>-<tick>.png`. Le replay joue la seconde qui précède chaque tick, pour que les mobs bougent et que les particules s'affichent comme dans un export |
 | `export` | `start`, `end` (ticks, obligatoires), `name` (`scene`), `resolution` (`window`, `720p`, `1080p`, `1440p`, `2160p` ; `1080p`) ou `width` et `height`, `fps` (10 à 240, 60), `crf` (0 à 51, 16), `format` (`mp4` ou `png`, `mp4`) |
 | `quit` | aucun ; le jeu se ferme aussi après la dernière étape |
 
@@ -297,6 +304,14 @@ du projet du replay (`project.json`). Un MP4 va dans `justreplay/exports/<name>.
 le dossier `justreplay/exports/<name>/` (`frame_00000.png`, ... et `audio.wav` s'il y a du son). Un export
 existant n'est jamais écrasé : le nouveau prend `_2`, `_3`... Les exports d'une tâche ne touchent jamais aux
 réglages d'export de la config.
+
+Pour caler des événements sur l'enregistrement, une étape `record` écrit dans le `meta.json` du replay le temps
+de jeu du tick 0 (`startGameTime`) et le tick du replay où ses commandes ont tourné (`sceneCommandsTick`,
+négatif). Un événement programmé `n` ticks après les commandes (`/schedule function ... <n>t`) arrive au tick
+`sceneCommandsTick + n` du replay.
+
+Dans `project.json`, le `y` d'une keyframe de caméra est la hauteur des pieds : la vue est 1,62 bloc au-dessus,
+comme les yeux d'un joueur. Viser depuis `y + 1.62` pour une keyframe écrite à la main.
 
 Chaque étape est écrite dans le log avec le préfixe `SCENE`, pour qu'un outil suive l'avancement :
 `SCENE step 2/6 open: ...`, `SCENE replay folder: <nom>`, `SCENE screenshot at tick 100: <fichier>`,

@@ -32,6 +32,7 @@ public enum ActionType {
     EAT("EA", Kind.STATE, 0, ""),
     AGGRESSIVE("AG", Kind.STATE, 0, ""),
     WAVE("WV", Kind.STATE, 0, ""),
+    /** Points the right arm straight ahead; with a target ("camera" or an actor name) head and arm aim at it. */
     POINT("PT", Kind.STATE, 0, ""),
     CHEER("CH", Kind.STATE, 0, ""),
     HANDS_UP("HU", Kind.STATE, 0, ""),
@@ -55,11 +56,14 @@ public enum ActionType {
     ANIMATION("AN", Kind.STATE, 0, ""),
     /** Sends a vanilla entity event byte (the parameter) to the entity when the play head passes it. */
     ENTITY_EVENT("EV", Kind.ONE_SHOT, 0, "4"),
-    /** Plays an Emotecraft emote on a player actor; the parameter is the emote name (or UUID). Needs Emotecraft. */
+    /**
+     * Plays an Emotecraft emote on a player actor: the emote name, its file name or UUID, then optionally "|" and the
+     * speed. Needs Emotecraft.
+     */
     EMOTE("EM", Kind.STATE, 0, "waving"),
     /**
      * Dances on a beat: "style|bpm|origin", origin being the replay tick (decimals allowed) of a beat. Styles: bounce,
-     * pump, hands, wave, shuffle, headbang, jump, dj, hakken, jumpstyle. Humanoid actors only.
+     * pump, hands, wave, shuffle, headbang, jump, dj, hakken, jumpstyle. Other actors bounce and sway on the beat.
      */
     DANCE("DA", Kind.STATE, 0, "bounce|128|0"),
     /**

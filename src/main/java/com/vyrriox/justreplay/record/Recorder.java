@@ -528,6 +528,7 @@ public final class Recorder {
         try {
             c.attach(mc, listener, at -> {
                 r.startTick = at;
+                r.meta.startGameTime = gameTime(mc);
                 return data -> r.writer.write(0, data);
             }, () -> {
                 c.recording = r;
@@ -542,6 +543,25 @@ public final class Recorder {
             r.writer.close();
             c.endIfIdle();
             return false;
+        }
+    }
+
+    /** Game time of the integrated server (all its levels share it), or of the client level, or -1. */
+    public static long gameTime(Minecraft mc) {
+        net.minecraft.client.server.IntegratedServer server = mc.getSingleplayerServer();
+        if (server != null && server.overworld() != null) {
+            return server.overworld().getGameTime();
+        }
+        return mc.level == null ? -1 : mc.level.getGameTime();
+    }
+
+    /** Scene jobs: notes in the running recording the game time its commands ran at (see {@link ReplayMeta#sceneCommandsTick}). */
+    public static void noteSceneCommands(long gameTime) {
+        Recorder c = capture;
+        Recording r = c == null ? null : c.recording;
+        if (r != null && gameTime >= 0 && r.meta.startGameTime >= 0) {
+            r.meta.sceneCommandsTick = (int) (gameTime - r.meta.startGameTime);
+            ReplayStorage.writeMeta(r.dir, r.meta);
         }
     }
 

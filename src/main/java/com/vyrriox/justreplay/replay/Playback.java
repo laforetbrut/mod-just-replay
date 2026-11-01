@@ -59,6 +59,8 @@ public final class Playback {
     private int[] checkpoints = new int[0];
     private final ChunkRetention chunks = new ChunkRetention();
     private int seekCount;
+    /** Tick {@link #playTo} pauses on, or -1. */
+    private int pauseAt = -1;
 
     public Playback(PacketStream packets, int durationTicks) {
         this.packets = packets;
@@ -80,6 +82,16 @@ public final class Playback {
 
     public void setPaused(boolean paused) {
         this.paused = paused;
+        pauseAt = -1;
+    }
+
+    /**
+     * Plays from the cursor and pauses on {@code target}: entities, particles and the world tick on the way, which a
+     * seek alone does not do.
+     */
+    public void playTo(int target) {
+        paused = target <= cursor;
+        pauseAt = paused ? -1 : Math.min(duration, target);
     }
 
     /** Number of seeks so far; anything that follows the replay clock resynchronizes when it changes. */
@@ -128,6 +140,11 @@ public final class Playback {
                     cursor++;
                     flushTo(cursor);
                     lastStep++;
+                    if (pauseAt >= 0 && cursor >= pauseAt) {
+                        paused = true;
+                        pauseAt = -1;
+                        break;
+                    }
                 }
             } else {
                 paused = true;
@@ -148,6 +165,7 @@ public final class Playback {
     public void seek(int target) {
         target = Math.max(0, Math.min(duration, target));
         seekCount++;
+        pauseAt = -1;
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         Vec3 camPos = player != null ? player.position() : null;

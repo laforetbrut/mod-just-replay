@@ -42,7 +42,7 @@ import java.util.Map;
  * @author vyrriox
  */
 public final class ActorAnimator {
-    public enum Gesture { WAVE, POINT, CHEER, HANDS_UP }
+    public enum Gesture { WAVE, POINT, POINT_AT, CHEER, HANDS_UP }
 
     public enum DanceStyle { BOUNCE, PUMP, HANDS, WAVE, SHUFFLE, HEADBANG, JUMP, DJ, HAKKEN, JUMPSTYLE }
 
@@ -144,6 +144,8 @@ public final class ActorAnimator {
         double[] anchor;
         double[] follow;
         int lastFollowCursor = Integer.MIN_VALUE;
+        float flap;
+        int lastFlapCursor = Integer.MIN_VALUE;
     }
 
     /** Everything an actor shows at one tick. */
@@ -171,7 +173,7 @@ public final class ActorAnimator {
     }
 
     /** Arm gestures for humanoid models, after vanilla posed them. */
-    public static void applyGesture(Entity entity, float ageInTicks, ModelPart rightArm, ModelPart leftArm) {
+    public static void applyGesture(Entity entity, float ageInTicks, ModelPart head, ModelPart rightArm, ModelPart leftArm) {
         if (!ActorManager.isActorEntity(entity)) {
             return;
         }
@@ -180,10 +182,10 @@ public final class ActorAnimator {
             // A dancer gets its gesture after the dance poses the arms.
             return;
         }
-        applyGestureArms(gesture, ageInTicks, rightArm, leftArm);
+        applyGestureArms(gesture, ageInTicks, head, rightArm, leftArm);
     }
 
-    private static void applyGestureArms(Gesture gesture, float ageInTicks, ModelPart rightArm, ModelPart leftArm) {
+    private static void applyGestureArms(Gesture gesture, float ageInTicks, ModelPart head, ModelPart rightArm, ModelPart leftArm) {
         switch (gesture) {
             case WAVE -> {
                 rightArm.xRot = 0.0F;
@@ -193,6 +195,12 @@ public final class ActorAnimator {
             case POINT -> {
                 rightArm.xRot = (float) (-Math.PI / 2.0);
                 rightArm.yRot = -0.1F;
+                rightArm.zRot = 0.0F;
+            }
+            case POINT_AT -> {
+                // The head already looks at the target: the arm follows it, like a drawn bow.
+                rightArm.xRot = (float) (-Math.PI / 2.0) + head.xRot;
+                rightArm.yRot = -0.1F + head.yRot;
                 rightArm.zRot = 0.0F;
             }
             case CHEER -> {
@@ -261,6 +269,11 @@ public final class ActorAnimator {
 
     /** Emote and speed of a {@link ActionType#CUSTOM_EMOTE} parameter ("id|speed"); null emote when unknown. */
     public static EmoteLibrary.Emote customEmote(String param, double[] speed) {
+        return EmoteLibrary.get(emoteName(param, speed));
+    }
+
+    /** Name and speed of an emote parameter ("name|speed", the speed 1 when left out, at least 0.05). */
+    public static String emoteName(String param, double[] speed) {
         String id = param == null ? "" : param.trim();
         speed[0] = 1.0;
         int bar = id.indexOf('|');
@@ -271,7 +284,7 @@ public final class ActorAnimator {
             }
             id = id.substring(0, bar).trim();
         }
-        return EmoteLibrary.get(id);
+        return id;
     }
 
     public static void applyDance(Entity entity, net.minecraft.client.model.HumanoidModel<?> model) {
@@ -419,7 +432,7 @@ public final class ActorAnimator {
         model.hat.copyFrom(model.head);
         Gesture gesture = GESTURES.get(entity.getId());
         if (gesture != null) {
-            applyGestureArms(gesture, entity.tickCount + partial, rightArm, leftArm);
+            applyGestureArms(gesture, entity.tickCount + partial, model.head, rightArm, leftArm);
         }
     }
 
@@ -627,6 +640,16 @@ public final class ActorAnimator {
             if (!f.sit && f.pose == Pose.STANDING) {
                 f.y += f.dance.hop(t);
             }
+        } else if (dance != null && entity != null && !f.sit && f.pose == Pose.STANDING) {
+            // No arms to dance with: the whole body bounces on every beat (or hops, for the hopping styles) and sways
+            // from side to side over two beats.
+            Dance d = Dance.parse(dance.param, actor.id);
+            double beats = d.beats(t);
+            double hop = d.hop(t);
+            f.y += hop > 0.0 ? hop : 0.12 * d.energy() * Math.abs(Math.sin(Math.PI * beats));
+            float sway = (float) (9.0 * d.energy() * Math.sin(Math.PI * beats * 0.5));
+            f.yaw += sway;
+            f.headYaw += sway;
         }
 
         int jump = elapsedSince(actions, t, ActionType.JUMP);
@@ -676,6 +699,15 @@ public final class ActorAnimator {
         ReplayProject.ActorAction gesture = activeState(actions, t, ActionType.WAVE, ActionType.POINT, ActionType.CHEER, ActionType.HANDS_UP);
         if (gesture != null) {
             f.gesture = Gesture.valueOf(gesture.actionType().name());
+            if (f.gesture == Gesture.POINT && gesture.param != null && !gesture.param.isBlank()) {
+                // POINT with a target ("camera" or an actor name): head and arm aim at it. Without one the arm points
+                // straight ahead along the actor's facing.
+                Vec3 target = lookTarget(gesture.param, project, actor, t);
+                if (target != null) {
+                    lookAt(f, target, entity);
+                    f.gesture = Gesture.POINT_AT;
+                }
+            }
         }
 
         ReplayProject.ActorAction look = activeState(actions, t, ActionType.LOOK_AT, ActionType.LOOK_AROUND);
@@ -687,19 +719,24 @@ public final class ActorAnimator {
             } else {
                 Vec3 target = lookTarget(look.param, project, actor, t);
                 if (target != null) {
-                    double eye = entity != null ? entity.getEyeHeight() : 1.62;
-                    double dx = target.x - f.x;
-                    double dy = target.y - (f.y + eye);
-                    double dz = target.z - f.z;
-                    double horizontal = Math.sqrt(dx * dx + dz * dz);
-                    float wanted = (float) (Mth.atan2(-dx, dz) * Mth.RAD_TO_DEG);
-                    float relative = Mth.clamp(Mth.wrapDegrees(wanted - f.yaw), -75.0F, 75.0F);
-                    f.headYaw = f.yaw + relative;
-                    f.pitch = Mth.clamp((float) (-Mth.atan2(dy, horizontal) * Mth.RAD_TO_DEG), -80.0F, 80.0F);
+                    lookAt(f, target, entity);
                 }
             }
         }
         return f;
+    }
+
+    /** Turns the head of a frame towards a point, within what a neck allows. */
+    private static void lookAt(Frame f, Vec3 target, Entity entity) {
+        double eye = entity != null ? entity.getEyeHeight() : 1.62;
+        double dx = target.x - f.x;
+        double dy = target.y - (f.y + eye);
+        double dz = target.z - f.z;
+        double horizontal = Math.sqrt(dx * dx + dz * dz);
+        float wanted = (float) (Mth.atan2(-dx, dz) * Mth.RAD_TO_DEG);
+        float relative = Mth.clamp(Mth.wrapDegrees(wanted - f.yaw), -75.0F, 75.0F);
+        f.headYaw = f.yaw + relative;
+        f.pitch = Mth.clamp((float) (-Mth.atan2(dy, horizontal) * Mth.RAD_TO_DEG), -80.0F, 80.0F);
     }
 
     // ---------------------------------------------------------------- movement
@@ -970,6 +1007,9 @@ public final class ActorAnimator {
         if (entity instanceof LivingEntity living) {
             applyLiving(living, now, before, state, paused);
         }
+        if (entity instanceof net.minecraft.world.entity.boss.enderdragon.EnderDragon dragon) {
+            applyDragon(actor, project, dragon, cursor, paused, state, now, before, fallback);
+        }
 
         if (now.gesture != null) {
             GESTURES.put(entity.getId(), now.gesture);
@@ -995,12 +1035,15 @@ public final class ActorAnimator {
         if (entity instanceof Player) {
             ReplayProject.ActorAction emote = activeState(actor.actions, cursor, ActionType.EMOTE);
             if (emote != null && emote.param != null && !emote.param.isBlank()) {
-                int emoteTick = Math.max(0, emote.clipFrom) + cursor - emote.tick;
+                double[] emoteSpeed = {1.0};
+                String emoteName = emoteName(emote.param, emoteSpeed);
+                double emoteTick = Math.max(0, emote.clipFrom) + (cursor - emote.tick) * emoteSpeed[0];
                 if (emote.clipTo >= 0 && emoteTick > emote.clipTo) {
                     // Past the end of the clip: Emotecraft has no clip, so the emote stops there.
                     com.vyrriox.justreplay.compat.EmotecraftCompat.stopActorEmote(entity);
                 } else {
-                    com.vyrriox.justreplay.compat.EmotecraftCompat.applyActorEmote(entity, emote.param, emoteTick);
+                    com.vyrriox.justreplay.compat.EmotecraftCompat.applyActorEmote(entity, emoteName, emote.tick,
+                            emote.clipFrom, emoteSpeed[0], cursor);
                 }
             } else {
                 com.vyrriox.justreplay.compat.EmotecraftCompat.stopActorEmote(entity);
@@ -1079,6 +1122,49 @@ public final class ActorAnimator {
         before.y = paused ? now.y : prev[1];
         before.z = paused ? now.z : prev[2];
         before.yaw = paused ? now.yaw : (float) prev[3];
+    }
+
+    /** Ticks of heading history the dragon renderer reads: the body lags 7 ticks, the tail up to 24. */
+    private static final int DRAGON_HISTORY = 26;
+
+    /**
+     * The dragon renderer takes its heading, body tilt, neck and tail from the dragon's own flight history and its
+     * wings from {@code flapTime}, both advanced by a tick the actor never runs. The history is rebuilt from the
+     * actor's frames of the last ticks, so it turns in place and stays right after a seek, and the wings beat faster
+     * when it hovers, like vanilla. A dragon faces the opposite way of other mobs for the same yaw: it is turned so an
+     * actor yaw means the same heading for every actor.
+     */
+    private void applyDragon(ReplayProject.ActorData actor, ReplayProject project,
+                             net.minecraft.world.entity.boss.enderdragon.EnderDragon dragon, int cursor, boolean paused,
+                             State state, Frame now, Frame before, double[] fallback) {
+        dragon.posPointer = dragon.positions.length - 1;
+        for (int k = 0; k < DRAGON_HISTORY; k++) {
+            Frame f = k == 0 ? now : k == 1 && !paused ? before : frame(actor, project, cursor - k, dragon, fallback);
+            double[] slot = dragon.positions[(dragon.posPointer - k) & (dragon.positions.length - 1)];
+            slot[0] = Mth.wrapDegrees(f.yaw + 180.0F);
+            slot[1] = f.y;
+            slot[2] = 0.0;
+        }
+        if (paused) {
+            dragon.oFlapTime = dragon.flapTime = state.flap;
+            state.lastFlapCursor = cursor;
+            return;
+        }
+        float old = state.flap;
+        if (cursor == state.lastFlapCursor + 1) {
+            double dx = now.x - before.x;
+            double dz = now.z - before.z;
+            float rate = 0.2F / ((float) Math.sqrt(dx * dx + dz * dz) * 10.0F + 1.0F);
+            rate *= (float) Math.pow(2.0, now.y - before.y);
+            state.flap += rate;
+        } else if (cursor != state.lastFlapCursor) {
+            // A seek: start the beat from the play head so the same tick always shows the same wings.
+            state.flap = cursor * 0.2F;
+            old = state.flap;
+        }
+        state.lastFlapCursor = cursor;
+        dragon.oFlapTime = old;
+        dragon.flapTime = state.flap;
     }
 
     private void applyLiving(LivingEntity living, Frame now, Frame before, State state, boolean paused) {

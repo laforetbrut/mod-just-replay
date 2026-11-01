@@ -31,4 +31,14 @@ public final class ReplayMeta {
      * DH's database, relative to the game folder. Empty for recordings made without DH or before this field existed.
      */
     public Map<String, String> distantHorizons = new ConcurrentHashMap<>();
+    /**
+     * Game time of the server of a singleplayer recording (the client's otherwise) at tick 0, or -1 when unknown. An
+     * event scheduled at game time {@code g} happens at replay tick {@code g - startGameTime}.
+     */
+    public long startGameTime = -1;
+    /**
+     * Scene jobs: replay tick at which the step's commands ran, negative since they run before the recording starts.
+     * Null outside scene jobs and in recordings made before this field existed.
+     */
+    public Integer sceneCommandsTick;
 }

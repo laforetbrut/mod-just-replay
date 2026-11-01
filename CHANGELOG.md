@@ -4,6 +4,26 @@
 
 ### [Unreleased]
 
+#### Changed
+- **EMOTE action**: takes a speed like *Custom emote* (`name|speed`), finds an emote by its file name as well as its
+  display name or UUID (`palm` for Emotecraft's Face palm), and follows the replay clock frame by frame, so it stays
+  in sync in slow motion, after a seek and in exports.
+- **POINT action**: still points straight ahead along the actor's facing; with `camera` or an actor name as the
+  parameter, the head and the arm aim at it.
+- **DANCE action**: actors that are not humanoid (creepers, animals...) bounce on the beat and sway, and hop for the
+  hopping styles, instead of standing still.
+- **Scene jobs**: the `delay` of a `record` step counts server ticks from the moment the commands ran, so events
+  scheduled by the commands land on the same replay tick in every take. `meta.json` gets `startGameTime` and
+  `sceneCommandsTick` to line events up without measuring. `shots` play the second before each tick, so live mobs
+  and particles show as they do in an export.
+
+#### Fixed
+- Emotecraft emotes played with *Custom emote* (JSON and `.emotecraft`) sank the legs under the floor and pulled
+  the arms off the shoulders: their limb positions are where the part is, not how far it moved, and were counted
+  twice (laforetbrut/mod-just-replay#2).
+- An Ender Dragon actor never turned in place and never flapped its wings: its heading, neck and tail now follow
+  the actor's yaw keys, and its wings beat, faster when it hovers.
+
 ### [1.0.7] - 2026-11-01
 
 #### Fixed
@@ -250,6 +270,26 @@
 ## Français
 
 ### [Non publié]
+
+#### Modifié
+- **Action EMOTE** : accepte une vitesse comme *Custom emote* (`nom|vitesse`), trouve une emote par son nom de
+  fichier en plus de son nom affiché ou de son UUID (`palm` pour le Face palm d'Emotecraft), et suit l'horloge du
+  replay image par image : elle reste synchronisée au ralenti, après un saut dans le temps et dans les exports.
+- **Action POINT** : pointe toujours droit devant, dans la direction de l'acteur ; avec `camera` ou un nom d'acteur
+  en paramètre, la tête et le bras visent la cible.
+- **Action DANCE** : les acteurs non humanoïdes (creepers, animaux...) rebondissent sur le temps et se balancent, et
+  sautent pour les styles sautés, au lieu de rester immobiles.
+- **Tâches de scène** : le `delay` d'une étape `record` compte les ticks serveur depuis l'exécution des commandes,
+  donc les événements qu'elles programment tombent au même tick du replay à chaque prise. `meta.json` reçoit
+  `startGameTime` et `sceneCommandsTick` pour caler les événements sans mesurer. Les `shots` jouent la seconde qui
+  précède chaque tick, pour que les mobs vivants et les particules s'affichent comme dans un export.
+
+#### Corrigé
+- Les emotes Emotecraft jouées avec *Custom emote* (JSON et `.emotecraft`) enfonçaient les jambes dans le sol et
+  détachaient les bras des épaules : leurs positions de membres indiquent où est la partie, pas de combien elle a
+  bougé, et étaient comptées deux fois (laforetbrut/mod-just-replay#2).
+- Un acteur Ender Dragon ne tournait jamais sur place et ne battait jamais des ailes : son cap, son cou et sa queue
+  suivent maintenant les clés d'orientation de l'acteur, et ses ailes battent, plus vite quand il fait du surplace.
 
 ### [1.0.7] - 2026-11-01
 

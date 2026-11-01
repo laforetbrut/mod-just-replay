@@ -142,12 +142,18 @@ public final class SceneRecorder {
     }
 
     /** Runs commands as the player of the integrated server, with operator rights. */
-    static void runCommands(Minecraft mc, java.util.List<String> commands) {
+    /**
+     * Runs commands on the integrated server as an operator. Returns the server game time they ran at, set once they
+     * did (-1 until then, and for good without a server or commands).
+     */
+    static java.util.concurrent.atomic.AtomicLong runCommands(Minecraft mc, java.util.List<String> commands) {
+        java.util.concurrent.atomic.AtomicLong ranAt = new java.util.concurrent.atomic.AtomicLong(-1);
         IntegratedServer server = mc.getSingleplayerServer();
         if (server == null || commands.stream().allMatch(String::isBlank)) {
-            return;
+            return ranAt;
         }
         server.execute(() -> {
+            ranAt.set(server.overworld().getGameTime());
             ServerPlayer player = server.getPlayerList().getPlayers().isEmpty() ? null : server.getPlayerList().getPlayers().get(0);
             if (player == null) {
                 return;
@@ -159,6 +165,7 @@ public final class SceneRecorder {
                 }
             }
         });
+        return ranAt;
     }
 
     private static int savedCrf = -1;

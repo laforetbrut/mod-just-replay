@@ -257,8 +257,19 @@ public final class EmotecraftCompat {
 
     // ---------------------------------------------------------------- editor actors
 
-    /** The emote of the local emote list with this name (or UUID), or null. */
+    /**
+     * The emote of the local emote list with this name, UUID or file name ({@code palm} for {@code palm.json}, an
+     * emote bundled with Emotecraft or a file of the {@code emotes} folder), or null.
+     */
     private static Object findEmote(Reflect r, String name) throws Exception {
+        Object found = findListed(r, name);
+        if (found == null) {
+            found = findByFile(r, name);
+        }
+        return found;
+    }
+
+    private static Object findListed(Reflect r, String name) throws Exception {
         String wanted = normalize(name);
         if (wanted.isEmpty()) {
             return null;
@@ -295,11 +306,110 @@ public final class EmotecraftCompat {
         return s == null ? "" : s.toLowerCase(Locale.ROOT).replaceAll("[^\\p{L}\\p{N}]", "");
     }
 
+    /** File names already looked up and the listed emote they hold. */
+    private static final Map<String, Object> BY_FILE = new java.util.HashMap<>();
+    /** File names that matched nothing, with the time they may be read again: an action asks every tick. */
+    private static final Map<String, Long> MISSED = new java.util.HashMap<>();
+    private static final long MISS_RETRY_MS = 5000;
+
     /**
-     * Makes an actor play the named emote at a tick of the emote; restarts it when it drifted (after a seek). Does
+     * The listed emote read from a file of that name: Emotecraft keeps no file name, so the file is read with its own
+     * reader and matched to the list by UUID or content.
+     */
+    private static Object findByFile(Reflect r, String name) {
+        String base = name == null ? "" : name.trim();
+        if (base.isEmpty() || base.contains("/") || base.contains("\\") || base.contains("..")) {
+            return null;
+        }
+        String key = base.toLowerCase(Locale.ROOT);
+        Object cached = BY_FILE.get(key);
+        if (cached != null) {
+            return cached;
+        }
+        Long retry = MISSED.get(key);
+        if (retry != null && System.currentTimeMillis() < retry) {
+            return null;
+        }
+        Object found = null;
+        try {
+            for (Object parsed : readFile(base)) {
+                found = sameEmote(r, parsed);
+                if (found != null) {
+                    break;
+                }
+            }
+        } catch (Throwable t) {
+            ReplayCompat.warnOnce("emotecraft.file." + base, "Cannot read the emote file " + base, t);
+        }
+        if (found != null) {
+            BY_FILE.put(key, found);
+            MISSED.remove(key);
+        } else {
+            // A file added or loaded by Emotecraft later is found on a later try.
+            MISSED.put(key, System.currentTimeMillis() + MISS_RETRY_MS);
+        }
+        return found;
+    }
+
+    /** Emotes read from {@code emotes/<base>.*} in the game folder, then from Emotecraft's bundled emotes. */
+    private static java.util.List<?> readFile(String base) throws Exception {
+        ClassLoader loader = EmotecraftCompat.class.getClassLoader();
+        Class<?> serializer = Class.forName("io.github.kosmx.emotes.server.serializer.UniversalEmoteSerializer", false, loader);
+        Method read = serializer.getMethod("readData", java.io.InputStream.class, String.class);
+        java.util.List<Object> out = new java.util.ArrayList<>();
+        java.nio.file.Path dir = net.neoforged.fml.loading.FMLPaths.GAMEDIR.get().resolve("emotes");
+        if (java.nio.file.Files.isDirectory(dir)) {
+            try (java.util.stream.Stream<java.nio.file.Path> files = java.nio.file.Files.list(dir)) {
+                for (java.nio.file.Path file : (Iterable<java.nio.file.Path>) files::iterator) {
+                    String fileName = file.getFileName().toString();
+                    int dot = fileName.lastIndexOf('.');
+                    if (dot > 0 && fileName.substring(0, dot).equalsIgnoreCase(base) && java.nio.file.Files.isRegularFile(file)) {
+                        try (java.io.InputStream in = java.nio.file.Files.newInputStream(file)) {
+                            out.addAll((java.util.List<?>) read.invoke(null, in, fileName));
+                        }
+                    }
+                }
+            }
+        }
+        String resource = "assets/emotecraft/emotes/" + base.toLowerCase(Locale.ROOT) + ".json";
+        try (java.io.InputStream in = serializer.getClassLoader().getResourceAsStream(resource)) {
+            if (in != null) {
+                out.addAll((java.util.List<?>) read.invoke(null, in, base + ".json"));
+            }
+        }
+        return out;
+    }
+
+    /** The listed emote with the UUID or the content of {@code parsed}, or null. */
+    private static Object sameEmote(Reflect r, Object parsed) throws Exception {
+        Object uuid = r.animUuid.invoke(parsed);
+        for (Object anim : (Collection<?>) r.emoteList.invoke(null)) {
+            if (anim.equals(parsed) || uuid != null && uuid.equals(r.animUuid.invoke(anim))) {
+                return anim;
+            }
+        }
+        return null;
+    }
+
+    /** Where an actor emote is in its animation: the action tick, the first emote tick and the speed. */
+    private record ActorClock(int actionTick, int clipFrom, double speed) {
+        double emoteTime(double replayTime) {
+            return clipFrom + Math.max(0.0, replayTime - actionTick) * speed;
+        }
+    }
+
+    /** Emote players driven by an EMOTE action: their tick follows the replay clock, not their own tick. */
+    private static final Map<Object, ActorClock> CLOCKS = new WeakHashMap<>();
+    private static Field currentTick;
+    private static Field loopStarted;
+    private static boolean clockFailed;
+
+    /**
+     * Makes an actor play the named emote, from emote tick {@code clipFrom} at replay tick {@code actionTick}, at a
+     * speed. The emote then follows the replay clock frame by frame (pause, seeks, slow motion and exports). Does
      * nothing when Emotecraft is missing, the actor is not a player or no emote has that name.
      */
-    public static void applyActorEmote(Entity actor, String name, int tick) {
+    public static void applyActorEmote(Entity actor, String name, int actionTick, int clipFrom, double speed, int cursor) {
         Reflect r = reflect();
         if (r == null || !r.playerEntity.isInstance(actor)) {
             return;
@@ -310,19 +420,73 @@ public final class EmotecraftCompat {
                 ReplayCompat.warnOnce("emotecraft.unknown." + name, "No emote named " + name, null);
                 return;
             }
+            ActorClock clock = new ActorClock(actionTick, Math.max(0, clipFrom), speed);
+            int tick = (int) Math.floor(clock.emoteTime(cursor));
             if (!r.isInfinite.getBoolean(anim) && !(boolean) r.isPlayingAt.invoke(anim, tick)) {
                 stopActorEmote(actor);
                 return;
             }
             Object emote = playing(r, actor);
             Object current = emote == null ? null : r.emoteData.invoke(emote);
+            boolean clocked = emote != null && !clockFailed && CLOCKS.containsKey(emote);
             int currentTick = emote == null ? Integer.MIN_VALUE : (int) r.emoteTick.invoke(emote);
-            if (current != anim || Math.abs(currentTick - tick) > 2) {
+            if (current != anim || !clocked && Math.abs(currentTick - tick) > 2) {
                 r.playEmote.invoke(actor, anim, tick, false);
                 ACTOR_EMOTES.put(actor, anim);
+                emote = playing(r, actor);
+            }
+            if (emote != null) {
+                CLOCKS.put(emote, clock);
             }
         } catch (Throwable t) {
             ReplayCompat.warnOnce("emotecraft.actor", "Cannot play an emote on an actor", t);
+        }
+    }
+
+    /** True for an emote player an EMOTE action drives: its own tick is skipped. */
+    public static boolean isClocked(Object animationPlayer) {
+        return !clockFailed && !CLOCKS.isEmpty() && CLOCKS.containsKey(animationPlayer);
+    }
+
+    /**
+     * Moves an emote player an EMOTE action drives to the replay time of the frame and returns the tick delta it
+     * renders with, or NaN for any other animation player.
+     */
+    public static float clockDelta(Object animationPlayer) {
+        ActorClock clock = isClocked(animationPlayer) ? CLOCKS.get(animationPlayer) : null;
+        com.vyrriox.justreplay.replay.ReplaySession session = com.vyrriox.justreplay.replay.ReplaySession.current();
+        if (clock == null || session == null) {
+            return Float.NaN;
+        }
+        try {
+            if (currentTick == null) {
+                Class<?> player = Class.forName("dev.kosmx.playerAnim.api.layered.KeyframeAnimationPlayer", false,
+                        EmotecraftCompat.class.getClassLoader());
+                currentTick = player.getDeclaredField("currentTick");
+                currentTick.setAccessible(true);
+                loopStarted = player.getDeclaredField("isLoopStarted");
+                loopStarted.setAccessible(true);
+            }
+            Reflect r = reflect();
+            Object anim = r.emoteData.invoke(animationPlayer);
+            float partial = net.minecraft.client.Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+            double time = clock.emoteTime(com.vyrriox.justreplay.editor.CameraController.frameTime(session, partial));
+            int tick = (int) Math.floor(time);
+            Class<?> data = anim.getClass();
+            if (r.isInfinite.getBoolean(anim)) {
+                int end = data.getField("endTick").getInt(anim);
+                int back = data.getField("returnToTick").getInt(anim);
+                if (tick > end) {
+                    tick = back + Math.floorMod(tick - back, Math.max(1, end - back + 1));
+                    loopStarted.setBoolean(animationPlayer, true);
+                }
+            }
+            currentTick.setInt(animationPlayer, tick);
+            return (float) (time - Math.floor(time));
+        } catch (Throwable t) {
+            clockFailed = true;
+            ReplayCompat.warnOnce("emotecraft.clock", "Actor emotes cannot follow the replay clock, they play at their own pace", t);
+            return Float.NaN;
         }
     }
 

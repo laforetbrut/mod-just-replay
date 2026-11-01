@@ -461,13 +461,23 @@ public final class EmoteLibrary {
         return bone == null ? -1 : bone.ordinal();
     }
 
-    /** Fills the keys of an Emotecraft emote from {@code part * CHANNELS + channel} lists (sorted in place). */
+    /**
+     * Fills the keys of an Emotecraft emote from {@code part * CHANNELS + channel} lists (sorted in place). Emotecraft
+     * stores the position of a limb where the part is (an arm at x -5, a leg at y 12), not how far it moved: the rest
+     * position is taken off so the channels hold offsets, like Bedrock animations.
+     */
     static void fillEmotecraft(Emote emote, Map<Integer, List<Key>> channels, int begin, int end, int last) {
         emote.length = Math.max(1, Math.max(end, last));
         for (Map.Entry<Integer, List<Key>> entry : channels.entrySet()) {
             List<Key> keys = entry.getValue();
             if (keys.isEmpty()) {
                 continue;
+            }
+            int bone = entry.getKey() / CHANNELS;
+            int channel = entry.getKey() % CHANNELS;
+            if (bone < WHOLE && channel >= 3) {
+                double rest = REST[bone][channel - 3];
+                keys.replaceAll(k -> new Key(k.t, k.pre - rest, k.post - rest, k.mode));
             }
             keys.sort((a, b) -> Double.compare(a.t, b.t));
             if (keys.get(0).t > begin) {
