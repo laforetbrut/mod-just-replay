@@ -48,6 +48,8 @@
   twice (laforetbrut/mod-just-replay#2).
 - An Ender Dragon actor never turned in place and never flapped its wings: its heading, neck and tail now follow
   the actor's yaw keys, and its wings beat, faster when it hovers.
+- After the start of a replay or a seek, the replay camera stayed attached to the world from before, so mods that
+  reach the world through the player (Sable creating its airships) acted on a world no longer shown.
 
 ### [1.0.7] - 2026-11-01
 
@@ -345,6 +347,9 @@
   bougé, et étaient comptées deux fois (laforetbrut/mod-just-replay#2).
 - Un acteur Ender Dragon ne tournait jamais sur place et ne battait jamais des ailes : son cap, son cou et sa queue
   suivent maintenant les clés d'orientation de l'acteur, et ses ailes battent, plus vite quand il fait du surplace.
+- Après le début d'un replay ou un saut dans le temps, la caméra du replay restait rattachée au monde d'avant : les
+  mods qui passent par le joueur pour trouver le monde (Sable qui crée ses dirigeables) agissaient sur un monde qui
+  n'était plus affiché.
 
 ### [1.0.7] - 2026-11-01
 
