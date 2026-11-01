@@ -237,6 +237,18 @@ public final class Recorder {
         }
     }
 
+    /**
+     * A clientbound packet the client received outside of its connection (Sable's sub-level poses, sent over UDP or
+     * handed over directly in singleplayer), recorded as if it had come through the connection. Any thread.
+     */
+    public static void recordSideChannel(Packet<?> packet) {
+        Recorder c = capture;
+        if (c == null || (c.recording == null && c.buffer == null) || ReplaySession.current() != null) {
+            return;
+        }
+        c.capture(packet);
+    }
+
     /** Tick of the running recording (0 at its start), or 0. */
     public int tick() {
         Recording r = recording;

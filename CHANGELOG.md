@@ -4,6 +4,13 @@
 
 ### [Unreleased]
 
+#### Added
+- **Sable and Create Aeronautics**: airships and other Sable sub-levels now move in replays instead of standing
+  frozen or showing up empty. Their poses, which skip the connection (a direct call in singleplayer, Sable's UDP
+  channel in multiplayer), are recorded and handed to Sable's interpolation at their tick; snapshots and checkpoints
+  write every sub-level, so recordings started mid-flight and seeks work; sub-level chunks are no longer refused as
+  out of range; the replay world's own server can no longer send poses of its own. See `docs/COMPATIBILITY.md`.
+
 ### [1.0.7] - 2026-11-01
 
 #### Fixed
@@ -250,6 +257,14 @@
 ## Français
 
 ### [Non publié]
+
+#### Ajouté
+- **Sable et Create Aeronautics** : les dirigeables et autres sous-niveaux de Sable bougent maintenant dans les
+  replays au lieu de rester figés ou d'être vides. Leurs poses, envoyées hors de la connexion (appel direct en solo,
+  canal UDP en multijoueur), sont enregistrées et rendues à l'interpolation de Sable à leur tick ; les instantanés
+  et points de reprise écrivent chaque sous-niveau, pour les enregistrements démarrés en plein vol et les sauts dans
+  le temps ; les chunks des sous-niveaux ne sont plus refusés comme trop lointains ; le serveur du monde de replay
+  ne peut plus envoyer ses propres poses. Voir `docs/COMPATIBILITY.md`.
 
 ### [1.0.7] - 2026-11-01
 

@@ -13,6 +13,8 @@
     "LevelRendererClockMixin",
     "PlayerAnimKeyframeMixin",
     "PlayerAnimStackMixin",
+    "SableLocalPoseMixin",
+    "SableUdpPoseMixin",
     "SectionBufferGuardMixin",
     "WaterFramesControlMixin",
     "WaterFramesDataMixin"
