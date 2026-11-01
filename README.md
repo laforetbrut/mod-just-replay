@@ -18,6 +18,8 @@ NeoForge 1.21.1, client side. Author: vyrriox. License: Apache-2.0.
   entity and modded renderer follows the replay clock.
 - **Editor** (key **G**): timeline with markers, camera keyframes and actor keyframes, drag keyframes to
   retime them, smooth Catmull-Rom camera path with roll and field of view.
+- **Timeline tools**: insert or remove time at the play head to shift every later edit (the recording does
+  not move), duplicate an actor, save the play head frame as a PNG still from the export dialog.
 - **Simple and Advanced modes**: the editor opens in Simple mode, with big buttons and plain words for a
   first video (camera points, characters, markers, one-click export). Switch to Advanced in the top bar for
   every tool; both modes work on the same project.
@@ -185,6 +187,9 @@ classes and APIs and include none of their code. Not affiliated with Mojang or M
   vanilla, donc toutes les entités et les rendus des mods suivent l'horloge du replay.
 - **Éditeur** (touche **G**) : timeline avec marqueurs, keyframes de caméra et d'acteurs, keyframes
   déplaçables à la souris, chemin de caméra lissé (Catmull-Rom) avec roulis et champ de vision.
+- **Outils de timeline** : insérer ou retirer du temps à la tête de lecture pour décaler tout le montage qui
+  suit (l'enregistrement ne bouge pas), dupliquer un acteur, enregistrer l'image de la tête de lecture en PNG
+  depuis la fenêtre d'export.
 - **Modes Simple et Avancé** : l'éditeur s'ouvre en mode Simple, avec de grands boutons et des mots simples
   pour une première vidéo (points de caméra, personnages, marqueurs, export en un clic). Passer en Avancé
   dans la barre du haut pour tous les outils ; les deux modes travaillent sur le même projet.

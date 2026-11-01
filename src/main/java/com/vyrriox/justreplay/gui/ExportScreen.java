@@ -103,6 +103,8 @@ public class ExportScreen extends GlassScreen {
 
         f.space(2);
         f.text(this::rangeLine, Theme.TEXT);
+        f.full(new GlassButton(Component.translatable("justreplay.export.still"), b -> saveStill()).icon(Icon.CAMERA)
+                .tip(Component.translatable("justreplay.export.still.tip")));
         f.text(() -> error, Theme.DANGER);
         int content = f.end() + 2;
         boxH = Math.min(content + 28 + 36, height - 16);
@@ -128,6 +130,21 @@ public class ExportScreen extends GlassScreen {
     private static Component qualityName(int crf) {
         String key = crf <= 18 ? "lossless" : crf <= 23 ? "high" : crf <= 28 ? "medium" : "low";
         return Component.translatable("justreplay.export.quality." + key);
+    }
+
+    /** Keeps the settings of the dialog in the config, as an export does. */
+    private void saveSettings() {
+        JRConfig.FFMPEG_PATH.set(ffmpeg.getValue().trim().isEmpty() ? "ffmpeg" : ffmpeg.getValue().trim());
+        JRConfig.EXPORT_FPS.set(fps);
+        JRConfig.EXPORT_CRF.set(crf);
+        JRConfig.EXPORT_RESOLUTION.set(resolution);
+        JRConfig.SPEC.save();
+    }
+
+    /** Renders the play head frame at the export size into one PNG. */
+    private void saveStill() {
+        saveSettings();
+        error = VideoExporter.saveStill(session, session.playback().cursor(), fileName.getValue(), VideoExporter.Settings.fromConfig());
     }
 
     private void start() {

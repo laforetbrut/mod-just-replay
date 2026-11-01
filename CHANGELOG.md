@@ -4,6 +4,16 @@
 
 ### [Unreleased]
 
+#### Added
+- Duplicate actor: a Duplicate button in the actor panel copies the selected actor with its look, skin,
+  model, scale, hidden parts, skin changes, keyframes and actions, one block aside, and selects the copy.
+- Save still: a button in the export dialog renders the play head frame at the export size, with effects,
+  letterbox and overlays, and saves it as `exports/<name>_still_<tick>.png` without overwriting older ones.
+- Insert time and Remove time in the Scene tab: a ripple edit at the play head that pushes every later edit
+  (camera keyframes, actor keyframes and actions, markers, cuts, audio clips, effect and overlay keyframes,
+  overlay times, world keyframes, entity edits) later, or deletes a range and pulls the rest earlier. The
+  recording itself does not move.
+
 #### Changed
 - **EMOTE action**: takes a speed like *Custom emote* (`name|speed`), finds an emote by its file name as well as its
   display name or UUID (`palm` for Emotecraft's Face palm), and follows the replay clock frame by frame, so it stays
@@ -270,6 +280,18 @@
 ## Français
 
 ### [Non publié]
+
+#### Ajouté
+- Dupliquer un acteur : un bouton Dupliquer dans le panneau des acteurs copie l'acteur choisi avec son
+  apparence, son skin, son modèle, son échelle, ses parties cachées, ses changements de skin, ses keyframes
+  et ses actions, un bloc à côté, et sélectionne la copie.
+- Image fixe : un bouton de la fenêtre d'export rend l'image de la tête de lecture à la taille d'export,
+  avec effets, bandes noires et overlays, et l'enregistre en `exports/<nom>_still_<tick>.png` sans écraser
+  les précédentes.
+- Insérer du temps et Retirer du temps dans l'onglet Scène : un montage en décalage à la tête de lecture qui
+  repousse tout ce qui suit (keyframes de caméra, keyframes et actions d'acteurs, marqueurs, coupes, clips
+  audio, keyframes d'effets et d'overlays, temps des overlays, keyframes du monde, modifications d'entités),
+  ou supprime une plage et ramène le reste plus tôt. L'enregistrement lui-même ne bouge pas.
 
 #### Modifié
 - **Action EMOTE** : accepte une vitesse comme *Custom emote* (`nom|vitesse`), trouve une emote par son nom de
