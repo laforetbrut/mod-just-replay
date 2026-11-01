@@ -4,6 +4,8 @@
 
 ### [Unreleased]
 
+### [1.0.8] - 2026-11-01
+
 #### Added
 - Duplicate actor: a Duplicate button in the actor panel copies the selected actor with its look, skin,
   model, scale, hidden parts, skin changes, keyframes and actions, one block aside, and selects the copy.
@@ -297,6 +299,8 @@
 ## Français
 
 ### [Non publié]
+
+### [1.0.8] - 2026-11-01
 
 #### Ajouté
 - Dupliquer un acteur : un bouton Dupliquer dans le panneau des acteurs copie l'acteur choisi avec son
