@@ -32,6 +32,8 @@ public final class ReplayCompat {
     static final boolean PARCOOL = isLoaded("parcool");
     static final boolean BETTER_COMBAT = isLoaded("bettercombat");
     static final boolean MORPH = isLoaded("morph");
+    static final boolean SABLE = isLoaded("sable");
+    static final boolean AERONAUTICS = isLoaded("aeronautics");
     private static final Set<String> FAILED = Collections.synchronizedSet(new HashSet<>());
 
     private ReplayCompat() {
@@ -137,7 +139,14 @@ public final class ReplayCompat {
         if (DISTANT_HORIZONS && !ReplaySession.isRunning()) {
             DistantHorizonsCompat.recoverAfterInterruptedReplay();
         }
+        if (SABLE && !sableChecked) {
+            // Resolved once up front, so the detection line (or the failure) shows in the log at startup.
+            sableChecked = true;
+            SableCompat.reflect();
+        }
     }
+
+    private static boolean sableChecked;
 
     /** Called every client tick of a running replay, after the playback tick. */
     public static void tick(Minecraft mc, ReplaySession session) {
@@ -185,6 +194,22 @@ public final class ReplayCompat {
             return true;
         }
         return DROP_THE_BEAM && DropTheBeamCompat.consumeRecorded(packet, tick);
+    }
+
+    /**
+     * A recorded packet about to be handled, after the generic filters: returns the packet to handle in its place, or
+     * null to drop it (Sable payloads meant for the live player only, pose timing scaled to the playback speed).
+     */
+    public static Packet<?> filterPlayback(Packet<?> packet) {
+        if (SABLE) {
+            packet = SableCompat.filterPlayback(packet, playback());
+        }
+        return packet;
+    }
+
+    /** True for a chunk of a mod's far away storage area that must stay loaded whatever the camera distance (Sable plots). */
+    public static boolean isDetachedChunk(int x, int z) {
+        return SABLE && SableCompat.isPlotChunk(x, z);
     }
 
     /** A packet the client is about to send to the replay host: true to drop it (requests of mods with no server there). */
@@ -274,6 +299,13 @@ public final class ReplayCompat {
 
     /** Mod state a snapshot or checkpoint must write because the server sends it only on a change. */
     public static void writeSnapshot(java.util.function.Consumer<Packet<?>> out) {
+        if (SABLE) {
+            try {
+                SableCompat.writeSnapshot(out);
+            } catch (Throwable t) {
+                warnOnce("sable.snapshot", "Cannot write the Sable sub-levels into the snapshot", t);
+            }
+        }
         if (DROP_THE_BEAM) {
             try {
                 DropTheBeamCompat.writeSnapshot(out);

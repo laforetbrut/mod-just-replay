@@ -298,6 +298,10 @@ public final class Playback {
         if (PacketFilter.shouldDrop(packet)) {
             return;
         }
+        packet = (Packet<? super ClientGamePacketListener>) com.vyrriox.justreplay.compat.ReplayCompat.filterPlayback(packet);
+        if (packet == null) {
+            return;
+        }
         if (recorded.tick() < skippingTo) {
             // Mod state with its own clock (emotes) starts late by the time skipped, or not at all once over.
             packet = (Packet<? super ClientGamePacketListener>) com.vyrriox.justreplay.compat.ReplayCompat.adjustSkipped(packet,

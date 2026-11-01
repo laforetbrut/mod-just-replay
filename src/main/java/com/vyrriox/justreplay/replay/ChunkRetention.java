@@ -61,6 +61,11 @@ final class ChunkRetention {
             centerX = center.getX();
             centerZ = center.getZ();
         } else if (packet instanceof ClientboundLevelChunkWithLightPacket chunk) {
+            if (com.vyrriox.justreplay.compat.ReplayCompat.isDetachedChunk(chunk.getX(), chunk.getZ())) {
+                // A Sable sub-level chunk: stored by Sable in its far plot area, drawn wherever the sub-level is, and
+                // never to be dropped (Sable refuses it). Neither range checked nor evicted.
+                return packet;
+            }
             // Same range test as the client chunk storage, which would only log a warning for each refused chunk.
             int range = Math.max(2, storageRadius()) + 3;
             if (Math.abs(chunk.getX() - centerX) > range || Math.abs(chunk.getZ() - centerZ) > range) {

@@ -23,6 +23,11 @@
   with its transitions (morph and demorph). Recordings started while morphed and seeks show the right form, a
   transition cut by a seek resumes where it should, and the form holds while the replay is paused and follows its
   speed. Morph's own screens and HUD data of the recording player are not replayed.
+- **Sable and Create Aeronautics**: airships and other Sable sub-levels now move in replays instead of standing
+  frozen or showing up empty. Their poses, which skip the connection (a direct call in singleplayer, Sable's UDP
+  channel in multiplayer), are recorded and handed to Sable's interpolation at their tick; snapshots and checkpoints
+  write every sub-level, so recordings started mid-flight and seeks work; sub-level chunks are no longer refused as
+  out of range; the replay world's own server can no longer send poses of its own. See `docs/COMPATIBILITY.md`.
 
 #### Changed
 - **EMOTE action**: takes a speed like *Custom emote* (`name|speed`), finds an emote by its file name as well as its
@@ -314,6 +319,12 @@
   sous une forme et les sauts dans le temps montrent la bonne forme, une transformation coupée par un saut reprend
   au bon moment, et la forme reste figée quand le replay est en pause et suit sa vitesse. Les écrans de Morph et
   les données d'interface du joueur enregistré ne sont pas rejoués.
+- **Sable et Create Aeronautics** : les dirigeables et autres sous-niveaux de Sable bougent maintenant dans les
+  replays au lieu de rester figés ou d'être vides. Leurs poses, envoyées hors de la connexion (appel direct en solo,
+  canal UDP en multijoueur), sont enregistrées et rendues à l'interpolation de Sable à leur tick ; les instantanés
+  et points de reprise écrivent chaque sous-niveau, pour les enregistrements démarrés en plein vol et les sauts dans
+  le temps ; les chunks des sous-niveaux ne sont plus refusés comme trop lointains ; le serveur du monde de replay
+  ne peut plus envoyer ses propres poses. Voir `docs/COMPATIBILITY.md`.
 
 #### Modifié
 - **Action EMOTE** : accepte une vitesse comme *Custom emote* (`nom|vitesse`), trouve une emote par son nom de
