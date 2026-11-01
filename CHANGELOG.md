@@ -19,6 +19,10 @@
 - **Look-at target**: static and path cameras can aim at an actor or a recorded entity ("Look at", "Clear aim").
   Yaw and pitch then follow the target's eyes every frame, roll and FOV keep their keyframes; when the target is
   not found the keyframed rotation is used.
+- **Morph V2 support**: players in a Morph form replay in that form, the recording player's actor included,
+  with its transitions (morph and demorph). Recordings started while morphed and seeks show the right form, a
+  transition cut by a seek resumes where it should, and the form holds while the replay is paused and follows its
+  speed. Morph's own screens and HUD data of the recording player are not replayed.
 
 #### Changed
 - **EMOTE action**: takes a speed like *Custom emote* (`name|speed`), finds an emote by its file name as well as its
@@ -305,6 +309,11 @@
 - **Cible de visée** : les caméras fixes et les chemins peuvent viser un acteur ou une entité enregistrée
   ("Look at", "Clear aim"). Le lacet et le tangage suivent alors les yeux de la cible à chaque image, le roulis et
   le FOV gardent leurs keyframes ; si la cible est introuvable, la rotation des keyframes est utilisée.
+- **Prise en charge de Morph V2** : les joueurs transformés avec Morph sont rejoués sous cette forme, acteur du
+  joueur enregistré compris, avec leurs transformations et retours à la forme humaine. Un enregistrement démarré
+  sous une forme et les sauts dans le temps montrent la bonne forme, une transformation coupée par un saut reprend
+  au bon moment, et la forme reste figée quand le replay est en pause et suit sa vitesse. Les écrans de Morph et
+  les données d'interface du joueur enregistré ne sont pas rejoués.
 
 #### Modifié
 - **Action EMOTE** : accepte une vitesse comme *Custom emote* (`nom|vitesse`), trouve une emote par son nom de

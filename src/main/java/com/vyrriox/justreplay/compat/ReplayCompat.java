@@ -31,6 +31,7 @@ public final class ReplayCompat {
     static final boolean DROP_THE_BEAM = isLoaded("dropthebeam");
     static final boolean PARCOOL = isLoaded("parcool");
     static final boolean BETTER_COMBAT = isLoaded("bettercombat");
+    static final boolean MORPH = isLoaded("morph");
     private static final Set<String> FAILED = Collections.synchronizedSet(new HashSet<>());
 
     private ReplayCompat() {
@@ -180,6 +181,9 @@ public final class ReplayCompat {
         if (BETTER_COMBAT) {
             BetterCombatCompat.onRecorded(packet);
         }
+        if (MORPH && MorphCompat.consumeRecorded(packet)) {
+            return true;
+        }
         return DROP_THE_BEAM && DropTheBeamCompat.consumeRecorded(packet, tick);
     }
 
@@ -187,7 +191,8 @@ public final class ReplayCompat {
     public static boolean blockServerbound(Packet<?> packet) {
         return DROP_THE_BEAM && DropTheBeamCompat.blockServerbound(packet)
                 || PARCOOL && ParCoolCompat.blockServerbound(packet)
-                || BETTER_COMBAT && BetterCombatCompat.blockServerbound(packet);
+                || BETTER_COMBAT && BetterCombatCompat.blockServerbound(packet)
+                || MORPH && MorphCompat.blockServerbound(packet);
     }
 
     // ---------------------------------------------------------------- recording hooks
@@ -220,14 +225,22 @@ public final class ReplayCompat {
     /**
      * A captured clientbound packet about to be written into the recording (network thread): returns the packet to
      * write in its place. ParCool echoes the recording player's own actions back to it under its real UUID; they are
-     * written for its actor, as another client receives them. The packet the client handles is never changed.
+     * written for its actor, as another client receives them. Morph forms naming the recording player's UUID name the
+     * actor's instead. The packet the client handles is never changed.
      */
     public static Packet<?> rewriteRecorded(Packet<?> packet, java.util.UUID localUuid, java.util.UUID actorUuid) {
         if (PARCOOL) {
             try {
-                return ParCoolCompat.rewriteRecorded(packet, localUuid, actorUuid);
+                packet = ParCoolCompat.rewriteRecorded(packet, localUuid, actorUuid);
             } catch (Throwable t) {
                 warnOnce("parcool.rewrite", "Cannot record the local player's ParCool actions", t);
+            }
+        }
+        if (MORPH) {
+            try {
+                packet = MorphCompat.rewriteRecorded(packet, localUuid, actorUuid);
+            } catch (Throwable t) {
+                warnOnce("morph.rewrite", "Cannot record the local player's Morph forms for its actor", t);
             }
         }
         return packet;
@@ -242,6 +255,9 @@ public final class ReplayCompat {
         EmotecraftCompat.writeCurrent(player, target, out);
         if (PARCOOL) {
             ParCoolCompat.writeCurrent(player, target, out);
+        }
+        if (MORPH) {
+            MorphCompat.writeCurrent(player, target, out);
         }
     }
 
@@ -310,6 +326,9 @@ public final class ReplayCompat {
         }
         if (BETTER_COMBAT && late > 0 && packet != null) {
             packet = BetterCombatCompat.adjustSkipped(packet, late);
+        }
+        if (MORPH && late > 0 && packet != null) {
+            packet = MorphCompat.adjustSkipped(packet, late);
         }
         return packet;
     }
