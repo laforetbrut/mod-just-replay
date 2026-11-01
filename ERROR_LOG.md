@@ -56,3 +56,10 @@
 **Root cause:** the dev client loads the mod from `build/classes`; the compile rewrote that folder under the running game, so a class not yet loaded could no longer be found.
 **Fix:** relaunch the client after the compile. No code change.
 **Prevention:** never run a Gradle compile or build in the main checkout while a dev client is running; compile in a worktree or wait for the game to close.
+
+## [2026-11-01 17:10] — Replay closed at once in a large modpack (1.0.6)
+**Context:** opening a singleplayer recording in a 440 mod pack (KubeJS, l2core, Puzzles Lib...).
+**Error:** session server: `EncoderException: Failed to encode packet 'clientbound/minecraft:update_recipes'`, caused by `Can't find id for ShapelessRecipe$Serializer in map Registry[minecraft:recipe_serializer]`; the replay closed about 200 ms after it started.
+**Root cause:** `RegistryIds.apply` hands the recorded ids to `RegistryManager.applySnapshot`, which clears every id of a registry and gives one back only to the keys the snapshot lists. A local entry absent from the recording kept no id. In singleplayer the replay world's integrated server shares these static registries, so it could no longer encode the recipes it sends at login.
+**Fix:** `RegistryIds.complete` appends every local key the recording does not list after the highest recorded id before applying; the replay world's server no longer sends `update_recipes` during a session. Self-test step checks an id survives a recording that misses it.
+**Prevention:** never apply a partial registry snapshot to the shared static registries; any code touching registry ids must keep every registered entry mapped.

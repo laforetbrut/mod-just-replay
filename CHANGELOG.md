@@ -4,6 +4,14 @@
 
 ### [Unreleased]
 
+### [1.0.7] - 2026-11-01
+
+#### Fixed
+- A replay could close right after it started in large modpacks (seen with KubeJS and about 440 mods): the
+  registry ids saved with a recording left entries it did not list without an id, and the replay world's own
+  server then failed to send the recipes. Entries missing from a recording now keep an id, and the replay world's
+  server no longer sends recipes during a replay.
+
 ### [1.0.6] - 2026-10-28
 
 #### Added
@@ -242,6 +250,15 @@
 ## Français
 
 ### [Non publié]
+
+### [1.0.7] - 2026-11-01
+
+#### Corrigé
+- Un replay pouvait se fermer juste après son ouverture dans les gros modpacks (vu avec KubeJS et environ 440
+  mods) : les identifiants de registre enregistrés avec la capture laissaient sans identifiant les entrées qu'ils
+  ne listaient pas, et le serveur du monde de replay n'arrivait plus à envoyer les recettes. Les entrées absentes
+  d'un enregistrement gardent maintenant un identifiant, et le serveur du monde de replay n'envoie plus de recettes
+  pendant un replay.
 
 ### [1.0.6] - 2026-10-28
 
