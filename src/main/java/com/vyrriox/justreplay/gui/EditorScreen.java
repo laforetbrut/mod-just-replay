@@ -920,6 +920,8 @@ public class EditorScreen extends GlassScreen {
         f.put(new GlassButton(tc("justreplay.editor.actor.delete"), b -> confirm(tc("justreplay.editor.actor.delete.confirm"), this::deleteActor))
                 .icon(Icon.TRASH).style(GlassButton.Style.DANGER), 2, 3);
         f.next();
+        f.full(new GlassButton(tc("justreplay.editor.actor.duplicate"), b -> duplicateActor()).icon(Icon.PLUS)
+                .tip(tc("justreplay.editor.actor.duplicate.tip")));
         f.text(() -> selectedActorKey == null ? null
                 : Component.translatable("justreplay.editor.actor.key_info", Timeline.formatTicks(selectedActorKey.tick)), Timeline.ACTOR_COLOR);
         f.header(tc("justreplay.editor.actor.placement"), Icon.PIN);
@@ -998,6 +1000,12 @@ public class EditorScreen extends GlassScreen {
         f.header(tc("justreplay.editor.markers"), Icon.FLAG);
         f.full(new GlassButton(tc("justreplay.editor.marker.add"), b -> addMarker()).icon(Icon.PLUS).tip(tc("justreplay.editor.marker.tip")));
         markerRows(f);
+        f.header(tc("justreplay.editor.time.section"), Icon.CUT);
+        f.put(new GlassButton(tc("justreplay.editor.time.insert"), b -> rippleTime(false)).icon(Icon.PLUS)
+                .tip(tc("justreplay.editor.time.insert.tip")), 0, 2);
+        f.put(new GlassButton(tc("justreplay.editor.time.remove"), b -> rippleTime(true)).icon(Icon.MINUS)
+                .tip(tc("justreplay.editor.time.remove.tip")), 1, 2);
+        f.next();
         f.header(tc("justreplay.editor.scene.view"), Icon.EYE);
         f.full(new GlassSwitch(tc("justreplay.editor.voices"), () -> session.project().voices, () -> {
             ReplayProject p = session.project();
@@ -1262,6 +1270,74 @@ public class EditorScreen extends GlassScreen {
     }
 
     /** Adds an actor and lets the user place it in the world; cancelling the placement removes it again. */
+    /** Copies the selected actor with everything it does, one block aside, and selects the copy. */
+    private void duplicateActor() {
+        ReplayProject.ActorData source = selectedActor;
+        if (source == null) {
+            return;
+        }
+        ReplayProject.ActorData copy = ReplayStorage.GSON.fromJson(ReplayStorage.GSON.toJson(source), ReplayProject.ActorData.class);
+        copy.id = java.util.UUID.randomUUID().toString();
+        // A player actor's name is the account its skin comes from: only renamed when it wears a skin file.
+        if (!copy.isPlayer() || copy.hasSkinFile()) {
+            copy.name = copy.name.isBlank() ? copy.name : copy.name + " 2";
+        }
+        for (ReplayProject.ActorKeyframe k : copy.keyframes) {
+            k.x += 1.0;
+        }
+        List<ReplayProject.ActorData> actors = session.project().actors;
+        actors.add(actors.indexOf(source) + 1, copy);
+        selectedActor = copy;
+        selectedActorKey = null;
+        selectedAction = null;
+        revealSelection = true;
+        session.saveProject();
+        setStatus(Component.translatable("justreplay.editor.actor.duplicated", displayName(copy)), Theme.SUCCESS);
+        rebuildWidgets();
+    }
+
+    /** Asks a length in seconds, then inserts or removes that much time at the play head. */
+    private void rippleTime(boolean remove) {
+        int at = session.playback().cursor();
+        String key = remove ? "justreplay.editor.time.remove" : "justreplay.editor.time.insert";
+        minecraft.setScreen(new TextInputScreen(this, Component.translatable(key),
+                Component.translatable("justreplay.editor.time.length"), "1", text -> {
+            int ticks = parseLength(text);
+            if (ticks <= 0) {
+                setStatus(tc("justreplay.editor.time.invalid"), Theme.DANGER);
+                return;
+            }
+            if (remove) {
+                com.vyrriox.justreplay.editor.TimeShift.remove(session.project(), at, ticks);
+            } else {
+                com.vyrriox.justreplay.editor.TimeShift.insert(session.project(), at, ticks);
+            }
+            session.saveProject();
+            // Selections may point at removed items: reopen the editor on the shifted project.
+            EditorScreen next = new EditorScreen(session);
+            minecraft.setScreen(next);
+            next.setStatus(Component.translatable(remove ? "justreplay.editor.time.removed" : "justreplay.editor.time.inserted",
+                    Timeline.formatTicks(ticks), Timeline.formatTicks(at)), Theme.SUCCESS);
+        }));
+    }
+
+    /** Seconds ("1.5"), or ticks with a "t" suffix ("30t"); 0 when unreadable. */
+    private static int parseLength(String text) {
+        String t = text.trim().toLowerCase(Locale.ROOT).replace(',', '.');
+        try {
+            if (t.endsWith("t")) {
+                return Math.max(0, Integer.parseInt(t.substring(0, t.length() - 1).trim()));
+            }
+            if (t.endsWith("s")) {
+                t = t.substring(0, t.length() - 1).trim();
+            }
+            double seconds = Double.parseDouble(t);
+            return Double.isFinite(seconds) ? (int) Math.max(0, Math.min(Integer.MAX_VALUE / 2, Math.round(seconds * 20))) : 0;
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
     private void addActor(ReplayProject.ActorData actor) {
         session.project().actors.add(actor);
         selectedActor = actor;

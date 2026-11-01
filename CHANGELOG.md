@@ -4,6 +4,55 @@
 
 ### [Unreleased]
 
+### [1.0.8] - 2026-11-01
+
+#### Added
+- Duplicate actor: a Duplicate button in the actor panel copies the selected actor with its look, skin,
+  model, scale, hidden parts, skin changes, keyframes and actions, one block aside, and selects the copy.
+- Save still: a button in the export dialog renders the play head frame at the export size, with effects,
+  letterbox and overlays, and saves it as `exports/<name>_still_<tick>.png` without overwriting older ones.
+- Insert time and Remove time in the Scene tab: a ripple edit at the play head that pushes every later edit
+  (camera keyframes, actor keyframes and actions, markers, cuts, audio clips, effect and overlay keyframes,
+  overlay times, world keyframes, entity edits) later, or deletes a range and pulls the rest earlier. The
+  recording itself does not move.
+- **Camera shake**: every camera has a handheld shake amount (off to 100%) and a shake speed. The wobble of
+  position (a few centimetres) and rotation (a couple of degrees) is a smooth function of the replay time seeded
+  by the camera, so a frame is the same in the preview, in exports and after a seek.
+- **Look-at target**: static and path cameras can aim at an actor or a recorded entity ("Look at", "Clear aim").
+  Yaw and pitch then follow the target's eyes every frame, roll and FOV keep their keyframes; when the target is
+  not found the keyframed rotation is used.
+- **Morph V2 support**: players in a Morph form replay in that form, the recording player's actor included,
+  with its transitions (morph and demorph). Recordings started while morphed and seeks show the right form, a
+  transition cut by a seek resumes where it should, and the form holds while the replay is paused and follows its
+  speed. Morph's own screens and HUD data of the recording player are not replayed.
+- **Sable and Create Aeronautics**: airships and other Sable sub-levels now move in replays instead of standing
+  frozen or showing up empty. Their poses, which skip the connection (a direct call in singleplayer, Sable's UDP
+  channel in multiplayer), are recorded and handed to Sable's interpolation at their tick; snapshots and checkpoints
+  write every sub-level, so recordings started mid-flight and seeks work; sub-level chunks are no longer refused as
+  out of range; the replay world's own server can no longer send poses of its own. See `docs/COMPATIBILITY.md`.
+
+#### Changed
+- **EMOTE action**: takes a speed like *Custom emote* (`name|speed`), finds an emote by its file name as well as its
+  display name or UUID (`palm` for Emotecraft's Face palm), and follows the replay clock frame by frame, so it stays
+  in sync in slow motion, after a seek and in exports.
+- **POINT action**: still points straight ahead along the actor's facing; with `camera` or an actor name as the
+  parameter, the head and the arm aim at it.
+- **DANCE action**: actors that are not humanoid (creepers, animals...) bounce on the beat and sway, and hop for the
+  hopping styles, instead of standing still.
+- **Scene jobs**: the `delay` of a `record` step counts server ticks from the moment the commands ran, so events
+  scheduled by the commands land on the same replay tick in every take. `meta.json` gets `startGameTime` and
+  `sceneCommandsTick` to line events up without measuring. `shots` play the second before each tick, so live mobs
+  and particles show as they do in an export.
+
+#### Fixed
+- Emotecraft emotes played with *Custom emote* (JSON and `.emotecraft`) sank the legs under the floor and pulled
+  the arms off the shoulders: their limb positions are where the part is, not how far it moved, and were counted
+  twice (laforetbrut/mod-just-replay#2).
+- An Ender Dragon actor never turned in place and never flapped its wings: its heading, neck and tail now follow
+  the actor's yaw keys, and its wings beat, faster when it hovers.
+- After the start of a replay or a seek, the replay camera stayed attached to the world from before, so mods that
+  reach the world through the player (Sable creating its airships) acted on a world no longer shown.
+
 ### [1.0.7] - 2026-11-01
 
 #### Fixed
@@ -250,6 +299,61 @@
 ## Français
 
 ### [Non publié]
+
+### [1.0.8] - 2026-11-01
+
+#### Ajouté
+- Dupliquer un acteur : un bouton Dupliquer dans le panneau des acteurs copie l'acteur choisi avec son
+  apparence, son skin, son modèle, son échelle, ses parties cachées, ses changements de skin, ses keyframes
+  et ses actions, un bloc à côté, et sélectionne la copie.
+- Image fixe : un bouton de la fenêtre d'export rend l'image de la tête de lecture à la taille d'export,
+  avec effets, bandes noires et overlays, et l'enregistre en `exports/<nom>_still_<tick>.png` sans écraser
+  les précédentes.
+- Insérer du temps et Retirer du temps dans l'onglet Scène : un montage en décalage à la tête de lecture qui
+  repousse tout ce qui suit (keyframes de caméra, keyframes et actions d'acteurs, marqueurs, coupes, clips
+  audio, keyframes d'effets et d'overlays, temps des overlays, keyframes du monde, modifications d'entités),
+  ou supprime une plage et ramène le reste plus tôt. L'enregistrement lui-même ne bouge pas.
+- **Tremblement de caméra** : chaque caméra a une intensité de tremblement façon caméra à l'épaule (de désactivé
+  à 100 %) et une vitesse. Le mouvement de la position (quelques centimètres) et de la rotation (un ou deux degrés)
+  est une fonction douce du temps du replay propre à chaque caméra : une image est identique dans l'aperçu, dans
+  les exports et après un saut.
+- **Cible de visée** : les caméras fixes et les chemins peuvent viser un acteur ou une entité enregistrée
+  ("Look at", "Clear aim"). Le lacet et le tangage suivent alors les yeux de la cible à chaque image, le roulis et
+  le FOV gardent leurs keyframes ; si la cible est introuvable, la rotation des keyframes est utilisée.
+- **Prise en charge de Morph V2** : les joueurs transformés avec Morph sont rejoués sous cette forme, acteur du
+  joueur enregistré compris, avec leurs transformations et retours à la forme humaine. Un enregistrement démarré
+  sous une forme et les sauts dans le temps montrent la bonne forme, une transformation coupée par un saut reprend
+  au bon moment, et la forme reste figée quand le replay est en pause et suit sa vitesse. Les écrans de Morph et
+  les données d'interface du joueur enregistré ne sont pas rejoués.
+- **Sable et Create Aeronautics** : les dirigeables et autres sous-niveaux de Sable bougent maintenant dans les
+  replays au lieu de rester figés ou d'être vides. Leurs poses, envoyées hors de la connexion (appel direct en solo,
+  canal UDP en multijoueur), sont enregistrées et rendues à l'interpolation de Sable à leur tick ; les instantanés
+  et points de reprise écrivent chaque sous-niveau, pour les enregistrements démarrés en plein vol et les sauts dans
+  le temps ; les chunks des sous-niveaux ne sont plus refusés comme trop lointains ; le serveur du monde de replay
+  ne peut plus envoyer ses propres poses. Voir `docs/COMPATIBILITY.md`.
+
+#### Modifié
+- **Action EMOTE** : accepte une vitesse comme *Custom emote* (`nom|vitesse`), trouve une emote par son nom de
+  fichier en plus de son nom affiché ou de son UUID (`palm` pour le Face palm d'Emotecraft), et suit l'horloge du
+  replay image par image : elle reste synchronisée au ralenti, après un saut dans le temps et dans les exports.
+- **Action POINT** : pointe toujours droit devant, dans la direction de l'acteur ; avec `camera` ou un nom d'acteur
+  en paramètre, la tête et le bras visent la cible.
+- **Action DANCE** : les acteurs non humanoïdes (creepers, animaux...) rebondissent sur le temps et se balancent, et
+  sautent pour les styles sautés, au lieu de rester immobiles.
+- **Tâches de scène** : le `delay` d'une étape `record` compte les ticks serveur depuis l'exécution des commandes,
+  donc les événements qu'elles programment tombent au même tick du replay à chaque prise. `meta.json` reçoit
+  `startGameTime` et `sceneCommandsTick` pour caler les événements sans mesurer. Les `shots` jouent la seconde qui
+  précède chaque tick, pour que les mobs vivants et les particules s'affichent comme dans un export.
+
+#### Corrigé
+- Les emotes Emotecraft jouées avec *Custom emote* (JSON et `.emotecraft`) enfonçaient les jambes dans le sol et
+  détachaient les bras des épaules : leurs positions de membres indiquent où est la partie, pas de combien elle a
+  bougé, et étaient comptées deux fois (laforetbrut/mod-just-replay#2).
+- Un acteur Ender Dragon ne tournait jamais sur place et ne battait jamais des ailes : son cap, son cou et sa queue
+  suivent maintenant les clés d'orientation de l'acteur, et ses ailes battent, plus vite quand il fait du surplace.
+- Après le début d'un replay ou un saut dans le temps, la caméra du replay restait rattachée au monde d'avant : les
+  mods qui passent par le joueur pour trouver le monde (Sable qui crée ses dirigeables) agissaient sur un monde qui
+  n'était plus affiché.
 
 ### [1.0.7] - 2026-11-01
 

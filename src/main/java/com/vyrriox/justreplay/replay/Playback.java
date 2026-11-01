@@ -59,6 +59,8 @@ public final class Playback {
     private int[] checkpoints = new int[0];
     private final ChunkRetention chunks = new ChunkRetention();
     private int seekCount;
+    /** Tick {@link #playTo} pauses on, or -1. */
+    private int pauseAt = -1;
 
     public Playback(PacketStream packets, int durationTicks) {
         this.packets = packets;
@@ -80,6 +82,16 @@ public final class Playback {
 
     public void setPaused(boolean paused) {
         this.paused = paused;
+        pauseAt = -1;
+    }
+
+    /**
+     * Plays from the cursor and pauses on {@code target}: entities, particles and the world tick on the way, which a
+     * seek alone does not do.
+     */
+    public void playTo(int target) {
+        paused = target <= cursor;
+        pauseAt = paused ? -1 : Math.min(duration, target);
     }
 
     /** Number of seeks so far; anything that follows the replay clock resynchronizes when it changes. */
@@ -128,6 +140,11 @@ public final class Playback {
                     cursor++;
                     flushTo(cursor);
                     lastStep++;
+                    if (pauseAt >= 0 && cursor >= pauseAt) {
+                        paused = true;
+                        pauseAt = -1;
+                        break;
+                    }
                 }
             } else {
                 paused = true;
@@ -148,6 +165,7 @@ public final class Playback {
     public void seek(int target) {
         target = Math.max(0, Math.min(duration, target));
         seekCount++;
+        pauseAt = -1;
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         Vec3 camPos = player != null ? player.position() : null;
@@ -280,6 +298,10 @@ public final class Playback {
         if (PacketFilter.shouldDrop(packet)) {
             return;
         }
+        packet = (Packet<? super ClientGamePacketListener>) com.vyrriox.justreplay.compat.ReplayCompat.filterPlayback(packet);
+        if (packet == null) {
+            return;
+        }
         if (recorded.tick() < skippingTo) {
             // Mod state with its own clock (emotes) starts late by the time skipped, or not at all once over.
             packet = (Packet<? super ClientGamePacketListener>) com.vyrriox.justreplay.compat.ReplayCompat.adjustSkipped(packet,
@@ -307,6 +329,11 @@ public final class Playback {
             dispatchTick = -1;
         }
         chunks.afterHandle(mc);
+        if (packet instanceof ClientboundLoginPacket && mc.player != null && mc.level != null && mc.player.level() != mc.level) {
+            // A login keeps the existing camera player and adds it to the new level without telling it: mods that
+            // reach the level through the player (Sable creating airships) would act on the level before the seek.
+            ((com.vyrriox.justreplay.mixin.EntityInvoker) mc.player).justreplay$setLevel(mc.level);
+        }
         if (packet instanceof ClientboundLoginPacket || packet instanceof ClientboundRespawnPacket) {
             worldReset = true;
             enforceCamera(mc);

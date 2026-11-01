@@ -18,6 +18,8 @@ NeoForge 1.21.1, client side. Author: vyrriox. License: Apache-2.0.
   entity and modded renderer follows the replay clock.
 - **Editor** (key **G**): timeline with markers, camera keyframes and actor keyframes, drag keyframes to
   retime them, smooth Catmull-Rom camera path with roll and field of view.
+- **Timeline tools**: insert or remove time at the play head to shift every later edit (the recording does
+  not move), duplicate an actor, save the play head frame as a PNG still from the export dialog.
 - **Simple and Advanced modes**: the editor opens in Simple mode, with big buttons and plain words for a
   first video (camera points, characters, markers, one-click export). Switch to Advanced in the top bar for
   every tool; both modes work on the same project.
@@ -25,7 +27,8 @@ NeoForge 1.21.1, client side. Author: vyrriox. License: Apache-2.0.
   click places it at the play head. Seat it on stairs, slabs, carpets or mod chairs, lay it in a bed, send it
   walking to a point, and click an actor in the world to select it.
 - **Multi-camera editing**: static, path and follow cameras, a cut track with hard cuts or smooth blends,
-  and live switching with keys 1 to 9 while the replay plays, like a multi-camera editor.
+  and live switching with keys 1 to 9 while the replay plays, like a multi-camera editor. Any camera can get a
+  handheld shake, and static and path cameras can aim at an actor or an entity.
 - **Actors**: add players (any skin, by name) or any entity, vanilla or modded, give them equipment and a
   pose, and animate them with keyframes. The recording is never modified, actors live in `project.json`.
 - **Skin files**: drop PNG skins (64x64) in `.minecraft/justreplay/skins/` and give one to a
@@ -141,9 +144,9 @@ folder (`run/`). The file lists steps run in order:
 
 | Step | Fields |
 |---|---|
-| `record` | `world` (folder of `saves/`, required), `commands` (list, or one string split on `;`, run as an operator), `delay` (seconds before recording, 5), `seconds` (length, 60) |
+| `record` | `world` (folder of `saves/`, required), `commands` (list, or one string split on `;`, run as an operator), `delay` (seconds before recording, counted in server ticks from the moment the commands ran, 5), `seconds` (length, 60) |
 | `open` | `replay` (folder of `justreplay/replays/`; left out, the last recording of this job), `delay` (seconds after it starts, 5) |
-| `shots` | `ticks` (list, required), `prefix` (`scene`): one screenshot per tick in `screenshots/<prefix>-<tick>.png` |
+| `shots` | `ticks` (list, required), `prefix` (`scene`): one screenshot per tick in `screenshots/<prefix>-<tick>.png`. The replay plays the second before each tick, so mobs move and particles show as in an export |
 | `export` | `start`, `end` (ticks, required), `name` (`scene`), `resolution` (`window`, `720p`, `1080p`, `1440p`, `2160p`; `1080p`) or `width` and `height`, `fps` (10 to 240, 60), `crf` (0 to 51, 16), `format` (`mp4` or `png`, `mp4`) |
 | `quit` | none; the game also quits after the last step |
 
@@ -151,6 +154,13 @@ Durations are in seconds and can be fractional. Shots and exports follow the cam
 project (`project.json`). An MP4 goes to `justreplay/exports/<name>.mp4`; a PNG sequence goes to the folder
 `justreplay/exports/<name>/` (`frame_00000.png`, ... and `audio.wav` when there is sound). An existing export is
 never overwritten: the new one gets `_2`, `_3`... Job exports never change the export settings of the config.
+
+To line up events with the recording, a `record` step writes in the replay's `meta.json` the game time of tick 0
+(`startGameTime`) and the replay tick its commands ran at (`sceneCommandsTick`, negative). An event scheduled
+`n` ticks after the commands (`/schedule function ... <n>t`) happens at replay tick `sceneCommandsTick + n`.
+
+In `project.json`, a camera keyframe `y` is the height of the feet: the view is 1.62 blocks above it, like a
+player's eyes. Aim a hand-written keyframe from `y + 1.62`.
 
 Every step is logged with the `SCENE` prefix, so a caller can follow the log: `SCENE step 2/6 open: ...`,
 `SCENE replay folder: <name>`, `SCENE screenshot at tick 100: <file>`, `SCENE export finished: <file> (<n>
@@ -162,7 +172,7 @@ step n/m: <reason>` and the game quits; a full run logs `SCENE job finished`. Th
 
 Apache License 2.0, see `LICENSE` and `NOTICE`. The jar bundles no third-party code. FFmpeg is an external
 program you install yourself; Just Replay only starts it for video export. Optional integrations (Simple
-Voice Chat, Distant Horizons, Emotecraft, ParCool, Better Combat, WaterFrames, Create, Drop the Beam, Bobby, Iris) work through those mods'
+Voice Chat, Distant Horizons, Emotecraft, ParCool, Better Combat, Morph, WaterFrames, Create, Sable, Create Aeronautics, Drop the Beam, Bobby, Iris) work through those mods'
 classes and APIs and include none of their code. Not affiliated with Mojang or Microsoft.
 
 ## Français
@@ -178,6 +188,9 @@ classes and APIs and include none of their code. Not affiliated with Mojang or M
   vanilla, donc toutes les entités et les rendus des mods suivent l'horloge du replay.
 - **Éditeur** (touche **G**) : timeline avec marqueurs, keyframes de caméra et d'acteurs, keyframes
   déplaçables à la souris, chemin de caméra lissé (Catmull-Rom) avec roulis et champ de vision.
+- **Outils de timeline** : insérer ou retirer du temps à la tête de lecture pour décaler tout le montage qui
+  suit (l'enregistrement ne bouge pas), dupliquer un acteur, enregistrer l'image de la tête de lecture en PNG
+  depuis la fenêtre d'export.
 - **Modes Simple et Avancé** : l'éditeur s'ouvre en mode Simple, avec de grands boutons et des mots simples
   pour une première vidéo (points de caméra, personnages, marqueurs, export en un clic). Passer en Avancé
   dans la barre du haut pour tous les outils ; les deux modes travaillent sur le même projet.
@@ -186,7 +199,9 @@ classes and APIs and include none of their code. Not affiliated with Mojang or M
   coucher dans un lit, l'envoyer marcher vers un point, et cliquer sur un acteur dans le monde pour le
   sélectionner.
 - **Montage multi-caméra** : caméras fixes, chemins et caméras de suivi, piste de coupes en coupe franche ou
-  en fondu de mouvement, et changement de caméra en direct avec les touches 1 à 9 pendant la lecture.
+  en fondu de mouvement, et changement de caméra en direct avec les touches 1 à 9 pendant la lecture. Chaque
+  caméra peut trembler comme une caméra à l'épaule, et les caméras fixes et les chemins peuvent viser un acteur
+  ou une entité.
 - **Acteurs** : ajouter des joueurs (n'importe quel skin, par pseudo) ou n'importe quelle entité, vanilla ou
   moddée, leur donner un équipement et une posture, et les animer par keyframes. L'enregistrement n'est
   jamais modifié, les acteurs sont stockés dans `project.json`.
@@ -286,9 +301,9 @@ La propriété Gradle `-Pjob` règle la propriété JVM `justreplay.job` ; un ch
 
 | Étape | Champs |
 |---|---|
-| `record` | `world` (dossier de `saves/`, obligatoire), `commands` (liste, ou une chaîne coupée sur `;`, lancées en opérateur), `delay` (secondes avant l'enregistrement, 5), `seconds` (durée, 60) |
+| `record` | `world` (dossier de `saves/`, obligatoire), `commands` (liste, ou une chaîne coupée sur `;`, lancées en opérateur), `delay` (secondes avant l'enregistrement, comptées en ticks serveur depuis l'exécution des commandes, 5), `seconds` (durée, 60) |
 | `open` | `replay` (dossier de `justreplay/replays/` ; absent, le dernier enregistrement de la tâche), `delay` (secondes après le démarrage, 5) |
-| `shots` | `ticks` (liste, obligatoire), `prefix` (`scene`) : une capture par tick dans `screenshots/<prefix>-<tick>.png` |
+| `shots` | `ticks` (liste, obligatoire), `prefix` (`scene`) : une capture par tick dans `screenshots/<prefix>-<tick>.png`. Le replay joue la seconde qui précède chaque tick, pour que les mobs bougent et que les particules s'affichent comme dans un export |
 | `export` | `start`, `end` (ticks, obligatoires), `name` (`scene`), `resolution` (`window`, `720p`, `1080p`, `1440p`, `2160p` ; `1080p`) ou `width` et `height`, `fps` (10 à 240, 60), `crf` (0 à 51, 16), `format` (`mp4` ou `png`, `mp4`) |
 | `quit` | aucun ; le jeu se ferme aussi après la dernière étape |
 
@@ -297,6 +312,14 @@ du projet du replay (`project.json`). Un MP4 va dans `justreplay/exports/<name>.
 le dossier `justreplay/exports/<name>/` (`frame_00000.png`, ... et `audio.wav` s'il y a du son). Un export
 existant n'est jamais écrasé : le nouveau prend `_2`, `_3`... Les exports d'une tâche ne touchent jamais aux
 réglages d'export de la config.
+
+Pour caler des événements sur l'enregistrement, une étape `record` écrit dans le `meta.json` du replay le temps
+de jeu du tick 0 (`startGameTime`) et le tick du replay où ses commandes ont tourné (`sceneCommandsTick`,
+négatif). Un événement programmé `n` ticks après les commandes (`/schedule function ... <n>t`) arrive au tick
+`sceneCommandsTick + n` du replay.
+
+Dans `project.json`, le `y` d'une keyframe de caméra est la hauteur des pieds : la vue est 1,62 bloc au-dessus,
+comme les yeux d'un joueur. Viser depuis `y + 1.62` pour une keyframe écrite à la main.
 
 Chaque étape est écrite dans le log avec le préfixe `SCENE`, pour qu'un outil suive l'avancement :
 `SCENE step 2/6 open: ...`, `SCENE replay folder: <nom>`, `SCENE screenshot at tick 100: <fichier>`,
@@ -308,5 +331,5 @@ Chaque étape est écrite dans le log avec le préfixe `SCENE`, pour qu'un outil
 
 Licence Apache 2.0, voir `LICENSE` et `NOTICE`. Le jar n'embarque aucun code tiers. FFmpeg est un programme
 externe que tu installes toi-même ; Just Replay ne fait que le lancer pour l'export vidéo. Les intégrations
-optionnelles (Simple Voice Chat, Distant Horizons, Emotecraft, ParCool, Better Combat, WaterFrames, Create, Drop the Beam, Bobby, Iris) passent par les
+optionnelles (Simple Voice Chat, Distant Horizons, Emotecraft, ParCool, Better Combat, Morph, WaterFrames, Create, Sable, Create Aeronautics, Drop the Beam, Bobby, Iris) passent par les
 classes et API de ces mods et n'incluent aucun de leur code. Projet non affilié à Mojang ou Microsoft.

@@ -64,6 +64,10 @@ final class SceneJob {
     private static boolean failed;
     private static volatile String worldError;
     private static Path lastRecording;
+    /** Server game time the commands of the current record step ran at, -1 until they ran. */
+    private static java.util.concurrent.atomic.AtomicLong commandsRanAt;
+    /** Ticks a shot plays before its tick, so entities move and particles spawn as they do in an export. */
+    private static final int SHOT_PREROLL = 20;
     private static VideoExporter exporter;
 
     private SceneJob() {
@@ -146,20 +150,39 @@ final class SceneJob {
                 if (worldError != null) {
                     fail(worldError);
                 } else if (mc.player != null && mc.level != null && mc.screen == null) {
-                    SceneRecorder.runCommands(mc, r.commands());
+                    commandsRanAt = SceneRecorder.runCommands(mc, r.commands());
+                    if (commandsRanAt.get() < 0 && r.commands().stream().allMatch(String::isBlank)) {
+                        commandsRanAt.set(Recorder.gameTime(mc));
+                    }
                     phase = 2;
                     waited = 0;
-                    wait = r.delay();
                 } else if (timedOut()) {
                     fail("the world {} did not load", r.world());
                 }
             }
             case 2 -> {
+                // The delay counts server ticks from the moment the commands ran: client ticks drift from them while
+                // the world is still loading, which moved scheduled events from one take to the next.
+                long ranAt = commandsRanAt.get();
+                long now = Recorder.gameTime(mc);
+                boolean serverClock = mc.getSingleplayerServer() != null && now >= 0;
+                boolean due = serverClock ? ranAt >= 0 && now - ranAt >= r.delay() : waited >= r.delay();
+                if (++waited > r.delay() + 600 && !due) {
+                    if (waited == r.delay() + 601) {
+                        log("the server did not reach the delay in time, recording now");
+                    }
+                    due = true;
+                }
+                if (!due) {
+                    return;
+                }
                 if (Recorder.startManual()) {
-                    log("recording for {} s", r.length() / 20.0);
+                    Recorder.noteSceneCommands(ranAt);
+                    log("recording for {} s, commands ran at tick {}", r.length() / 20.0,
+                            ranAt >= 0 ? ranAt - Recorder.gameTime(mc) : "?");
                     phase = 3;
                     wait = r.length();
-                } else if (++waited > 200) {
+                } else if (waited > r.delay() + 800) {
                     fail("the recording could not start");
                 }
             }
@@ -228,12 +251,28 @@ final class SceneJob {
             return;
         }
         int tick = s.ticks().get(shot / 2);
-        if (shot % 2 == 0) {
-            // Seek, then let the world settle before the picture.
+        if (shot % 2 == 0 && phase == 0) {
+            // Seek a little before the tick and let the world settle, then play up to the tick: a seek alone shows
+            // live mobs where they spawned and no particles.
             mc.setScreen(null);
-            session.playback().seek(tick);
+            session.playback().seek(Math.max(0, tick - SHOT_PREROLL));
             session.playback().setPaused(true);
+            phase = 1;
             wait = 60;
+            return;
+        }
+        if (shot % 2 == 0 && phase == 1) {
+            session.playback().playTo(tick);
+            phase = 2;
+            waited = 0;
+            return;
+        }
+        if (shot % 2 == 0) {
+            if (!session.playback().isPaused() && !timedOut()) {
+                return;
+            }
+            phase = 0;
+            wait = 10;
         } else {
             String name = s.prefix() + "-" + tick + ".png";
             Path file = mc.gameDirectory.toPath().resolve(Screenshot.SCREENSHOT_DIR).resolve(name).toAbsolutePath().normalize();

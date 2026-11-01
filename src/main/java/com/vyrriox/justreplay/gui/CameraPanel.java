@@ -34,6 +34,8 @@ public final class CameraPanel {
     private static final int[] BLENDS = {0, 5, 10, 20, 40};
     private static final float[] SMOOTHING = {0.0F, 0.15F, 0.3F, 0.6F, 1.0F};
     private static final float[] ORBIT_SPEEDS = {-40.0F, -20.0F, -10.0F, 10.0F, 20.0F, 40.0F};
+    private static final float[] SHAKES = {0.0F, 0.1F, 0.25F, 0.5F, 0.75F, 1.0F};
+    private static final float[] SHAKE_SPEEDS = {0.25F, 0.5F, 1.0F, 2.0F, 4.0F};
     private static final String[] FOLLOW_MODES = {"BEHIND", "SIDE", "FRONT", "ORBIT"};
 
     private final EditorScreen screen;
@@ -171,6 +173,30 @@ public final class CameraPanel {
                 session.saveProject();
             }).icon(Icon.ROTATE));
         }
+        if (!camera.isFollow()) {
+            f.put(new GlassButton(tc("justreplay.editor.cam.look_at"), b -> aimAt()).icon(Icon.TARGET)
+                    .tip(tc("justreplay.editor.cam.look_at.tip")), 0, 2);
+            f.put(new GlassButton(tc("justreplay.editor.cam.look_at.clear"), b -> {
+                camera().lookAt = "";
+                camera().lookAtName = "";
+                session.saveProject();
+            }).icon(Icon.TRASH).enabled(!camera.lookAt.isEmpty())
+                    .tip(tc("justreplay.editor.cam.look_at.clear.tip")), 1, 2);
+            f.next();
+            f.text(() -> Component.translatable("justreplay.editor.cam.look_at.info",
+                    camera().lookAt.isEmpty() ? "-" : camera().lookAtName.isEmpty() ? camera().lookAt : camera().lookAtName),
+                    Theme.TEXT_DIM);
+        }
+        f.full(new Dropdown<>(screen, tc("justreplay.editor.cam.shake"), floats(SHAKES), SHAKES[nearest(SHAKES, camera.shake)],
+                v -> Component.literal(Math.round(v * 100) + "%"), v -> {
+            camera().shake = v;
+            session.saveProject();
+        }).icon(Icon.CAMERA).tip(tc("justreplay.editor.cam.shake.tip")));
+        f.full(new Dropdown<>(screen, tc("justreplay.editor.cam.shake_speed"), floats(SHAKE_SPEEDS),
+                SHAKE_SPEEDS[nearest(SHAKE_SPEEDS, camera.shakeSpeed)], v -> Component.literal("x" + trim(v)), v -> {
+            camera().shakeSpeed = v;
+            session.saveProject();
+        }).icon(Icon.CLOCK).tip(tc("justreplay.editor.cam.shake_speed.tip")));
         f.full(new Stepper(tc("justreplay.editor.roll"), () -> rollValue(), "°", 0, () -> adjust(0, -5), () -> adjust(0, 5))
                 .icon(Icon.ROTATE).enabled(this::lensEditable).tip(tc("justreplay.editor.lens.tip")));
         f.full(new Stepper(tc("justreplay.editor.fov"), () -> fovValue(), "°", 0, () -> adjust(-5, 0), () -> adjust(5, 0))
@@ -350,6 +376,26 @@ public final class CameraPanel {
             return;
         }
         setTarget(camera(), target);
+        status = null;
+        session.saveProject();
+    }
+
+    /** Aims the selected camera at the picked entity; an actor is stored by its id so it survives rebuilds. */
+    private void aimAt() {
+        Entity target = pickTarget();
+        if (target == null) {
+            status = Component.translatable("justreplay.editor.cam.target.none");
+            return;
+        }
+        ReplayProject.Camera camera = camera();
+        camera.lookAt = target.getUUID().toString();
+        camera.lookAtName = target.getName().getString();
+        for (ReplayProject.ActorData actor : project().actors) {
+            if (session.actors().entityOf(actor) == target) {
+                camera.lookAt = com.vyrriox.justreplay.editor.CameraRig.ACTOR_PREFIX + actor.id;
+                break;
+            }
+        }
         status = null;
         session.saveProject();
     }

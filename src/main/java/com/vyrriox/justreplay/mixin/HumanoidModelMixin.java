@@ -37,7 +37,7 @@ public abstract class HumanoidModelMixin {
     @Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
     private void justreplay$gesture(LivingEntity entity, float limbSwing, float limbSwingAmount, float ageInTicks, float netHeadYaw,
                                     float headPitch, CallbackInfo ci) {
-        ActorAnimator.applyGesture(entity, ageInTicks, rightArm, leftArm);
+        ActorAnimator.applyGesture(entity, ageInTicks, ((HumanoidModel<?>) (Object) this).head, rightArm, leftArm);
         ActorAnimator.applyDance(entity, (HumanoidModel<?>) (Object) this);
         ActorAnimator.applyCustomEmote(entity, (HumanoidModel<?>) (Object) this);
     }

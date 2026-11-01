@@ -10,7 +10,7 @@ import java.util.Set;
 
 /**
  * Leaves out the optional mixins that cannot apply with some mods: the section draw guard targets the vanilla section
- * renderer, which Sodium and Embeddium replace.
+ * renderer, which Sodium and Embeddium replace. The Morph and Sable mixins apply only with their mod.
  *
  * @author vyrriox
  */
@@ -24,6 +24,12 @@ public final class CompatMixinPlugin implements IMixinConfigPlugin {
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
         if (mixinClassName.endsWith(".SectionBufferGuardMixin")) {
             return !loaded("sodium") && !loaded("embeddium");
+        }
+        if (mixinClassName.contains(".Morph")) {
+            return loaded("morph");
+        }
+        if (mixinClassName.contains(".Sable")) {
+            return loaded("sable");
         }
         return true;
     }
