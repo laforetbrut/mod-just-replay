@@ -4,6 +4,14 @@
 
 ### [Unreleased]
 
+#### Added
+- **Camera shake**: every camera has a handheld shake amount (off to 100%) and a shake speed. The wobble of
+  position (a few centimetres) and rotation (a couple of degrees) is a smooth function of the replay time seeded
+  by the camera, so a frame is the same in the preview, in exports and after a seek.
+- **Look-at target**: static and path cameras can aim at an actor or a recorded entity ("Look at", "Clear aim").
+  Yaw and pitch then follow the target's eyes every frame, roll and FOV keep their keyframes; when the target is
+  not found the keyframed rotation is used.
+
 ### [1.0.7] - 2026-11-01
 
 #### Fixed
@@ -250,6 +258,15 @@
 ## Français
 
 ### [Non publié]
+
+#### Ajouté
+- **Tremblement de caméra** : chaque caméra a une intensité de tremblement façon caméra à l'épaule (de désactivé
+  à 100 %) et une vitesse. Le mouvement de la position (quelques centimètres) et de la rotation (un ou deux degrés)
+  est une fonction douce du temps du replay propre à chaque caméra : une image est identique dans l'aperçu, dans
+  les exports et après un saut.
+- **Cible de visée** : les caméras fixes et les chemins peuvent viser un acteur ou une entité enregistrée
+  ("Look at", "Clear aim"). Le lacet et le tangage suivent alors les yeux de la cible à chaque image, le roulis et
+  le FOV gardent leurs keyframes ; si la cible est introuvable, la rotation des keyframes est utilisée.
 
 ### [1.0.7] - 2026-11-01
 

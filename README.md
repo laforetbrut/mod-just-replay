@@ -25,7 +25,8 @@ NeoForge 1.21.1, client side. Author: vyrriox. License: Apache-2.0.
   click places it at the play head. Seat it on stairs, slabs, carpets or mod chairs, lay it in a bed, send it
   walking to a point, and click an actor in the world to select it.
 - **Multi-camera editing**: static, path and follow cameras, a cut track with hard cuts or smooth blends,
-  and live switching with keys 1 to 9 while the replay plays, like a multi-camera editor.
+  and live switching with keys 1 to 9 while the replay plays, like a multi-camera editor. Any camera can get a
+  handheld shake, and static and path cameras can aim at an actor or an entity.
 - **Actors**: add players (any skin, by name) or any entity, vanilla or modded, give them equipment and a
   pose, and animate them with keyframes. The recording is never modified, actors live in `project.json`.
 - **Skin files**: drop PNG skins (64x64) in `.minecraft/justreplay/skins/` and give one to a
@@ -186,7 +187,9 @@ classes and APIs and include none of their code. Not affiliated with Mojang or M
   coucher dans un lit, l'envoyer marcher vers un point, et cliquer sur un acteur dans le monde pour le
   sélectionner.
 - **Montage multi-caméra** : caméras fixes, chemins et caméras de suivi, piste de coupes en coupe franche ou
-  en fondu de mouvement, et changement de caméra en direct avec les touches 1 à 9 pendant la lecture.
+  en fondu de mouvement, et changement de caméra en direct avec les touches 1 à 9 pendant la lecture. Chaque
+  caméra peut trembler comme une caméra à l'épaule, et les caméras fixes et les chemins peuvent viser un acteur
+  ou une entité.
 - **Acteurs** : ajouter des joueurs (n'importe quel skin, par pseudo) ou n'importe quelle entité, vanilla ou
   moddée, leur donner un équipement et une posture, et les animer par keyframes. L'enregistrement n'est
   jamais modifié, les acteurs sont stockés dans `project.json`.

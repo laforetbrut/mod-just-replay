@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.editor;
 
+import com.vyrriox.justreplay.replay.ReplaySession;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
@@ -26,6 +27,9 @@ public final class CameraRig {
     private static final double SMOOTH_RESET_TICKS = 10.0;
 
     private static final Map<String, Follow> FOLLOW = new HashMap<>();
+    private static final Map<String, Follow> AIM = new HashMap<>();
+    /** Prefix of a look-at target that names a project actor by id. */
+    public static final String ACTOR_PREFIX = "actor:";
 
     private CameraRig() {
     }
@@ -48,13 +52,93 @@ public final class CameraRig {
         if (camera == null) {
             return null;
         }
+        double[] state;
         if (camera.isStatic()) {
-            return new double[]{camera.x, camera.y, camera.z, camera.yaw, camera.pitch, camera.roll, camera.fov};
+            state = new double[]{camera.x, camera.y, camera.z, camera.yaw, camera.pitch, camera.roll, camera.fov};
+        } else if (camera.isFollow()) {
+            state = follow(camera, time, partialTick, live);
+        } else {
+            state = CameraPath.of(camera).sample(time);
         }
-        if (camera.isFollow()) {
-            return follow(camera, time, partialTick, live);
+        if (state == null) {
+            return null;
         }
-        return CameraPath.of(camera).sample(time);
+        if (!camera.isFollow()) {
+            aim(camera, state, partialTick);
+        }
+        return shake(camera, state, time);
+    }
+
+    // ---------------------------------------------------------------- look-at and shake
+
+    /** Turns a state toward the look-at target's eyes; keeps the keyframed rotation when the target is missing. */
+    private static void aim(ReplayProject.Camera camera, double[] state, float partialTick) {
+        if (camera.lookAt == null || camera.lookAt.isEmpty()) {
+            return;
+        }
+        Follow cache = AIM.computeIfAbsent(camera.id, k -> new Follow());
+        Entity entity = findAim(camera.lookAt, cache);
+        if (entity == null) {
+            return;
+        }
+        Vec3 pos = entity.getPosition(partialTick);
+        double dx = pos.x - state[0];
+        double dy = pos.y + entity.getEyeHeight() - (state[1] + EYE_HEIGHT);
+        double dz = pos.z - state[2];
+        if (dx * dx + dy * dy + dz * dz < 1.0E-6) {
+            return;
+        }
+        state[3] = Math.toDegrees(Math.atan2(-dx, dz));
+        state[4] = Mth.clamp(-Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz))), -90.0, 90.0);
+    }
+
+    /**
+     * Adds handheld shake: a sum of sines of the replay time with phases seeded by the camera id, so a frame is
+     * the same in the preview, in exports and after seeks.
+     */
+    private static double[] shake(ReplayProject.Camera camera, double[] state, double time) {
+        if (camera.shake <= 0) {
+            return state;
+        }
+        double amount = Math.min(1.0, camera.shake);
+        double t = time / 20.0 * Math.max(0.05, camera.shakeSpeed);
+        long seed = camera.id == null ? 0 : camera.id.hashCode();
+        double[] out = state.clone();
+        double[] scale = {0.04, 0.03, 0.04, 2.0, 1.5, 1.2};
+        for (int c = 0; c < 6; c++) {
+            out[c] += noise(seed * 31 + c, t) * scale[c] * amount;
+        }
+        out[4] = Mth.clamp(out[4], -90.0, 90.0);
+        return out;
+    }
+
+    /** Smooth noise in about [-1, 1]: three sines at unrelated frequencies with seeded phases. */
+    private static double noise(long seed, double t) {
+        long h = seed * 0x9E3779B97F4A7C15L;
+        double p1 = ((h >>> 11) & 0xFFFF) / 65536.0 * Math.PI * 2.0;
+        double p2 = ((h >>> 27) & 0xFFFF) / 65536.0 * Math.PI * 2.0;
+        double p3 = ((h >>> 43) & 0xFFFF) / 65536.0 * Math.PI * 2.0;
+        return 0.5 * Math.sin(t * 1.7 * Math.PI * 2.0 + p1)
+                + 0.3 * Math.sin(t * 3.1 * Math.PI * 2.0 + p2)
+                + 0.2 * Math.sin(t * 5.3 * Math.PI * 2.0 + p3);
+    }
+
+    /** The look-at entity: a project actor ({@code actor:<id>}) or a recorded entity by UUID. */
+    private static Entity findAim(String target, Follow cache) {
+        if (target.startsWith(ACTOR_PREFIX)) {
+            ReplaySession session = ReplaySession.current();
+            if (session == null) {
+                return null;
+            }
+            String id = target.substring(ACTOR_PREFIX.length());
+            for (ReplayProject.ActorData actor : session.project().actors) {
+                if (actor.id.equals(id)) {
+                    return session.actors().entityOf(actor);
+                }
+            }
+            return null;
+        }
+        return findEntity(target, cache);
     }
 
     /** What the project shows at a time: the cut track when it has cuts, else the selected camera. */
@@ -95,6 +179,7 @@ public final class CameraRig {
     /** Forgets the smoothing of follow cameras, for a new session. */
     public static void reset() {
         FOLLOW.clear();
+        AIM.clear();
     }
 
     // ---------------------------------------------------------------- follow
@@ -155,12 +240,17 @@ public final class CameraRig {
     /** The followed entity, looked up again when the world replaced it (seeks, dimension changes). */
     private static Entity find(ReplayProject.Camera camera, Follow follow) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.level == null || camera.target.isEmpty()) {
+        return findEntity(camera.target, follow);
+    }
+
+    private static Entity findEntity(String target, Follow follow) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level == null || target == null || target.isEmpty()) {
             return null;
         }
         UUID uuid;
         try {
-            uuid = UUID.fromString(camera.target);
+            uuid = UUID.fromString(target);
         } catch (IllegalArgumentException e) {
             return null;
         }
