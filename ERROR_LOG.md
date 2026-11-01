@@ -1,5 +1,12 @@
 # Error log
 
+## [2026-11-01 20:10] — Sable airships empty in replays
+**Context:** first in-game test of the Sable support: an airship assembled before recording, replayed with a scene job.
+**Error:** the replay showed no airship; Sable logged `Cannot add chunk at 0, 0 in nonexistent sub-level plot` at the start and after every seek.
+**Root cause:** a replayed login packet keeps the existing camera player and adds it to the new level without updating the player's own level field. Sable's tracking packet reaches the level through the packet context player, so the sub-level was created in the level from before the seek, and its chunks then arrived in a level without it. Not a packet order problem (checked with debug logs before guessing further).
+**Fix:** after a replayed login, the camera player is moved to the current level (`EntityInvoker.setLevel`).
+**Prevention:** any mod handler that uses `context.player().level()` depends on this; when a mod's state vanishes in a replay, compare `mc.player.level()` with `mc.level` first.
+
 ## [2026-10-15 13:11] — WaterFrames frame missing from a self test recording
 **Context:** Arcadia self test, a WaterFrames frame placed with `/setblock` right before `Recorder.startManual()`.
 **Error:** during playback WaterFrames logged `Received packet 'TimePacket' pointing to a invalid DisplayTile position`; no display was tracked.

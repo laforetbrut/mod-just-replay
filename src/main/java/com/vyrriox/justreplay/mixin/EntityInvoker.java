@@ -5,7 +5,8 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
 /**
- * Sets the shared entity flags (fall flying) of actors that have no public setter for them.
+ * Sets the shared entity flags (fall flying) of actors that have no public setter for them, and the level of the replay
+ * camera player.
  *
  * @author vyrriox
  */
@@ -13,4 +14,7 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 public interface EntityInvoker {
     @Invoker("setSharedFlag")
     void justreplay$setSharedFlag(int flag, boolean set);
+
+    @Invoker("setLevel")
+    void justreplay$setLevel(net.minecraft.world.level.Level level);
 }

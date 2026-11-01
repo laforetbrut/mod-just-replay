@@ -329,6 +329,11 @@ public final class Playback {
             dispatchTick = -1;
         }
         chunks.afterHandle(mc);
+        if (packet instanceof ClientboundLoginPacket && mc.player != null && mc.level != null && mc.player.level() != mc.level) {
+            // A login keeps the existing camera player and adds it to the new level without telling it: mods that
+            // reach the level through the player (Sable creating airships) would act on the level before the seek.
+            ((com.vyrriox.justreplay.mixin.EntityInvoker) mc.player).justreplay$setLevel(mc.level);
+        }
         if (packet instanceof ClientboundLoginPacket || packet instanceof ClientboundRespawnPacket) {
             worldReset = true;
             enforceCamera(mc);
