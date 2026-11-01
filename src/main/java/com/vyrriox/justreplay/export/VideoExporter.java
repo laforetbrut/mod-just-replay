@@ -94,6 +94,8 @@ public final class VideoExporter {
     private final ExportAudio audio;
     private final boolean pngSequence;
     private final java.util.concurrent.CompletableFuture<Boolean> completion = new java.util.concurrent.CompletableFuture<>();
+    /** For a still: the PNG the first frame is moved to once the one frame export is done. */
+    private Path still;
     private volatile boolean failed;
     private boolean finished;
 
@@ -173,6 +175,34 @@ public final class VideoExporter {
      */
     public static Component start(ReplaySession session, int startTick, int endTick, String fileName) {
         return start(session, startTick, endTick, fileName, Settings.fromConfig());
+    }
+
+    /**
+     * Saves the frame at a tick as one PNG named {@code <name>_still_<tick>.png} in the export folder, rendered like
+     * a video frame (export size, effects, letterbox, overlays). It runs a one frame PNG sequence export and keeps its
+     * frame. Returns an error message, or null on success.
+     */
+    public static Component saveStill(ReplaySession session, int tick, String fileName, Settings settings) {
+        int duration = session.playback().duration();
+        int at = Math.max(0, Math.min(tick, duration - 1));
+        String safeName = fileName.replaceAll("[^A-Za-z0-9._-]", "_");
+        if (safeName.endsWith(".mp4")) {
+            safeName = safeName.substring(0, safeName.length() - 4);
+        }
+        if (safeName.isBlank()) {
+            safeName = "export";
+        }
+        String base = safeName + "_still_" + at;
+        Path target = ReplayStorage.exportRoot().resolve(base + ".png");
+        for (int n = 2; java.nio.file.Files.exists(target); n++) {
+            target = ReplayStorage.exportRoot().resolve(base + "_" + n + ".png");
+        }
+        Settings png = new Settings(settings.fps(), settings.crf(), settings.resolution(), settings.width(), settings.height(), true);
+        Component error = start(session, at, at + 1, base + "_frames", png);
+        if (error == null && current != null) {
+            current.still = target;
+        }
+        return error;
     }
 
     /** Starts an export of the camera path between two ticks. Returns an error message, or null on success. */
@@ -474,21 +504,57 @@ public final class VideoExporter {
                     ok = false;
                 }
                 ok = ok && process.exitValue() == 0;
-                if (ok && !audio.isEmpty()) {
+                if (ok && still != null) {
+                    ok = keepStill();
+                } else if (ok && !audio.isEmpty()) {
                     ok = pngSequence ? writeAudioTrack() : addAudio();
                 }
             } catch (InterruptedException e) {
                 ok = false;
             }
             boolean result = ok;
-            mc.execute(() -> SystemToast.add(mc.getToasts(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
-                    Component.translatable(result ? "justreplay.export.done" : "justreplay.export.failed"),
-                    Component.literal(output.getFileName().toString())));
+            Path shown = still != null && result ? still : output;
+            mc.execute(() -> {
+                SystemToast.add(mc.getToasts(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+                        Component.translatable(result ? still != null ? "justreplay.export.still.done" : "justreplay.export.done"
+                                : "justreplay.export.failed"), Component.literal(shown.getFileName().toString()));
+                if (still != null && result && mc.player != null) {
+                    mc.player.displayClientMessage(Component.translatable("justreplay.export.still.saved", shown.toString()), false);
+                }
+                if (still != null) {
+                    // Back on the frame the still was taken from.
+                    session.playback().seek(startTick);
+                }
+            });
             JustReplay.LOGGER.info("Export {} ({} frames): {}", result ? "finished" : "failed", frames, output);
             completion.complete(result);
         }, "JustReplay export finisher");
         waiter.setDaemon(true);
         waiter.start();
+    }
+
+    /** Moves the first frame to the still file and removes the frame folder. */
+    private boolean keepStill() {
+        try {
+            java.nio.file.Files.move(output.resolve("frame_00000.png"), still);
+        } catch (IOException e) {
+            JustReplay.LOGGER.error("Cannot save the still {}", still, e);
+            return false;
+        }
+        try (java.util.stream.Stream<Path> files = java.nio.file.Files.list(output)) {
+            for (Path file : (Iterable<Path>) files::iterator) {
+                java.nio.file.Files.deleteIfExists(file);
+            }
+        } catch (IOException e) {
+            JustReplay.LOGGER.warn("Could not empty the frame folder {}", output, e);
+        }
+        try {
+            java.nio.file.Files.deleteIfExists(output);
+            java.nio.file.Files.deleteIfExists(output.resolveSibling(output.getFileName() + ".log"));
+        } catch (IOException e) {
+            JustReplay.LOGGER.warn("Could not remove the frame folder {}", output, e);
+        }
+        return true;
     }
 
     /** Mixes the logged sounds into {@code audio.wav} beside the frames of a PNG sequence. */
