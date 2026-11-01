@@ -248,6 +248,17 @@ public final class ReplayProject {
         /** Smoothing time in seconds, 0 for a rigid follow. */
         public float smoothing = 0.3F;
 
+        // Look-at, STATIC and PATH
+        /** Aim target: an entity UUID, or {@code actor:<id>} for a project actor; empty for none. */
+        public String lookAt = "";
+        public String lookAtName = "";
+
+        // Handheld shake, every type
+        /** Shake amount, 0 (off) to 1. */
+        public float shake;
+        /** Shake frequency multiplier, 1 is a calm handheld feel. */
+        public float shakeSpeed = 1.0F;
+
         public Camera() {
         }
 
@@ -295,6 +306,10 @@ public final class ReplayProject {
             c.height = height;
             c.orbitSpeed = orbitSpeed;
             c.smoothing = smoothing;
+            c.lookAt = lookAt;
+            c.lookAtName = lookAtName;
+            c.shake = shake;
+            c.shakeSpeed = shakeSpeed;
             return c;
         }
     }
