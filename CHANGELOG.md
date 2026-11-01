@@ -4,6 +4,12 @@
 
 ### [Unreleased]
 
+#### Added
+- **Morph V2 support**: players in a Morph form replay in that form, the recording player's actor included,
+  with its transitions (morph and demorph). Recordings started while morphed and seeks show the right form, a
+  transition cut by a seek resumes where it should, and the form holds while the replay is paused and follows its
+  speed. Morph's own screens and HUD data of the recording player are not replayed.
+
 ### [1.0.7] - 2026-11-01
 
 #### Fixed
@@ -250,6 +256,13 @@
 ## Français
 
 ### [Non publié]
+
+#### Ajouté
+- **Prise en charge de Morph V2** : les joueurs transformés avec Morph sont rejoués sous cette forme, acteur du
+  joueur enregistré compris, avec leurs transformations et retours à la forme humaine. Un enregistrement démarré
+  sous une forme et les sauts dans le temps montrent la bonne forme, une transformation coupée par un saut reprend
+  au bon moment, et la forme reste figée quand le replay est en pause et suit sa vitesse. Les écrans de Morph et
+  les données d'interface du joueur enregistré ne sont pas rejoués.
 
 ### [1.0.7] - 2026-11-01
 

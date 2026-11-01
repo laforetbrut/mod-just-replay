@@ -11,6 +11,8 @@
     "DropTheBeamClockMixin",
     "DropTheBeamPauseMixin",
     "LevelRendererClockMixin",
+    "MorphInfoTickMixin",
+    "MorphRenderMixin",
     "PlayerAnimKeyframeMixin",
     "PlayerAnimStackMixin",
     "SectionBufferGuardMixin",
