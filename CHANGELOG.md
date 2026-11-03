@@ -4,6 +4,11 @@
 
 ### [Unreleased]
 
+#### Fixed
+- Simulated (Create Aeronautics) ropes attached before a recording started, or before a checkpoint, were missing
+  from the replay: the server sends a rope only when the client starts tracking it, so snapshots and checkpoints
+  now write every rope the client knows.
+
 ### [1.0.8] - 2026-11-01
 
 #### Added
@@ -299,6 +304,11 @@
 ## Français
 
 ### [Non publié]
+
+#### Corrigé
+- Les cordes de Simulated (Create Aeronautics) attachées avant le début d'un enregistrement, ou avant un point de
+  reprise, manquaient au replay : le serveur n'envoie une corde que quand le client commence à la suivre, donc les
+  instantanés et points de reprise écrivent désormais toutes les cordes connues du client.
 
 ### [1.0.8] - 2026-11-01
 
