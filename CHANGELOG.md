@@ -4,6 +4,8 @@
 
 ### [Unreleased]
 
+### [1.0.10] - 2026-11-03
+
 #### Fixed
 - **Armourer's Workshop**: singleplayer replays now show outfits. In singleplayer the skins are read straight from the
   world's skin database and never cross the connection, so 1.0.9 recorded only the skins the client held when the
@@ -330,6 +332,8 @@
 ## Français
 
 ### [Non publié]
+
+### [1.0.10] - 2026-11-03
 
 #### Corrigé
 - **Armourer's Workshop** : les replays solo affichent désormais les tenues. En solo, les skins sont lus directement
