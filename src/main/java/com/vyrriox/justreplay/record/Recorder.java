@@ -1313,6 +1313,7 @@ public final class Recorder {
                 com.vyrriox.justreplay.compat.ReplayCompat.writePlayerState(other, other.getUUID(), packet -> write(listener, packet, sink));
             }
         }
+        com.vyrriox.justreplay.compat.ReplayCompat.writeEntityStates(level, packet -> write(listener, packet, sink));
     }
 
     private void writeTabListText(Minecraft mc, ClientPacketListener listener, Consumer<byte[]> sink) {

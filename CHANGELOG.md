@@ -4,6 +4,12 @@
 
 ### [Unreleased]
 
+#### Added
+- Epic Fight support: animations and battle mode of players and patched mobs replay as recorded, the recording
+  player's own animations and mode reach its actor, snapshots and checkpoints carry the mode, living motions and
+  running animations (a recording started mid-fight shows the attack in progress), seeks drop finished animations
+  and resume the others at their time, and the animator holds while paused and follows the replay speed.
+
 ### [1.0.8] - 2026-11-01
 
 #### Added
@@ -299,6 +305,14 @@
 ## Français
 
 ### [Non publié]
+
+#### Ajouté
+- Prise en charge d'Epic Fight : les animations et le mode combat des joueurs et des mobs pris en charge sont
+  rejoués comme enregistrés, les animations et le mode du joueur enregistré arrivent sur son acteur, les
+  instantanés et points de reprise portent le mode, les mouvements de base et les animations en cours (un
+  enregistrement démarré en plein combat montre l'attaque en cours), les sauts dans le temps ignorent les
+  animations finies et reprennent les autres à leur temps, et l'animateur se fige en pause et suit la vitesse du
+  replay.
 
 ### [1.0.8] - 2026-11-01
 

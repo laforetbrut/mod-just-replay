@@ -10,6 +10,8 @@
     "DropTheBeamAudioMixin",
     "DropTheBeamClockMixin",
     "DropTheBeamPauseMixin",
+    "EpicFightAnimatorTickMixin",
+    "EpicFightPoseMixin",
     "LevelRendererClockMixin",
     "MorphInfoTickMixin",
     "MorphRenderMixin",

@@ -34,6 +34,7 @@ public final class ReplayCompat {
     static final boolean MORPH = isLoaded("morph");
     static final boolean SABLE = isLoaded("sable");
     static final boolean AERONAUTICS = isLoaded("aeronautics");
+    static final boolean EPIC_FIGHT = isLoaded("epicfight");
     private static final Set<String> FAILED = Collections.synchronizedSet(new HashSet<>());
 
     private ReplayCompat() {
@@ -167,6 +168,9 @@ public final class ReplayCompat {
                 warnOnce("dropthebeam.tick", "Drop the Beam sync failed", t);
             }
         }
+        if (EPIC_FIGHT) {
+            EpicFightCompat.applyPending();
+        }
     }
 
     /** Called when the replay session closes. */
@@ -180,6 +184,9 @@ public final class ReplayCompat {
         if (DROP_THE_BEAM) {
             DropTheBeamCompat.onReplayEnd();
         }
+        if (EPIC_FIGHT) {
+            EpicFightCompat.onReplayEnd();
+        }
     }
 
     /**
@@ -187,6 +194,10 @@ public final class ReplayCompat {
      * it and it must not reach the client (Drop the Beam's clock packets, which belong to the recording process).
      */
     public static boolean consumeRecorded(Packet<?> packet, int tick) {
+        if (EPIC_FIGHT) {
+            // The previous packet has been handled: its Epic Fight animation can be moved to its time.
+            EpicFightCompat.applyPending();
+        }
         if (BETTER_COMBAT) {
             BetterCombatCompat.onRecorded(packet);
         }
@@ -204,6 +215,9 @@ public final class ReplayCompat {
         if (SABLE) {
             packet = SableCompat.filterPlayback(packet, playback());
         }
+        if (EPIC_FIGHT && packet != null) {
+            packet = EpicFightCompat.filterPlayback(packet);
+        }
         return packet;
     }
 
@@ -217,7 +231,8 @@ public final class ReplayCompat {
         return DROP_THE_BEAM && DropTheBeamCompat.blockServerbound(packet)
                 || PARCOOL && ParCoolCompat.blockServerbound(packet)
                 || BETTER_COMBAT && BetterCombatCompat.blockServerbound(packet)
-                || MORPH && MorphCompat.blockServerbound(packet);
+                || MORPH && MorphCompat.blockServerbound(packet)
+                || EPIC_FIGHT && EpicFightCompat.blockServerbound(packet);
     }
 
     // ---------------------------------------------------------------- recording hooks
@@ -243,6 +258,13 @@ public final class ReplayCompat {
                 BetterCombatCompat.onLiveServerbound(packet);
             } catch (Throwable t) {
                 warnOnce("bettercombat.serverbound", "Cannot record a Better Combat attack", t);
+            }
+        }
+        if (EPIC_FIGHT) {
+            try {
+                EpicFightCompat.onLiveServerbound(packet);
+            } catch (Throwable t) {
+                warnOnce("epicfight.serverbound", "Cannot record an Epic Fight request of the local player", t);
             }
         }
     }
@@ -283,6 +305,21 @@ public final class ReplayCompat {
         }
         if (MORPH) {
             MorphCompat.writeCurrent(player, target, out);
+        }
+        if (EPIC_FIGHT) {
+            // Keyed by entity id, which the actor shares with the recording player.
+            EpicFightCompat.writeCurrent(player, out);
+        }
+    }
+
+    /**
+     * Mod animation state of the non-player entities of the level (snapshots and checkpoints, after the entities are
+     * written): Epic Fight mobs in the middle of an animation.
+     */
+    public static void writeEntityStates(net.minecraft.client.multiplayer.ClientLevel level,
+                                         java.util.function.Consumer<Packet<?>> out) {
+        if (EPIC_FIGHT) {
+            EpicFightCompat.writeEntities(level, out);
         }
     }
 
@@ -361,6 +398,9 @@ public final class ReplayCompat {
         }
         if (MORPH && late > 0 && packet != null) {
             packet = MorphCompat.adjustSkipped(packet, late);
+        }
+        if (EPIC_FIGHT && late > 0 && packet != null) {
+            packet = EpicFightCompat.adjustSkipped(packet, late);
         }
         return packet;
     }
