@@ -286,6 +286,17 @@ public final class ReplayCompat {
         }
     }
 
+    /**
+     * Form state the recording player's actor needs right after it spawns: the server sent it before the capture saw
+     * the actor. Emotes are left out, the local emote poll writes them on a spawn.
+     */
+    public static void writeActorForm(net.minecraft.world.entity.player.Player player, java.util.UUID target,
+                                      java.util.function.Consumer<Packet<?>> out) {
+        if (MORPH) {
+            MorphCompat.writeCurrent(player, target, out);
+        }
+    }
+
     /** A clientbound packet of a live (recorded) connection, on the network thread; {@code newConnection} on its first. */
     public static void onLivePacket(Packet<?> packet, boolean newConnection) {
         if (!DROP_THE_BEAM) {
