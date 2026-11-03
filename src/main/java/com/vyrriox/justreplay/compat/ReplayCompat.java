@@ -37,6 +37,7 @@ public final class ReplayCompat {
     static final boolean SIMULATED = isLoaded("simulated");
     static final boolean PEHKUI = isLoaded("pehkui");
     static final boolean CUSTOM_NPCS = isLoaded("customnpcs");
+    static final boolean ARMOURERS_WORKSHOP = isLoaded("armourers_workshop");
     private static final Set<String> FAILED = Collections.synchronizedSet(new HashSet<>());
 
     private ReplayCompat() {
@@ -183,6 +184,9 @@ public final class ReplayCompat {
         if (DROP_THE_BEAM) {
             DropTheBeamCompat.onReplayEnd();
         }
+        if (ARMOURERS_WORKSHOP) {
+            ArmourersWorkshopCompat.onReplayEnd();
+        }
     }
 
     /**
@@ -294,6 +298,9 @@ public final class ReplayCompat {
         if (PEHKUI) {
             PehkuiCompat.writeCurrent(player, out);
         }
+        if (ARMOURERS_WORKSHOP) {
+            ArmourersWorkshopCompat.writeCurrent(player, out);
+        }
     }
 
     /** Mod state of the non-player entities of a snapshot or checkpoint, written after they spawn (Pehkui scales). */
@@ -301,6 +308,13 @@ public final class ReplayCompat {
                                         java.util.function.Consumer<Packet<?>> out) {
         if (PEHKUI) {
             PehkuiCompat.writeEntities(entities, out);
+        }
+    }
+
+    /** Mod state an entity other than a player carries now (snapshots and checkpoints), written after its spawn. */
+    public static void writeEntityState(net.minecraft.world.entity.Entity entity, java.util.function.Consumer<Packet<?>> out) {
+        if (ARMOURERS_WORKSHOP) {
+            ArmourersWorkshopCompat.writeCurrent(entity, out);
         }
     }
 
@@ -315,6 +329,9 @@ public final class ReplayCompat {
         }
         if (PEHKUI) {
             PehkuiCompat.writeCurrent(player, out);
+        }
+        if (ARMOURERS_WORKSHOP) {
+            ArmourersWorkshopCompat.writeCurrent(player, out);
         }
     }
 
@@ -344,6 +361,13 @@ public final class ReplayCompat {
                 SimulatedCompat.writeSnapshot(out);
             } catch (Throwable t) {
                 warnOnce("simulated.snapshot", "Cannot write the Simulated ropes into the snapshot", t);
+            }
+        }
+        if (ARMOURERS_WORKSHOP) {
+            try {
+                ArmourersWorkshopCompat.writeSnapshot(out);
+            } catch (Throwable t) {
+                warnOnce("aw.snapshot", "Cannot write the Armourer's Workshop skins into the snapshot", t);
             }
         }
         if (DROP_THE_BEAM) {
