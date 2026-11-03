@@ -15,6 +15,10 @@
 #### Added
 - Pehkui support: entity scales (players and mobs) are recorded and replayed, including scales set before the
   recording, the recording player's own scale on its actor, and gradual resizes after seeks and at any speed.
+- **Custom NPCs support** (unofficial NeoForge port): NPCs replay with the look they had when recorded (model,
+  skin, size, name, held items), including NPCs present before the recording started and NPCs changed during it,
+  after seeks and in a later session. NPC dialogs, GUIs and overlays of the recording player do not open during a
+  replay, and Custom NPCs' requests to the replay host are dropped.
 
 ### [1.0.8] - 2026-11-01
 
@@ -324,6 +328,11 @@
 - Prise en charge de Pehkui : les échelles des entités (joueurs et mobs) sont enregistrées et rejouées, y
   compris celles fixées avant l'enregistrement, la taille du joueur enregistré sur son acteur, et les changements
   progressifs après un saut dans le temps et à toute vitesse.
+- **Prise en charge de Custom NPCs** (portage NeoForge non officiel) : les PNJ sont rejoués avec l'apparence
+  enregistrée (modèle, skin, taille, nom, objets tenus), y compris les PNJ présents avant le début de l'enregistrement
+  et ceux modifiés pendant, après un saut dans le temps et dans une session ultérieure. Les dialogues, interfaces et
+  overlays de PNJ du joueur enregistré ne s'ouvrent pas pendant un replay, et les requêtes de Custom NPCs vers
+  l'hôte du replay sont bloquées.
 
 ### [1.0.8] - 2026-11-01
 
