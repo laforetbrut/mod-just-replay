@@ -4,6 +4,15 @@
 
 ### [Unreleased]
 
+#### Fixed
+- **Armourer's Workshop**: singleplayer replays now show outfits. In singleplayer the skins are read straight from the
+  world's skin database and never cross the connection, so 1.0.9 recorded only the skins the client held when the
+  recording started, and the replay world looked the others up in its own empty database. Skins are now recorded
+  wherever they are loaded from, snapshots add every skin a recorded entity wears, and during a replay every lookup is
+  served from the recording before it reaches the replay world's database. The log says how many skins each snapshot
+  wrote and warns about a worn skin the recording does not have. Singleplayer recordings made with 1.0.9 may stay
+  without some skins.
+
 ### [1.0.9] - 2026-11-03
 
 #### Added
@@ -321,6 +330,16 @@
 ## Français
 
 ### [Non publié]
+
+#### Corrigé
+- **Armourer's Workshop** : les replays solo affichent désormais les tenues. En solo, les skins sont lus directement
+  dans la base de skins du monde et ne passent jamais par la connexion : la 1.0.9 n'enregistrait que les skins
+  détenus par le client au début de l'enregistrement, et le monde du replay cherchait les autres dans sa propre base
+  vide. Les skins sont maintenant enregistrés quelle que soit leur source, les instantanés ajoutent chaque skin porté
+  par une entité enregistrée, et pendant un replay chaque recherche est servie depuis l'enregistrement avant
+  d'atteindre la base du monde du replay. Le journal indique combien de skins chaque instantané a écrits et avertit
+  pour un skin porté absent de l'enregistrement. Les enregistrements solo faits avec la 1.0.9 peuvent rester sans
+  certains skins.
 
 ### [1.0.9] - 2026-11-03
 
