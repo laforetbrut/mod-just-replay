@@ -34,6 +34,7 @@ public final class ReplayCompat {
     static final boolean MORPH = isLoaded("morph");
     static final boolean SABLE = isLoaded("sable");
     static final boolean AERONAUTICS = isLoaded("aeronautics");
+    static final boolean ARMOURERS_WORKSHOP = isLoaded("armourers_workshop");
     private static final Set<String> FAILED = Collections.synchronizedSet(new HashSet<>());
 
     private ReplayCompat() {
@@ -180,6 +181,9 @@ public final class ReplayCompat {
         if (DROP_THE_BEAM) {
             DropTheBeamCompat.onReplayEnd();
         }
+        if (ARMOURERS_WORKSHOP) {
+            ArmourersWorkshopCompat.onReplayEnd();
+        }
     }
 
     /**
@@ -284,6 +288,16 @@ public final class ReplayCompat {
         if (MORPH) {
             MorphCompat.writeCurrent(player, target, out);
         }
+        if (ARMOURERS_WORKSHOP) {
+            ArmourersWorkshopCompat.writeCurrent(player, out);
+        }
+    }
+
+    /** Mod state an entity other than a player carries now (snapshots and checkpoints), written after its spawn. */
+    public static void writeEntityState(net.minecraft.world.entity.Entity entity, java.util.function.Consumer<Packet<?>> out) {
+        if (ARMOURERS_WORKSHOP) {
+            ArmourersWorkshopCompat.writeCurrent(entity, out);
+        }
     }
 
     /** A clientbound packet of a live (recorded) connection, on the network thread; {@code newConnection} on its first. */
@@ -304,6 +318,13 @@ public final class ReplayCompat {
                 SableCompat.writeSnapshot(out);
             } catch (Throwable t) {
                 warnOnce("sable.snapshot", "Cannot write the Sable sub-levels into the snapshot", t);
+            }
+        }
+        if (ARMOURERS_WORKSHOP) {
+            try {
+                ArmourersWorkshopCompat.writeSnapshot(out);
+            } catch (Throwable t) {
+                warnOnce("aw.snapshot", "Cannot write the Armourer's Workshop skins into the snapshot", t);
             }
         }
         if (DROP_THE_BEAM) {

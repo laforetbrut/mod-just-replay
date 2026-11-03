@@ -1300,6 +1300,9 @@ public final class Recorder {
             }
             try {
                 writeEntitySnapshot(listener, entity, withPassengers, sink);
+                if (!(entity instanceof net.minecraft.world.entity.player.Player)) {
+                    com.vyrriox.justreplay.compat.ReplayCompat.writeEntityState(entity, packet -> write(listener, packet, sink));
+                }
             } catch (Throwable t) {
                 JustReplay.LOGGER.warn("Skipping entity {} in the snapshot: {}", entity, t.toString());
             }

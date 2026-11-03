@@ -5,6 +5,8 @@
   "compatibilityLevel": "JAVA_21",
   "plugin": "com.vyrriox.justreplay.mixin.compat.CompatMixinPlugin",
   "client": [
+    "ArmourersSendMixin",
+    "ArmourersSkinResponseMixin",
     "BobbyMixin",
     "CatnipAnimationTickHolderMixin",
     "DropTheBeamAudioMixin",

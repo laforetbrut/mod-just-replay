@@ -4,6 +4,13 @@
 
 ### [Unreleased]
 
+#### Added
+
+- Armourer's Workshop support: replays show the outfits and skinned items of every player, the recording player's
+  actor included, worn before or during the recording, after seeks and in a later session. Skins the client
+  holds are written into snapshots and checkpoints with every wardrobe, recorded skin answers fill the skin cache
+  during a replay, and skin requests to the replay host are dropped.
+
 ### [1.0.8] - 2026-11-01
 
 #### Added
@@ -299,6 +306,14 @@
 ## Français
 
 ### [Non publié]
+
+#### Ajouté
+
+- Prise en charge d'Armourer's Workshop : les replays montrent les tenues et objets à skin de chaque joueur,
+  acteur du joueur enregistré compris, portés avant ou pendant l'enregistrement, après un saut dans le temps et
+  dans une session ultérieure. Les skins détenus par le client sont écrits dans les instantanés et points de
+  reprise avec chaque garde-robe, les réponses de skins enregistrées remplissent le cache pendant un replay, et
+  les demandes de skins au serveur du replay sont bloquées.
 
 ### [1.0.8] - 2026-11-01
 
