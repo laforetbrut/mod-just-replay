@@ -34,6 +34,7 @@ public final class ReplayCompat {
     static final boolean MORPH = isLoaded("morph");
     static final boolean SABLE = isLoaded("sable");
     static final boolean AERONAUTICS = isLoaded("aeronautics");
+    static final boolean CUSTOM_NPCS = isLoaded("customnpcs");
     private static final Set<String> FAILED = Collections.synchronizedSet(new HashSet<>());
 
     private ReplayCompat() {
@@ -204,6 +205,9 @@ public final class ReplayCompat {
         if (SABLE) {
             packet = SableCompat.filterPlayback(packet, playback());
         }
+        if (CUSTOM_NPCS && packet != null) {
+            packet = CustomNpcsCompat.filterPlayback(packet);
+        }
         return packet;
     }
 
@@ -217,7 +221,8 @@ public final class ReplayCompat {
         return DROP_THE_BEAM && DropTheBeamCompat.blockServerbound(packet)
                 || PARCOOL && ParCoolCompat.blockServerbound(packet)
                 || BETTER_COMBAT && BetterCombatCompat.blockServerbound(packet)
-                || MORPH && MorphCompat.blockServerbound(packet);
+                || MORPH && MorphCompat.blockServerbound(packet)
+                || CUSTOM_NPCS && CustomNpcsCompat.blockServerbound(packet);
     }
 
     // ---------------------------------------------------------------- recording hooks
@@ -313,6 +318,18 @@ public final class ReplayCompat {
                 warnOnce("dropthebeam.snapshot", "Cannot write the Drop the Beam state into the snapshot", t);
             }
         }
+        if (CUSTOM_NPCS) {
+            try {
+                CustomNpcsCompat.writeSnapshot(out);
+            } catch (Throwable t) {
+                warnOnce("customnpcs.snapshot", "Cannot write the Custom NPCs player skins into the snapshot", t);
+            }
+        }
+    }
+
+    /** The encoded bytes of a recorded packet, with what a mod appends to a vanilla packet restored (Custom NPCs looks). */
+    public static byte[] patchEncoded(Packet<?> packet, byte[] bytes) {
+        return CUSTOM_NPCS ? CustomNpcsCompat.patchEncoded(packet, bytes) : bytes;
     }
 
     /** A synthetic packet to record on this capture tick (a mod clock sample), or null. */
