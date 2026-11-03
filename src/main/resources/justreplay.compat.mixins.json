@@ -13,6 +13,7 @@
     "LevelRendererClockMixin",
     "MorphInfoTickMixin",
     "MorphRenderMixin",
+    "PehkuiPacketWriteMixin",
     "PehkuiScaleTickMixin",
     "PlayerAnimKeyframeMixin",
     "PlayerAnimStackMixin",

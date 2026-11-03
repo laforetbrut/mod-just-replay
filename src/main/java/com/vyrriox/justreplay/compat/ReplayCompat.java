@@ -300,13 +300,16 @@ public final class ReplayCompat {
     }
 
     /**
-     * Form state the recording player's actor needs right after it spawns: the server sent it before the capture saw
-     * the actor. Emotes are left out, the local emote poll writes them on a spawn.
+     * Form and size the recording player's actor needs right after it spawns: the server sent them before the capture
+     * saw the actor. Emotes are left out, the local emote poll writes them on a spawn.
      */
     public static void writeActorForm(net.minecraft.world.entity.player.Player player, java.util.UUID target,
                                       java.util.function.Consumer<Packet<?>> out) {
         if (MORPH) {
             MorphCompat.writeCurrent(player, target, out);
+        }
+        if (PEHKUI) {
+            PehkuiCompat.writeCurrent(player, out);
         }
     }
 
