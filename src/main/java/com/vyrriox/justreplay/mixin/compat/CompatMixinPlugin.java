@@ -28,6 +28,9 @@ public final class CompatMixinPlugin implements IMixinConfigPlugin {
         if (mixinClassName.contains(".Morph")) {
             return loaded("morph");
         }
+        if (mixinClassName.contains(".Pehkui")) {
+            return loaded("pehkui");
+        }
         if (mixinClassName.contains(".Sable")) {
             return loaded("sable");
         }

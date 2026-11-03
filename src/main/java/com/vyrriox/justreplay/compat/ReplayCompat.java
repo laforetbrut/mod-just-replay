@@ -34,6 +34,7 @@ public final class ReplayCompat {
     static final boolean MORPH = isLoaded("morph");
     static final boolean SABLE = isLoaded("sable");
     static final boolean AERONAUTICS = isLoaded("aeronautics");
+    static final boolean PEHKUI = isLoaded("pehkui");
     private static final Set<String> FAILED = Collections.synchronizedSet(new HashSet<>());
 
     private ReplayCompat() {
@@ -284,6 +285,17 @@ public final class ReplayCompat {
         if (MORPH) {
             MorphCompat.writeCurrent(player, target, out);
         }
+        if (PEHKUI) {
+            PehkuiCompat.writeCurrent(player, out);
+        }
+    }
+
+    /** Mod state of the non-player entities of a snapshot or checkpoint, written after they spawn (Pehkui scales). */
+    public static void writeEntityState(Iterable<net.minecraft.world.entity.Entity> entities,
+                                        java.util.function.Consumer<Packet<?>> out) {
+        if (PEHKUI) {
+            PehkuiCompat.writeEntities(entities, out);
+        }
     }
 
     /** A clientbound packet of a live (recorded) connection, on the network thread; {@code newConnection} on its first. */
@@ -361,6 +373,9 @@ public final class ReplayCompat {
         }
         if (MORPH && late > 0 && packet != null) {
             packet = MorphCompat.adjustSkipped(packet, late);
+        }
+        if (PEHKUI && late > 0 && packet != null) {
+            packet = PehkuiCompat.adjustSkipped(packet, late);
         }
         return packet;
     }
