@@ -13,6 +13,7 @@
     "LevelRendererClockMixin",
     "MorphInfoTickMixin",
     "MorphRenderMixin",
+    "PehkuiScaleTickMixin",
     "PlayerAnimKeyframeMixin",
     "PlayerAnimStackMixin",
     "SableLocalPoseMixin",

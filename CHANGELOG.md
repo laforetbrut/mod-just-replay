@@ -12,6 +12,9 @@
 - Simulated (Create Aeronautics) ropes attached before a recording started, or before a checkpoint, were missing
   from the replay: the server sends a rope only when the client starts tracking it, so snapshots and checkpoints
   now write every rope the client knows.
+#### Added
+- Pehkui support: entity scales (players and mobs) are recorded and replayed, including scales set before the
+  recording, the recording player's own scale on its actor, and gradual resizes after seeks and at any speed.
 
 ### [1.0.8] - 2026-11-01
 
@@ -317,6 +320,10 @@
 - Les cordes de Simulated (Create Aeronautics) attachées avant le début d'un enregistrement, ou avant un point de
   reprise, manquaient au replay : le serveur n'envoie une corde que quand le client commence à la suivre, donc les
   instantanés et points de reprise écrivent désormais toutes les cordes connues du client.
+#### Ajouté
+- Prise en charge de Pehkui : les échelles des entités (joueurs et mobs) sont enregistrées et rejouées, y
+  compris celles fixées avant l'enregistrement, la taille du joueur enregistré sur son acteur, et les changements
+  progressifs après un saut dans le temps et à toute vitesse.
 
 ### [1.0.8] - 2026-11-01
 
