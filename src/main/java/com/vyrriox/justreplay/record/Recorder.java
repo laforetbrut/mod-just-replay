@@ -45,6 +45,7 @@ import net.minecraft.network.protocol.game.ClientboundSetScorePacket;
 import net.minecraft.network.protocol.game.ClientboundSetTimePacket;
 import net.minecraft.network.protocol.game.ClientboundTabListPacket;
 import net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket;
+import net.minecraft.network.protocol.game.ClientboundUpdateAttributesPacket;
 import net.minecraft.network.protocol.game.CommonPlayerSpawnInfo;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.util.Mth;
@@ -171,6 +172,10 @@ public final class Recorder {
     private float lastYRot, lastXRot, lastHeadRot;
     private List<SynchedEntityData.DataValue<?>> lastData;
     private Object[] lastDataValues;
+    /** Syncable attributes of the recording player, refreshed on respawn and now and then. */
+    private List<net.minecraft.world.entity.ai.attributes.AttributeInstance> actorAttributes;
+    private long lastAttributeHash;
+    private int attributeRefresh;
     private final ItemStack[] lastEquipment = new ItemStack[SLOTS.length];
     private boolean lastSwinging;
     private int lastSwingTime;
@@ -1033,6 +1038,7 @@ public final class Recorder {
             equipment.add(Pair.of(slot, player.getItemBySlot(slot).copy()));
         }
         write(listener, new ClientboundSetEquipmentPacket(player.getId(), equipment), sink);
+        writeAttributes(listener, player, sink);
         com.vyrriox.justreplay.compat.ReplayCompat.writePlayerState(player, actorUuid, packet -> write(listener, packet, sink));
     }
 
@@ -1108,6 +1114,7 @@ public final class Recorder {
             lastData = null;
             lastDataValues = null;
             java.util.Arrays.fill(lastEquipment, null);
+            actorAttributes = null;
             writeActorSpawn(listener, player, sink);
         }
 
@@ -1156,6 +1163,8 @@ public final class Recorder {
             write(listener, new ClientboundSetEquipmentPacket(player.getId(), equipment));
         }
 
+        pollAttributes(listener, player, respawned);
+
         boolean swingStarted = player.swinging && (!lastSwinging || player.swingTime < lastSwingTime);
         if (swingStarted) {
             write(listener, new ClientboundAnimatePacket(player, player.swingingArm == InteractionHand.MAIN_HAND ? 0 : 3));
@@ -1165,6 +1174,36 @@ public final class Recorder {
 
         // The server never sends a player its own emotes: they are written as another client receives them.
         localEmotes.poll(player, actorUuid, respawned, packet -> write(listener, packet));
+    }
+
+    /** Base values and modifiers of the entity's syncable attributes, as the server sends them on spawn. */
+    private void writeAttributes(ClientPacketListener listener, LivingEntity living, Consumer<byte[]> out) {
+        java.util.Collection<net.minecraft.world.entity.ai.attributes.AttributeInstance> attributes = living.getAttributes().getSyncableAttributes();
+        if (!attributes.isEmpty()) {
+            write(listener, new ClientboundUpdateAttributesPacket(living.getId(), attributes), out);
+        }
+    }
+
+    /** Writes the actor's attributes when a syncable value changed. No allocation while nothing changes. */
+    private void pollAttributes(ClientPacketListener listener, LocalPlayer player, boolean respawned) {
+        // Instances are created lazily, so the list is rebuilt now and then to catch new ones.
+        if (actorAttributes == null || --attributeRefresh <= 0) {
+            actorAttributes = new ArrayList<>(player.getAttributes().getSyncableAttributes());
+            attributeRefresh = 100;
+        }
+        List<net.minecraft.world.entity.ai.attributes.AttributeInstance> attributes = actorAttributes;
+        long hash = attributes.size();
+        for (int i = 0; i < attributes.size(); i++) {
+            net.minecraft.world.entity.ai.attributes.AttributeInstance instance = attributes.get(i);
+            hash = hash * 31 + instance.getAttribute().hashCode();
+            hash = hash * 31 + Double.doubleToLongBits(instance.getValue());
+        }
+        if (respawned || hash != lastAttributeHash) {
+            lastAttributeHash = hash;
+            if (!attributes.isEmpty()) {
+                write(listener, new ClientboundUpdateAttributesPacket(player.getId(), attributes));
+            }
+        }
     }
 
     /** Tab list entry and entity of the actor standing for the recording player (vanilla never sends it its own). */
@@ -1389,6 +1428,7 @@ public final class Recorder {
             if (!equipment.isEmpty()) {
                 write(listener, new ClientboundSetEquipmentPacket(entity.getId(), equipment), sink);
             }
+            writeAttributes(listener, living, sink);
         }
         if (!entity.getPassengers().isEmpty()) {
             withPassengers.add(entity);
