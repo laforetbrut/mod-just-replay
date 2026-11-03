@@ -183,6 +183,9 @@ public final class JustReplayClient {
         public static void onScreenOpening(ScreenEvent.Opening event) {
             if (Playback.isDispatching()) {
                 event.setCanceled(true);
+            } else if (ReplaySession.isRunning() && isPlayerOnlyScreen(event.getNewScreen())) {
+                // The camera is not a player of the recording: its inventory and progress mean nothing in a replay.
+                event.setCanceled(true);
             } else if (VideoExporter.isActive() && Minecraft.getInstance().level != null) {
                 // Esc cancels the export; any other screen would be burnt into the video.
                 if (event.getNewScreen() instanceof PauseScreen) {
@@ -192,6 +195,12 @@ public final class JustReplayClient {
                     event.setCanceled(true);
                 }
             }
+        }
+
+        /** Screens about the player itself (inventory, containers, advancements), which a replay camera has none of. */
+        private static boolean isPlayerOnlyScreen(net.minecraft.client.gui.screens.Screen screen) {
+            return screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>
+                    || screen instanceof net.minecraft.client.gui.screens.advancements.AdvancementsScreen;
         }
 
         /** Actors are puppets: their own AI/tick code (often server-minded in mods) never runs. */

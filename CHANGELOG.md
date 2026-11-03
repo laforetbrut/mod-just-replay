@@ -4,29 +4,25 @@
 
 ### [Unreleased]
 
-#### Fixed
-- Replays keep entity scale and the other synced attributes (movement speed and so on): they are saved
-  with every entity at the start of a recording and at checkpoints, and the recording player's own
-  attributes are saved and followed while recording.
-- Joining a world while morphed with Morph and then recording showed the recording player as a player: the form the server sent on login is now written when the actor spawns, in recordings and in the replay buffer.
-- Simulated (Create Aeronautics) ropes attached before a recording started, or before a checkpoint, were missing
-  from the replay: the server sends a rope only when the client starts tracking it, so snapshots and checkpoints
-  now write every rope the client knows.
 #### Added
-- Pehkui support: entity scales (players and mobs) are recorded and replayed, including scales set before the
-  recording, the recording player's own scale on its actor, and gradual resizes after seeks and at any speed.
-- **Custom NPCs support** (unofficial NeoForge port): NPCs replay with the look they had when recorded (model,
-  skin, size, name, held items), including NPCs present before the recording started and NPCs changed during it,
-  after seeks and in a later session. NPC dialogs, GUIs and overlays of the recording player do not open during a
-  replay, and Custom NPCs' requests to the replay host are dropped.
-- Armourer's Workshop support: replays show the outfits and skinned items of every player, the recording player's
-  actor included, worn before or during the recording, after seeks and in a later session. Skins the client
-  holds are written into snapshots and checkpoints with every wardrobe, recorded skin answers fill the skin cache
-  during a replay, and skin requests to the replay host are dropped.
-- Epic Fight support: animations and battle mode of players and patched mobs replay as recorded, the recording
-  player's own animations and mode reach its actor, snapshots and checkpoints carry the mode, living motions and
-  running animations (a recording started mid-fight shows the attack in progress), seeks drop finished animations
-  and resume the others at their time, and the animator holds while paused and follows the replay speed.
+- **Epic Fight**: animations and battle mode of players and patched mobs replay as recorded, the recording player's
+  included on its actor. A recording started mid-fight shows the attack in progress, seeks resume animations at
+  their time, and animations hold while paused and follow the replay speed.
+- **Armourer's Workshop**: outfits and skinned items of every player, the recording player's actor included, worn
+  before or during the recording, after seeks and in a later session. The skins are saved in the recording.
+- **Custom NPCs** (unofficial NeoForge port): NPCs replay with the look they had when recorded (model, skin, size,
+  name, held items), also when they were there before the recording or changed during it. NPC dialogs and screens
+  of the recording player do not open during a replay.
+- **Pehkui**: entity scales, set before or during the recording, the recording player's own scale on its actor, and
+  gradual resizes after seeks and at any speed.
+
+#### Fixed
+- Entity scale and the other synced attributes (vanilla `/attribute`, movement speed...) were lost: they are saved
+  with every entity at the start of a recording and at checkpoints, and the recording player's own are followed.
+- Joining a world while morphed with Morph, then recording, showed the recording player as a player.
+- Simulated (Create Aeronautics) ropes attached before a recording or a checkpoint were missing from the replay.
+- In a replay, players in spectator mode showed up (the replay camera is itself a spectator), and the inventory,
+  containers and advancements could be opened, which belong to no one there.
 
 ### [1.0.8] - 2026-11-01
 
@@ -324,34 +320,28 @@
 
 ### [Non publié]
 
-#### Corrigé
-- Les replays gardent la taille des entités et les autres attributs synchronisés (vitesse de déplacement,
-  etc.) : ils sont sauvegardés avec chaque entité au début d'un enregistrement et aux points de reprise,
-  et les attributs du joueur qui enregistre sont sauvegardés et suivis pendant l'enregistrement.
-- Rejoindre un monde transformé avec Morph puis enregistrer montrait le joueur qui enregistre sous forme de joueur : la forme envoyée par le serveur à la connexion est maintenant écrite à l'apparition de l'acteur, dans les enregistrements et dans le tampon de replay.
-- Les cordes de Simulated (Create Aeronautics) attachées avant le début d'un enregistrement, ou avant un point de
-  reprise, manquaient au replay : le serveur n'envoie une corde que quand le client commence à la suivre, donc les
-  instantanés et points de reprise écrivent désormais toutes les cordes connues du client.
 #### Ajouté
-- Prise en charge de Pehkui : les échelles des entités (joueurs et mobs) sont enregistrées et rejouées, y
-  compris celles fixées avant l'enregistrement, la taille du joueur enregistré sur son acteur, et les changements
-  progressifs après un saut dans le temps et à toute vitesse.
-- **Prise en charge de Custom NPCs** (portage NeoForge non officiel) : les PNJ sont rejoués avec l'apparence
-  enregistrée (modèle, skin, taille, nom, objets tenus), y compris les PNJ présents avant le début de l'enregistrement
-  et ceux modifiés pendant, après un saut dans le temps et dans une session ultérieure. Les dialogues, interfaces et
-  overlays de PNJ du joueur enregistré ne s'ouvrent pas pendant un replay, et les requêtes de Custom NPCs vers
-  l'hôte du replay sont bloquées.
-- Prise en charge d'Armourer's Workshop : les replays montrent les tenues et objets à skin de chaque joueur,
-  acteur du joueur enregistré compris, portés avant ou pendant l'enregistrement, après un saut dans le temps et
-  dans une session ultérieure. Les skins détenus par le client sont écrits dans les instantanés et points de
-  reprise avec chaque garde-robe, les réponses de skins enregistrées remplissent le cache pendant un replay, et
-  les demandes de skins au serveur du replay sont bloquées.
-- Prise en charge d'Epic Fight : les animations et le mode combat des joueurs et des mobs pris en charge sont
-  rejoués comme enregistrés, les animations et le mode du joueur enregistré arrivent sur son acteur, les
-  instantanés et points de reprise portent le mode, les mouvements de base et les animations en cours (un
-  enregistrement démarré en plein combat montre l'attaque en cours), les sauts dans le temps ignorent les
-  animations finies et reprennent les autres à leur temps, et l'animateur se fige en pause et suit la vitesse du
-  replay.
+- **Epic Fight** : les animations et le mode combat des joueurs et des mobs pris en charge sont rejoués, ceux du
+  joueur enregistré sur son acteur. Un enregistrement lancé en plein combat montre l'attaque en cours, les sauts dans
+  le temps reprennent les animations au bon moment, et elles se figent en pause et suivent la vitesse du replay.
+- **Armourer's Workshop** : les tenues et objets personnalisés de chaque joueur, acteur du joueur enregistré compris,
+  portés avant ou pendant l'enregistrement, après un saut dans le temps et dans une session ultérieure. Les skins
+  sont sauvegardés dans l'enregistrement.
+- **Custom NPCs** (portage NeoForge non officiel) : les PNJ sont rejoués avec l'apparence qu'ils avaient (modèle,
+  skin, taille, nom, objets tenus), même présents avant l'enregistrement ou modifiés pendant. Les dialogues et
+  écrans de PNJ du joueur enregistré ne s'ouvrent pas pendant un replay.
+- **Pehkui** : les tailles des entités, réglées avant ou pendant l'enregistrement, celle du joueur enregistré sur
+  son acteur, et les changements progressifs après un saut dans le temps et à toute vitesse.
+
+#### Corrigé
+- La taille des entités et les autres attributs synchronisés (`/attribute` vanilla, vitesse de déplacement...)
+  étaient perdus : ils sont sauvegardés avec chaque entité au début d'un enregistrement et aux points de reprise,
+  et ceux du joueur enregistré sont suivis.
+- Rejoindre un monde transformé avec Morph puis enregistrer montrait le joueur enregistré sous forme de joueur.
+- Les cordes de Simulated (Create Aeronautics) attachées avant un enregistrement ou un point de reprise manquaient
+  au replay.
+- Pendant un replay, les joueurs en mode spectateur étaient visibles (la caméra du replay est elle-même spectatrice),
+  et l'inventaire, les conteneurs et les progrès pouvaient s'ouvrir alors qu'ils n'appartiennent à personne.
 
 ### [1.0.8] - 2026-11-01
 
