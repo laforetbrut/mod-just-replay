@@ -23,6 +23,10 @@
   actor included, worn before or during the recording, after seeks and in a later session. Skins the client
   holds are written into snapshots and checkpoints with every wardrobe, recorded skin answers fill the skin cache
   during a replay, and skin requests to the replay host are dropped.
+- Epic Fight support: animations and battle mode of players and patched mobs replay as recorded, the recording
+  player's own animations and mode reach its actor, snapshots and checkpoints carry the mode, living motions and
+  running animations (a recording started mid-fight shows the attack in progress), seeks drop finished animations
+  and resume the others at their time, and the animator holds while paused and follows the replay speed.
 
 ### [1.0.8] - 2026-11-01
 
@@ -342,6 +346,12 @@
   dans une session ultérieure. Les skins détenus par le client sont écrits dans les instantanés et points de
   reprise avec chaque garde-robe, les réponses de skins enregistrées remplissent le cache pendant un replay, et
   les demandes de skins au serveur du replay sont bloquées.
+- Prise en charge d'Epic Fight : les animations et le mode combat des joueurs et des mobs pris en charge sont
+  rejoués comme enregistrés, les animations et le mode du joueur enregistré arrivent sur son acteur, les
+  instantanés et points de reprise portent le mode, les mouvements de base et les animations en cours (un
+  enregistrement démarré en plein combat montre l'attaque en cours), les sauts dans le temps ignorent les
+  animations finies et reprennent les autres à leur temps, et l'animateur se fige en pause et suit la vitesse du
+  replay.
 
 ### [1.0.8] - 2026-11-01
 
