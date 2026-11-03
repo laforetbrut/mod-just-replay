@@ -4,6 +4,12 @@
 
 ### [Unreleased]
 
+#### Fixed
+
+- Replays keep entity scale and the other synced attributes (movement speed and so on): they are saved
+  with every entity at the start of a recording and at checkpoints, and the recording player's own
+  attributes are saved and followed while recording.
+
 ### [1.0.8] - 2026-11-01
 
 #### Added
@@ -299,6 +305,12 @@
 ## Français
 
 ### [Non publié]
+
+#### Corrigé
+
+- Les replays gardent la taille des entités et les autres attributs synchronisés (vitesse de déplacement,
+  etc.) : ils sont sauvegardés avec chaque entité au début d'un enregistrement et aux points de reprise,
+  et les attributs du joueur qui enregistre sont sauvegardés et suivis pendant l'enregistrement.
 
 ### [1.0.8] - 2026-11-01
 

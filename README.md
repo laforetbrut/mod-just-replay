@@ -12,7 +12,7 @@ NeoForge 1.21.1, client side. Author: vyrriox. License: Apache-2.0.
 - **Recording**: every packet the client receives is saved, custom mod payloads included, so modded
   blocks, entities and effects come back in the replay. Start and stop with **F8** or from the pause menu,
   or enable auto recording in the config. The recording player is saved too (position, look, pose,
-  equipment, swings).
+  equipment, swings, scale and other attributes).
 - **Playback**: free spectator camera, play and pause, speed from x0.1 to x8, seek forward and backward,
   jump to the recording player's point of view. Pause and speed go through the vanilla tick rate, so every
   entity and modded renderer follows the replay clock.
@@ -182,7 +182,7 @@ classes and APIs and include none of their code. Not affiliated with Mojang or M
 - **Enregistrement** : chaque paquet reçu par le client est sauvegardé, y compris ceux des mods, donc les
   blocs, entités et effets moddés reviennent dans le replay. Démarrer et arrêter avec **F8** ou depuis le
   menu pause, ou activer l'enregistrement automatique dans la config. Le joueur qui enregistre est aussi
-  sauvegardé (position, regard, posture, équipement, coups).
+  sauvegardé (position, regard, posture, équipement, coups, taille et autres attributs).
 - **Lecture** : caméra libre en spectateur, lecture et pause, vitesse de x0,1 à x8, saut en avant et en
   arrière, retour au point de vue du joueur enregistré. La pause et la vitesse passent par le tick rate
   vanilla, donc toutes les entités et les rendus des mods suivent l'horloge du replay.
