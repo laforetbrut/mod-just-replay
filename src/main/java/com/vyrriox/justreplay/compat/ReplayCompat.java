@@ -34,6 +34,11 @@ public final class ReplayCompat {
     static final boolean MORPH = isLoaded("morph");
     static final boolean SABLE = isLoaded("sable");
     static final boolean AERONAUTICS = isLoaded("aeronautics");
+    static final boolean SIMULATED = isLoaded("simulated");
+    static final boolean PEHKUI = isLoaded("pehkui");
+    static final boolean CUSTOM_NPCS = isLoaded("customnpcs");
+    static final boolean ARMOURERS_WORKSHOP = isLoaded("armourers_workshop");
+    static final boolean EPIC_FIGHT = isLoaded("epicfight");
     private static final Set<String> FAILED = Collections.synchronizedSet(new HashSet<>());
 
     private ReplayCompat() {
@@ -167,6 +172,9 @@ public final class ReplayCompat {
                 warnOnce("dropthebeam.tick", "Drop the Beam sync failed", t);
             }
         }
+        if (EPIC_FIGHT) {
+            EpicFightCompat.applyPending();
+        }
     }
 
     /** Called when the replay session closes. */
@@ -180,6 +188,12 @@ public final class ReplayCompat {
         if (DROP_THE_BEAM) {
             DropTheBeamCompat.onReplayEnd();
         }
+        if (ARMOURERS_WORKSHOP) {
+            ArmourersWorkshopCompat.onReplayEnd();
+        }
+        if (EPIC_FIGHT) {
+            EpicFightCompat.onReplayEnd();
+        }
     }
 
     /**
@@ -187,6 +201,10 @@ public final class ReplayCompat {
      * it and it must not reach the client (Drop the Beam's clock packets, which belong to the recording process).
      */
     public static boolean consumeRecorded(Packet<?> packet, int tick) {
+        if (EPIC_FIGHT) {
+            // The previous packet has been handled: its Epic Fight animation can be moved to its time.
+            EpicFightCompat.applyPending();
+        }
         if (BETTER_COMBAT) {
             BetterCombatCompat.onRecorded(packet);
         }
@@ -204,6 +222,12 @@ public final class ReplayCompat {
         if (SABLE) {
             packet = SableCompat.filterPlayback(packet, playback());
         }
+        if (CUSTOM_NPCS && packet != null) {
+            packet = CustomNpcsCompat.filterPlayback(packet);
+        }
+        if (EPIC_FIGHT && packet != null) {
+            packet = EpicFightCompat.filterPlayback(packet);
+        }
         return packet;
     }
 
@@ -217,7 +241,9 @@ public final class ReplayCompat {
         return DROP_THE_BEAM && DropTheBeamCompat.blockServerbound(packet)
                 || PARCOOL && ParCoolCompat.blockServerbound(packet)
                 || BETTER_COMBAT && BetterCombatCompat.blockServerbound(packet)
-                || MORPH && MorphCompat.blockServerbound(packet);
+                || MORPH && MorphCompat.blockServerbound(packet)
+                || CUSTOM_NPCS && CustomNpcsCompat.blockServerbound(packet)
+                || EPIC_FIGHT && EpicFightCompat.blockServerbound(packet);
     }
 
     // ---------------------------------------------------------------- recording hooks
@@ -243,6 +269,13 @@ public final class ReplayCompat {
                 BetterCombatCompat.onLiveServerbound(packet);
             } catch (Throwable t) {
                 warnOnce("bettercombat.serverbound", "Cannot record a Better Combat attack", t);
+            }
+        }
+        if (EPIC_FIGHT) {
+            try {
+                EpicFightCompat.onLiveServerbound(packet);
+            } catch (Throwable t) {
+                warnOnce("epicfight.serverbound", "Cannot record an Epic Fight request of the local player", t);
             }
         }
     }
@@ -284,6 +317,62 @@ public final class ReplayCompat {
         if (MORPH) {
             MorphCompat.writeCurrent(player, target, out);
         }
+        if (PEHKUI) {
+            PehkuiCompat.writeCurrent(player, out);
+        }
+        if (ARMOURERS_WORKSHOP) {
+            ArmourersWorkshopCompat.writeCurrent(player, out);
+        }
+        if (EPIC_FIGHT) {
+            // Keyed by entity id, which the actor shares with the recording player.
+            EpicFightCompat.writeCurrent(player, out);
+        }
+    }
+
+    /** Mod state of the non-player entities of a snapshot or checkpoint, written after they spawn (Pehkui scales). */
+    public static void writeEntityState(Iterable<net.minecraft.world.entity.Entity> entities,
+                                        java.util.function.Consumer<Packet<?>> out) {
+        if (PEHKUI) {
+            PehkuiCompat.writeEntities(entities, out);
+        }
+    }
+
+    /** Mod state an entity other than a player carries now (snapshots and checkpoints), written after its spawn. */
+    public static void writeEntityState(net.minecraft.world.entity.Entity entity, java.util.function.Consumer<Packet<?>> out) {
+        if (ARMOURERS_WORKSHOP) {
+            ArmourersWorkshopCompat.writeCurrent(entity, out);
+        }
+    }
+
+    /**
+     * Form and size the recording player's actor needs right after it spawns: the server sent them before the capture
+     * saw the actor. Emotes are left out, the local emote poll writes them on a spawn.
+     */
+    public static void writeActorForm(net.minecraft.world.entity.player.Player player, java.util.UUID target,
+                                      java.util.function.Consumer<Packet<?>> out) {
+        if (MORPH) {
+            MorphCompat.writeCurrent(player, target, out);
+        }
+        if (PEHKUI) {
+            PehkuiCompat.writeCurrent(player, out);
+        }
+        if (ARMOURERS_WORKSHOP) {
+            ArmourersWorkshopCompat.writeCurrent(player, out);
+        }
+        if (EPIC_FIGHT) {
+            EpicFightCompat.writeCurrent(player, out);
+        }
+    }
+
+    /**
+     * Mod animation state of the non-player entities of the level (snapshots and checkpoints, after the entities are
+     * written): Epic Fight mobs in the middle of an animation.
+     */
+    public static void writeEntityStates(net.minecraft.client.multiplayer.ClientLevel level,
+                                         java.util.function.Consumer<Packet<?>> out) {
+        if (EPIC_FIGHT) {
+            EpicFightCompat.writeEntities(level, out);
+        }
     }
 
     /** A clientbound packet of a live (recorded) connection, on the network thread; {@code newConnection} on its first. */
@@ -306,6 +395,21 @@ public final class ReplayCompat {
                 warnOnce("sable.snapshot", "Cannot write the Sable sub-levels into the snapshot", t);
             }
         }
+        if (SIMULATED) {
+            try {
+                // After the sub-levels: the rope owner blocks must exist, in the world or in a plot.
+                SimulatedCompat.writeSnapshot(out);
+            } catch (Throwable t) {
+                warnOnce("simulated.snapshot", "Cannot write the Simulated ropes into the snapshot", t);
+            }
+        }
+        if (ARMOURERS_WORKSHOP) {
+            try {
+                ArmourersWorkshopCompat.writeSnapshot(out);
+            } catch (Throwable t) {
+                warnOnce("aw.snapshot", "Cannot write the Armourer's Workshop skins into the snapshot", t);
+            }
+        }
         if (DROP_THE_BEAM) {
             try {
                 DropTheBeamCompat.writeSnapshot(out);
@@ -313,6 +417,18 @@ public final class ReplayCompat {
                 warnOnce("dropthebeam.snapshot", "Cannot write the Drop the Beam state into the snapshot", t);
             }
         }
+        if (CUSTOM_NPCS) {
+            try {
+                CustomNpcsCompat.writeSnapshot(out);
+            } catch (Throwable t) {
+                warnOnce("customnpcs.snapshot", "Cannot write the Custom NPCs player skins into the snapshot", t);
+            }
+        }
+    }
+
+    /** The encoded bytes of a recorded packet, with what a mod appends to a vanilla packet restored (Custom NPCs looks). */
+    public static byte[] patchEncoded(Packet<?> packet, byte[] bytes) {
+        return CUSTOM_NPCS ? CustomNpcsCompat.patchEncoded(packet, bytes) : bytes;
     }
 
     /** A synthetic packet to record on this capture tick (a mod clock sample), or null. */
@@ -361,6 +477,12 @@ public final class ReplayCompat {
         }
         if (MORPH && late > 0 && packet != null) {
             packet = MorphCompat.adjustSkipped(packet, late);
+        }
+        if (PEHKUI && late > 0 && packet != null) {
+            packet = PehkuiCompat.adjustSkipped(packet, late);
+        }
+        if (EPIC_FIGHT && late > 0 && packet != null) {
+            packet = EpicFightCompat.adjustSkipped(packet, late);
         }
         return packet;
     }

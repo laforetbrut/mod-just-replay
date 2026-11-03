@@ -74,7 +74,7 @@ public final class PacketCodec {
                 buf.release();
             }
         }
-        sink.accept(bytes);
+        sink.accept(com.vyrriox.justreplay.compat.ReplayCompat.patchEncoded(packet, bytes));
     }
 
     /**

@@ -12,7 +12,7 @@ NeoForge 1.21.1, client side. Author: vyrriox. License: Apache-2.0.
 - **Recording**: every packet the client receives is saved, custom mod payloads included, so modded
   blocks, entities and effects come back in the replay. Start and stop with **F8** or from the pause menu,
   or enable auto recording in the config. The recording player is saved too (position, look, pose,
-  equipment, swings).
+  equipment, swings, scale and other attributes).
 - **Playback**: free spectator camera, play and pause, speed from x0.1 to x8, seek forward and backward,
   jump to the recording player's point of view. Pause and speed go through the vanilla tick rate, so every
   entity and modded renderer follows the replay clock.
@@ -172,7 +172,7 @@ step n/m: <reason>` and the game quits; a full run logs `SCENE job finished`. Th
 
 Apache License 2.0, see `LICENSE` and `NOTICE`. The jar bundles no third-party code. FFmpeg is an external
 program you install yourself; Just Replay only starts it for video export. Optional integrations (Simple
-Voice Chat, Distant Horizons, Emotecraft, ParCool, Better Combat, Morph, WaterFrames, Create, Sable, Create Aeronautics, Drop the Beam, Bobby, Iris) work through those mods'
+Voice Chat, Distant Horizons, Emotecraft, ParCool, Better Combat, Morph, Pehkui, Custom NPCs, Armourer's Workshop, Epic Fight, WaterFrames, Create, Sable, Create Aeronautics, Drop the Beam, Bobby, Iris) work through those mods'
 classes and APIs and include none of their code. Not affiliated with Mojang or Microsoft.
 
 ## Français
@@ -182,7 +182,7 @@ classes and APIs and include none of their code. Not affiliated with Mojang or M
 - **Enregistrement** : chaque paquet reçu par le client est sauvegardé, y compris ceux des mods, donc les
   blocs, entités et effets moddés reviennent dans le replay. Démarrer et arrêter avec **F8** ou depuis le
   menu pause, ou activer l'enregistrement automatique dans la config. Le joueur qui enregistre est aussi
-  sauvegardé (position, regard, posture, équipement, coups).
+  sauvegardé (position, regard, posture, équipement, coups, taille et autres attributs).
 - **Lecture** : caméra libre en spectateur, lecture et pause, vitesse de x0,1 à x8, saut en avant et en
   arrière, retour au point de vue du joueur enregistré. La pause et la vitesse passent par le tick rate
   vanilla, donc toutes les entités et les rendus des mods suivent l'horloge du replay.
@@ -331,5 +331,5 @@ Chaque étape est écrite dans le log avec le préfixe `SCENE`, pour qu'un outil
 
 Licence Apache 2.0, voir `LICENSE` et `NOTICE`. Le jar n'embarque aucun code tiers. FFmpeg est un programme
 externe que tu installes toi-même ; Just Replay ne fait que le lancer pour l'export vidéo. Les intégrations
-optionnelles (Simple Voice Chat, Distant Horizons, Emotecraft, ParCool, Better Combat, Morph, WaterFrames, Create, Sable, Create Aeronautics, Drop the Beam, Bobby, Iris) passent par les
+optionnelles (Simple Voice Chat, Distant Horizons, Emotecraft, ParCool, Better Combat, Morph, Pehkui, Custom NPCs, Armourer's Workshop, Epic Fight, WaterFrames, Create, Sable, Create Aeronautics, Drop the Beam, Bobby, Iris) passent par les
 classes et API de ces mods et n'incluent aucun de leur code. Projet non affilié à Mojang ou Microsoft.

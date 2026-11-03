@@ -10,7 +10,8 @@ import java.util.Set;
 
 /**
  * Leaves out the optional mixins that cannot apply with some mods: the section draw guard targets the vanilla section
- * renderer, which Sodium and Embeddium replace. The Morph and Sable mixins apply only with their mod.
+ * renderer, which Sodium and Embeddium replace. The Morph, Pehkui, Sable, Armourer's Workshop and Epic Fight mixins apply
+ * only with their mod.
  *
  * @author vyrriox
  */
@@ -28,8 +29,17 @@ public final class CompatMixinPlugin implements IMixinConfigPlugin {
         if (mixinClassName.contains(".Morph")) {
             return loaded("morph");
         }
+        if (mixinClassName.contains(".Pehkui")) {
+            return loaded("pehkui");
+        }
+        if (mixinClassName.contains(".Armourers")) {
+            return loaded("armourers_workshop");
+        }
         if (mixinClassName.contains(".Sable")) {
             return loaded("sable");
+        }
+        if (mixinClassName.contains(".EpicFight")) {
+            return loaded("epicfight");
         }
         return true;
     }

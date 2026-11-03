@@ -31,6 +31,13 @@ public abstract class EntityEditRenderMixin {
     @Inject(method = "shouldRender", at = @At("HEAD"), cancellable = true)
     private <E extends Entity> void justreplay$editedCulling(E entity, Frustum frustum, double camX, double camY, double camZ,
                                                             CallbackInfoReturnable<Boolean> cir) {
+        if (entity instanceof net.minecraft.world.entity.player.Player player && player.isSpectator()
+                && com.vyrriox.justreplay.replay.ReplaySession.isRunning()) {
+            // Players in spectator mode were invisible to everyone else in the game; the replay camera, itself a
+            // spectator, would show them.
+            cir.setReturnValue(false);
+            return;
+        }
         com.vyrriox.justreplay.editor.ReplayProject.EntityEdit edit = EntityEdits.editOf(entity);
         if (edit == null) {
             return;

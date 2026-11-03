@@ -292,6 +292,29 @@ public final class SableCompat {
         out.accept(new ClientboundCustomPayloadPacket((CustomPacketPayload) r.info.newInstance(TICK_MS, clock, stopped)));
     }
 
+    /** The loaded plot chunks of every sub-level of the client level (empty when Sable is unusable). Client thread. */
+    static List<LevelChunk> plotChunks() throws ReflectiveOperationException {
+        List<LevelChunk> chunks = new ArrayList<>();
+        Reflect r = reflect();
+        ClientLevel level = Minecraft.getInstance().level;
+        Object container = r == null || level == null ? null : r.getContainer.invoke(null, level);
+        if (container == null) {
+            return chunks;
+        }
+        for (Object subLevel : List.copyOf((List<?>) r.getAllSubLevels.invoke(container))) {
+            if ((Boolean) r.isRemoved.invoke(subLevel)) {
+                continue;
+            }
+            for (Object holder : List.copyOf((Collection<?>) r.getLoadedChunks.invoke(r.getPlot.invoke(subLevel)))) {
+                LevelChunk chunk = (LevelChunk) r.holderChunk.invoke(holder);
+                if (chunk != null) {
+                    chunks.add(chunk);
+                }
+            }
+        }
+        return chunks;
+    }
+
     private static ClientboundLevelChunkWithLightPacket chunkPacket(LevelChunk chunk, LevelLightEngine plotLight, ClientLevel level) {
         try {
             return new ClientboundLevelChunkWithLightPacket(chunk, plotLight, null, null);
