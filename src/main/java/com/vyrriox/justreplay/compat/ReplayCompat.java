@@ -34,6 +34,7 @@ public final class ReplayCompat {
     static final boolean MORPH = isLoaded("morph");
     static final boolean SABLE = isLoaded("sable");
     static final boolean AERONAUTICS = isLoaded("aeronautics");
+    static final boolean SIMULATED = isLoaded("simulated");
     private static final Set<String> FAILED = Collections.synchronizedSet(new HashSet<>());
 
     private ReplayCompat() {
@@ -315,6 +316,14 @@ public final class ReplayCompat {
                 SableCompat.writeSnapshot(out);
             } catch (Throwable t) {
                 warnOnce("sable.snapshot", "Cannot write the Sable sub-levels into the snapshot", t);
+            }
+        }
+        if (SIMULATED) {
+            try {
+                // After the sub-levels: the rope owner blocks must exist, in the world or in a plot.
+                SimulatedCompat.writeSnapshot(out);
+            } catch (Throwable t) {
+                warnOnce("simulated.snapshot", "Cannot write the Simulated ropes into the snapshot", t);
             }
         }
         if (DROP_THE_BEAM) {

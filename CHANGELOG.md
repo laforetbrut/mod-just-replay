@@ -9,6 +9,9 @@
   with every entity at the start of a recording and at checkpoints, and the recording player's own
   attributes are saved and followed while recording.
 - Joining a world while morphed with Morph and then recording showed the recording player as a player: the form the server sent on login is now written when the actor spawns, in recordings and in the replay buffer.
+- Simulated (Create Aeronautics) ropes attached before a recording started, or before a checkpoint, were missing
+  from the replay: the server sends a rope only when the client starts tracking it, so snapshots and checkpoints
+  now write every rope the client knows.
 
 ### [1.0.8] - 2026-11-01
 
@@ -311,6 +314,9 @@
   etc.) : ils sont sauvegardés avec chaque entité au début d'un enregistrement et aux points de reprise,
   et les attributs du joueur qui enregistre sont sauvegardés et suivis pendant l'enregistrement.
 - Rejoindre un monde transformé avec Morph puis enregistrer montrait le joueur qui enregistre sous forme de joueur : la forme envoyée par le serveur à la connexion est maintenant écrite à l'apparition de l'acteur, dans les enregistrements et dans le tampon de replay.
+- Les cordes de Simulated (Create Aeronautics) attachées avant le début d'un enregistrement, ou avant un point de
+  reprise, manquaient au replay : le serveur n'envoie une corde que quand le client commence à la suivre, donc les
+  instantanés et points de reprise écrivent désormais toutes les cordes connues du client.
 
 ### [1.0.8] - 2026-11-01
 
