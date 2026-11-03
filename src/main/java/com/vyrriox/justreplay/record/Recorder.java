@@ -1109,6 +1109,8 @@ public final class Recorder {
             lastDataValues = null;
             java.util.Arrays.fill(lastEquipment, null);
             writeActorSpawn(listener, player, sink);
+            // A form the server sent before this spawn (joining a world morphed) is never sent again.
+            com.vyrriox.justreplay.compat.ReplayCompat.writeActorForm(player, actorUuid, packet -> write(listener, packet));
         }
 
         Vec3 pos = player.position();

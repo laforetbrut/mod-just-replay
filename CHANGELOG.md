@@ -4,6 +4,10 @@
 
 ### [Unreleased]
 
+#### Fixed
+
+- Joining a world while morphed with Morph and then recording showed the recording player as a player: the form the server sent on login is now written when the actor spawns, in recordings and in the replay buffer.
+
 ### [1.0.8] - 2026-11-01
 
 #### Added
@@ -299,6 +303,10 @@
 ## Français
 
 ### [Non publié]
+
+#### Corrigé
+
+- Rejoindre un monde transformé avec Morph puis enregistrer montrait le joueur qui enregistre sous forme de joueur : la forme envoyée par le serveur à la connexion est maintenant écrite à l'apparition de l'acteur, dans les enregistrements et dans le tampon de replay.
 
 ### [1.0.8] - 2026-11-01
 
