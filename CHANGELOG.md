@@ -4,6 +4,8 @@
 
 ### [Unreleased]
 
+### [1.0.9] - 2026-11-03
+
 #### Added
 - **Epic Fight**: animations and battle mode of players and patched mobs replay as recorded, the recording player's
   included on its actor. A recording started mid-fight shows the attack in progress, seeks resume animations at
@@ -319,6 +321,8 @@
 ## Français
 
 ### [Non publié]
+
+### [1.0.9] - 2026-11-03
 
 #### Ajouté
 - **Epic Fight** : les animations et le mode combat des joueurs et des mobs pris en charge sont rejoués, ceux du
