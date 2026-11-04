@@ -4,6 +4,8 @@
 
 ### [Unreleased]
 
+### [1.0.11] - 2026-11-04
+
 #### Fixed
 - **Armourer's Workshop**: outfits still did not show in replays. Armourer's Workshop cuts its packets on a thread of
   its own, so the skins and wardrobes written at the start of a recording were handed back too late and never made it
@@ -338,6 +340,8 @@
 ## Français
 
 ### [Non publié]
+
+### [1.0.11] - 2026-11-04
 
 #### Corrigé
 - **Armourer's Workshop** : les tenues ne s'affichaient toujours pas dans les replays. Armourer's Workshop découpe ses
