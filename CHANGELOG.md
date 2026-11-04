@@ -4,6 +4,12 @@
 
 ### [Unreleased]
 
+#### Fixed
+- **Armourer's Workshop**: outfits still did not show in replays. Armourer's Workshop cuts its packets on a thread of
+  its own, so the skins and wardrobes written at the start of a recording were handed back too late and never made it
+  into the file, while the log counted them. They are now written straight away, in the same format. Recordings made
+  with 1.0.9 or 1.0.10 have no outfits: record again.
+
 ### [1.0.10] - 2026-11-03
 
 #### Fixed
@@ -332,6 +338,12 @@
 ## Français
 
 ### [Non publié]
+
+#### Corrigé
+- **Armourer's Workshop** : les tenues ne s'affichaient toujours pas dans les replays. Armourer's Workshop découpe ses
+  paquets sur un fil d'exécution à lui : les skins et garde-robes écrits au début d'un enregistrement revenaient trop
+  tard et n'arrivaient jamais dans le fichier, alors que le journal les comptait. Ils sont maintenant écrits tout de
+  suite, au même format. Les enregistrements faits en 1.0.9 ou 1.0.10 n'ont pas de tenues : enregistrez à nouveau.
 
 ### [1.0.10] - 2026-11-03
 

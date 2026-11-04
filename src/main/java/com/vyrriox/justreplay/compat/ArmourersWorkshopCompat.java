@@ -62,6 +62,15 @@ public final class ArmourersWorkshopCompat {
     private static int lastLoggedCount = -1;
     private static Reflect reflect;
     private static boolean reflectFailed;
+    /** CustomPacket.packetId(), CustomPacket.encode(IFriendlyByteBuf) and IFriendlyByteBuf.wrap(ByteBuf). */
+    private static Method packetId;
+    private static Method packetEncode;
+    private static Method bufWrap;
+    /** Largest Armourer's Workshop part in one payload, below the clientbound custom payload limit. */
+    private static final int PART_SIZE = 900_000;
+    private static final int SPLIT_BODY = -1;
+    private static final int SPLIT_BEGIN = -2;
+    private static final int SPLIT_END = -3;
 
     private ArmourersWorkshopCompat() {
     }
@@ -98,6 +107,9 @@ public final class ArmourersWorkshopCompat {
             Class<?> wardrobe = Class.forName(PKG + "core.capability.SkinWardrobe", false, cl);
             Class<?> wardrobePacket = Class.forName(PKG + "core.network.UpdateWardrobePacket", false, cl);
 
+            packetId = customPacket.getMethod("packetId");
+            packetEncode = customPacket.getMethod("encode", buf);
+            bufWrap = buf.getMethod("wrap", io.netty.buffer.ByteBuf.class);
             Field entries = accessible(loaderClass.getDeclaredField("entries"));
             Field dispatcherField = accessible(network.getDeclaredField("dispatcher"));
             Object dispatcher = dispatcherField.get(null);
@@ -134,26 +146,32 @@ public final class ArmourersWorkshopCompat {
         return member;
     }
 
-    /** Splits an Armourer's Workshop packet into the clientbound payloads its server would send. */
+    /**
+     * Writes an Armourer's Workshop packet as the clientbound payloads its server would send: the packet id and its
+     * data, cut in parts with Armourer's Workshop's begin, body and end markers when it is large. Done here on the
+     * calling thread: Armourer's Workshop's own splitter works on a thread of its own and hands the parts back later,
+     * after a snapshot is written.
+     */
     private static void encode(Reflect r, Object packet, Consumer<Packet<?>> out) throws Exception {
-        List<Object> parts = new ArrayList<>();
-        Object collector = java.lang.reflect.Proxy.newProxyInstance(r.distributor.getClassLoader(),
-                new Class<?>[]{r.distributor}, (self, method, args) -> switch (method.getName()) {
-                    case "add" -> {
-                        parts.add(args[1]);
-                        yield self;
-                    }
-                    case "isClientbound" -> true;
-                    case "isServerbound" -> false;
-                    case "hashCode" -> System.identityHashCode(self);
-                    case "equals" -> self == args[0];
-                    case "toString" -> "JustReplaySkinCollector";
-                    default -> null;
-                });
-        r.split.invoke(r.dispatcher, packet, collector);
-        for (Object part : parts) {
-            out.accept(new ClientboundCustomPayloadPacket((CustomPacketPayload) r.proxyNew.newInstance(part)));
+        io.netty.buffer.ByteBuf buffer = io.netty.buffer.Unpooled.buffer();
+        buffer.writeInt((int) packetId.invoke(packet));
+        packetEncode.invoke(packet, bufWrap.invoke(null, buffer));
+        int size = buffer.readableBytes();
+        if (size <= PART_SIZE) {
+            out.accept(proxyPacket(r, buffer));
+            return;
         }
+        for (int index = 0; index < size; index += PART_SIZE) {
+            int length = Math.min(size - index, PART_SIZE);
+            io.netty.buffer.ByteBuf part = io.netty.buffer.Unpooled.buffer(length + 4);
+            part.writeInt(index == 0 ? SPLIT_BEGIN : index + PART_SIZE >= size ? SPLIT_END : SPLIT_BODY);
+            part.writeBytes(buffer, index, length);
+            out.accept(proxyPacket(r, part));
+        }
+    }
+
+    private static Packet<?> proxyPacket(Reflect r, io.netty.buffer.ByteBuf data) throws Exception {
+        return new ClientboundCustomPayloadPacket((CustomPacketPayload) r.proxyNew.newInstance(bufWrap.invoke(null, data)));
     }
 
     /** A skin as the answer a server sends for it. */
