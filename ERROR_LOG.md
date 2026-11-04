@@ -1,5 +1,12 @@
 # Error log
 
+## [2026-11-04 14:00] — Armourer's Workshop outfits missing from replays (1.0.9 and 1.0.10)
+**Context:** a user's singleplayer recordings with Armourer's Workshop showed no outfits; 1.0.10 logged `snapshot wrote 39 skins` yet nothing showed.
+**Error:** no error anywhere; the recording file had no `armourers_workshop:*` payload at all.
+**Root cause:** the compat encoded packets with Armourer's Workshop's `PacketSplitter.split`, which runs on its own thread pool and hands the parts back later. The collector was read right after the call, always empty, so nothing was written while the snapshot counted skins as written. Two releases shipped without an in-game test because no `.armour` file was available.
+**Fix:** the packet id and data are encoded on the calling thread and cut with the same begin/body/end markers. Reproduced and verified with a user's `.armour` file and `/armourers setSkin @s head /<file>.armour` (the slot name is required).
+**Prevention:** never trust a mod's helper to be synchronous; count what was actually written, not what was asked. Do not ship a compat claim without one end-to-end in-game check; ask for test assets first.
+
 ## [2026-11-01 20:10] — Sable airships empty in replays
 **Context:** first in-game test of the Sable support: an airship assembled before recording, replayed with a scene job.
 **Error:** the replay showed no airship; Sable logged `Cannot add chunk at 0, 0 in nonexistent sub-level plot` at the start and after every seek.
