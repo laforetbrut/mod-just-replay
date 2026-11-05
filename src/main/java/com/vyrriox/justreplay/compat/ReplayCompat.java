@@ -46,6 +46,7 @@ public final class ReplayCompat {
     static final boolean ACCESSORIES = isLoaded("accessories");
     static final boolean JADE = isLoaded("jade");
     static final boolean IMMERSIVE_AIRCRAFT = isLoaded("immersive_aircraft");
+    static final boolean IMMERSIVE_PAINTINGS = isLoaded("immersive_paintings");
     private static final Set<String> FAILED = Collections.synchronizedSet(new HashSet<>());
     private static double monotonicFrame = -1;
     private static double monotonicValue;
@@ -326,6 +327,9 @@ public final class ReplayCompat {
         if (JADE && packet != null) {
             packet = JadeCompat.filterPlayback(packet);
         }
+        if (IMMERSIVE_PAINTINGS && packet != null) {
+            packet = ImmersivePaintingsCompat.filterPlayback(packet);
+        }
         return packet;
     }
 
@@ -346,7 +350,8 @@ public final class ReplayCompat {
                 || EXPOSURE && ExposureCompat.blockServerbound(packet)
                 || ACCESSORIES && AccessoriesCompat.blockServerbound(packet)
                 || JADE && JadeCompat.blockServerbound(packet)
-                || IMMERSIVE_AIRCRAFT && ImmersiveAircraftCompat.blockServerbound(packet);
+                || IMMERSIVE_AIRCRAFT && ImmersiveAircraftCompat.blockServerbound(packet)
+                || IMMERSIVE_PAINTINGS && ImmersivePaintingsCompat.blockServerbound(packet);
     }
 
     // ---------------------------------------------------------------- recording hooks
@@ -556,6 +561,13 @@ public final class ReplayCompat {
                 ArmourersWorkshopCompat.writeSnapshot(out);
             } catch (Throwable t) {
                 warnOnce("aw.snapshot", "Cannot write the Armourer's Workshop skins into the snapshot", t);
+            }
+        }
+        if (IMMERSIVE_PAINTINGS) {
+            try {
+                ImmersivePaintingsCompat.writeSnapshot(out);
+            } catch (Throwable t) {
+                warnOnce("paintings.snapshot", "Cannot write the Immersive Paintings images into the snapshot", t);
             }
         }
         if (DROP_THE_BEAM) {
