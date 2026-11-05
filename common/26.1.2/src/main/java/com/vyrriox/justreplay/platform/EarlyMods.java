@@ -23,13 +23,13 @@ public final class EarlyMods {
                 return (boolean) fabric.getMethod("isModLoaded", String.class).invoke(instance, modId);
             }
             // Split so that a search of the common folder for loader packages only finds real dependencies.
-            Class<?> neoForge = find("net.neo" + "forged.fml" + ".loading.FMLLoader", loader);
+            Class<?> neoForge = find("net.neo" + "forged.fml" + ".loading.LoadingModList", loader);
             if (neoForge != null) {
-                return hasModFile(neoForge.getMethod("getLoadingModList").invoke(null), modId);
+                return hasModFile(neoForge.getMethod("get").invoke(null), modId);
             }
             Class<?> forge = find("net.minecraftforge.fml" + ".loading.LoadingModList", loader);
             if (forge != null) {
-                return hasModFile(forge.getMethod("get").invoke(null), modId);
+                return forge.getMethod("getModFileById", String.class).invoke(null, modId) != null;
             }
         } catch (ReflectiveOperationException e) {
             LoggerFactory.getLogger(EarlyMods.class).error("Cannot read the early mod list", e);

@@ -3,6 +3,7 @@ package com.vyrriox.justreplay.mixin;
 import com.vyrriox.justreplay.client.hook.ClientHooks;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.MouseHandler;
+import net.minecraft.client.input.MouseButtonInfo;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -22,10 +23,10 @@ public abstract class MouseHandlerHooksMixin {
     @Final
     private Minecraft minecraft;
 
-    @Inject(method = "onPress", cancellable = true, at = @At(value = "INVOKE", ordinal = 0,
+    @Inject(method = "onButton", cancellable = true, at = @At(value = "INVOKE", ordinal = 0,
             target = "Lnet/minecraft/client/Minecraft;getOverlay()Lnet/minecraft/client/gui/screens/Overlay;"))
-    private void justreplay$onPress(long window, int button, int action, int modifiers, CallbackInfo ci) {
-        if (ClientHooks.cancelsMouse(button, action)) {
+    private void justreplay$onButton(long window, MouseButtonInfo button, int action, CallbackInfo ci) {
+        if (ClientHooks.cancelsMouse(button.button(), action)) {
             ci.cancel();
         }
     }
