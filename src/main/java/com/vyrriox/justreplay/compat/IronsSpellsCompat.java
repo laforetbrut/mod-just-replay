@@ -175,11 +175,16 @@ public final class IronsSpellsCompat {
 
     /** Payloads aimed at the receiving client's own player would act on the camera. */
     static Packet<?> filterPlayback(Packet<?> packet) {
-        if (packet instanceof ClientboundCustomPayloadPacket custom && isIrons(custom.payload())
-                && LOCAL_ONLY.contains(custom.payload().getClass().getName())) {
-            return null;
-        }
-        return packet;
+        return isLocalOnly(packet) ? null : packet;
+    }
+
+    /**
+     * Also not recorded, since a replay drops them. Some cannot even be written back once decoded: SyncManaPacket
+     * encodes from a server side MagicData that its client copy does not have.
+     */
+    static boolean isLocalOnly(Packet<?> packet) {
+        return packet instanceof ClientboundCustomPayloadPacket custom && isIrons(custom.payload())
+                && LOCAL_ONLY.contains(custom.payload().getClass().getName());
     }
 
     /** See {@link ReplayCompat#adjustSkipped}: a cast start or end long before the seek target is dropped. */

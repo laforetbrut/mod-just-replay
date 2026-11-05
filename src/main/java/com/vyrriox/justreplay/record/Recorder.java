@@ -413,7 +413,9 @@ public final class Recorder {
             });
         }
         try {
-            c.encode(com.vyrriox.justreplay.compat.ReplayCompat.rewriteRecorded(packet, localUuid, actorUuid), sink);
+            if (!com.vyrriox.justreplay.compat.ReplayCompat.skipRecording(packet)) {
+                c.encode(com.vyrriox.justreplay.compat.ReplayCompat.rewriteRecorded(packet, localUuid, actorUuid), sink);
+            }
         } catch (Throwable t) {
             logUnrecordable(packet, t);
         }

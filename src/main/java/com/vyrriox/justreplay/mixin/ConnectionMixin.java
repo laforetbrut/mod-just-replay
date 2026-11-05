@@ -47,6 +47,10 @@ public abstract class ConnectionMixin {
         }
         Connection self = (Connection) (Object) this;
         if (self.getSending() != PacketFlow.SERVERBOUND) {
+            // Cancelled before it is encoded: the registry ids are about to change under the host, see ReplaySession.
+            if (ReplaySession.isHostSilenced() && !(packet instanceof net.minecraft.network.protocol.common.ClientboundDisconnectPacket)) {
+                ci.cancel();
+            }
             return;
         }
         if (ReplaySession.shouldBlock(self)) {
@@ -58,11 +62,15 @@ public abstract class ConnectionMixin {
         }
     }
 
-    /** Mod handlers may disconnect on a payload they reject; during playback that would end the replay. */
+    /**
+     * Mod handlers may disconnect on a payload they reject; during playback that would end the replay. Only on the
+     * render thread, where recorded packets are handled: a fault of the channel itself is not caused by one of them.
+     */
     @Inject(method = "disconnect(Lnet/minecraft/network/DisconnectionDetails;)V", at = @At("HEAD"), cancellable = true)
     private void justreplay$onDisconnect(net.minecraft.network.DisconnectionDetails details, CallbackInfo ci) {
         Connection self = (Connection) (Object) this;
-        if (com.vyrriox.justreplay.replay.Playback.isDispatching() && ReplaySession.isReplayConnection(self)) {
+        if (com.vyrriox.justreplay.replay.Playback.isDispatching() && net.minecraft.client.Minecraft.getInstance().isSameThread()
+                && ReplaySession.isReplayConnection(self)) {
             com.vyrriox.justreplay.JustReplay.LOGGER.warn("A recorded packet asked to disconnect the replay ({}), ignored",
                     details.reason().getString());
             ci.cancel();

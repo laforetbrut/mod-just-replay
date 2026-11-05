@@ -49,7 +49,8 @@ import java.util.UUID;
 public final class ReplaySession {
     public static final String WORLD_NAME = "justreplay-session";
 
-    private static ReplaySession current;
+    /** Read by the server and network threads too, see {@link #isHostSilenced()}. */
+    private static volatile ReplaySession current;
     private static boolean pendingWorldCleanup;
 
     private enum State { WAITING_LOGIN, STARTING, RUNNING }
@@ -64,6 +65,10 @@ public final class ReplaySession {
     private final UUID actorUuid;
     private volatile Connection connection;
     private volatile boolean blocking;
+    /** The host server sends nothing any more, set before the recorded registry ids are applied. */
+    private volatile boolean hostSilent;
+    private java.util.concurrent.CompletableFuture<Void> hostDrained;
+    private int hostDrainTicks;
     private State state = State.WAITING_LOGIN;
     private boolean cameraPath;
     private boolean hudVisible = true;
@@ -104,6 +109,20 @@ public final class ReplaySession {
     public static boolean shouldBlock(Connection connection) {
         ReplaySession s = current;
         return s != null && s.blocking && s.connection == connection;
+    }
+
+    /**
+     * True once the host server must send nothing, not even encode it: see {@link #hostIsQuiet}. Holds until the
+     * session ends, because every id the host would write from then on is one a recording may have changed.
+     */
+    public static boolean isHostSilenced() {
+        ReplaySession s = current;
+        return s != null && s.hostSilent;
+    }
+
+    /** True while a replay is being read from disk, before its session exists. */
+    public static boolean isOpening() {
+        return loading;
     }
 
     /** True for the integrated server that hosts the replay's empty world. */
@@ -289,6 +308,8 @@ public final class ReplaySession {
     }
 
     private static boolean loading;
+    /** Far more than the host needs (at most one of its ticks); past this something is wrong and the replay still starts. */
+    private static final int HOST_DRAIN_TICKS = 40;
 
     /** Returns to the previous screen after a failed start and lets the session world and copies be cleaned. */
     private static void abortStart(Minecraft mc, Path dir, Screen parent) {
@@ -378,7 +399,7 @@ public final class ReplaySession {
             s.connection = connection;
             s.blocking = true;
             s.state = State.STARTING;
-            JustReplay.LOGGER.info("Replay connection established, playback starts next tick");
+            JustReplay.LOGGER.info("Replay connection established, playback starts once the host is silent");
             com.vyrriox.justreplay.compat.ReplayCompat.onReplayStart(Minecraft.getInstance());
         }
     }
@@ -403,7 +424,7 @@ public final class ReplaySession {
             com.vyrriox.justreplay.compat.ReplayCompat.onReplayWorldClosed();
         }
         ReplaySession s = current;
-        if (s != null && s.state == State.RUNNING && mc.level == null) {
+        if (s != null && s.state != State.WAITING_LOGIN && mc.level == null) {
             onLoggingOut();
             return;
         }
@@ -423,6 +444,9 @@ public final class ReplaySession {
             return;
         }
         if (s.state == State.STARTING) {
+            if (!s.hostIsQuiet(mc)) {
+                return;
+            }
             s.state = State.RUNNING;
             // Recorded ids must be in place before the codec decodes anything.
             boolean ids = com.vyrriox.justreplay.format.RegistryIds.apply(s.dir);
@@ -462,6 +486,58 @@ public final class ReplaySession {
         }
         s.actors.tick(mc);
         s.spectate.tick(mc, s);
+    }
+
+    /**
+     * Applying the recorded ids rewrites the static registries the host server and the replay connection share, and
+     * NeoForge clears each registry before refilling it. The in-memory connection does encode and decode on its own
+     * threads, so a packet of the host caught during that time cannot be read ("No value with id", usually the
+     * advancements with their item icons, sent on the host's first tick) and closes the replay, and one encoded before
+     * and decoded after would name the wrong entries. The ids are therefore applied only after the host was silenced
+     * and everything it had already sent has gone through the decoder. Returns true once that is the case.
+     */
+    private boolean hostIsQuiet(Minecraft mc) {
+        if (hostDrained == null) {
+            hostSilent = true;
+            hostDrained = drainHost(mc);
+        }
+        if (hostDrained.isDone()) {
+            JustReplay.LOGGER.info("Replay host silent after {} ticks", hostDrainTicks);
+            return true;
+        }
+        if (++hostDrainTicks > HOST_DRAIN_TICKS) {
+            JustReplay.LOGGER.warn("The replay host did not drain within {} ticks, applying the registry ids anyway", HOST_DRAIN_TICKS);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Completes when all the host sent has been decoded. Each step runs after the work queued on its thread: the server
+     * thread (a send under way has reached the channel), the server side of the channel (written and flushed to the
+     * peer), the client side (read and decoded). Never blocks the render thread.
+     */
+    private java.util.concurrent.CompletableFuture<Void> drainHost(Minecraft mc) {
+        java.util.concurrent.CompletableFuture<Void> drained = new java.util.concurrent.CompletableFuture<>();
+        net.minecraft.client.server.IntegratedServer server = mc.getSingleplayerServer();
+        Connection client = connection;
+        if (server == null || client == null) {
+            drained.complete(null);
+            return drained;
+        }
+        server.execute(() -> {
+            List<Connection> hosted = new java.util.ArrayList<>(server.getConnection().getConnections());
+            if (hosted.isEmpty()) {
+                drained.complete(null);
+                return;
+            }
+            io.netty.channel.Channel channel = hosted.get(0).channel();
+            channel.eventLoop().execute(() -> {
+                channel.flush();
+                client.channel().eventLoop().execute(() -> drained.complete(null));
+            });
+        });
+        return drained;
     }
 
     private void placeCameraOnRecorder(Minecraft mc) {

@@ -419,6 +419,11 @@ public final class ReplayCompat {
         return packet;
     }
 
+    /** A live packet that is not written to the recording, because its replay would drop it anyway. */
+    public static boolean skipRecording(Packet<?> packet) {
+        return IRONS_SPELLS && IronsSpellsCompat.isLocalOnly(packet);
+    }
+
     /**
      * Mod animation state a player is in now (snapshots and checkpoints), written as another client receives it, for
      * the player with this UUID in the replay (the actor for the recording player).
