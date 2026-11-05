@@ -84,3 +84,17 @@
 **Root cause:** Armourer's Workshop has one SkinLoader for the whole JVM. The integrated server prepares it with its own sessions, so in singleplayer a db: skin is read straight from the world's skin database and no RequestSkinPacket or ResponseSkinPacket ever crosses the connection. 1.0.9 recorded skins only from those packets and from the loader cache at snapshot time. The replay world is another integrated world with an empty skin database, and its loader looks db: skins up there, never over the network, so the request mixin never fired.
 **Fix:** record every skin at the loader (SkinLoader$Entry.accept mixin), add every worn skin at snapshots (loaded from the world database in singleplayer), and during a replay serve lookups from the recording at SkinLoader.resume before any source is tried. Snapshot skin count logged, missing worn skins warned.
 **Prevention:** for any mod with a cache shared between client and integrated server, check how the client gets its data in singleplayer before assuming it comes over the network.
+
+## [2026-11-05 14:40] — Replay closed right after opening, intermittently (decode error from the host)
+**Context:** self test with GeckoLib, Curios, Iron's Spellbooks, Iris and others, opening the buffer clip.
+**Error:** `Failed to decode packet 'clientbound/minecraft:update_advancements'`, caused by `IllegalArgumentException: No value with id 1568`, then `bundle_delimiter ... was larger than I expected`, then a disconnect. The next run of the same test passed.
+**Root cause:** `ReplaySession.clientTick` applied the recorded registry ids on the render thread while the replay host's integrated server could still have packets in flight. `RegistryManager.applySnapshot` empties and refills each registry, so a packet decoded on the Netty thread in that window fails.
+**Fix:** at STARTING the host is silenced, the server thread and both channels are drained without blocking the render thread, and only then are the ids applied (40 tick fallback with a warning).
+**Prevention:** never change shared static registries while a connection is live; drain it first. A self test that passes once proves nothing about a race, so run it several times.
+
+## [2026-11-05 14:50] — Self test launched with Iris but without Sodium
+**Context:** building a mod folder for the compat self test from a dependency list.
+**Error:** `ClassNotFoundException: net.caffeinemc.mods.sodium.api.vertex.serializer.VertexSerializer`, exit value 1.
+**Root cause:** a `while read` loop skipped the last line of a list with no trailing newline.
+**Fix:** copied the jar.
+**Prevention:** check the number of copied files against the list.
