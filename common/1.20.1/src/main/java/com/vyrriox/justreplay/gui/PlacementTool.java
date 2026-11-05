@@ -301,8 +301,8 @@ public final class PlacementTool {
             return;
         }
         n = n.normalize();
-        c.addVertex(pose, (float) a.x, (float) a.y, (float) a.z).setColor(r, g, bl, 1.0F).setNormal(pose, (float) n.x, (float) n.y, (float) n.z);
-        c.addVertex(pose, (float) b.x, (float) b.y, (float) b.z).setColor(r, g, bl, 1.0F).setNormal(pose, (float) n.x, (float) n.y, (float) n.z);
+        c.vertex(pose.pose(), (float) a.x, (float) a.y, (float) a.z).color(r, g, bl, 1.0F).normal(pose.normal(), (float) n.x, (float) n.y, (float) n.z).endVertex();
+        c.vertex(pose.pose(), (float) b.x, (float) b.y, (float) b.z).color(r, g, bl, 1.0F).normal(pose.normal(), (float) n.x, (float) n.y, (float) n.z).endVertex();
     }
 
     /** Crosshair and the hint panel; a GUI layer kept by the clean HUD. */

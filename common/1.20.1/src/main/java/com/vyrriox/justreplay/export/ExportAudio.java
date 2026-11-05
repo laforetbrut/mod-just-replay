@@ -16,7 +16,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.sounds.Sound;
 import net.minecraft.client.resources.sounds.SoundInstance;
 import net.minecraft.client.resources.sounds.TickableSoundInstance;
-import net.minecraft.client.sounds.JOrbisAudioStream;
+import com.mojang.blaze3d.audio.OggAudioStream;
 import net.minecraft.client.sounds.SoundManager;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundSource;
@@ -623,9 +623,9 @@ public final class ExportAudio {
     }
 
     private static float[][] decode(Minecraft mc, ResourceLocation file) {
-        try (InputStream in = mc.getResourceManager().open(file); JOrbisAudioStream stream = new JOrbisAudioStream(in)) {
+        try (InputStream in = mc.getResourceManager().open(file); OggAudioStream stream = new OggAudioStream(in)) {
             FloatArrayList samples = new FloatArrayList();
-            while (stream.readChunk(samples::add)) {
+            while (com.vyrriox.justreplay.editor.audio.AudioDecoder.readOggChunk(stream, samples)) {
                 if (samples.size() > RATE * 2 * 600) {
                     break; // ten minutes is plenty for one export
                 }

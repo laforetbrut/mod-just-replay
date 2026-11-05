@@ -66,8 +66,25 @@ public final class ActorPlacement {
         if (level == null) {
             return BlockHitResult.miss(to, Direction.UP, BlockPos.containing(to));
         }
-        return level.clip(new ClipContext(from, to, outline ? ClipContext.Block.OUTLINE : ClipContext.Block.COLLIDER,
-                ClipContext.Fluid.NONE, CollisionContext.empty()));
+        return clip(level, from, to, outline ? ClipContext.Block.OUTLINE : ClipContext.Block.COLLIDER);
+    }
+
+    /**
+     * A ray against the block shapes with no entity's point of view. The constructor of the clip context reads an
+     * entity and vanilla does not accept null there, so the shape lookup is overridden to ignore it.
+     */
+    static BlockHitResult clip(net.minecraft.world.level.Level level, Vec3 from, Vec3 to, ClipContext.Block block) {
+        net.minecraft.world.entity.Entity holder = net.minecraft.client.Minecraft.getInstance().player;
+        if (holder == null) {
+            return BlockHitResult.miss(to, Direction.UP, BlockPos.containing(to));
+        }
+        return level.clip(new ClipContext(from, to, block, ClipContext.Fluid.NONE, holder) {
+            @Override
+            public net.minecraft.world.phys.shapes.VoxelShape getBlockShape(net.minecraft.world.level.block.state.BlockState state,
+                                                                            net.minecraft.world.level.BlockGetter getter, BlockPos pos) {
+                return block.get(state, getter, pos, CollisionContext.empty());
+            }
+        });
     }
 
     /** Where the camera looks: the main camera position and its view direction. */

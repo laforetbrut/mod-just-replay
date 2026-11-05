@@ -38,7 +38,7 @@ public final class SkinSaver {
         }
         NativeImage image;
         try {
-            image = download(player.getSkin().texture());
+            image = download(player.getSkinTextureLocation());
         } catch (Throwable t) {
             JustReplay.LOGGER.warn("Cannot read the skin of {}: {}", label, t.toString());
             image = null;

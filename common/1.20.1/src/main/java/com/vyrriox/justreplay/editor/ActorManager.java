@@ -1,10 +1,10 @@
 package com.vyrriox.justreplay.editor;
 
+import com.mojang.authlib.Agent;
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.GameProfileRepository;
 import com.mojang.authlib.ProfileLookupCallback;
 import com.mojang.authlib.minecraft.MinecraftSessionService;
-import com.mojang.authlib.yggdrasil.ProfileResult;
 import com.vyrriox.justreplay.JustReplay;
 import com.vyrriox.justreplay.record.PlayerInfoPackets;
 import com.vyrriox.justreplay.replay.ReplaySession;
@@ -13,12 +13,10 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.player.RemotePlayer;
-import net.minecraft.client.resources.PlayerSkin;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.StringUtil;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -207,7 +205,7 @@ public final class ActorManager {
      * The skin of a player actor wearing a skin file, or null to keep the vanilla skin (not an actor, no skin file,
      * or a file that cannot be loaded).
      */
-    public static PlayerSkin customSkin(Entity entity) {
+    public static FileSkin customSkin(Entity entity) {
         if (!isActorEntity(entity)) {
             return null;
         }
@@ -218,7 +216,7 @@ public final class ActorManager {
         if (!actor.skinChanges.isEmpty()) {
             ReplayProject.SkinChange change = ReplayProject.SkinChange.at(actor.skinChanges, EntityEdits.time());
             if (change != null && !change.file.isBlank()) {
-                PlayerSkin skin = fileSkin(change.file, change.slim);
+                FileSkin skin = fileSkin(change.file, change.slim);
                 if (skin != null) {
                     return skin;
                 }
@@ -227,13 +225,17 @@ public final class ActorManager {
         return actor.hasSkinFile() ? fileSkin(actor.skin, actor.slim) : null;
     }
 
+    /** A skin loaded from a file: its texture and arm model. Such a player wears no cape and no custom elytra. */
+    public record FileSkin(ResourceLocation texture, boolean slim) {
+    }
+
     /** The skin of a file of the skins folder, or null when it cannot be loaded. */
-    public static PlayerSkin fileSkin(String file, boolean slim) {
+    public static FileSkin fileSkin(String file, boolean slim) {
         ResourceLocation texture = SkinLibrary.get(file);
         if (texture == null) {
             return null;
         }
-        return new PlayerSkin(texture, null, null, null, slim ? PlayerSkin.Model.SLIM : PlayerSkin.Model.WIDE, true);
+        return new FileSkin(texture, slim);
     }
 
     static boolean hasCustomSkins() {
@@ -386,7 +388,7 @@ public final class ActorManager {
         } else if (mc.player != null) {
             entity.moveTo(mc.player.getX(), mc.player.getY(), mc.player.getZ(), mc.player.getYRot(), 0);
         }
-        level.addEntity(entity);
+        level.putNonPlayerEntity(entity.getId(), entity);
         if (actor.isModel()) {
             com.vyrriox.justreplay.editor.model.ModelRenderer.register(entity.getId(), actor);
         }
@@ -418,7 +420,7 @@ public final class ActorManager {
             name = name.substring(0, 16);
         }
         GameProfile profile = new GameProfile(uuid, name);
-        if (actor.hasSkinFile() || !StringUtil.isValidPlayerName(actor.name)) {
+        if (actor.hasSkinFile() || !isValidPlayerName(actor.name)) {
             // A skin file needs no account; a name that cannot be an account has nothing to look up.
             profiles.put(actor.id, profile);
             return profile;
@@ -464,11 +466,26 @@ public final class ActorManager {
     private void start(Lookup lookup) {
         CompletableFuture<Optional<GameProfile>> future;
         try {
-            future = lookup.attempt == 0 ? SkullBlockEntity.fetchGameProfile(lookup.name) : retryLookup(lookup.name, lookup.knownId);
+            future = lookup.attempt == 0 ? firstLookup(lookup.name) : retryLookup(lookup.name, lookup.knownId);
         } catch (Throwable t) {
             future = CompletableFuture.failedFuture(t);
         }
         future.whenComplete((result, error) -> Minecraft.getInstance().execute(() -> complete(lookup, result, error)));
+    }
+
+    private static boolean isValidPlayerName(String name) {
+        return name.length() <= 16 && name.chars().noneMatch(c -> c <= 32 || c >= 127);
+    }
+
+    /**
+     * First attempt, through the profile cache of the skull blocks. Its callback does not run when the world closes
+     * in the middle of the request, hence the timeout. An answer without an id means the name was not found.
+     */
+    private static CompletableFuture<Optional<GameProfile>> firstLookup(String name) {
+        CompletableFuture<Optional<GameProfile>> future = new CompletableFuture<>();
+        SkullBlockEntity.updateGameprofile(new GameProfile(null, name),
+                profile -> future.complete(profile == null || profile.getId() == null ? Optional.empty() : Optional.of(profile)));
+        return future.orTimeout(60, java.util.concurrent.TimeUnit.SECONDS);
     }
 
     /**
@@ -484,14 +501,14 @@ public final class ActorManager {
             UUID id = knownId;
             if (id == null && repository != null) {
                 AtomicReference<GameProfile> found = new AtomicReference<>();
-                repository.findProfilesByNames(new String[]{name}, new ProfileLookupCallback() {
+                repository.findProfilesByNames(new String[]{name}, Agent.MINECRAFT, new ProfileLookupCallback() {
                     @Override
                     public void onProfileLookupSucceeded(GameProfile profile) {
                         found.set(profile);
                     }
 
                     @Override
-                    public void onProfileLookupFailed(String profileName, Exception exception) {
+                    public void onProfileLookupFailed(GameProfile profile, Exception exception) {
                         found.set(null);
                     }
                 });
@@ -500,8 +517,7 @@ public final class ActorManager {
             if (id == null) {
                 return Optional.<GameProfile>empty();
             }
-            ProfileResult result = sessions.fetchProfile(id, true);
-            return Optional.ofNullable(result).map(ProfileResult::profile);
+            return Optional.ofNullable(sessions.fillProfileProperties(new GameProfile(id, name), true));
         }, Util.backgroundExecutor());
     }
 

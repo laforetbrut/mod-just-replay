@@ -5,7 +5,6 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.vyrriox.justreplay.JustReplay;
@@ -173,12 +172,13 @@ public final class Paint {
         float inv = (float) (1.0 / s);
         prepare(atlas.location());
         Matrix4f m = g.pose().last().pose();
-        BufferBuilder b = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+        BufferBuilder b = Tesselator.getInstance().getBuilder();
+        b.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
         float ax = x0 * inv, ay = y0 * inv, bx = (x0 + p) * inv, by = (y0 + p) * inv;
-        b.addVertex(m, ax, ay, 0).setUv(u0, v0).setColor(color);
-        b.addVertex(m, ax, by, 0).setUv(u0, v1).setColor(color);
-        b.addVertex(m, bx, by, 0).setUv(u1, v1).setColor(color);
-        b.addVertex(m, bx, ay, 0).setUv(u1, v0).setColor(color);
+        b.vertex(m, ax, ay, 0).uv(u0, v0).color(color).endVertex();
+        b.vertex(m, ax, by, 0).uv(u0, v1).color(color).endVertex();
+        b.vertex(m, bx, by, 0).uv(u1, v1).color(color).endVertex();
+        b.vertex(m, bx, ay, 0).uv(u1, v0).color(color).endVertex();
         finish(b);
     }
 
@@ -269,10 +269,7 @@ public final class Paint {
     }
 
     private static void finish(BufferBuilder b) {
-        MeshData mesh = b.build();
-        if (mesh != null) {
-            BufferUploader.drawWithShader(mesh);
-        }
+        BufferUploader.drawWithShader(b.end());
         RenderSystem.enableDepthTest();
         RenderSystem.disableBlend();
     }
@@ -307,7 +304,8 @@ public final class Paint {
         }
         prepare(texture);
         Matrix4f m = g.pose().last().pose();
-        BufferBuilder b = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+        BufferBuilder b = Tesselator.getInstance().getBuilder();
+        b.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
         for (int j = 0; j < 3; j++) {
             if (YS[j + 1] <= YS[j]) {
                 continue;
@@ -321,10 +319,10 @@ public final class Paint {
                 }
                 float xa = XS[i] * inv, xb = XS[i + 1] * inv;
                 float ua = US[2 * i], ub = US[2 * i + 1];
-                b.addVertex(m, xa, ya, 0).setUv(ua, va).setColor(ca);
-                b.addVertex(m, xa, yb, 0).setUv(ua, vb).setColor(cb);
-                b.addVertex(m, xb, yb, 0).setUv(ub, vb).setColor(cb);
-                b.addVertex(m, xb, ya, 0).setUv(ub, va).setColor(ca);
+                b.vertex(m, xa, ya, 0).uv(ua, va).color(ca).endVertex();
+                b.vertex(m, xa, yb, 0).uv(ua, vb).color(cb).endVertex();
+                b.vertex(m, xb, yb, 0).uv(ub, vb).color(cb).endVertex();
+                b.vertex(m, xb, ya, 0).uv(ub, va).color(ca).endVertex();
             }
         }
         finish(b);

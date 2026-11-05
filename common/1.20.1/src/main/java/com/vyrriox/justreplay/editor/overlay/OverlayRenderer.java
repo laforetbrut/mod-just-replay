@@ -430,10 +430,10 @@ public final class OverlayRenderer {
         int light = LightTexture.FULL_BRIGHT;
         float x0 = -w / 2, x1 = w / 2, y0 = -h / 2, y1 = h / 2;
         // Counter-clockwise seen from the front: top left, bottom left, bottom right, top right.
-        vc.addVertex(m, x0, y1, 0).setColor(color).setUv(0, 0).setLight(light);
-        vc.addVertex(m, x0, y0, 0).setColor(color).setUv(0, 1).setLight(light);
-        vc.addVertex(m, x1, y0, 0).setColor(color).setUv(1, 1).setLight(light);
-        vc.addVertex(m, x1, y1, 0).setColor(color).setUv(1, 0).setLight(light);
+        vc.vertex(m, x0, y1, 0).color(color).uv(0, 0).uv2(light).endVertex();
+        vc.vertex(m, x0, y0, 0).color(color).uv(0, 1).uv2(light).endVertex();
+        vc.vertex(m, x1, y0, 0).color(color).uv(1, 1).uv2(light).endVertex();
+        vc.vertex(m, x1, y1, 0).color(color).uv(1, 0).uv2(light).endVertex();
         buffers.endBatch(type);
         return new float[]{w / 2, h / 2};
     }
@@ -489,10 +489,10 @@ public final class OverlayRenderer {
             }
             int ca = gradient(a[1], y0, y1, top, bottom);
             int cb = gradient(b[1], y0, y1, top, bottom);
-            vc.addVertex(m, cx, cy, 0).setColor(center).setLight(light);
-            vc.addVertex(m, a[0], a[1], 0).setColor(ca).setLight(light);
-            vc.addVertex(m, b[0], b[1], 0).setColor(cb).setLight(light);
-            vc.addVertex(m, b[0], b[1], 0).setColor(cb).setLight(light);
+            vc.vertex(m, cx, cy, 0).color(center).uv2(light).endVertex();
+            vc.vertex(m, a[0], a[1], 0).color(ca).uv2(light).endVertex();
+            vc.vertex(m, b[0], b[1], 0).color(cb).uv2(light).endVertex();
+            vc.vertex(m, b[0], b[1], 0).color(cb).uv2(light).endVertex();
         }
     }
 
@@ -527,8 +527,8 @@ public final class OverlayRenderer {
             if (len < 1.0E-6F) {
                 continue;
             }
-            lines.addVertex(pose, a[0], a[1], 0).setColor(1.0F, 0.84F, 0.31F, 1.0F).setNormal(pose, nx / len, ny / len, 0);
-            lines.addVertex(pose, b[0], b[1], 0).setColor(1.0F, 0.84F, 0.31F, 1.0F).setNormal(pose, nx / len, ny / len, 0);
+            lines.vertex(pose.pose(), a[0], a[1], 0).color(1.0F, 0.84F, 0.31F, 1.0F).normal(pose.normal(), nx / len, ny / len, 0).endVertex();
+            lines.vertex(pose.pose(), b[0], b[1], 0).color(1.0F, 0.84F, 0.31F, 1.0F).normal(pose.normal(), nx / len, ny / len, 0).endVertex();
         }
         buffers.endBatch(RenderType.lines());
     }

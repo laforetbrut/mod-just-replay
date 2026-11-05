@@ -48,8 +48,6 @@
     "PlayerSkinLayersMixin",
     "PlayerBodyPartsMixin",
     "HiddenArmItemMixin",
-    "LevelRendererSectionsAccessor",
-    "SectionOcclusionGraphAccessor",
     "EntityBoundSoundAccessor",
     "EntityEditRenderMixin",
     "EntityEditGlowMixin",

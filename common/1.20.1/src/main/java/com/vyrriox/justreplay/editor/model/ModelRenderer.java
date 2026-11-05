@@ -282,8 +282,8 @@ public final class ModelRenderer {
                 float y = bounds[c[1]][1];
                 float z = bounds[c[2]][2];
                 float[] coords = uv[Math.floorMod(corner - face.rotation, 4)];
-                consumer.addVertex(pose, x, y, z).setColor(-1).setUv(coords[0], coords[1]).setOverlay(ctx.overlay)
-                        .setLight(ctx.light).setNormal(pose, normal[0], normal[1], normal[2]);
+                consumer.vertex(pose.pose(), x, y, z).color(-1).uv(coords[0], coords[1]).overlayCoords(ctx.overlay)
+                        .uv2(ctx.light).normal(pose.normal(), normal[0], normal[1], normal[2]).endVertex();
             }
         }
         if (rotated) {

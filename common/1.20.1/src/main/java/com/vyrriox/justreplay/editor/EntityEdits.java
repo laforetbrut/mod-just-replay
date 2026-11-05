@@ -58,7 +58,7 @@ public final class EntityEdits {
      * Skin of a recorded player at the current frame from its timed skin changes, or null to keep its own skin.
      * Called for every player at every frame: bails out early when the project has no entity edits.
      */
-    public static net.minecraft.client.resources.PlayerSkin skinOf(Entity entity) {
+    public static ActorManager.FileSkin skinOf(Entity entity) {
         ReplayProject.EntityEdit edit = editOf(entity);
         if (edit == null || edit.skinChanges.isEmpty()) {
             return null;

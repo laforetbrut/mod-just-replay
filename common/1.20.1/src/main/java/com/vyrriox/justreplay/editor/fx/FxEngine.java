@@ -442,12 +442,13 @@ public final class FxEngine {
     private static void draw(ShaderInstance shader, RenderTarget out) {
         out.bindWrite(true);
         shader.apply();
-        BufferBuilder builder = RenderSystem.renderThreadTesselator().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION);
-        builder.addVertex(0.0F, 0.0F, 0.0F);
-        builder.addVertex(1.0F, 0.0F, 0.0F);
-        builder.addVertex(1.0F, 1.0F, 0.0F);
-        builder.addVertex(0.0F, 1.0F, 0.0F);
-        BufferUploader.draw(builder.buildOrThrow());
+        BufferBuilder builder = RenderSystem.renderThreadTesselator().getBuilder();
+        builder.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION);
+        builder.vertex(0.0D, 0.0D, 0.0D).endVertex();
+        builder.vertex(1.0D, 0.0D, 0.0D).endVertex();
+        builder.vertex(1.0D, 1.0D, 0.0D).endVertex();
+        builder.vertex(0.0D, 1.0D, 0.0D).endVertex();
+        BufferUploader.draw(builder.end());
         shader.clear();
     }
 

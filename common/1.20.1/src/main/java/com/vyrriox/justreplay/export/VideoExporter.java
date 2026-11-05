@@ -441,7 +441,7 @@ public final class VideoExporter {
             return;
         }
         settleFrames++;
-        readyStreak = mc.levelRenderer.hasRenderedAllSections() ? readyStreak + 1 : 0;
+        readyStreak = mc.levelRenderer.hasRenderedAllChunks() ? readyStreak + 1 : 0;
         boolean built = readyStreak >= READY_FRAMES;
         if (warmedFrames < warmupFrames || !built && settleFrames < MAX_SETTLE_FRAMES) {
             return;

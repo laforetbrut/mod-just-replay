@@ -884,9 +884,7 @@ public final class ActorAnimator {
         }
         Vec3 from = new Vec3(x, y + 1.25, z);
         Vec3 to = new Vec3(x, y - 8.0, z);
-        net.minecraft.world.phys.BlockHitResult hit = mc.level.clip(new net.minecraft.world.level.ClipContext(from, to,
-                net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE,
-                net.minecraft.world.phys.shapes.CollisionContext.empty()));
+        net.minecraft.world.phys.BlockHitResult hit = ActorPlacement.clip(mc.level, from, to, net.minecraft.world.level.ClipContext.Block.COLLIDER);
         return hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK ? hit.getLocation().y : y;
     }
 
@@ -1257,7 +1255,7 @@ public final class ActorAnimator {
         if (used.isEmpty()) {
             return;
         }
-        int duration = used.getUseDuration(living);
+        int duration = used.getUseDuration();
         if (duration <= 0) {
             return;
         }

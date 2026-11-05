@@ -180,8 +180,8 @@ public final class PathRenderer {
         nx /= len;
         ny /= len;
         nz /= len;
-        c.addVertex(pose, (float) x1, (float) y1, (float) z1).setColor(r, g, b, 1.0F).setNormal(pose, nx, ny, nz);
-        c.addVertex(pose, (float) x2, (float) y2, (float) z2).setColor(r, g, b, 1.0F).setNormal(pose, nx, ny, nz);
+        c.vertex(pose.pose(), (float) x1, (float) y1, (float) z1).color(r, g, b, 1.0F).normal(pose.normal(), nx, ny, nz).endVertex();
+        c.vertex(pose.pose(), (float) x2, (float) y2, (float) z2).color(r, g, b, 1.0F).normal(pose.normal(), nx, ny, nz).endVertex();
     }
 
     private static void box(VertexConsumer c, PoseStack.Pose pose, double x, double y, double z, double s, float r, float g, float b) {

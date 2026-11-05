@@ -1,7 +1,7 @@
 package com.vyrriox.justreplay.editor.audio;
 
+import com.mojang.blaze3d.audio.OggAudioStream;
 import it.unimi.dsi.fastutil.floats.FloatArrayList;
-import net.minecraft.client.sounds.JOrbisAudioStream;
 
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;
@@ -60,14 +60,34 @@ public final class AudioDecoder {
 
     // ---------------------------------------------------------------- ogg
 
+    /**
+     * Appends the next samples of an Ogg stream as interleaved floats in -1..1; false at the end of the stream.
+     * The vanilla stream hands out 16 bit samples and fails on more than two channels.
+     */
+    public static boolean readOggChunk(OggAudioStream stream, FloatArrayList samples) throws IOException {
+        java.nio.ByteBuffer chunk;
+        try {
+            chunk = stream.read(1 << 16);
+        } catch (IllegalStateException e) {
+            throw new DecodeException(e.getMessage());
+        }
+        if (!chunk.hasRemaining()) {
+            return false;
+        }
+        while (chunk.remaining() >= 2) {
+            samples.add((chunk.getShort() + 0.5F) / 32767.5F);
+        }
+        return true;
+    }
+
     private static AudioPcm decodeOgg(Path file) throws IOException {
         try (InputStream in = new BufferedInputStream(Files.newInputStream(file), 1 << 16);
-             JOrbisAudioStream stream = new JOrbisAudioStream(in)) {
+             OggAudioStream stream = new OggAudioStream(in)) {
             int channels = Math.max(1, stream.getFormat().getChannels());
             float rate = stream.getFormat().getSampleRate();
             long limit = (long) (rate * MAX_SECONDS) * channels;
             FloatArrayList samples = new FloatArrayList(1 << 20);
-            while (stream.readChunk(samples::add)) {
+            while (readOggChunk(stream, samples)) {
                 if (samples.size() > limit) {
                     throw new DecodeException("longer than " + MAX_SECONDS / 60 + " minutes");
                 }
