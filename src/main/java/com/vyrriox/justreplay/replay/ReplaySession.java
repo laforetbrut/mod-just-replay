@@ -265,11 +265,33 @@ public final class ReplaySession {
                 mc.setScreen(parent);
                 return;
             }
-            start(mc, dir, parent, packets);
+            try {
+                start(mc, dir, parent, packets);
+            } catch (Throwable t) {
+                JustReplay.LOGGER.error("Cannot start replay {}", dir, t);
+                abortStart(mc, dir, parent);
+            }
         }, mc);
     }
 
     private static boolean loading;
+
+    /** Returns to the previous screen after a failed start and lets the session world and copies be cleaned. */
+    private static void abortStart(Minecraft mc, Path dir, Screen parent) {
+        current = null;
+        pendingWorldCleanup = true;
+        net.minecraft.client.gui.components.toasts.SystemToast.add(mc.getToasts(),
+                net.minecraft.client.gui.components.toasts.SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+                Component.translatable("justreplay.toast.open_failed"), Component.literal(dir.getFileName().toString()));
+        if (mc.level == null) {
+            mc.setScreen(parent);
+        }
+    }
+
+    /** Screen to return to if the session dies before login. */
+    private Screen parentScreen;
+    /** Ticks without a level or connection while the session waits for its login. */
+    private int waitingTicks;
 
     private static void start(Minecraft mc, Path dir, Screen parent, com.vyrriox.justreplay.format.PacketStream packets) {
         if (packets.isEmpty()) {
@@ -277,7 +299,17 @@ public final class ReplaySession {
             mc.setScreen(parent);
             return;
         }
-        current = new ReplaySession(dir, ReplayStorage.readMeta(dir), ReplayStorage.readProject(dir), packets);
+        ReplayStorage.lastProjectBackup = null;
+        ReplayProject loaded = ReplayStorage.readProject(dir);
+        Path backup = ReplayStorage.lastProjectBackup;
+        ReplayStorage.lastProjectBackup = null;
+        current = new ReplaySession(dir, ReplayStorage.readMeta(dir), loaded, packets);
+        current.parentScreen = parent;
+        if (backup != null) {
+            net.minecraft.client.gui.components.toasts.SystemToast.add(mc.getToasts(),
+                    net.minecraft.client.gui.components.toasts.SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+                    Component.translatable("justreplay.toast.project_bad"), Component.literal(backup.getFileName().toString()));
+        }
         JustReplay.LOGGER.info("Opening replay {} ({} ticks)", dir.getFileName(), packets.lastTick());
         deleteSessionWorld(mc);
 
@@ -299,9 +331,7 @@ public final class ReplaySession {
             }
         } catch (Throwable t) {
             JustReplay.LOGGER.error("Cannot start the replay world", t);
-            current = null;
-            pendingWorldCleanup = true;
-            mc.setScreen(parent);
+            abortStart(mc, dir, parent);
         }
     }
 
@@ -362,6 +392,18 @@ public final class ReplaySession {
         if (s != null && s.state == State.RUNNING && mc.level == null) {
             onLoggingOut();
             return;
+        }
+        if (s != null && s.state == State.WAITING_LOGIN) {
+            // The connection can die before login (configuration failure): nothing else would ever end the session.
+            if (mc.level == null && mc.getConnection() == null && mc.getSingleplayerServer() == null) {
+                if (++s.waitingTicks > 40) {
+                    JustReplay.LOGGER.error("The replay connection failed before login");
+                    abortStart(mc, s.dir, s.parentScreen);
+                    return;
+                }
+            } else {
+                s.waitingTicks = 0;
+            }
         }
         if (s == null || mc.player == null || mc.getConnection() == null) {
             return;

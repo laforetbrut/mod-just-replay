@@ -495,6 +495,8 @@ public final class ReplayProject {
         if (cuts == null) cuts = new ArrayList<>();
         if (markers == null) markers = new ArrayList<>();
         if (actors == null) actors = new ArrayList<>();
+        markers.removeIf(m -> m == null);
+        actors.removeIf(a -> a == null);
         if (audioTracks == null) audioTracks = new ArrayList<>();
         if (effects == null) effects = new ArrayList<>();
         if (overlays == null) overlays = new ArrayList<>();
@@ -556,6 +558,7 @@ public final class ReplayProject {
         if (camera(selectedCamera) == null) selectedCamera = cameras.get(0).id;
         for (ActorData actor : actors) {
             if (actor.keyframes == null) actor.keyframes = new ArrayList<>();
+            actor.keyframes.removeIf(k -> k == null);
             actor.skinChanges = SkinChange.normalize(actor.skinChanges);
             if (actor.pose == null) actor.pose = "STANDING";
             if (actor.actions == null) actor.actions = new ArrayList<>();

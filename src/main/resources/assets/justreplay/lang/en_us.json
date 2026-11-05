@@ -40,6 +40,7 @@
   "justreplay.toast.saved": "Replay saved",
   "justreplay.toast.failed": "Cannot start recording",
   "justreplay.toast.open_failed": "Cannot open this replay",
+  "justreplay.toast.project_bad": "project.json was unreadable and was kept aside",
   "justreplay.toast.keyframe": "Camera keyframe added",
 
   "justreplay.hud.hint": "G editor  J play  K keyframe  O path  H hide",

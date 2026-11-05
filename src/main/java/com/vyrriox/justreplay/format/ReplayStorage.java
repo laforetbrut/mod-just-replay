@@ -91,8 +91,23 @@ public final class ReplayStorage {
         writeJson(dir.resolve(META), meta);
     }
 
+    /** Set when the last {@link #readProject} had to move an unreadable project.json aside; consumed by the caller. */
+    public static volatile Path lastProjectBackup;
+
     public static ReplayProject readProject(Path dir) {
-        ReplayProject project = readJson(dir.resolve(PROJECT), ReplayProject.class);
+        Path file = dir.resolve(PROJECT);
+        ReplayProject project = readJson(file, ReplayProject.class);
+        if (project == null && Files.exists(file)) {
+            // Unreadable file: keep it aside so the next save cannot overwrite the user's work.
+            Path bad = file.resolveSibling(PROJECT + ".bad-" + System.currentTimeMillis());
+            try {
+                Files.move(file, bad, StandardCopyOption.REPLACE_EXISTING);
+                lastProjectBackup = bad;
+                JustReplay.LOGGER.warn("Unreadable {} moved to {}", file, bad);
+            } catch (IOException e) {
+                JustReplay.LOGGER.error("Cannot move the unreadable {} aside", file, e);
+            }
+        }
         if (project == null) {
             project = new ReplayProject();
         }
