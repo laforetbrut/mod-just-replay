@@ -78,13 +78,26 @@ public final class ActorPlacement {
         if (holder == null) {
             return BlockHitResult.miss(to, Direction.UP, BlockPos.containing(to));
         }
-        return level.clip(new ClipContext(from, to, block, ClipContext.Fluid.NONE, holder) {
-            @Override
-            public net.minecraft.world.phys.shapes.VoxelShape getBlockShape(net.minecraft.world.level.block.state.BlockState state,
-                                                                            net.minecraft.world.level.BlockGetter getter, BlockPos pos) {
-                return block.get(state, getter, pos, CollisionContext.empty());
-            }
-        });
+        return level.clip(new NoEntityClip(from, to, block, holder));
+    }
+
+    /**
+     * A named class on purpose: javac can reject an anonymous subclass of the clip context, since the parameter names
+     * of its synthetic constructor can clash with those read from the patched Minecraft classes.
+     */
+    private static final class NoEntityClip extends ClipContext {
+        private final ClipContext.Block shapes;
+
+        NoEntityClip(Vec3 from, Vec3 to, ClipContext.Block shapes, net.minecraft.world.entity.Entity holder) {
+            super(from, to, shapes, ClipContext.Fluid.NONE, holder);
+            this.shapes = shapes;
+        }
+
+        @Override
+        public net.minecraft.world.phys.shapes.VoxelShape getBlockShape(net.minecraft.world.level.block.state.BlockState state,
+                                                                        net.minecraft.world.level.BlockGetter getter, BlockPos pos) {
+            return shapes.get(state, getter, pos, CollisionContext.empty());
+        }
     }
 
     /** Where the camera looks: the main camera position and its view direction. */
