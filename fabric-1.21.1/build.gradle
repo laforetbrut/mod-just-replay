@@ -46,6 +46,9 @@ dependencies {
 
     // Simple Voice Chat API (the version bundled with voicechat 1.21.1-2.6.22); optional at runtime.
     compileOnly 'de.maxhenkel.voicechat:voicechat-api:2.6.20'
+
+    // Mods loaded next to the remapped jar by the production run tasks.
+    productionRuntimeMods "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
 }
 
 loom {
@@ -84,6 +87,16 @@ loom {
             }
         }
     }
+}
+
+// Self test on the remapped jar (exercises the refmap, unlike a dev run). Run folder: run-prod.
+// Log: run-prod/logs/latest.log. Needs no account: the task starts the client with an offline player.
+tasks.register('runProductionSelftest', net.fabricmc.loom.task.prod.ClientProductionRunTask) {
+    group = 'fabric'
+    description = 'Runs the self test on the remapped production jar with Fabric API.'
+    dependsOn tasks.named('remapJar')
+    runDir = layout.projectDirectory.dir('run-prod')
+    jvmArgs.addAll('-Djustreplay.selftest=true', '-Xmx4G', '-Djustreplay.checkpointTicks=60')
 }
 
 processResources {
