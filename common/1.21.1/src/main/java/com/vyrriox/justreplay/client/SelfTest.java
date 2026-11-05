@@ -62,6 +62,8 @@ public final class SelfTest {
     private static com.vyrriox.justreplay.editor.ActorPlacement.Spot seatSpot;
     private static int fxStep;
     private static boolean curiosGiven;
+    private static int ringWaits;
+    private static boolean ringRebuilt;
     private static volatile net.minecraft.world.item.Item accessoryGiven;
     private static java.util.SequencedMap<?, ?> accessorySlots;
     private static boolean immersiveRegistered;
@@ -347,11 +349,16 @@ public final class SelfTest {
                     if (mc.screen == null) {
                         log("in world at {}", p.position());
                         Mods.summonAircraft(p);
+                        Mods.seedRing(mc);
                         next(60);
                     }
                 }
             }
             case 2 -> {
+                if (Mods.ringPending(mc)) {
+                    wait = 5;
+                    return;
+                }
                 if (Mods.loaded("irons_spellbooks") && !ironsCastSent) {
                     // Under way before the recording: only the snapshot can carry it. Fortify casts for 60 ticks.
                     ironsCastSent = true;
@@ -429,6 +436,7 @@ public final class SelfTest {
                 }
                 if (t == 100) {
                     p.connection.sendCommand("setblock ~ ~3 ~ minecraft:diamond_block");
+                    Mods.checkRecordingCurios(p);
                 }
                 if (t == 50) {
                     Mods.recordExposureCapture();
@@ -1318,10 +1326,7 @@ public final class SelfTest {
             }
             if (loaded("curios")) {
                 // A ring worn before the recording starts: it must reach the snapshot, the actor and every checkpoint.
-                net.minecraft.world.item.Item ring = net.minecraft.core.registries.BuiltInRegistries.ITEM
-                        .getTag(net.minecraft.tags.TagKey.create(net.minecraft.core.registries.Registries.ITEM,
-                                net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("curios", "ring")))
-                        .flatMap(tag -> tag.stream().findFirst()).map(net.minecraft.core.Holder::value).orElse(null);
+                net.minecraft.world.item.Item ring = ringItem();
                 if (ring == null) {
                     log("curios: no ring item in the pack, check skipped");
                 } else {
@@ -1358,6 +1363,84 @@ public final class SelfTest {
                         count >= 2 && dropped ? "OK" : "FAIL");
             } catch (Throwable t) {
                 log("immersive paintings {}: {} -> FAIL", label, t.toString());
+            }
+        }
+
+        private static net.minecraft.world.item.Item ringItem() {
+            return net.minecraft.core.registries.BuiltInRegistries.ITEM
+                    .getTag(net.minecraft.tags.TagKey.create(net.minecraft.core.registries.Registries.ITEM,
+                            net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("curios", "ring")))
+                    .flatMap(tag -> tag.stream().findFirst()).map(net.minecraft.core.Holder::value).orElse(null);
+        }
+
+        /**
+         * Curios alone gives no item the ring tag and the player no ring slot. Without a mod supplying them, a datapack
+         * written into the test world tags a vanilla item and gives the player the slot. With one, nothing changes.
+         */
+        static void seedRing(Minecraft mc) {
+            net.minecraft.client.server.IntegratedServer server = mc.getSingleplayerServer();
+            if (!loaded("curios") || ringItem() != null || server == null) {
+                return;
+            }
+            Path pack = server.getWorldPath(net.minecraft.world.level.storage.LevelResource.DATAPACK_DIR).resolve("justreplay-selftest");
+            try {
+                Path tag = pack.resolve("data/curios/tags/item/ring.json");
+                Path entities = pack.resolve("data/justreplay/curios/entities/selftest.json");
+                Files.createDirectories(tag.getParent());
+                Files.createDirectories(entities.getParent());
+                Files.writeString(pack.resolve("pack.mcmeta"), "{\"pack\":{\"pack_format\":48,\"description\":\"Self test ring\"}}");
+                Files.writeString(tag, "{\"replace\":false,\"values\":[\"minecraft:gold_nugget\"]}");
+                Files.writeString(entities, "{\"entities\":[\"minecraft:player\"],\"slots\":[\"ring\"]}");
+            } catch (Exception e) {
+                log("curios: cannot write the ring datapack: {}", e.toString());
+                return;
+            }
+            ringWaits = 40;
+            log("curios: no ring item in the pack, using the test datapack");
+            mc.player.connection.sendCommand("reload");
+        }
+
+        /**
+         * True while the ring is not ready, for ten seconds at most. The player joined before the datapack existed, so
+         * once the reload has reached the client, the server rebuilds the handlers of the player and a second reload
+         * syncs them.
+         */
+        static boolean ringPending(Minecraft mc) {
+            if (ringWaits <= 0) {
+                return false;
+            }
+            ringWaits--;
+            if (ringItem() == null) {
+                return ringWaits > 0;
+            }
+            net.minecraft.client.server.IntegratedServer server = mc.getSingleplayerServer();
+            if (!ringRebuilt && server != null) {
+                ringRebuilt = true;
+                java.util.UUID id = mc.player.getUUID();
+                server.execute(() -> {
+                    com.vyrriox.justreplay.compat.CuriosCompat.rebuildSlots(server.getPlayerList().getPlayer(id));
+                    mc.execute(() -> {
+                        if (mc.player != null) {
+                            mc.player.connection.sendCommand("reload");
+                        }
+                    });
+                });
+                return true;
+            }
+            int slots = com.vyrriox.justreplay.compat.CuriosCompat.slotTypes(mc.player);
+            if (slots > 0 || ringWaits <= 0) {
+                log("curios: slot types on the player before recording={} -> {}", slots, slots > 0 ? "OK" : "FAIL");
+                ringWaits = 0;
+                return false;
+            }
+            return true;
+        }
+
+        /** Curios worn by the recording player, expected 1: tells a lost ring apart from one the replay lost. */
+        static void checkRecordingCurios(LocalPlayer p) {
+            if (loaded("curios") && curiosGiven) {
+                int worn = com.vyrriox.justreplay.compat.CuriosCompat.wornCount(p);
+                log("curios while recording: worn stacks on the player={} -> {}", worn, worn == 1 ? "OK" : "FAIL");
             }
         }
 
