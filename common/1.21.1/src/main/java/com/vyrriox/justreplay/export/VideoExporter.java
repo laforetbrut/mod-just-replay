@@ -690,13 +690,13 @@ public final class VideoExporter {
     }
 
     /** Sounds never play live during an export; they are logged for the audio track instead. */
-    public static void onSound(net.neoforged.neoforge.client.event.sound.PlaySoundEvent event) {
+    public static boolean onSound(net.minecraft.client.resources.sounds.SoundInstance sound) {
         VideoExporter e = current;
-        if (e == null || event.getSound() == null) {
-            return;
+        if (e == null) {
+            return true;
         }
-        e.audio.onSound(event.getSound(), e.trackSample(), e.phase == Phase.CAPTURE);
-        event.setSound(null);
+        e.audio.onSound(sound, e.trackSample(), e.phase == Phase.CAPTURE);
+        return false;
     }
 
     /** A sound was stopped by the game (see the sound manager mixin). */

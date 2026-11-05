@@ -73,11 +73,11 @@ public final class SelfTest {
     private static int recorderSteps;
 
     /** Counts, during a replay, the sounds the self test made for its own player while recording. */
-    public static void onSound(net.neoforged.neoforge.client.event.sound.PlaySoundEvent event) {
-        if (!ENABLED || !ReplaySession.isRunning() || event.getSound() == null) {
+    public static void onSound(net.minecraft.client.resources.sounds.SoundInstance sound) {
+        if (!ENABLED || !ReplaySession.isRunning()) {
             return;
         }
-        String id = event.getSound().getLocation().getPath();
+        String id = sound.getLocation().getPath();
         if (id.equals("block.note_block.bell")) {
             localBell++;
         } else if (id.equals("block.anvil.use")) {
@@ -87,7 +87,7 @@ public final class SelfTest {
             // Footsteps of the recording player itself: they only exist if the recorder captured them.
             Minecraft mc = Minecraft.getInstance();
             Entity recorder = ReplaySession.current() != null ? ReplaySession.current().findRecorder(mc) : null;
-            if (recorder != null && recorder.distanceToSqr(event.getSound().getX(), event.getSound().getY(), event.getSound().getZ()) < 2.25) {
+            if (recorder != null && recorder.distanceToSqr(sound.getX(), sound.getY(), sound.getZ()) < 2.25) {
                 recorderSteps++;
             }
         }

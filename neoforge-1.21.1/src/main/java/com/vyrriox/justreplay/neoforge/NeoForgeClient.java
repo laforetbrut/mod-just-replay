@@ -1,6 +1,5 @@
 package com.vyrriox.justreplay.neoforge;
 
-import com.vyrriox.justreplay.client.JustReplayClient;
 import com.vyrriox.justreplay.compat.ReplayCompat;
 import com.vyrriox.justreplay.editor.PathRenderer;
 import com.vyrriox.justreplay.editor.SkinLibrary;
@@ -27,8 +26,8 @@ import java.lang.reflect.Method;
  */
 final class NeoForgeClient {
     private static final Class<?>[] SUBSCRIBERS = {
-            JustReplayClient.GameEvents.class,
-            JustReplayClient.ModEvents.class,
+            NeoForgeClientEvents.GameEvents.class,
+            NeoForgeClientEvents.ModEvents.class,
             ReplayCompat.Events.class,
             PathRenderer.class,
             SkinLibrary.class,

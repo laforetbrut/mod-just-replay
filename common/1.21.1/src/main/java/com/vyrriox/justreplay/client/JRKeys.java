@@ -2,7 +2,6 @@ package com.vyrriox.justreplay.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
-import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.settings.IKeyConflictContext;
 import net.neoforged.neoforge.client.settings.KeyConflictContext;
 import org.lwjgl.glfw.GLFW;
@@ -65,13 +64,13 @@ public final class JRKeys {
         return new KeyMapping("key.justreplay." + name, IN_REPLAY, InputConstants.Type.KEYSYM, code, CATEGORY);
     }
 
-    public static void register(RegisterKeyMappingsEvent event) {
+    public static void register(java.util.function.Consumer<KeyMapping> registrar) {
         for (KeyMapping key : new KeyMapping[]{RECORD, EDITOR, PLAY_PAUSE, SEEK_BACK, SEEK_FORWARD, SPEED_UP, SPEED_DOWN,
                 CAMERA_KEYFRAME, CAMERA_PATH, MARKER, TOGGLE_HUD, RECORDER_VIEW, STOP_SPECTATING, SAVE_BUFFER, RECORD_NEXT}) {
-            event.register(key);
+            registrar.accept(key);
         }
         for (KeyMapping key : CUT_TO) {
-            event.register(key);
+            registrar.accept(key);
         }
     }
 

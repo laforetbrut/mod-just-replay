@@ -20,14 +20,6 @@ import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
-import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
-import net.neoforged.neoforge.client.event.RenderFrameEvent;
-import net.neoforged.neoforge.client.event.ScreenEvent;
-import net.neoforged.neoforge.client.event.ViewportEvent;
 
 import java.nio.file.Path;
 
@@ -40,237 +32,199 @@ public final class JustReplayClient {
     private JustReplayClient() {
     }
 
-    public static final class ModEvents {
-        @SubscribeEvent
-        public static void onKeys(RegisterKeyMappingsEvent event) {
-            JRKeys.register(event);
-        }
+    public static void registerKeys(java.util.function.Consumer<net.minecraft.client.KeyMapping> registrar) {
+        JRKeys.register(registrar);
+    }
 
-        @SubscribeEvent
-        public static void onLayers(RegisterGuiLayersEvent event) {
-            event.registerAboveAll(JustReplay.id("hud"), ReplayHud::render);
-            event.registerAboveAll(JustReplay.id("placement"), com.vyrriox.justreplay.gui.PlacementTool::renderHud);
-            event.registerAboveAll(JustReplay.id("entity_tool"), com.vyrriox.justreplay.gui.EntityTool::renderHud);
+    public static void registerGuiLayers(java.util.function.BiConsumer<net.minecraft.resources.ResourceLocation, net.minecraft.client.gui.LayeredDraw.Layer> registrar) {
+        registrar.accept(JustReplay.id("hud"), ReplayHud::render);
+        registrar.accept(JustReplay.id("placement"), com.vyrriox.justreplay.gui.PlacementTool::renderHud);
+        registrar.accept(JustReplay.id("entity_tool"), com.vyrriox.justreplay.gui.EntityTool::renderHud);
+    }
+
+    public static boolean hidesNameTag(net.minecraft.world.entity.Entity entity) {
+        return com.vyrriox.justreplay.editor.ActorManager.hidesName(entity);
+    }
+
+    public static void onTick() {
+        Minecraft mc = Minecraft.getInstance();
+        Recorder.clientTickAll(mc);
+        ReplaySession.clientTick(mc);
+        handleKeys(mc);
+        SelfTest.tick(mc);
+        SceneRecorder.tick(mc);
+        com.vyrriox.justreplay.compat.ReplayCompat.clientTick(mc);
+    }
+
+    public static void onTickPre() {
+        suppressHotbarKeys(Minecraft.getInstance());
+    }
+
+    public static void onLoggingIn(net.minecraft.network.Connection connection) {
+        if (JRConfig.REPLAY_BUFFER.get() && JRConfig.BUFFER_MINUTES.get() > 30 && !ReplaySession.isReplayConnection(connection)) {
+            // Long instant replay windows cost memory: say so once per world.
+            int minutes = JRConfig.BUFFER_MINUTES.get();
+            toast(Component.translatable("justreplay.toast.buffer_ram", minutes),
+                    Component.translatable("justreplay.toast.buffer_ram.detail", Math.max(1, minutes * 10 / 10), minutes * 25 / 10));
+        }
+        com.vyrriox.justreplay.editor.CameraRig.reset();
+        ReplaySession.onLoggingIn(connection);
+    }
+
+    public static void onLoggingOut(net.minecraft.network.Connection connection) {
+        if (ReplaySession.current() != null) {
+            // Logouts also fire while the replay world is loading; only the replay connection ends a session.
+            if (ReplaySession.isReplayConnection(connection)) {
+                ReplaySession.onLoggingOut();
+            }
+            return;
+        }
+        Path saved = Recorder.endCapture();
+        if (saved != null) {
+            toast(Recorder.lastStopIncomplete() ? "justreplay.toast.incomplete" : "justreplay.toast.saved", saved.getFileName().toString());
         }
     }
 
-    public static final class GameEvents {
-        @SubscribeEvent
-        public static void onNameTag(net.neoforged.neoforge.client.event.RenderNameTagEvent event) {
-            if (com.vyrriox.justreplay.editor.ActorManager.hidesName(event.getEntity())) {
-                event.setCanRender(net.neoforged.neoforge.common.util.TriState.FALSE);
+    /**
+     * Whether a HUD layer is hidden. Recorded overlays stay; the camera's own HUD and other mods' HUDs would cover the
+     * timeline.
+     *
+     * @param replayLayer the layer is a recorded overlay or one of ours
+     * @param chatLayer   the layer is the chat
+     */
+    public static boolean hidesGuiLayer(boolean replayLayer, boolean chatLayer) {
+        if (!ReplaySession.isRunning()) {
+            return false;
+        }
+        if (JRConfig.CLEAN_HUD.get() && !replayLayer) {
+            return true;
+        }
+        // The recorded chat would cover the editor panels.
+        return Minecraft.getInstance().screen instanceof EditorScreen && chatLayer;
+    }
+
+    public static void onRenderFramePre(float partialTick) {
+        com.vyrriox.justreplay.replay.SectionRepair.beforeFrame(Minecraft.getInstance());
+        ReplaySession session = ReplaySession.current();
+        if (session != null && session.spectate().isActive() && session.isCameraPathActive()) {
+            // A camera path or an export started this tick: never render it from a spectated entity.
+            session.spectate().stop(Minecraft.getInstance());
+        }
+        CameraController.onRenderFrame(partialTick);
+        com.vyrriox.justreplay.replay.WorldOverride.onRenderFrame(partialTick);
+    }
+
+    public static void onRenderFramePost(float partialTick) {
+        VideoExporter.onFrameRendered(partialTick);
+    }
+
+    /** Spectator flying widens the view; keyframes store the configured FOV, so keep the camera at exactly that. */
+    public static boolean locksFovModifier() {
+        return ReplaySession.isRunning();
+    }
+
+    public static Float cameraRoll() {
+        return CameraController.roll();
+    }
+
+    public static Double cameraFov(boolean usedConfiguredFov) {
+        return usedConfiguredFov ? CameraController.fov() : null;
+    }
+
+    /** Recorded packets must not change the screen: keeps the editor open across seeks and blocks mod GUIs. */
+    public static boolean cancelsScreen(net.minecraft.client.gui.screens.Screen screen) {
+        if (Playback.isDispatching()) {
+            return true;
+        }
+        if (ReplaySession.isRunning() && isPlayerOnlyScreen(screen)) {
+            // The camera is not a player of the recording: its inventory and progress mean nothing in a replay.
+            return true;
+        }
+        if (VideoExporter.isActive() && Minecraft.getInstance().level != null) {
+            // Esc cancels the export; any other screen would be burnt into the video.
+            if (screen instanceof PauseScreen) {
+                VideoExporter.cancel();
+                toast("justreplay.export.cancelled", "");
+            } else if (screen != null) {
+                return true;
             }
         }
+        return false;
+    }
 
-        @SubscribeEvent
-        public static void onTick(ClientTickEvent.Post event) {
-            Minecraft mc = Minecraft.getInstance();
-            Recorder.clientTickAll(mc);
-            ReplaySession.clientTick(mc);
-            handleKeys(mc);
-            SelfTest.tick(mc);
-            SceneRecorder.tick(mc);
-            com.vyrriox.justreplay.compat.ReplayCompat.clientTick(mc);
+    /** Screens about the player itself (inventory, containers, advancements), which a replay camera has none of. */
+    private static boolean isPlayerOnlyScreen(net.minecraft.client.gui.screens.Screen screen) {
+        return screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>
+                || screen instanceof net.minecraft.client.gui.screens.advancements.AdvancementsScreen;
+    }
+
+    /** Actors are puppets: their own AI/tick code (often server-minded in mods) never runs. */
+    public static boolean cancelsEntityTick(net.minecraft.world.entity.Entity entity) {
+        return entity.level().isClientSide() && ReplaySession.isRunning()
+                && com.vyrriox.justreplay.editor.ActorManager.isActorEntity(entity)
+                && !(entity instanceof net.minecraft.client.player.RemotePlayer);
+    }
+
+    /**
+     * Attacking in a replay would reach the host server; a left click on an entity views the replay through it
+     * instead.
+     */
+    public static boolean cancelsAttack() {
+        if (!ReplaySession.isRunning()) {
+            return false;
         }
-
-        @SubscribeEvent
-        public static void onTickPre(ClientTickEvent.Pre event) {
-            suppressHotbarKeys(Minecraft.getInstance());
+        Minecraft mc = Minecraft.getInstance();
+        ReplaySession session = ReplaySession.current();
+        if (session != null && mc.screen == null && !session.isCameraPathActive()) {
+            session.spectate(mc, com.vyrriox.justreplay.replay.SpectateCamera.pick(mc));
         }
+        return true;
+    }
 
-        @SubscribeEvent
-        public static void onLoggingIn(ClientPlayerNetworkEvent.LoggingIn event) {
-            if (JRConfig.REPLAY_BUFFER.get() && JRConfig.BUFFER_MINUTES.get() > 30 && !ReplaySession.isReplayConnection(event.getConnection())) {
-                // Long instant replay windows cost memory: say so once per world.
-                int minutes = JRConfig.BUFFER_MINUTES.get();
-                toast(Component.translatable("justreplay.toast.buffer_ram", minutes),
-                        Component.translatable("justreplay.toast.buffer_ram.detail", Math.max(1, minutes * 10 / 10), minutes * 25 / 10));
-            }
-            com.vyrriox.justreplay.editor.CameraRig.reset();
-            ReplaySession.onLoggingIn(event.getConnection());
+    /** A spectated player keeps its build ability, which would draw the block outline over the view. */
+    public static boolean cancelsBlockHighlight() {
+        ReplaySession session = ReplaySession.current();
+        return session != null && ReplaySession.isRunning() && session.spectate().isActive();
+    }
+
+    public static boolean onPlaySound(net.minecraft.client.resources.sounds.SoundInstance sound) {
+        if (sound == null) {
+            return true;
         }
-
-        @SubscribeEvent
-        public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
-            if (ReplaySession.current() != null) {
-                // Logouts also fire while the replay world is loading; only the replay connection ends a session.
-                if (ReplaySession.isReplayConnection(event.getConnection())) {
-                    ReplaySession.onLoggingOut();
-                }
-                return;
-            }
-            Path saved = Recorder.endCapture();
-            if (saved != null) {
-                toast(Recorder.lastStopIncomplete() ? "justreplay.toast.incomplete" : "justreplay.toast.saved", saved.getFileName().toString());
-            }
+        if (!VideoExporter.onSound(sound)) {
+            return false;
         }
+        SelfTest.onSound(sound);
+        return true;
+    }
 
-        /** Recorded overlays stay; the camera's own HUD and other mods' HUDs would cover the timeline. */
-        private static final java.util.Set<net.minecraft.resources.ResourceLocation> REPLAY_LAYERS = java.util.Set.of(
-                net.neoforged.neoforge.client.gui.VanillaGuiLayers.CHAT,
-                net.neoforged.neoforge.client.gui.VanillaGuiLayers.TITLE,
-                net.neoforged.neoforge.client.gui.VanillaGuiLayers.SUBTITLE_OVERLAY,
-                net.neoforged.neoforge.client.gui.VanillaGuiLayers.BOSS_OVERLAY,
-                net.neoforged.neoforge.client.gui.VanillaGuiLayers.SCOREBOARD_SIDEBAR,
-                net.neoforged.neoforge.client.gui.VanillaGuiLayers.TAB_LIST,
-                net.neoforged.neoforge.client.gui.VanillaGuiLayers.OVERLAY_MESSAGE,
-                net.neoforged.neoforge.client.gui.VanillaGuiLayers.DEBUG_OVERLAY,
-                JustReplay.id("hud"),
-                JustReplay.id("placement"),
-                JustReplay.id("entity_tool"));
-
-        @SubscribeEvent
-        public static void onGuiLayer(net.neoforged.neoforge.client.event.RenderGuiLayerEvent.Pre event) {
-            if (!ReplaySession.isRunning()) {
-                return;
-            }
-            if (JRConfig.CLEAN_HUD.get() && !REPLAY_LAYERS.contains(event.getName())) {
-                event.setCanceled(true);
-            } else if (Minecraft.getInstance().screen instanceof EditorScreen && event.getName().equals(
-                    net.neoforged.neoforge.client.gui.VanillaGuiLayers.CHAT)) {
-                // The recorded chat would cover the editor panels.
-                event.setCanceled(true);
-            }
-        }
-
-        @SubscribeEvent
-        public static void onRenderFramePre(RenderFrameEvent.Pre event) {
-            com.vyrriox.justreplay.replay.SectionRepair.beforeFrame(Minecraft.getInstance());
-            ReplaySession session = ReplaySession.current();
-            if (session != null && session.spectate().isActive() && session.isCameraPathActive()) {
-                // A camera path or an export started this tick: never render it from a spectated entity.
-                session.spectate().stop(Minecraft.getInstance());
-            }
-            CameraController.onRenderFrame(event.getPartialTick().getGameTimeDeltaPartialTick(false));
-            com.vyrriox.justreplay.replay.WorldOverride.onRenderFrame(event.getPartialTick().getGameTimeDeltaPartialTick(false));
-        }
-
-        @SubscribeEvent
-        public static void onRenderFramePost(RenderFrameEvent.Post event) {
-            VideoExporter.onFrameRendered(event.getPartialTick().getGameTimeDeltaPartialTick(false));
-        }
-
-        /** Spectator flying widens the view; keyframes store the configured FOV, so keep the camera at exactly that. */
-        @SubscribeEvent
-        public static void onFovModifier(net.neoforged.neoforge.client.event.ComputeFovModifierEvent event) {
+    public static void onScreenInit(net.minecraft.client.gui.screens.Screen screen, java.util.function.Consumer<net.minecraft.client.gui.components.AbstractWidget> addWidget) {
+        Minecraft mc = Minecraft.getInstance();
+        if (screen instanceof TitleScreen title) {
+            int x = title.width / 2 + 104;
+            int y = title.height / 4 + 48;
+            addWidget.accept(new GlassButton(x, y, 72, 20, Component.translatable("justreplay.button.replays"),
+                    b -> mc.setScreen(new ReplayListScreen(title))).icon(Icon.FILM).iconColor(Theme.ACCENT)
+                    .tip(Component.translatable("justreplay.button.replays.tip")));
+        } else if (screen instanceof PauseScreen pause && pause.showsPauseMenu()) {
             if (ReplaySession.isRunning()) {
-                event.setNewFovModifier(1.0F);
-            }
-        }
-
-        @SubscribeEvent
-        public static void onCameraAngles(ViewportEvent.ComputeCameraAngles event) {
-            Float roll = CameraController.roll();
-            if (roll != null) {
-                event.setRoll(roll);
-            }
-        }
-
-        @SubscribeEvent
-        public static void onFov(ViewportEvent.ComputeFov event) {
-            Double fov = CameraController.fov();
-            if (fov != null && event.usedConfiguredFov()) {
-                event.setFOV(fov);
-            }
-        }
-
-        /** Recorded packets must not change the screen: keeps the editor open across seeks and blocks mod GUIs. */
-        @SubscribeEvent
-        public static void onScreenOpening(ScreenEvent.Opening event) {
-            if (Playback.isDispatching()) {
-                event.setCanceled(true);
-            } else if (ReplaySession.isRunning() && isPlayerOnlyScreen(event.getNewScreen())) {
-                // The camera is not a player of the recording: its inventory and progress mean nothing in a replay.
-                event.setCanceled(true);
-            } else if (VideoExporter.isActive() && Minecraft.getInstance().level != null) {
-                // Esc cancels the export; any other screen would be burnt into the video.
-                if (event.getNewScreen() instanceof PauseScreen) {
-                    VideoExporter.cancel();
-                    toast("justreplay.export.cancelled", "");
-                } else if (event.getNewScreen() != null) {
-                    event.setCanceled(true);
-                }
-            }
-        }
-
-        /** Screens about the player itself (inventory, containers, advancements), which a replay camera has none of. */
-        private static boolean isPlayerOnlyScreen(net.minecraft.client.gui.screens.Screen screen) {
-            return screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>
-                    || screen instanceof net.minecraft.client.gui.screens.advancements.AdvancementsScreen;
-        }
-
-        /** Actors are puppets: their own AI/tick code (often server-minded in mods) never runs. */
-        @SubscribeEvent
-        public static void onEntityTick(net.neoforged.neoforge.event.tick.EntityTickEvent.Pre event) {
-            if (event.getEntity().level().isClientSide() && ReplaySession.isRunning()
-                    && com.vyrriox.justreplay.editor.ActorManager.isActorEntity(event.getEntity())
-                    && !(event.getEntity() instanceof net.minecraft.client.player.RemotePlayer)) {
-                event.setCanceled(true);
-            }
-        }
-
-        /**
-         * Attacking in a replay would reach the host server; a left click on an entity views the replay through it
-         * instead.
-         */
-        @SubscribeEvent
-        public static void onInteractionKey(net.neoforged.neoforge.client.event.InputEvent.InteractionKeyMappingTriggered event) {
-            if (!event.isAttack() || !ReplaySession.isRunning()) {
-                return;
-            }
-            event.setCanceled(true);
-            event.setSwingHand(false);
-            Minecraft mc = Minecraft.getInstance();
-            ReplaySession session = ReplaySession.current();
-            if (session != null && mc.screen == null && !session.isCameraPathActive()) {
-                session.spectate(mc, com.vyrriox.justreplay.replay.SpectateCamera.pick(mc));
-            }
-        }
-
-        /** A spectated player keeps its build ability, which would draw the block outline over the view. */
-        @SubscribeEvent
-        public static void onBlockHighlight(net.neoforged.neoforge.client.event.RenderHighlightEvent.Block event) {
-            ReplaySession session = ReplaySession.current();
-            if (session != null && ReplaySession.isRunning() && session.spectate().isActive()) {
-                event.setCanceled(true);
-            }
-        }
-
-        @SubscribeEvent
-        public static void onPlaySound(net.neoforged.neoforge.client.event.sound.PlaySoundEvent event) {
-            VideoExporter.onSound(event);
-            SelfTest.onSound(event);
-        }
-
-        @SubscribeEvent
-        public static void onScreenInit(ScreenEvent.Init.Post event) {
-            Minecraft mc = Minecraft.getInstance();
-            if (event.getScreen() instanceof TitleScreen title) {
-                int x = title.width / 2 + 104;
-                int y = title.height / 4 + 48;
-                event.addListener(new GlassButton(x, y, 72, 20, Component.translatable("justreplay.button.replays"),
-                        b -> mc.setScreen(new ReplayListScreen(title))).icon(Icon.FILM).iconColor(Theme.ACCENT)
-                        .tip(Component.translatable("justreplay.button.replays.tip")));
-            } else if (event.getScreen() instanceof PauseScreen pause && pause.showsPauseMenu()) {
-                if (ReplaySession.isRunning()) {
-                    event.addListener(new GlassButton(4, 4, 110, 20, Component.translatable("justreplay.button.editor"),
-                            b -> mc.setScreen(new EditorScreen(ReplaySession.current()))).icon(Icon.FILM).iconColor(Theme.ACCENT));
-                } else {
-                    boolean recording = Recorder.isRecording();
-                    Component label = Component.translatable(recording ? "justreplay.button.stop" : "justreplay.button.record");
-                    event.addListener(new GlassButton(4, 4, 110, 20, label, b -> {
-                        toggleRecording();
-                        mc.setScreen(null);
-                    }).icon(recording ? Icon.STOP : Icon.RECORD).iconColor(Theme.RECORD)
-                            .tip(Component.translatable("justreplay.button.record.tip", JRKeys.RECORD.getTranslatedKeyMessage())));
-                    // Instant replay: saves the minutes kept in memory, as the save buffer key does.
-                    event.addListener(new GlassButton(118, 4, 130, 20,
-                            Component.translatable("justreplay.button.save_buffer", JRConfig.BUFFER_MINUTES.get()), b -> {
-                        mc.setScreen(null);
-                        saveBuffer(mc);
-                    }).icon(Icon.SAVE).iconColor(Theme.ACCENT)
-                            .tip(Component.translatable("justreplay.button.save_buffer.tip", JRKeys.SAVE_BUFFER.getTranslatedKeyMessage())));
-                }
+                addWidget.accept(new GlassButton(4, 4, 110, 20, Component.translatable("justreplay.button.editor"),
+                        b -> mc.setScreen(new EditorScreen(ReplaySession.current()))).icon(Icon.FILM).iconColor(Theme.ACCENT));
+            } else {
+                boolean recording = Recorder.isRecording();
+                Component label = Component.translatable(recording ? "justreplay.button.stop" : "justreplay.button.record");
+                addWidget.accept(new GlassButton(4, 4, 110, 20, label, b -> {
+                    toggleRecording();
+                    mc.setScreen(null);
+                }).icon(recording ? Icon.STOP : Icon.RECORD).iconColor(Theme.RECORD)
+                        .tip(Component.translatable("justreplay.button.record.tip", JRKeys.RECORD.getTranslatedKeyMessage())));
+                // Instant replay: saves the minutes kept in memory, as the save buffer key does.
+                addWidget.accept(new GlassButton(118, 4, 130, 20,
+                        Component.translatable("justreplay.button.save_buffer", JRConfig.BUFFER_MINUTES.get()), b -> {
+                    mc.setScreen(null);
+                    saveBuffer(mc);
+                }).icon(Icon.SAVE).iconColor(Theme.ACCENT)
+                        .tip(Component.translatable("justreplay.button.save_buffer.tip", JRKeys.SAVE_BUFFER.getTranslatedKeyMessage())));
             }
         }
     }
