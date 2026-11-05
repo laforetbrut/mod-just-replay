@@ -62,6 +62,7 @@ public final class SelfTest {
     private static com.vyrriox.justreplay.editor.ActorPlacement.Spot seatSpot;
     private static int fxStep;
     private static boolean curiosGiven;
+    private static boolean immersiveRegistered;
     private static int cullSkipped;
     /** Sounds the recording player made itself, heard again while the replay plays (see recordLocalEffect). */
     private static int localBell;
@@ -417,6 +418,7 @@ public final class SelfTest {
                 logWorld(mc, s, "playing");
                 log("mods while playing: {}", Mods.state(mc, s));
                 Mods.checkCurios(mc, s, "at start");
+                Mods.checkImmersivePaintings("at start");
                 Mods.checkCulling("during the replay", false);
                 cullSkipped = Math.max(0, com.vyrriox.justreplay.compat.EntityCullingCompat.skippedEntityTicks());
                 shot(mc, "1-playing");
@@ -451,6 +453,7 @@ public final class SelfTest {
                 logWorld(mc, s, "after forward seek");
                 log("mods after forward seek: {}", Mods.state(mc, s));
                 Mods.checkCurios(mc, s, "after forward seek");
+                Mods.checkImmersivePaintings("after forward seek");
                 Mods.checkCulling("after a toggle key press", false);
                 Mods.checkCullingEntities(mc);
                 shot(mc, "2-seek150");
@@ -1254,6 +1257,34 @@ public final class SelfTest {
                     mc.player.connection.sendCommand("curios replace ring 0 @s with "
                             + net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(ring));
                 }
+            }
+        }
+
+        /**
+         * Immersive Paintings: a generated painting is registered, then a snapshot of it must hold its list entry and a
+         * PNG image in whole segments, and a played list that only deletes it must be dropped. Skipped without the mod.
+         */
+        static void checkImmersivePaintings(String label) {
+            if (!loaded("immersive_paintings")) {
+                log("immersive paintings {}: mod absent, skipped", label);
+                return;
+            }
+            try {
+                net.minecraft.resources.ResourceLocation id = net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("jrtest", "p");
+                if (!immersiveRegistered) {
+                    immersiveRegistered = com.vyrriox.justreplay.compat.ImmersivePaintingsCompat.registerTestPainting(id);
+                    // The image loads asynchronously: the first call only registers, the next one checks.
+                    return;
+                }
+                java.util.List<net.minecraft.network.protocol.Packet<?>> packets =
+                        com.vyrriox.justreplay.compat.ImmersivePaintingsCompat.snapshotOf(id);
+                int count = packets == null ? 0 : packets.size();
+                boolean dropped = com.vyrriox.justreplay.compat.ImmersivePaintingsCompat.deletionListDropped(id);
+                // One list packet plus at least one image segment once the texture is loaded.
+                log("immersive paintings {}: snapshot packets={} deletion list dropped={} -> {}", label, count, dropped,
+                        count >= 2 && dropped ? "OK" : "FAIL");
+            } catch (Throwable t) {
+                log("immersive paintings {}: {} -> FAIL", label, t.toString());
             }
         }
 
