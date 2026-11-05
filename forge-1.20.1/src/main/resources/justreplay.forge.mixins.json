@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "refmap": "justreplay.refmap.json",
+  "package": "com.vyrriox.justreplay.forge.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "client": [
+    "ForgeLayeredDrawMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
