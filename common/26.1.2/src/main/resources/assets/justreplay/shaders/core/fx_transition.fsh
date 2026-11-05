@@ -1,4 +1,4 @@
-#version 150
+#version 330
 
 // Picture transition of Just Replay: the frozen last frame of the outgoing shot (PrevSampler) gives way to the
 // live incoming shot (DiffuseSampler), then the start and end fades of the export range are applied.
@@ -6,12 +6,14 @@
 
 uniform sampler2D DiffuseSampler;
 uniform sampler2D PrevSampler;
-uniform vec2 OutSize;
-uniform int Type;
-uniform float Progress;
-uniform vec2 Direction;
-uniform vec3 FadeColor;
-uniform float FadeAmount;
+layout(std140) uniform FxTransition {
+    vec2 OutSize;
+    vec2 Direction;
+    int Type;
+    float Progress;
+    float FadeAmount;
+    vec3 FadeColor;
+};
 
 in vec2 texCoord;
 

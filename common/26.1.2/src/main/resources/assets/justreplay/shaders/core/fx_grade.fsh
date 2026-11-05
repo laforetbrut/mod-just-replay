@@ -1,4 +1,4 @@
-#version 150
+#version 330
 
 // Colour grading pass of the Just Replay effect stack. Sharpen and chromatic aberration sample the source first,
 // then the colour operations run in the order of the stack, then the letterbox.
@@ -6,18 +6,19 @@
 
 uniform sampler2D DiffuseSampler;
 uniform sampler2D LutSampler;
-uniform vec2 OutSize;
-uniform int OpCount;
-uniform float OpCode[16];
-uniform float OpA[16];
-uniform float OpB[16];
-uniform float Sharpen;
-uniform float Chroma;
-// x: target aspect ratio (0: none), y: amount
-uniform vec2 Letterbox;
-uniform float Seed;
-// x: cube size, y: texture width, z: texture height
-uniform vec3 LutInfo;
+layout(std140) uniform FxGrade {
+    vec2 OutSize;
+    int OpCount;
+    float Sharpen;
+    float Chroma;
+    float Seed;
+    // x: target aspect ratio (0: none), y: amount
+    vec2 Letterbox;
+    // x: cube size, y: texture width, z: texture height
+    vec3 LutInfo;
+    // x: operation code, y and z: its two values
+    vec4 Ops[16];
+};
 
 in vec2 texCoord;
 
@@ -72,9 +73,9 @@ void main() {
     }
     float aspect = OutSize.x / OutSize.y;
     for (int i = 0; i < OpCount; i++) {
-        int op = int(OpCode[i] + 0.5);
-        float a = OpA[i];
-        float b = OpB[i];
+        int op = int(Ops[i].x + 0.5);
+        float a = Ops[i].y;
+        float b = Ops[i].z;
         if (op == 1) {
             c = c * exp2(a) + b;
         } else if (op == 2) {

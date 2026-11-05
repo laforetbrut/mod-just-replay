@@ -1,12 +1,20 @@
 package com.vyrriox.justreplay.editor.fx;
 
+import com.mojang.blaze3d.buffers.GpuBuffer;
+import com.mojang.blaze3d.buffers.GpuBufferSlice;
+import com.mojang.blaze3d.buffers.Std140Builder;
+import com.mojang.blaze3d.buffers.Std140SizeCalculator;
+import com.mojang.blaze3d.pipeline.ColorTargetState;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.pipeline.TextureTarget;
-import com.mojang.blaze3d.platform.GlStateManager;
-import com.mojang.blaze3d.shaders.Uniform;
+import com.mojang.blaze3d.shaders.UniformType;
+import com.mojang.blaze3d.systems.CommandEncoder;
+import com.mojang.blaze3d.systems.GpuDevice;
+import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.BufferUploader;
+import com.mojang.blaze3d.textures.FilterMode;
+import com.mojang.blaze3d.textures.GpuSampler;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.vyrriox.justreplay.JustReplay;
@@ -16,12 +24,12 @@ import com.vyrriox.justreplay.editor.ReplayProject;
 import com.vyrriox.justreplay.export.VideoExporter;
 import com.vyrriox.justreplay.replay.ReplaySession;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.ShaderInstance;
-import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL30;
+import net.minecraft.client.renderer.MappableRingBuffer;
+import net.minecraft.util.Mth;
 
-import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
+import java.util.OptionalInt;
 
 /**
  * Renders the video effects of a replay on the GPU, once per frame, over the main render target after the world
@@ -35,8 +43,9 @@ import java.util.List;
  *   <li>the frame is kept as the frozen frame when a cut with a transition is coming;</li>
  *   <li>the fade in and fade out of the export range.</li>
  * </ol>
- * Nothing runs (not even a copy) when the stack is empty and no transition or fade is live. Shaders are compiled
- * once with the resources; no allocation happens per frame.
+ * Nothing runs (not even a copy) when the stack is empty and no transition or fade is live. The pipelines are not
+ * registered with a loader: the device compiles them on first use and again after a resource reload, so a broken
+ * shader turns the effects off instead of failing the resource load.
  *
  * @author vyrriox
  */
@@ -45,9 +54,18 @@ public final class FxEngine {
     /** A cut with a transition this close (ticks) gets the current frame kept as its frozen frame. */
     private static final double CAPTURE_LEAD = 20.0;
 
-    private static ShaderInstance grade;
-    private static ShaderInstance blur;
-    private static ShaderInstance transition;
+    /** Passes of one frame that take uniforms: two of blur, the grade, the transition, the fade. */
+    private static final int UBO_SLOTS = 5;
+    private static final int GRADE_UBO_SIZE = new Std140SizeCalculator().putVec2().putInt().putFloat().putFloat().putFloat()
+            .putVec2().putVec3().align(16).get() + MAX_OPS * 16;
+    private static final int BLUR_UBO_SIZE = new Std140SizeCalculator().putVec2().putVec2().putFloat().get();
+    private static final int TRANSITION_UBO_SIZE = new Std140SizeCalculator().putVec2().putVec2().putInt().putFloat().putFloat()
+            .putVec3().get();
+
+    /** Ring of uniform buffers, one per frame in flight, each with one aligned slot per pass. */
+    private static MappableRingBuffer ubo;
+    private static int uboSlotSize;
+    private static int uboSlot;
 
     private static TextureTarget scratchA;
     private static TextureTarget scratchB;
@@ -74,25 +92,32 @@ public final class FxEngine {
     private static int hookCalls;
     private static int missedFrames;
     private static boolean warnedHook;
+    private static boolean warnedPipelines;
 
     private FxEngine() {
     }
 
-    // ---------------------------------------------------------------- shaders
+    // ---------------------------------------------------------------- pipelines
 
-    /** Registers the effect shaders; the loader glue passes its own registration and resource provider. */
-    public static void registerShaders(ShaderRegistrar registrar) throws IOException {
-        registrar.register(JustReplay.id("fx_grade"),
-                s -> grade = s);
-        registrar.register(JustReplay.id("fx_blur"),
-                s -> blur = s);
-        registrar.register(JustReplay.id("fx_transition"),
-                s -> transition = s);
-    }
+    /** Loaded on first use, once the game has a render device. */
+    private static final class Pipelines {
+        static final RenderPipeline GRADE = screenPass("fx_grade", "FxGrade", ColorTargetState.WRITE_COLOR)
+                .withSampler("DiffuseSampler").withSampler("LutSampler").build();
+        static final RenderPipeline BLUR = screenPass("fx_blur", "FxBlur", ColorTargetState.WRITE_ALL)
+                .withSampler("DiffuseSampler").build();
+        static final RenderPipeline TRANSITION = screenPass("fx_transition", "FxTransition", ColorTargetState.WRITE_COLOR)
+                .withSampler("DiffuseSampler").withSampler("PrevSampler").build();
 
-    /** Loader neutral view of a shader registration: the loader builds the position format shader of that name. */
-    public interface ShaderRegistrar {
-        void register(net.minecraft.resources.Identifier name, java.util.function.Consumer<ShaderInstance> onLoaded) throws IOException;
+        private static RenderPipeline.Builder screenPass(String name, String uniforms, int writeMask) {
+            return RenderPipeline.builder()
+                    .withLocation(JustReplay.id("pipeline/" + name))
+                    .withVertexShader("core/screenquad")
+                    .withFragmentShader(JustReplay.id("core/" + name))
+                    .withUniform(uniforms, UniformType.UNIFORM_BUFFER)
+                    .withColorTargetState(new ColorTargetState(Optional.empty(), writeMask))
+                    .withCull(false)
+                    .withVertexFormat(DefaultVertexFormat.EMPTY, VertexFormat.Mode.TRIANGLES);
+        }
     }
 
     /** End of a render frame. */
@@ -100,9 +125,17 @@ public final class FxEngine {
         checkHook();
     }
 
-    /** True once the effect shaders are compiled. */
+    /** True when the effect pipelines compile; the device keeps the result until the next resource reload. */
     public static boolean ready() {
-        return grade != null && blur != null && transition != null;
+        GpuDevice device = RenderSystem.getDevice();
+        boolean valid = device.precompilePipeline(Pipelines.GRADE).isValid()
+                && device.precompilePipeline(Pipelines.BLUR).isValid()
+                && device.precompilePipeline(Pipelines.TRANSITION).isValid();
+        if (!valid && !warnedPipelines) {
+            warnedPipelines = true;
+            JustReplay.LOGGER.warn("The effect shaders did not compile; video effects are off");
+        }
+        return valid;
     }
 
     // ---------------------------------------------------------------- frame
@@ -176,40 +209,36 @@ public final class FxEngine {
             return;
         }
         prepare(main);
+        CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
+        uboSlot = 0;
         try {
-            RenderSystem.disableBlend();
-            RenderSystem.disableDepthTest();
-            RenderSystem.depthMask(false);
-            RenderSystem.disableCull();
             if (grading) {
-                gradePass(main, time);
+                gradePass(encoder, main, time);
             }
             if (capturing != null) {
                 // Frame rendered from the outgoing camera: keep it, the transition shows from the next frame.
-                capture(main, capturing, null);
+                capture(encoder, main, capturing, null);
             } else if (inTransition) {
                 int slot = slotOf(live);
                 if (slot >= 0) {
                     float progress = (float) ((time - live.tick) / Math.max(1, live.transitionTicks));
                     TransitionType type = live.transitionType();
-                    transitionPass(main, FROZEN[slot], type.code, progress, TransitionType.dirX(live.transitionDir),
+                    transitionPass(encoder, main, FROZEN[slot], type.code, progress, TransitionType.dirX(live.transitionDir),
                             TransitionType.dirY(live.transitionDir), 0.0F, project.fadeWhite);
                 } else {
                     pendingCapture = live;
                 }
             }
             if (upcoming && capturing == null) {
-                capture(main, next, inTransition ? live : null);
+                capture(encoder, main, next, inTransition ? live : null);
             }
             if (fade > 0.0F) {
-                transitionPass(main, scratchA, 0, 0.0F, 0.0F, 0.0F, fade, project.fadeWhite);
+                transitionPass(encoder, main, scratchA, 0, 0.0F, 0.0F, 0.0F, fade, project.fadeWhite);
             }
         } finally {
-            RenderSystem.colorMask(true, true, true, true);
-            RenderSystem.depthMask(true);
-            RenderSystem.enableDepthTest();
-            RenderSystem.enableCull();
-            main.bindWrite(true);
+            if (uboSlot > 0) {
+                ubo.rotate();
+            }
         }
     }
 
@@ -325,78 +354,88 @@ public final class FxEngine {
 
     // ---------------------------------------------------------------- passes
 
-    private static void gradePass(RenderTarget main, double time) {
-        copy(main, scratchA);
+    private static void gradePass(CommandEncoder encoder, RenderTarget main, double time) {
+        copy(encoder, main, scratchA);
+        GpuSampler linear = linearSampler();
         if (blurRadius > 0.25F) {
-            blur.setSampler("DiffuseSampler", scratchA);
-            set(blur, "OutSize", main.width, main.height);
-            set(blur, "BlurDir", 1.0F, 0.0F);
-            set(blur, "Radius", blurRadius);
-            draw(blur, scratchB);
-            blur.setSampler("DiffuseSampler", scratchB);
-            set(blur, "BlurDir", 0.0F, 1.0F);
-            draw(blur, scratchA);
+            blurPass(encoder, main, scratchA, scratchB, 1.0F, 0.0F, linear);
+            blurPass(encoder, main, scratchB, scratchA, 0.0F, 1.0F, linear);
         }
-        grade.setSampler("DiffuseSampler", scratchA);
-        grade.setSampler("LutSampler", lut != null ? lut.texture() : scratchB);
-        set(grade, "OutSize", main.width, main.height);
-        Uniform count = grade.getUniform("OpCount");
-        if (count != null) {
-            count.set(opCount);
-        }
-        setArray(grade, "OpCode", OP_CODE);
-        setArray(grade, "OpA", OP_A);
-        setArray(grade, "OpB", OP_B);
-        set(grade, "Sharpen", sharpen);
-        set(grade, "Chroma", chroma);
-        set(grade, "Letterbox", letterRatio, letterAmount);
-        // Grain changes with the frame time, so an export frame always gets the same grain.
-        set(grade, "Seed", (float) ((time * 7.31) % 997.0));
-        Uniform info = grade.getUniform("LutInfo");
-        if (info != null) {
+        GpuBufferSlice uniforms = nextSlot();
+        try (GpuBuffer.MappedView view = encoder.mapBuffer(uniforms, false, true)) {
+            Std140Builder builder = Std140Builder.intoBuffer(view.data());
+            builder.putVec2(main.width, main.height);
+            builder.putInt(opCount);
+            builder.putFloat(sharpen);
+            builder.putFloat(chroma);
+            // Grain changes with the frame time, so an export frame always gets the same grain.
+            builder.putFloat((float) ((time * 7.31) % 997.0));
+            builder.putVec2(letterRatio, letterAmount);
             if (lut != null) {
-                info.set((float) lut.size(), (float) lut.width(), (float) lut.height());
+                builder.putVec3((float) lut.size(), (float) lut.width(), (float) lut.height());
             } else {
-                info.set(0.0F, 1.0F, 1.0F);
+                builder.putVec3(0.0F, 1.0F, 1.0F);
+            }
+            for (int i = 0; i < MAX_OPS; i++) {
+                builder.putVec4(OP_CODE[i], OP_A[i], OP_B[i], 0.0F);
             }
         }
-        RenderSystem.colorMask(true, true, true, false);
-        draw(grade, main);
-        RenderSystem.colorMask(true, true, true, true);
+        try (RenderPass pass = openPass(encoder, Pipelines.GRADE, main, "FxGrade", uniforms)) {
+            pass.bindTexture("DiffuseSampler", scratchA.getColorTextureView(), linear);
+            if (lut != null) {
+                pass.bindTexture("LutSampler", lut.texture().getTextureView(), lut.texture().getSampler());
+            } else {
+                pass.bindTexture("LutSampler", scratchB.getColorTextureView(), linear);
+            }
+            pass.draw(0, 3);
+        }
     }
 
-    private static void transitionPass(RenderTarget main, RenderTarget previous, int type, float progress, float dirX, float dirY,
+    private static void blurPass(CommandEncoder encoder, RenderTarget main, RenderTarget from, RenderTarget to, float dirX, float dirY, GpuSampler sampler) {
+        GpuBufferSlice uniforms = nextSlot();
+        try (GpuBuffer.MappedView view = encoder.mapBuffer(uniforms, false, true)) {
+            Std140Builder.intoBuffer(view.data())
+                    .putVec2(main.width, main.height)
+                    .putVec2(dirX, dirY)
+                    .putFloat(blurRadius);
+        }
+        try (RenderPass pass = openPass(encoder, Pipelines.BLUR, to, "FxBlur", uniforms)) {
+            pass.bindTexture("DiffuseSampler", from.getColorTextureView(), sampler);
+            pass.draw(0, 3);
+        }
+    }
+
+    private static void transitionPass(CommandEncoder encoder, RenderTarget main, RenderTarget previous, int type, float progress, float dirX, float dirY,
                                        float fade, boolean white) {
-        copy(main, scratchA);
-        transition.setSampler("DiffuseSampler", scratchA);
-        transition.setSampler("PrevSampler", previous);
-        set(transition, "OutSize", main.width, main.height);
-        Uniform t = transition.getUniform("Type");
-        if (t != null) {
-            t.set(type);
-        }
-        set(transition, "Progress", progress);
-        set(transition, "Direction", dirX, dirY);
+        copy(encoder, main, scratchA);
         float c = white ? 1.0F : 0.0F;
-        Uniform color = transition.getUniform("FadeColor");
-        if (color != null) {
-            color.set(c, c, c);
+        GpuBufferSlice uniforms = nextSlot();
+        try (GpuBuffer.MappedView view = encoder.mapBuffer(uniforms, false, true)) {
+            Std140Builder.intoBuffer(view.data())
+                    .putVec2(main.width, main.height)
+                    .putVec2(dirX, dirY)
+                    .putInt(type)
+                    .putFloat(progress)
+                    .putFloat(fade)
+                    .putVec3(c, c, c);
         }
-        set(transition, "FadeAmount", fade);
-        RenderSystem.colorMask(true, true, true, false);
-        draw(transition, main);
-        RenderSystem.colorMask(true, true, true, true);
+        GpuSampler linear = linearSampler();
+        try (RenderPass pass = openPass(encoder, Pipelines.TRANSITION, main, "FxTransition", uniforms)) {
+            pass.bindTexture("DiffuseSampler", scratchA.getColorTextureView(), linear);
+            pass.bindTexture("PrevSampler", previous.getColorTextureView(), linear);
+            pass.draw(0, 3);
+        }
     }
 
     /** Keeps the frame as the frozen frame of a cut, never in the slot a playing transition reads. */
-    private static void capture(RenderTarget main, ReplayProject.Cut cut, ReplayProject.Cut playing) {
+    private static void capture(CommandEncoder encoder, RenderTarget main, ReplayProject.Cut cut, ReplayProject.Cut playing) {
         int slot = slotOf(cut);
         if (slot < 0) {
             int busy = slotOf(playing);
             slot = busy == 0 ? 1 : 0;
         }
         FROZEN_CUT[slot] = cut;
-        copy(main, FROZEN[slot]);
+        copy(encoder, main, FROZEN[slot]);
     }
 
     private static int slotOf(ReplayProject.Cut cut) {
@@ -418,57 +457,40 @@ public final class FxEngine {
                 FROZEN_CUT[i] = null;
             }
         }
+        if (ubo == null) {
+            int largest = Math.max(GRADE_UBO_SIZE, Math.max(BLUR_UBO_SIZE, TRANSITION_UBO_SIZE));
+            uboSlotSize = Mth.roundToward(largest, RenderSystem.getDevice().getUniformOffsetAlignment());
+            ubo = new MappableRingBuffer(() -> "Just Replay effects", GpuBuffer.USAGE_UNIFORM | GpuBuffer.USAGE_MAP_WRITE, UBO_SLOTS * uboSlotSize);
+        }
     }
 
     private static TextureTarget ensure(TextureTarget target, RenderTarget main) {
         if (target == null) {
-            target = new TextureTarget(main.width, main.height, false, Minecraft.ON_OSX);
-            target.setFilterMode(GL11.GL_LINEAR);
+            target = new TextureTarget("Just Replay effects", main.width, main.height, false);
         } else if (target.width != main.width || target.height != main.height) {
-            target.resize(main.width, main.height, Minecraft.ON_OSX);
-            target.setFilterMode(GL11.GL_LINEAR);
+            target.resize(main.width, main.height);
         }
         return target;
     }
 
-    private static void copy(RenderTarget from, RenderTarget to) {
-        GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, from.frameBufferId);
-        GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, to.frameBufferId);
-        GlStateManager._glBlitFrameBuffer(0, 0, from.width, from.height, 0, 0, to.width, to.height, GL11.GL_COLOR_BUFFER_BIT, GL11.GL_NEAREST);
-        GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+    private static GpuSampler linearSampler() {
+        return RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR);
     }
 
-    /** Draws a full screen quad with a shader into a target. */
-    private static void draw(ShaderInstance shader, RenderTarget out) {
-        out.bindWrite(true);
-        shader.apply();
-        BufferBuilder builder = RenderSystem.renderThreadTesselator().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION);
-        builder.addVertex(0.0F, 0.0F, 0.0F);
-        builder.addVertex(1.0F, 0.0F, 0.0F);
-        builder.addVertex(1.0F, 1.0F, 0.0F);
-        builder.addVertex(0.0F, 1.0F, 0.0F);
-        BufferUploader.draw(builder.buildOrThrow());
-        shader.clear();
+    private static void copy(CommandEncoder encoder, RenderTarget from, RenderTarget to) {
+        encoder.copyTextureToTexture(from.getColorTexture(), to.getColorTexture(), 0, 0, 0, 0, 0, from.width, from.height);
     }
 
-    private static void set(ShaderInstance shader, String name, float value) {
-        Uniform u = shader.getUniform(name);
-        if (u != null) {
-            u.set(value);
-        }
+    /** The uniform block of the next pass of this frame, in the buffer the ring has for it. */
+    private static GpuBufferSlice nextSlot() {
+        return ubo.currentBuffer().slice((long) uboSlot++ * uboSlotSize, uboSlotSize);
     }
 
-    private static void set(ShaderInstance shader, String name, float x, float y) {
-        Uniform u = shader.getUniform(name);
-        if (u != null) {
-            u.set(x, y);
-        }
-    }
-
-    private static void setArray(ShaderInstance shader, String name, float[] values) {
-        Uniform u = shader.getUniform(name);
-        if (u != null) {
-            u.set(values);
-        }
+    /** Starts a full screen pass into a target; the caller binds the samplers and draws the triangle. */
+    private static RenderPass openPass(CommandEncoder encoder, RenderPipeline pipeline, RenderTarget out, String block, GpuBufferSlice uniforms) {
+        RenderPass pass = encoder.createRenderPass(() -> "Just Replay effect", out.getColorTextureView(), OptionalInt.empty());
+        pass.setPipeline(pipeline);
+        pass.setUniform(block, uniforms);
+        return pass;
     }
 }

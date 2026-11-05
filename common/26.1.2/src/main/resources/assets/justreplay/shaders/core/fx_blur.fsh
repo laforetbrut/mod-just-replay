@@ -1,12 +1,14 @@
-#version 150
+#version 330
 
 // One direction of a separable gaussian blur; the radius is in pixels of the render size.
 // @author vyrriox
 
 uniform sampler2D DiffuseSampler;
-uniform vec2 OutSize;
-uniform vec2 BlurDir;
-uniform float Radius;
+layout(std140) uniform FxBlur {
+    vec2 OutSize;
+    vec2 BlurDir;
+    float Radius;
+};
 
 in vec2 texCoord;
 
