@@ -44,6 +44,8 @@ dependencies {
     mappings loom.officialMojangMappings()
     modImplementation "net.fabricmc:fabric-loader:${loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+    // Loaded next to the remapped jar by runProductionSelftest.
+    productionRuntimeMods "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
 
     // javax.annotation.Nullable is used by the common code; NeoForge carries it, Fabric does not.
     compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
@@ -88,6 +90,15 @@ loom {
             }
         }
     }
+}
+
+// Dev runs do not exercise the refmap: this one runs on intermediary names, as players do.
+tasks.register('runProductionSelftest', net.fabricmc.loom.task.prod.ClientProductionRunTask) {
+    group = 'fabric'
+    description = 'Runs the self test on the remapped production jar with Fabric API.'
+    dependsOn tasks.named('remapJar')
+    runDir = project.hasProperty('prodRunDir') ? layout.dir(provider { file(project.property('prodRunDir')) }) : layout.projectDirectory.dir('run-prod')
+    jvmArgs.addAll('-Djustreplay.selftest=true', '-Xmx6G', '-Djustreplay.checkpointTicks=60')
 }
 
 processResources {
