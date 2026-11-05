@@ -136,10 +136,15 @@ public final class Recorder {
         private static Recording create(Connection connection, UUID actor) throws IOException {
             String stamp = timestamp();
             Path dir = uniqueDir(stamp);
-            ReplayMeta meta = newMeta(connection, actor, stamp);
-            ReplayStorage.writeMeta(dir, meta);
-            RegistryIds.save(dir);
-            return new Recording(dir, new ReplayWriter(dir.resolve(ReplayStorage.STREAM)), meta);
+            try {
+                ReplayMeta meta = newMeta(connection, actor, stamp);
+                ReplayStorage.writeMeta(dir, meta);
+                RegistryIds.save(dir);
+                return new Recording(dir, new ReplayWriter(dir.resolve(ReplayStorage.STREAM)), meta);
+            } catch (Throwable t) {
+                deleteQuietly(dir);
+                throw t;
+            }
         }
     }
 
@@ -373,7 +378,7 @@ public final class Recorder {
         long start = System.nanoTime();
         PacketCodec c = codec;
         if (c == null || !c.matches(listener)) {
-            c = codec = PacketCodec.of(listener);
+            c = codec = newCodec(listener);
         }
         if (packet instanceof ClientboundLoginPacket || packet instanceof net.minecraft.network.protocol.game.ClientboundRespawnPacket) {
             synchronized (this) {
@@ -384,15 +389,26 @@ public final class Recorder {
         try {
             c.encode(com.vyrriox.justreplay.compat.ReplayCompat.rewriteRecorded(packet, localUuid, actorUuid), sink);
         } catch (Throwable t) {
-            Object type = packet instanceof net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket custom
-                    ? custom.payload().type().id() : packet.getClass();
-            if (failedTypes.add(type)) {
-                JustReplay.LOGGER.warn("Cannot record {}, it will be skipped: {}", type, t.toString(),
-                        t.getCause() != null ? t.getCause() : t);
-            }
+            logUnrecordable(packet, t);
         }
         networkNanos.add(System.nanoTime() - start);
         networkPackets.increment();
+    }
+
+    private PacketCodec newCodec(ClientPacketListener listener) {
+        PacketCodec c = PacketCodec.of(listener);
+        c.onSubPacketFailure(this::logUnrecordable);
+        return c;
+    }
+
+    /** Logs once per packet type (custom payload id when it has one) a packet that cannot be encoded. */
+    private void logUnrecordable(Packet<?> packet, Throwable t) {
+        Object type = packet instanceof net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket custom
+                ? custom.payload().type().id() : packet.getClass();
+        if (failedTypes.add(type)) {
+            JustReplay.LOGGER.warn("Cannot record {}, it will be skipped: {}", type, t.toString(),
+                    t.getCause() != null ? t.getCause() : t);
+        }
     }
 
     /** Hands an encoded packet to every output, at the current tick. */
@@ -436,6 +452,14 @@ public final class Recorder {
         }
         Files.createDirectories(dir);
         return dir;
+    }
+
+    private static void deleteQuietly(Path dir) {
+        try {
+            ReplayStorage.deleteRecursively(dir);
+        } catch (IOException e) {
+            JustReplay.LOGGER.warn("Cannot remove the folder of a failed recording {}: {}", dir, e.toString());
+        }
     }
 
     private static ReplayMeta newMeta(Connection connection, UUID actor, String name) {
@@ -483,8 +507,9 @@ public final class Recorder {
 
     /** Login of a new connection: outputs started here need no snapshot, the stream holds everything from the start. */
     private static void startFromLogin(Connection connection, boolean record, boolean buffer) {
+        Recorder c = null;
         try {
-            Recorder c = new Recorder(connection);
+            c = new Recorder(connection);
             if (record) {
                 c.recording = Recording.create(connection, c.actorUuid);
                 JustReplay.LOGGER.info("Recording started automatically into {}", c.recording.dir);
@@ -497,6 +522,17 @@ public final class Recorder {
             capture = c;
         } catch (Throwable t) {
             JustReplay.LOGGER.error("Cannot start recording", t);
+            if (c != null) {
+                if (c.recording != null) {
+                    c.recording.writer.close();
+                    deleteQuietly(c.recording.dir);
+                    c.recording = null;
+                }
+                if (c.buffer != null) {
+                    c.buffer.close();
+                    c.buffer = null;
+                }
+            }
         }
     }
 
@@ -558,6 +594,7 @@ public final class Recorder {
         } catch (Throwable t) {
             JustReplay.LOGGER.error("Cannot start recording", t);
             r.writer.close();
+            deleteQuietly(r.dir);
             c.endIfIdle();
             return false;
         }
@@ -636,7 +673,7 @@ public final class Recorder {
         synchronized (this) {
             boolean fresh = capture != this;
             if (fresh) {
-                codec = PacketCodec.of(listener);
+                codec = newCodec(listener);
                 capture = this;
             }
             Consumer<byte[]> out = open.apply(Math.max(tick, floorTick));
@@ -656,6 +693,20 @@ public final class Recorder {
         }
     }
 
+    private static volatile boolean lastStopIncomplete;
+
+    /** Whether the recording ended by the last {@link #stop()} could not be written completely (disk error or timeout). */
+    public static boolean lastStopIncomplete() {
+        return lastStopIncomplete;
+    }
+
+    /** Whether the running recording lost data to a disk error; the caller should stop it and tell the user. */
+    public static boolean recordingFailed() {
+        Recorder c = capture;
+        Recording r = c == null ? null : c.recording;
+        return r != null && r.writer.failed();
+    }
+
     public static Path stop() {
         Recorder c = capture;
         Recording r = c == null ? null : c.recording;
@@ -669,8 +720,18 @@ public final class Recorder {
         }
         r.writer.close();
         r.meta.durationTicks = Math.max(0, c.tick - r.startTick);
+        boolean complete = r.writer.closedCleanly();
+        lastStopIncomplete = !complete;
+        if (!complete) {
+            // The stream stops where the disk failed: do not claim a longer replay than the file holds.
+            r.meta.durationTicks = Math.min(r.meta.durationTicks, Math.max(0, r.writer.lastTick()));
+        }
         ReplayStorage.writeMeta(r.dir, r.meta);
-        JustReplay.LOGGER.info("Recording saved to {} ({} ticks)", r.dir, r.meta.durationTicks);
+        if (complete) {
+            JustReplay.LOGGER.info("Recording saved to {} ({} ticks)", r.dir, r.meta.durationTicks);
+        } else {
+            JustReplay.LOGGER.error("Recording in {} is incomplete, it holds {} ticks", r.dir, r.meta.durationTicks);
+        }
         c.endIfIdle();
         return r.dir;
     }
@@ -1051,7 +1112,7 @@ public final class Recorder {
     private void write(ClientPacketListener listener, Packet<?> packet, Consumer<byte[]> out) {
         PacketCodec c = codec;
         if (c == null || !c.matches(listener)) {
-            c = codec = PacketCodec.of(listener);
+            c = codec = newCodec(listener);
         }
         try {
             c.encode(packet, out);

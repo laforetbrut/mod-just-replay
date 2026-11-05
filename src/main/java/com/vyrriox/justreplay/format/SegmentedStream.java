@@ -25,14 +25,25 @@ public final class SegmentedStream implements Closeable {
     private final CountingOutputStream raw;
     private final DataOutputStream index;
     private DataOutputStream out;
-    private GZIPOutputStream gzip;
+    private EndingGzip gzip;
     private int segmentStart = Integer.MIN_VALUE;
     private boolean dirty;
 
     public SegmentedStream(Path file) throws IOException {
         Files.createDirectories(file.getParent());
         this.raw = new CountingOutputStream(new BufferedOutputStream(Files.newOutputStream(file), 1 << 16));
-        this.index = new DataOutputStream(new BufferedOutputStream(Files.newOutputStream(file.resolveSibling(INDEX))));
+        DataOutputStream idx;
+        try {
+            idx = new DataOutputStream(new BufferedOutputStream(Files.newOutputStream(file.resolveSibling(INDEX))));
+        } catch (IOException | RuntimeException e) {
+            try {
+                raw.close();
+            } catch (IOException suppressed) {
+                e.addSuppressed(suppressed);
+            }
+            throw e;
+        }
+        this.index = idx;
     }
 
     /**
@@ -44,12 +55,21 @@ public final class SegmentedStream implements Closeable {
     public static final int MAX_LEVEL = Deflater.BEST_COMPRESSION;
 
     /** A gzip stream with a given compression level. */
-    public static GZIPOutputStream gzip(OutputStream out, int size, boolean syncFlush, int level) throws IOException {
-        return new GZIPOutputStream(out, size, syncFlush) {
-            {
-                def.setLevel(level);
-            }
-        };
+    public static EndingGzip gzip(OutputStream out, int size, boolean syncFlush, int level) throws IOException {
+        return new EndingGzip(out, size, syncFlush, level);
+    }
+
+    /** A gzip stream whose deflater can be released without closing the underlying stream. */
+    public static final class EndingGzip extends GZIPOutputStream {
+        EndingGzip(OutputStream out, int size, boolean syncFlush, int level) throws IOException {
+            super(out, size, syncFlush);
+            def.setLevel(level);
+        }
+
+        /** Frees the native zlib state at once; the stream is unusable afterwards. */
+        public void endDeflater() {
+            def.end();
+        }
     }
 
     public void write(int tick, byte[] data) throws IOException {
@@ -64,8 +84,14 @@ public final class SegmentedStream implements Closeable {
 
     private void startSegment(int tick) throws IOException {
         if (gzip != null) {
-            out.flush();
-            gzip.finish();
+            EndingGzip previous = gzip;
+            gzip = null;
+            try {
+                out.flush();
+                previous.finish();
+            } finally {
+                previous.endDeflater();
+            }
         }
         segmentStart = tick;
         index.writeInt(tick);
@@ -93,11 +119,17 @@ public final class SegmentedStream implements Closeable {
     @Override
     public void close() throws IOException {
         try {
-            if (gzip != null) {
-                out.flush();
-                gzip.finish();
+            try {
+                if (gzip != null) {
+                    out.flush();
+                    gzip.finish();
+                }
+            } finally {
+                if (gzip != null) {
+                    gzip.endDeflater();
+                }
+                raw.close();
             }
-            raw.close();
         } finally {
             index.close();
         }

@@ -165,6 +165,7 @@ public final class ReplayBuffer {
                 closeSegment();
                 trim();
                 if (anchors.isEmpty() || segments.isEmpty() && anchors.get(0).data() == null) {
+                    discard(null, dir);
                     result.completeExceptionally(new IllegalStateException("The replay buffer is empty"));
                     return;
                 }
@@ -173,19 +174,45 @@ public final class ReplayBuffer {
                 List<VoiceFrame> v = List.copyOf(voice);
                 int end = lastTick;
                 Util.ioPool().execute(() -> {
+                    // Written under a temporary name and renamed at the end: the browser never lists a half written clip.
+                    Path tmp = dir.resolveSibling(dir.getFileName() + ".tmp");
                     try {
-                        result.complete(writeClip(dir, meta, registries, a, s, v, end));
+                        Saved written = writeClip(tmp, meta, registries, a, s, v, end);
+                        Files.deleteIfExists(dir);
+                        Files.move(tmp, dir);
+                        result.complete(new Saved(dir, written.durationTicks(), written.packets(), written.checkpoints(), written.voiceFrames()));
                     } catch (Throwable t) {
+                        discard(tmp, dir);
                         result.completeExceptionally(t);
                     }
                 });
             } catch (Throwable t) {
+                discard(null, dir);
                 result.completeExceptionally(t);
             }
         })) {
+            discard(null, dir);
             result.completeExceptionally(new IllegalStateException("The replay buffer is closed"));
         }
         return result;
+    }
+
+    /** Removes the temporary clip folder and the empty folder reserved for it, after a failed save. */
+    private static void discard(Path tmp, Path reserved) {
+        try {
+            if (tmp != null) {
+                ReplayStorage.deleteRecursively(tmp);
+            }
+            if (Files.isDirectory(reserved)) {
+                try (java.util.stream.Stream<Path> children = Files.list(reserved)) {
+                    if (children.findAny().isEmpty()) {
+                        Files.delete(reserved);
+                    }
+                }
+            }
+        } catch (IOException e) {
+            JustReplay.LOGGER.warn("Cannot remove the folder of a failed clip {}: {}", reserved, e.toString());
+        }
     }
 
     /** Drops everything; saves already started still complete. */
@@ -195,6 +222,13 @@ public final class ReplayBuffer {
         }
         closed = true;
         executor.execute(() -> {
+            if (out != null) {
+                try {
+                    out.close();
+                } catch (IOException ignored) {
+                    // Memory stream, dropped anyway; closing frees the deflater.
+                }
+            }
             anchors.clear();
             segments.clear();
             voice.clear();

@@ -163,6 +163,11 @@ public final class PacketStream {
     private List<RecordedPacket> read(Segment s) {
         List<RecordedPacket> packets = new ArrayList<>();
         byte[] bytes;
+        if (s.length() < 0 || s.length() > Integer.MAX_VALUE - 8) {
+            JustReplay.LOGGER.error("Replay segment at {} is {} bytes, too large to read (limit 2 GiB); the rest of the stream is skipped",
+                    s.offset(), s.length());
+            return packets;
+        }
         try (RandomAccessFile raf = new RandomAccessFile(file.toFile(), "r")) {
             bytes = new byte[(int) s.length()];
             raf.seek(s.offset());
@@ -173,7 +178,7 @@ public final class PacketStream {
         }
         try (DataInputStream in = new DataInputStream(new BufferedInputStream(new GZIPInputStream(new ByteArrayInputStream(bytes), 1 << 16), 1 << 16))) {
             readRecords(in, packets);
-        } catch (IOException damaged) {
+        } catch (IOException | RuntimeException damaged) {
             // Crash while recording: keep what could be read.
             JustReplay.LOGGER.warn("Replay segment at {} is damaged ({}), keeping {} packets", s.offset(), damaged.toString(), packets.size());
         }

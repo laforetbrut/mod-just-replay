@@ -47,12 +47,26 @@ public final class PacketCodec {
         return connectionType;
     }
 
+    /** Called with a bundle's sub packet and the error when that sub packet cannot be encoded; set by the recorder. */
+    private volatile java.util.function.BiConsumer<Packet<?>, Throwable> onSubFailure;
+
+    public void onSubPacketFailure(java.util.function.BiConsumer<Packet<?>, Throwable> handler) {
+        this.onSubFailure = handler;
+    }
+
     /** Encodes a packet, splitting bundles into their sub packets. */
     @SuppressWarnings("unchecked")
     public void encode(Packet<?> packet, Consumer<byte[]> sink) {
         if (packet instanceof ClientboundBundlePacket bundle) {
             for (Packet<? super ClientGamePacketListener> sub : bundle.subPackets()) {
-                encode(sub, sink);
+                try {
+                    encode(sub, sink);
+                } catch (Throwable t) {
+                    // One bad sub packet must not lose the rest of the bundle.
+                    if (onSubFailure != null) {
+                        onSubFailure.accept(sub, t);
+                    }
+                }
             }
             return;
         }
