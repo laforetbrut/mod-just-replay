@@ -147,3 +147,10 @@
 **Root cause:** Fabric API's sound API calls `getAudioStream` on a sound instance, and these classes only overrode the vanilla stream method. The self test checks states and clocks, not what comes out of the speakers.
 **Fix:** both classes declare `getAudioStream`, with the wrapped instance's own method reached by reflection where it exists (`c9b335f`, `bf5e032`).
 **Prevention:** a custom `SoundInstance` must be read against Fabric API's sound API on every Fabric target. A passing self test proves nothing about audible output: listen, or add a check on the stream actually requested.
+
+## [2026-11-05 20:40] — NeoForge 1.20.1 compiled locally but not on CI after the 1.1.0 tag
+**Context:** the build workflow started by the v1.1.0 tag; the eight other targets passed, and the released jar was built and tested locally.
+**Error:** `ActorPlacement.java:81: error: variable o is already defined`, on an anonymous subclass of `ClipContext`.
+**Root cause:** javac builds a synthetic constructor for an anonymous class and names its parameters from the superclass; here those names clashed with the ones in the patched Minecraft classes on the CI machine. The exact difference with the local machine was not established.
+**Fix:** a named `NoEntityClip` class with an explicit constructor. The tag was not moved, and the behaviour is the same.
+**Prevention:** run the CI matrix on the release commit before tagging, through a pull request or a manual workflow run.
