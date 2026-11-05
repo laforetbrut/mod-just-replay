@@ -93,13 +93,18 @@ public final class NeoForgeClientPlatform implements ClientPlatform {
         return registryIds;
     }
 
+    private static final java.util.Map<String, net.minecraft.client.KeyMapping.Category> CATEGORIES = new java.util.HashMap<>();
+
     @Override
     public KeyMapping keyMapping(String name, KeyScope scope, InputConstants.Type type, int key, String category) {
         IKeyConflictContext context = switch (scope) {
             case IN_GAME -> KeyConflictContext.IN_GAME;
             case IN_REPLAY -> IN_REPLAY;
         };
-        return new KeyMapping(name, context, type, key, category);
+        net.minecraft.client.KeyMapping.Category cat = CATEGORIES.computeIfAbsent(category,
+                c -> new net.minecraft.client.KeyMapping.Category(net.minecraft.resources.Identifier.fromNamespaceAndPath(
+                        com.vyrriox.justreplay.JustReplay.MOD_ID, c.substring(c.lastIndexOf('.') + 1))));
+        return new KeyMapping(name, context, type, key, cat);
     }
 
     @Override

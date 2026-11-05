@@ -17,7 +17,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class WindowMixin {
     @Inject(method = "onFramebufferResize", at = @At("HEAD"), cancellable = true)
     private void justreplay$holdResize(long window, int width, int height, CallbackInfo ci) {
-        if (window == ((Window) (Object) this).getWindow() && ExportRenderSize.onWindowResize(width, height)) {
+        if (window == ((Window) (Object) this).handle() && ExportRenderSize.onWindowResize(width, height)) {
             ci.cancel();
         }
     }

@@ -29,7 +29,7 @@ final class NeoForgeRegistryIds implements RegistryIdsBackend {
         try {
             buf.writeVarInt(snapshot.size());
             snapshot.forEach((name, ids) -> {
-                buf.writeResourceLocation(name);
+                buf.writeIdentifier(name);
                 RegistrySnapshot.STREAM_CODEC.encode(buf, ids);
             });
             byte[] bytes = new byte[buf.readableBytes()];
@@ -50,7 +50,7 @@ final class NeoForgeRegistryIds implements RegistryIdsBackend {
             int count = buf.readVarInt();
             Map<Identifier, RegistryIdMap.Table> tables = new HashMap<>();
             for (int i = 0; i < count; i++) {
-                Identifier name = buf.readResourceLocation();
+                Identifier name = buf.readIdentifier();
                 tables.put(name, table(RegistrySnapshot.STREAM_CODEC.decode(buf)));
             }
             return new RegistryIdMap(tables);
@@ -86,8 +86,8 @@ final class NeoForgeRegistryIds implements RegistryIdsBackend {
     private static RegistrySnapshot snapshot(RegistryIdMap.Table table) {
         FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
         try {
-            buf.writeMap(table.ids(), FriendlyByteBuf::writeVarInt, FriendlyByteBuf::writeResourceLocation);
-            buf.writeMap(table.aliases(), FriendlyByteBuf::writeResourceLocation, FriendlyByteBuf::writeResourceLocation);
+            buf.writeMap(table.ids(), FriendlyByteBuf::writeVarInt, FriendlyByteBuf::writeIdentifier);
+            buf.writeMap(table.aliases(), FriendlyByteBuf::writeIdentifier, FriendlyByteBuf::writeIdentifier);
             return RegistrySnapshot.STREAM_CODEC.decode(buf);
         } finally {
             buf.release();

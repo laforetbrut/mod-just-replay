@@ -40,7 +40,7 @@ public abstract class MinecraftHooksMixin {
             if (this.level == null) {
                 opening = new TitleScreen();
             } else if (this.player.isDeadOrDying() && this.player.shouldShowDeathScreen()) {
-                opening = new DeathScreen(null, this.level.getLevelData().isHardcore());
+                opening = new DeathScreen(null, this.level.getLevelData().isHardcore(), this.player);
             }
         }
         if (opening != null && ClientHooks.cancelsScreenOpening(opening)) {

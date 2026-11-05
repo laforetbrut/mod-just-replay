@@ -10,12 +10,9 @@ import com.vyrriox.justreplay.editor.overlay.OverlayRenderer;
 import com.vyrriox.justreplay.gui.EntityTool;
 import com.vyrriox.justreplay.gui.OverlayPlacementTool;
 import com.vyrriox.justreplay.gui.PlacementTool;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import net.minecraft.client.renderer.ShaderInstance;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.client.event.RegisterShadersEvent;
 import net.neoforged.neoforge.client.event.RenderFrameEvent;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
@@ -29,17 +26,6 @@ import java.io.IOException;
  */
 public final class NeoForgeEditorEvents {
     private NeoForgeEditorEvents() {
-    }
-
-    public static final class ModEvents {
-        private ModEvents() {
-        }
-
-        @SubscribeEvent
-        public static void onShaders(RegisterShadersEvent event) throws IOException {
-            FxEngine.registerShaders((name, onLoaded) -> event.registerShader(
-                    new ShaderInstance(event.getResourceProvider(), name, DefaultVertexFormat.POSITION), onLoaded));
-        }
     }
 
     public static final class GameEvents {
@@ -86,20 +72,19 @@ public final class NeoForgeEditorEvents {
 
         // ------------------------------------------------------------ level
 
+        /**
+         * The 1.21.1 hook drew the editor overlays, the camera path and the placement tools inside the level stages with
+         * immediate mode buffers. 26.1 renders the level from extracted render state, so those draws are not ported yet.
+         */
         @SubscribeEvent
-        public static void onRenderLevel(RenderLevelStageEvent event) {
-            RenderLevelStageEvent.Stage stage = event.getStage();
-            float partialTick = event.getPartialTick().getGameTimeDeltaPartialTick(false);
-            boolean translucent = stage == RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS;
-            OverlayRenderer.onRenderLevel(translucent, stage == RenderLevelStageEvent.Stage.AFTER_PARTICLES,
-                    event.getCamera(), partialTick);
-            if (translucent) {
-                PathRenderer.onRenderLevel(event.getCamera(), event.getPoseStack(), partialTick);
-                EntityTool.onRenderLevel(event.getCamera(), event.getPoseStack());
-                OverlayPlacementTool.onRenderLevel(event.getCamera());
-                PlacementTool.onRenderLevel(event.getCamera(), event.getPoseStack());
+        public static void onRenderLevel(RenderLevelStageEvent.AfterTranslucentFeatures event) {
+            if (!LEVEL_DRAW_LOGGED) {
+                LEVEL_DRAW_LOGGED = true;
+                com.vyrriox.justreplay.JustReplay.LOGGER.warn("Level overlays (camera path, placement tools, image overlays) are not ported to 26.1 yet");
             }
         }
+
+        private static boolean LEVEL_DRAW_LOGGED;
 
         @SubscribeEvent
         public static void onRenderGui(RenderGuiEvent.Post event) {

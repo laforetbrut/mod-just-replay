@@ -36,7 +36,7 @@ public final class JustReplayClient {
         JRKeys.register(registrar);
     }
 
-    public static void registerGuiLayers(java.util.function.BiConsumer<net.minecraft.resources.Identifier, net.minecraft.client.gui.LayeredDraw.Layer> registrar) {
+    public static void registerGuiLayers(java.util.function.BiConsumer<net.minecraft.resources.Identifier, com.vyrriox.justreplay.client.hook.HudLayer> registrar) {
         registrar.accept(JustReplay.id("hud"), ReplayHud::render);
         registrar.accept(JustReplay.id("placement"), com.vyrriox.justreplay.gui.PlacementTool::renderHud);
         registrar.accept(JustReplay.id("entity_tool"), com.vyrriox.justreplay.gui.EntityTool::renderHud);

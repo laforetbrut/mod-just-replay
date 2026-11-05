@@ -125,8 +125,8 @@ public class ListRow extends GlassButton {
     private int lastMouseX;
 
     @Override
-    public void extractWidgetRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+    protected void extractContents(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         lastMouseX = mouseX;
-        super.extractWidgetRenderState(g, mouseX, mouseY, partialTick);
+        super.extractContents(g, mouseX, mouseY, partialTick);
     }
 }

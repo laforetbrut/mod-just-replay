@@ -272,7 +272,7 @@ public final class SelfTest {
     }
 
     private static void shot(Minecraft mc, String name) {
-        Screenshot.grab(mc.gameDirectory, "selftest-" + name + ".png", mc.getMainRenderTarget(), c -> log("screenshot {}", name));
+        Screenshot.grab(mc.gameDirectory, "selftest-" + name + ".png", mc.getMainRenderTarget(), 1, c -> log("screenshot {}", name));
     }
 
     public static void tick(Minecraft mc) {
@@ -458,8 +458,8 @@ public final class SelfTest {
                             folderSize(replay.resolve(com.vyrriox.justreplay.format.Checkpoints.FOLDER)),
                             com.vyrriox.justreplay.format.Checkpoints.list(replay).length);
                     Mods.logParkourCombat("recorded");
-                    mc.level.disconnect();
-                    mc.disconnect(new TitleScreen());
+                    mc.level.disconnect(net.minecraft.network.chat.Component.empty());
+                    mc.disconnect(new TitleScreen(), false);
                     next(40);
                 }
             }
@@ -972,8 +972,8 @@ public final class SelfTest {
                         localAnvil, replaySteps, recorderSteps, localBell > 0 && localAnvil > 0 && recorderSteps > 0 ? "OK" : "FAIL");
                 log("export frames showing overlays: {} ({} overlays in the project)",
                         com.vyrriox.justreplay.editor.overlay.OverlayRenderer.exportFrames(), ReplaySession.current().project().overlays.size());
-                mc.level.disconnect();
-                mc.disconnect(new TitleScreen());
+                mc.level.disconnect(net.minecraft.network.chat.Component.empty());
+                mc.disconnect(new TitleScreen(), false);
                 next(60);
             }
             case 16 -> {
@@ -1003,8 +1003,8 @@ public final class SelfTest {
                 logWorld(mc, s, "buffer clip after forward seek");
                 s.playback().seek(5);
                 logWorld(mc, s, "buffer clip after backward seek");
-                mc.level.disconnect();
-                mc.disconnect(new TitleScreen());
+                mc.level.disconnect(net.minecraft.network.chat.Component.empty());
+                mc.disconnect(new TitleScreen(), false);
                 next(60);
             }
             case 19 -> {

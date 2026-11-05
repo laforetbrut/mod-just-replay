@@ -29,7 +29,6 @@ final class NeoForgeClient {
             NeoForgeClientEvents.GameEvents.class,
             NeoForgeClientEvents.ModEvents.class,
             NeoForgeEditorEvents.GameEvents.class,
-            NeoForgeEditorEvents.ModEvents.class,
     };
 
     /** Classes whose static state used to be set up when their listeners were registered. */

@@ -276,7 +276,7 @@ final class SceneJob {
         } else {
             String name = s.prefix() + "-" + tick + ".png";
             Path file = mc.gameDirectory.toPath().resolve(Screenshot.SCREENSHOT_DIR).resolve(name).toAbsolutePath().normalize();
-            Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), c -> log("screenshot at tick {}: {}", tick, file));
+            Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), 1, c -> log("screenshot at tick {}: {}", tick, file));
             wait = 10;
         }
         shot++;
@@ -333,9 +333,9 @@ final class SceneJob {
                 index = steps.size();
                 phase = 1;
                 if (mc.level != null) {
-                    mc.level.disconnect();
+                    mc.level.disconnect(net.minecraft.network.chat.Component.empty());
                 }
-                mc.disconnect();
+                mc.disconnect(new net.minecraft.client.gui.screens.TitleScreen(), false);
                 wait = 40;
             }
             case 1 -> {
@@ -365,9 +365,9 @@ final class SceneJob {
 
     private static void leave(Minecraft mc) {
         if (mc.level != null) {
-            mc.level.disconnect();
+            mc.level.disconnect(net.minecraft.network.chat.Component.empty());
         }
-        mc.disconnect(new TitleScreen());
+        mc.disconnect(new TitleScreen(), false);
     }
 
     private static boolean atMenu(Minecraft mc) {

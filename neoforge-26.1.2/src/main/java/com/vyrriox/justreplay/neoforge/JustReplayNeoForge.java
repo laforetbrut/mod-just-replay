@@ -4,7 +4,7 @@ import com.vyrriox.justreplay.JustReplay;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
-import net.neoforged.fml.loading.FMLEnvironment;
+import net.neoforged.fml.loading.FMLLoader;
 
 /**
  * NeoForge entry point.
@@ -14,7 +14,7 @@ import net.neoforged.fml.loading.FMLEnvironment;
 @Mod(JustReplay.MOD_ID)
 public final class JustReplayNeoForge {
     public JustReplayNeoForge(IEventBus modEventBus, ModContainer container) {
-        if (FMLEnvironment.dist.isClient()) {
+        if (FMLLoader.getCurrent().getDist().isClient()) {
             NeoForgeClient.init(modEventBus, container);
         }
     }

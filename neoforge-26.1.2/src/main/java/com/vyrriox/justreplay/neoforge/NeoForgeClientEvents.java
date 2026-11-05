@@ -11,7 +11,7 @@ import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.RenderFrameEvent;
 import net.neoforged.neoforge.client.event.RenderGuiLayerEvent;
-import net.neoforged.neoforge.client.event.RenderHighlightEvent;
+import net.neoforged.neoforge.client.event.ExtractBlockOutlineRenderStateEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.client.event.ViewportEvent;
 import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
@@ -30,12 +30,18 @@ public final class NeoForgeClientEvents {
     public static final class ModEvents {
         @SubscribeEvent
         public static void onKeys(RegisterKeyMappingsEvent event) {
-            ClientHooks.registerKeys(event::register);
+            java.util.Set<net.minecraft.client.KeyMapping.Category> categories = new java.util.HashSet<>();
+            ClientHooks.registerKeys(key -> {
+                if (categories.add(key.getCategory())) {
+                    event.registerCategory(key.getCategory());
+                }
+                event.register(key);
+            });
         }
 
         @SubscribeEvent
         public static void onLayers(RegisterGuiLayersEvent event) {
-            ClientHooks.registerGuiLayers(event::registerAboveAll);
+            ClientHooks.registerGuiLayers((id, layer) -> event.registerAboveAll(id, layer::render));
         }
     }
 
@@ -49,7 +55,6 @@ public final class NeoForgeClientEvents {
                 VanillaGuiLayers.SCOREBOARD_SIDEBAR,
                 VanillaGuiLayers.TAB_LIST,
                 VanillaGuiLayers.OVERLAY_MESSAGE,
-                VanillaGuiLayers.DEBUG_OVERLAY,
                 JustReplay.id("hud"),
                 JustReplay.id("placement"),
                 JustReplay.id("entity_tool"));
@@ -111,12 +116,12 @@ public final class NeoForgeClientEvents {
         public static void onFov(ViewportEvent.ComputeFov event) {
             Double fov = ClientHooks.cameraFov(event.usedConfiguredFov());
             if (fov != null) {
-                event.setFOV(fov);
+                event.setFOV(fov.floatValue());
             }
         }
 
         @SubscribeEvent
-        public static void onBlockHighlight(RenderHighlightEvent.Block event) {
+        public static void onBlockHighlight(ExtractBlockOutlineRenderStateEvent event) {
             if (ClientHooks.cancelsBlockHighlight()) {
                 event.setCanceled(true);
             }

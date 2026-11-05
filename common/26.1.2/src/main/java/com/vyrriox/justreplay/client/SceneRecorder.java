@@ -114,9 +114,9 @@ public final class SceneRecorder {
             case 4 -> {
                 step = 5;
                 if (mc.level != null) {
-                    mc.level.disconnect();
+                    mc.level.disconnect(net.minecraft.network.chat.Component.empty());
                 }
-                mc.disconnect();
+                mc.disconnect(new net.minecraft.client.gui.screens.TitleScreen(), false);
                 wait = 40;
             }
             case 5 -> {
@@ -135,7 +135,7 @@ public final class SceneRecorder {
             for (var child : confirm.children()) {
                 if (child instanceof Button b && b.getMessage().getContents() instanceof TranslatableContents t
                         && t.getKey().equals("selectWorld.backupJoinSkipButton")) {
-                    b.onPress();
+                    b.onPress(new net.minecraft.client.input.KeyEvent(257, 0, 0));
                 }
             }
         }
@@ -160,7 +160,7 @@ public final class SceneRecorder {
             }
             for (String command : commands) {
                 if (!command.isBlank()) {
-                    server.getCommands().performPrefixedCommand(player.createCommandSourceStack().withPermission(4), command.trim());
+                    server.getCommands().performPrefixedCommand(player.createCommandSourceStack().withPermission(net.minecraft.server.permissions.LevelBasedPermissionSet.OWNER), command.trim());
                     log("ran /{}", command.trim());
                 }
             }
@@ -265,7 +265,7 @@ public final class SceneRecorder {
                     org.lwjgl.glfw.GLFW.glfwSetCursorPos(mc.getWindow().getWindow(), mc.getWindow().getScreenWidth() * 0.72,
                             mc.getWindow().getScreenHeight() * 0.3);
                     String name = "scene-editor-" + parts[1].trim().toLowerCase(java.util.Locale.ROOT) + "-" + tab + ".png";
-                    net.minecraft.client.Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), c -> log("editor capture {}", name));
+                    net.minecraft.client.Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), 1, c -> log("editor capture {}", name));
                     wait = 10;
                 }
                 editorIndex++;
@@ -308,9 +308,9 @@ public final class SceneRecorder {
             case 4 -> {
                 step = 5;
                 if (mc.level != null) {
-                    mc.level.disconnect();
+                    mc.level.disconnect(net.minecraft.network.chat.Component.empty());
                 }
-                mc.disconnect();
+                mc.disconnect(new net.minecraft.client.gui.screens.TitleScreen(), false);
                 wait = 40;
             }
             case 5 -> {
