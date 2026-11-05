@@ -1,8 +1,9 @@
 package com.vyrriox.justreplay.record;
 
 import com.mojang.authlib.GameProfile;
+import com.vyrriox.justreplay.platform.ClientPlatform;
 import io.netty.buffer.Unpooled;
-import net.minecraft.core.RegistryAccess;
+import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
@@ -10,7 +11,6 @@ import net.minecraft.network.chat.ComponentSerialization;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
 import net.minecraft.world.level.GameType;
-import net.neoforged.neoforge.network.connection.ConnectionType;
 
 import javax.annotation.Nullable;
 import java.util.EnumSet;
@@ -30,8 +30,8 @@ public final class PlayerInfoPackets {
     private PlayerInfoPackets() {
     }
 
-    public static ClientboundPlayerInfoUpdatePacket build(RegistryAccess access, ConnectionType type, List<Info> infos) {
-        RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), access, type);
+    public static ClientboundPlayerInfoUpdatePacket build(ClientPacketListener listener, List<Info> infos) {
+        RegistryFriendlyByteBuf buf = ClientPlatform.get().bufDecorator(listener).apply(Unpooled.buffer());
         try {
             EnumSet<ClientboundPlayerInfoUpdatePacket.Action> actions = EnumSet.of(
                     ClientboundPlayerInfoUpdatePacket.Action.ADD_PLAYER,

@@ -1,9 +1,9 @@
 package com.vyrriox.justreplay.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.vyrriox.justreplay.platform.ClientPlatform;
+import com.vyrriox.justreplay.platform.KeyScope;
 import net.minecraft.client.KeyMapping;
-import net.neoforged.neoforge.client.settings.IKeyConflictContext;
-import net.neoforged.neoforge.client.settings.KeyConflictContext;
 import org.lwjgl.glfw.GLFW;
 
 /**
@@ -14,26 +14,13 @@ import org.lwjgl.glfw.GLFW;
 public final class JRKeys {
     private static final String CATEGORY = "key.categories.justreplay";
 
-    /** Playback keys only act inside a replay, so they never steal keys from other mods in a normal game. */
-    public static final IKeyConflictContext IN_REPLAY = new IKeyConflictContext() {
-        @Override
-        public boolean isActive() {
-            return com.vyrriox.justreplay.replay.ReplaySession.isRunning() && KeyConflictContext.IN_GAME.isActive();
-        }
-
-        @Override
-        public boolean conflicts(IKeyConflictContext other) {
-            return this == other;
-        }
-    };
-
-    public static final KeyMapping RECORD = new KeyMapping("key.justreplay.record", KeyConflictContext.IN_GAME,
+    public static final KeyMapping RECORD = ClientPlatform.get().keyMapping("key.justreplay.record", KeyScope.IN_GAME,
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_F8, CATEGORY);
     /** Saves the instant replay buffer (the last minutes of play) as a replay. */
-    public static final KeyMapping SAVE_BUFFER = new KeyMapping("key.justreplay.save_buffer", KeyConflictContext.IN_GAME,
+    public static final KeyMapping SAVE_BUFFER = ClientPlatform.get().keyMapping("key.justreplay.save_buffer", KeyScope.IN_GAME,
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_F7, CATEGORY);
     /** Starts a recording that stops by itself after the configured minutes; unbound by default. */
-    public static final KeyMapping RECORD_NEXT = new KeyMapping("key.justreplay.record_next", KeyConflictContext.IN_GAME,
+    public static final KeyMapping RECORD_NEXT = ClientPlatform.get().keyMapping("key.justreplay.record_next", KeyScope.IN_GAME,
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, CATEGORY);
     public static final KeyMapping EDITOR = key("editor", GLFW.GLFW_KEY_G);
     public static final KeyMapping PLAY_PAUSE = key("play_pause", GLFW.GLFW_KEY_J);
@@ -61,7 +48,7 @@ public final class JRKeys {
     }
 
     private static KeyMapping key(String name, int code) {
-        return new KeyMapping("key.justreplay." + name, IN_REPLAY, InputConstants.Type.KEYSYM, code, CATEGORY);
+        return ClientPlatform.get().keyMapping("key.justreplay." + name, KeyScope.IN_REPLAY, InputConstants.Type.KEYSYM, code, CATEGORY);
     }
 
     public static void register(java.util.function.Consumer<KeyMapping> registrar) {

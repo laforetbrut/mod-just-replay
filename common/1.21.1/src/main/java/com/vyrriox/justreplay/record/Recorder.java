@@ -1326,7 +1326,7 @@ public final class Recorder {
         PlayerInfo info = listener.getPlayerInfo(source.getId());
         GameProfile actorProfile = new GameProfile(actorUuid, source.getName());
         actorProfile.getProperties().putAll((info != null ? info.getProfile() : source).getProperties());
-        write(listener, PlayerInfoPackets.build(listener.registryAccess(), listener.getConnectionType(), List.of(
+        write(listener, PlayerInfoPackets.build(listener, List.of(
                 new PlayerInfoPackets.Info(actorUuid, actorProfile, GameType.SURVIVAL, false, 0, null))), out);
         write(listener, new ClientboundAddEntityPacket(player.getId(), actorUuid, player.getX(), player.getY(), player.getZ(),
                 player.getXRot(), player.getYRot(), player.getType(), 0, Vec3.ZERO, player.getYHeadRot()), out);
@@ -1396,7 +1396,7 @@ public final class Recorder {
                     listed.contains(info), info.getLatency(), info.getTabListDisplayName()));
         }
         if (!infos.isEmpty()) {
-            write(listener, PlayerInfoPackets.build(listener.registryAccess(), listener.getConnectionType(), infos), sink);
+            write(listener, PlayerInfoPackets.build(listener, infos), sink);
         }
         try {
             writeTabListText(mc, listener, sink);
@@ -1546,13 +1546,13 @@ public final class Recorder {
         } else {
             write(listener, new ClientboundAddEntityPacket(entity.getId(), entity.getUUID(), entity.getX(), entity.getY(), entity.getZ(),
                     entity.getXRot(), entity.getYRot(), entity.getType(), spawnData(entity), entity.getDeltaMovement(), entity.getYHeadRot()), sink);
-            if (entity instanceof net.neoforged.neoforge.entity.IEntityWithComplexSpawn) {
-                try {
-                    write(listener, new net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket(
-                            new net.neoforged.neoforge.network.payload.AdvancedAddEntityPayload(entity)), sink);
-                } catch (Throwable t) {
-                    JustReplay.LOGGER.debug("No spawn data for {}", entity, t);
+            try {
+                Packet<?> spawnData = com.vyrriox.justreplay.platform.ClientPlatform.get().extraSpawnPacket(entity);
+                if (spawnData != null) {
+                    write(listener, spawnData, sink);
                 }
+            } catch (Throwable t) {
+                JustReplay.LOGGER.debug("No spawn data for {}", entity, t);
             }
         }
         // The spawn packets carry the state at spawn: values back to their default must be written as well.

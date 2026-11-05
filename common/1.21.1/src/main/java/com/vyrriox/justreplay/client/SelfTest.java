@@ -1275,38 +1275,10 @@ public final class SelfTest {
     }
 
     /** Optional mods of the test pack: content placed before the recording and their replay state. */
-    /**
-     * A replay whose saved ids miss an entry of this game (a mod that registers it later): the entry must keep an id,
-     * or the replay world's server fails to send packets naming it (1.0.6: the recipes, then the replay closed).
-     */
+    /** See {@link com.vyrriox.justreplay.format.RegistryIdsBackend#selfCheck}; the replay gets its own ids back after it. */
     private static void checkRegistryCompletion(ReplaySession s) {
         try {
-            java.util.Map<net.minecraft.resources.ResourceLocation, net.neoforged.neoforge.registries.RegistrySnapshot> snapshot =
-                    net.neoforged.neoforge.registries.RegistryManager.takeSnapshot(net.neoforged.neoforge.registries.RegistryManager.SnapshotType.SYNC_TO_CLIENT);
-            net.minecraft.resources.ResourceLocation registry = net.minecraft.resources.ResourceLocation.withDefaultNamespace("recipe_serializer");
-            if (!snapshot.containsKey(registry)) {
-                registry = net.minecraft.resources.ResourceLocation.withDefaultNamespace("item");
-            }
-            boolean serializers = registry.getPath().equals("recipe_serializer");
-            net.minecraft.resources.ResourceLocation dropped = serializers
-                    ? net.minecraft.resources.ResourceLocation.withDefaultNamespace("crafting_shapeless")
-                    : net.minecraft.resources.ResourceLocation.withDefaultNamespace("stick");
-            it.unimi.dsi.fastutil.ints.Int2ObjectSortedMap<net.minecraft.resources.ResourceLocation> ids =
-                    new it.unimi.dsi.fastutil.ints.Int2ObjectRBTreeMap<>(snapshot.get(registry).getIds());
-            ids.values().removeIf(dropped::equals);
-            java.util.Map<net.minecraft.resources.ResourceLocation, net.neoforged.neoforge.registries.RegistrySnapshot> partial =
-                    new java.util.HashMap<>(snapshot);
-            partial.put(registry, com.vyrriox.justreplay.format.RegistryIds.rebuild(ids, snapshot.get(registry).getAliases()));
-            net.neoforged.neoforge.registries.RegistryManager.applySnapshot(partial, false);
-            int raw = serializers
-                    ? net.minecraft.core.registries.BuiltInRegistries.RECIPE_SERIALIZER.getId(net.minecraft.world.item.crafting.RecipeSerializer.SHAPELESS_RECIPE)
-                    : net.minecraft.core.registries.BuiltInRegistries.ITEM.getId(net.minecraft.world.item.Items.STICK);
-            log("registry ids missing {} applied as recorded: id {} (the bug when -1)", dropped, raw);
-            net.neoforged.neoforge.registries.RegistryManager.applySnapshot(com.vyrriox.justreplay.format.RegistryIds.complete(partial), false);
-            int id = serializers
-                    ? net.minecraft.core.registries.BuiltInRegistries.RECIPE_SERIALIZER.getId(net.minecraft.world.item.crafting.RecipeSerializer.SHAPELESS_RECIPE)
-                    : net.minecraft.core.registries.BuiltInRegistries.ITEM.getId(net.minecraft.world.item.Items.STICK);
-            log("registry ids missing {} in the recording: id after apply {} -> {}", dropped, id, id >= 0 ? "OK" : "FAIL");
+            com.vyrriox.justreplay.platform.ClientPlatform.get().registryIds().selfCheck(SelfTest::log);
         } catch (Throwable t) {
             log("registry completion check failed: {} -> FAIL", t.toString());
         } finally {

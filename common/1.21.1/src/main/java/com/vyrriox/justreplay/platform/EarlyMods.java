@@ -22,7 +22,8 @@ public final class EarlyMods {
                 Object instance = fabric.getMethod("getInstance").invoke(null);
                 return (boolean) fabric.getMethod("isModLoaded", String.class).invoke(instance, modId);
             }
-            Class<?> neoForge = find("net.neoforged.fml" + ".loading.FMLLoader", loader);
+            // Split so that a search of the common folder for loader packages only finds real dependencies.
+            Class<?> neoForge = find("net.neo" + "forged.fml" + ".loading.FMLLoader", loader);
             if (neoForge != null) {
                 return hasModFile(neoForge.getMethod("getLoadingModList").invoke(null), modId);
             }

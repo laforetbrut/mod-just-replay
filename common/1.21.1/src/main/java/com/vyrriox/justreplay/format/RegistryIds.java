@@ -1,16 +1,12 @@
 package com.vyrriox.justreplay.format;
 
 import com.vyrriox.justreplay.JustReplay;
-import io.netty.buffer.Unpooled;
+import com.vyrriox.justreplay.platform.ClientPlatform;
 import it.unimi.dsi.fastutil.ints.Int2ObjectRBTreeMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectSortedMap;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
-import net.neoforged.neoforge.registries.RegistryManager;
-import net.neoforged.neoforge.registries.RegistrySnapshot;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -22,9 +18,9 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * NeoForge numeric ids (blocks, items, entity types...) depend on the world or server a replay was recorded on.
- * They are saved with the replay and applied before playback so recorded packets decode to the right content.
- * Minecraft reverts the registries to their frozen state when the replay is left.
+ * Numeric ids (blocks, items, entity types...) depend on the world or server a replay was recorded on. They are saved
+ * with the replay and applied before playback so recorded packets decode to the right content. The loader's part is in
+ * {@link RegistryIdsBackend}.
  *
  * @author vyrriox
  */
@@ -44,23 +40,7 @@ public final class RegistryIds {
 
     /** The ids currently in use by the client, encoded as in {@value #FILE}; null when they cannot be read. */
     public static byte[] encode() {
-        Map<ResourceLocation, RegistrySnapshot> snapshot = RegistryManager.takeSnapshot(RegistryManager.SnapshotType.SYNC_TO_CLIENT);
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
-        try {
-            buf.writeVarInt(snapshot.size());
-            snapshot.forEach((name, ids) -> {
-                buf.writeResourceLocation(name);
-                RegistrySnapshot.STREAM_CODEC.encode(buf, ids);
-            });
-            byte[] bytes = new byte[buf.readableBytes()];
-            buf.readBytes(bytes);
-            return bytes;
-        } catch (Exception e) {
-            JustReplay.LOGGER.error("Cannot encode the registry ids", e);
-            return null;
-        } finally {
-            buf.release();
-        }
+        return ClientPlatform.get().registryIds().encode();
     }
 
     /** Writes ids taken earlier with {@link #encode()} into a replay folder. */
@@ -81,18 +61,18 @@ public final class RegistryIds {
      * entry (the recipes sent at login, whose serializer had no id), which closed the replay at once. Recorded packets
      * never name the appended entries, so their ids do not matter, only that they have one.
      */
-    public static Map<ResourceLocation, RegistrySnapshot> complete(Map<ResourceLocation, RegistrySnapshot> recorded) {
-        Map<ResourceLocation, RegistrySnapshot> result = new HashMap<>();
+    public static RegistryIdMap complete(RegistryIdMap recorded) {
+        Map<ResourceLocation, RegistryIdMap.Table> result = new HashMap<>();
         int added = 0;
         String example = null;
-        for (Map.Entry<ResourceLocation, RegistrySnapshot> entry : recorded.entrySet()) {
-            RegistrySnapshot snapshot = entry.getValue();
+        for (Map.Entry<ResourceLocation, RegistryIdMap.Table> entry : recorded.tables().entrySet()) {
+            RegistryIdMap.Table table = entry.getValue();
             Registry<?> registry = BuiltInRegistries.REGISTRY.get(entry.getKey());
             if (registry == null) {
-                result.put(entry.getKey(), snapshot);
+                result.put(entry.getKey(), table);
                 continue;
             }
-            Int2ObjectSortedMap<ResourceLocation> ids = new Int2ObjectRBTreeMap<>(snapshot.getIds());
+            Int2ObjectSortedMap<ResourceLocation> ids = new Int2ObjectRBTreeMap<>(table.ids());
             Set<ResourceLocation> listed = new HashSet<>(ids.values());
             List<ResourceLocation> extra = new ArrayList<>();
             for (ResourceLocation key : registry.keySet()) {
@@ -101,7 +81,7 @@ public final class RegistryIds {
                 }
             }
             if (extra.isEmpty()) {
-                result.put(entry.getKey(), snapshot);
+                result.put(entry.getKey(), table);
                 continue;
             }
             extra.sort(ResourceLocation::compareNamespaced);
@@ -113,23 +93,12 @@ public final class RegistryIds {
             if (example == null) {
                 example = entry.getKey() + " / " + extra.get(0);
             }
-            result.put(entry.getKey(), rebuild(ids, snapshot.getAliases()));
+            result.put(entry.getKey(), new RegistryIdMap.Table(ids, table.aliases()));
         }
         if (added > 0) {
             JustReplay.LOGGER.info("{} registry entries are not in this replay's ids and keep a new one (e.g. {})", added, example);
         }
-        return result;
-    }
-
-    public static RegistrySnapshot rebuild(Int2ObjectSortedMap<ResourceLocation> ids, Map<ResourceLocation, ResourceLocation> aliases) {
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
-        try {
-            buf.writeMap(ids, FriendlyByteBuf::writeVarInt, FriendlyByteBuf::writeResourceLocation);
-            buf.writeMap(aliases, FriendlyByteBuf::writeResourceLocation, FriendlyByteBuf::writeResourceLocation);
-            return RegistrySnapshot.STREAM_CODEC.decode(buf);
-        } finally {
-            buf.release();
-        }
+        return new RegistryIdMap(result);
     }
 
     /**
@@ -141,28 +110,12 @@ public final class RegistryIds {
         if (!Files.exists(file)) {
             return false;
         }
-        FriendlyByteBuf buf = null;
         try {
-            buf = new FriendlyByteBuf(Unpooled.wrappedBuffer(Files.readAllBytes(file)));
-            int count = buf.readVarInt();
-            Map<ResourceLocation, RegistrySnapshot> snapshot = new HashMap<>();
-            for (int i = 0; i < count; i++) {
-                ResourceLocation name = buf.readResourceLocation();
-                snapshot.put(name, RegistrySnapshot.STREAM_CODEC.decode(buf));
-            }
-            Set<ResourceKey<?>> missing = RegistryManager.applySnapshot(complete(snapshot), false);
-            if (!missing.isEmpty()) {
-                JustReplay.LOGGER.warn("{} registry entries of this replay are unknown here (mod missing?), e.g. {}",
-                        missing.size(), missing.iterator().next());
-            }
-            return true;
+            RegistryIdsBackend backend = ClientPlatform.get().registryIds();
+            return backend.apply(complete(backend.decode(Files.readAllBytes(file))));
         } catch (Exception e) {
             JustReplay.LOGGER.error("Cannot apply the registry ids of {}", dir, e);
             return false;
-        } finally {
-            if (buf != null) {
-                buf.release();
-            }
         }
     }
 }

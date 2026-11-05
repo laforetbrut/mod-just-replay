@@ -1978,12 +1978,7 @@ public class EditorScreen extends GlassScreen {
         }
         InputConstants.Key key = mapping.getKey();
         String name = key.getType() == InputConstants.Type.KEYSYM ? keyName(key.getValue()) : key.getDisplayName().getString();
-        return switch (mapping.getKeyModifier()) {
-            case CONTROL -> "Ctrl+" + name;
-            case SHIFT -> "Shift+" + name;
-            case ALT -> "Alt+" + name;
-            default -> name;
-        };
+        return com.vyrriox.justreplay.platform.ClientPlatform.get().keyModifierPrefix(mapping) + name;
     }
 
     /** A row of bindings shown as a range ("1–9") when they are consecutive keys, else its first and last key. */
@@ -1994,7 +1989,8 @@ public class EditorScreen extends GlassScreen {
         for (int i = 1; i < mappings.length && consecutive; i++) {
             InputConstants.Key key = mappings[i].getKey();
             consecutive = !mappings[i].isUnbound() && key.getType() == InputConstants.Type.KEYSYM
-                    && key.getValue() == first.getKey().getValue() + i && mappings[i].getKeyModifier() == first.getKeyModifier();
+                    && key.getValue() == first.getKey().getValue() + i && com.vyrriox.justreplay.platform.ClientPlatform.get().keyModifierPrefix(mappings[i])
+                    .equals(com.vyrriox.justreplay.platform.ClientPlatform.get().keyModifierPrefix(first));
         }
         if (consecutive) {
             return key(first) + "–" + keyName(last.getKey().getValue());

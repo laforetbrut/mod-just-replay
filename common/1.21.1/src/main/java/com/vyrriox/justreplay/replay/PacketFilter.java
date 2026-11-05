@@ -132,8 +132,7 @@ public final class PacketFilter {
             return true;
         }
         if (packet instanceof net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket custom
-                && (custom.payload() instanceof net.neoforged.neoforge.network.payload.AdvancedOpenScreenPayload
-                || custom.payload() instanceof net.neoforged.neoforge.network.payload.AdvancedContainerSetDataPayload)) {
+                && com.vyrriox.justreplay.platform.ClientPlatform.get().isPlayerOnlyPayload(custom.payload())) {
             return true;
         }
         if (packet instanceof net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket custom

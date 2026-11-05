@@ -1,16 +1,15 @@
 package com.vyrriox.justreplay.record;
 
+import com.vyrriox.justreplay.platform.ClientPlatform;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.core.RegistryAccess;
-import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBundlePacket;
 import net.minecraft.network.protocol.game.GameProtocols;
-import net.neoforged.neoforge.network.connection.ConnectionType;
 
 import java.util.function.Consumer;
 
@@ -23,28 +22,24 @@ import java.util.function.Consumer;
 public final class PacketCodec {
     private final StreamCodec<ByteBuf, Packet<? super ClientGamePacketListener>> codec;
     private final RegistryAccess registryAccess;
-    private final ConnectionType connectionType;
+    private final Object connectionToken;
 
-    public PacketCodec(RegistryAccess registryAccess, ConnectionType connectionType) {
-        this.registryAccess = registryAccess;
-        this.connectionType = connectionType;
-        this.codec = GameProtocols.CLIENTBOUND_TEMPLATE.bind(RegistryFriendlyByteBuf.decorator(registryAccess, connectionType)).codec();
+    private PacketCodec(ClientPacketListener listener) {
+        this.registryAccess = listener.registryAccess();
+        this.connectionToken = ClientPlatform.get().connectionToken(listener);
+        this.codec = GameProtocols.CLIENTBOUND_TEMPLATE.bind(ClientPlatform.get().bufDecorator(listener)).codec();
     }
 
     public static PacketCodec of(ClientPacketListener listener) {
-        return new PacketCodec(listener.registryAccess(), listener.getConnectionType());
+        return new PacketCodec(listener);
     }
 
     public boolean matches(ClientPacketListener listener) {
-        return listener.registryAccess() == registryAccess && listener.getConnectionType() == connectionType;
+        return listener.registryAccess() == registryAccess && ClientPlatform.get().connectionToken(listener) == connectionToken;
     }
 
     public RegistryAccess registryAccess() {
         return registryAccess;
-    }
-
-    public ConnectionType connectionType() {
-        return connectionType;
     }
 
     /** Called with a bundle's sub packet and the error when that sub packet cannot be encoded; set by the recorder. */
@@ -140,61 +135,11 @@ public final class PacketCodec {
                 return null;
             }
             net.minecraft.resources.ResourceLocation id = buf.readResourceLocation();
-            return PayloadIds.receivable(id) ? null : id;
+            return ClientPlatform.get().canDecodePayload(id) ? null : id;
         } catch (Throwable t) {
             return null;
         } finally {
             buf.release();
-        }
-    }
-
-    /** Mod payload ids the client can decode, read from NeoForge's payload registry. */
-    private static final class PayloadIds {
-        private static java.util.Set<net.minecraft.resources.ResourceLocation> known;
-        private static boolean failed;
-
-        private PayloadIds() {
-        }
-
-        static synchronized boolean receivable(net.minecraft.resources.ResourceLocation id) {
-            if ("minecraft".equals(id.getNamespace())) {
-                return true;
-            }
-            if (known == null && !failed) {
-                try {
-                    known = load();
-                } catch (Throwable t) {
-                    failed = true;
-                    com.vyrriox.justreplay.JustReplay.LOGGER.debug("Payload registry not readable: {}", t.toString());
-                }
-            }
-            return known == null || known.contains(id);
-        }
-
-        private static java.util.Set<net.minecraft.resources.ResourceLocation> load() throws ReflectiveOperationException {
-            Class<?> registry = net.neoforged.neoforge.network.registration.NetworkRegistry.class;
-            java.util.Set<net.minecraft.resources.ResourceLocation> ids = new java.util.HashSet<>();
-            java.lang.reflect.Field builtin = registry.getDeclaredField("BUILTIN_PAYLOADS");
-            builtin.setAccessible(true);
-            for (Object key : ((java.util.Map<?, ?>) builtin.get(null)).keySet()) {
-                ids.add((net.minecraft.resources.ResourceLocation) key);
-            }
-            java.lang.reflect.Field field = registry.getDeclaredField("PAYLOAD_REGISTRATIONS");
-            field.setAccessible(true);
-            Object play = ((java.util.Map<?, ?>) field.get(null)).get(net.minecraft.network.ConnectionProtocol.PLAY);
-            if (play instanceof java.util.Map<?, ?> registrations) {
-                for (java.util.Map.Entry<?, ?> entry : registrations.entrySet()) {
-                    java.lang.reflect.Method flowOf = entry.getValue().getClass().getMethod("flow");
-                    flowOf.setAccessible(true);
-                    Object flow = flowOf.invoke(entry.getValue());
-                    if (flow instanceof java.util.Optional<?> optional && optional.isPresent()
-                            && optional.get() != net.minecraft.network.protocol.PacketFlow.CLIENTBOUND) {
-                        continue;
-                    }
-                    ids.add((net.minecraft.resources.ResourceLocation) entry.getKey());
-                }
-            }
-            return ids;
         }
     }
 
