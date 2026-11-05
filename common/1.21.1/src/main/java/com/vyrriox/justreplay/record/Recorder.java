@@ -1530,6 +1530,20 @@ public final class Recorder {
         }
     }
 
+    /** Writes the loader's own spawn packet for this entity if it has one that replaces the vanilla add packet. */
+    private boolean writeWholeSpawn(ClientPacketListener listener, Entity entity, Consumer<byte[]> sink) {
+        try {
+            Packet<?> whole = com.vyrriox.justreplay.platform.ClientPlatform.get().wholeSpawnPacket(entity);
+            if (whole != null) {
+                write(listener, whole, sink);
+                return true;
+            }
+        } catch (Throwable t) {
+            JustReplay.LOGGER.debug("No spawn data for {}", entity, t);
+        }
+        return false;
+    }
+
     private void writeEntitySnapshot(ClientPacketListener listener, Entity entity, List<Entity> withPassengers, Consumer<byte[]> sink) {
         List<Packet<?>> original = SPAWNS.get(entity.getId());
         if (original != null) {
@@ -1545,7 +1559,7 @@ public final class Recorder {
                 }
             }
             write(listener, new ClientboundTeleportEntityPacket(entity), sink);
-        } else {
+        } else if (!writeWholeSpawn(listener, entity, sink)) {
             write(listener, new ClientboundAddEntityPacket(entity.getId(), entity.getUUID(), entity.getX(), entity.getY(), entity.getZ(),
                     entity.getXRot(), entity.getYRot(), entity.getType(), spawnData(entity), entity.getDeltaMovement(), entity.getYHeadRot()), sink);
             try {

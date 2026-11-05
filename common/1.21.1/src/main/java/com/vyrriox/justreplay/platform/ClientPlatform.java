@@ -40,6 +40,12 @@ public interface ClientPlatform {
     @Nullable
     Packet<?> extraSpawnPacket(Entity entity);
 
+    /** The packet that spawns this entity with its extra data, on a loader where it replaces the vanilla add packet, or null. */
+    @Nullable
+    default Packet<?> wholeSpawnPacket(Entity entity) {
+        return null;
+    }
+
     /** True for the loader's own payloads that open a menu or update one, which only concern the recording player. */
     boolean isPlayerOnlyPayload(Object payload);
 
