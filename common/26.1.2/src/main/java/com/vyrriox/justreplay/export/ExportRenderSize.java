@@ -39,7 +39,7 @@ public final class ExportRenderSize {
 
     /** True when the GPU can hold a render target of this size. */
     public static boolean fits(int width, int height) {
-        int max = RenderSystem.maxSupportedTextureSize();
+        int max = RenderSystem.getDevice().getMaxTextureSize();
         return width > 0 && height > 0 && width <= max && height <= max;
     }
 
@@ -63,7 +63,7 @@ public final class ExportRenderSize {
         try {
             window.setWidth(width);
             window.setHeight(height);
-            mc.resizeDisplay();
+            resize(mc, width, height);
         } catch (Throwable t) {
             JustReplay.LOGGER.error("Cannot render at {}x{}", width, height, t);
             restore(true);
@@ -99,10 +99,19 @@ public final class ExportRenderSize {
         window.setWidth(realWidth);
         window.setHeight(realHeight);
         try {
-            mc.resizeDisplay();
+            resize(mc, realWidth, realHeight);
         } catch (Throwable t) {
             JustReplay.LOGGER.error("Cannot restore the render size to {}x{}", realWidth, realHeight, t);
         }
+    }
+
+    /**
+     * The game only resizes its render targets while rendering the next frame, from the window size. An export needs
+     * the new size at once to know if it fits and to warm up at it, so the targets are resized here.
+     */
+    private static void resize(Minecraft mc, int width, int height) {
+        mc.gameRenderer.resize(width, height);
+        mc.resizeGui();
     }
 
     /** Called by the window on a framebuffer resize; returns true when the event must be held back. */

@@ -1,7 +1,10 @@
 package com.vyrriox.justreplay.export;
 
 import com.mojang.blaze3d.pipeline.RenderTarget;
-import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.buffers.GpuBuffer;
+import com.mojang.blaze3d.systems.CommandEncoder;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.textures.GpuTexture;
 import com.vyrriox.justreplay.JustReplay;
 import com.vyrriox.justreplay.config.JRConfig;
 import com.vyrriox.justreplay.format.ReplayStorage;
@@ -9,15 +12,14 @@ import com.vyrriox.justreplay.replay.Playback;
 import com.vyrriox.justreplay.replay.ReplaySession;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.network.chat.Component;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -37,6 +39,9 @@ import java.util.concurrent.TimeUnit;
  */
 public final class VideoExporter {
     private static final byte[] END = new byte[0];
+    /** Frames copied to the GPU staging buffers and not read back yet. Bounds the memory held by a slow GPU. */
+    private static final int MAX_PENDING_READBACKS = 4;
+    private static final long READBACK_TIMEOUT_NANOS = TimeUnit.SECONDS.toNanos(30);
     /** Ticks played before the first frame. */
     private static final int PRE_ROLL_TICKS = 20;
     /** Pre-roll frames after which the pre-roll gives up waiting for the replay cursor. */
@@ -99,6 +104,11 @@ public final class VideoExporter {
     private volatile boolean failed;
     private volatile boolean cancelled;
     private boolean finished;
+    /** All frames are issued: only the readbacks in flight are left before the export can finish. */
+    private boolean draining;
+    private int pendingReadbacks;
+    private long lastReadbackNanos;
+    private final ArrayDeque<GpuBuffer> freeReadbackBuffers = new ArrayDeque<>();
     private int previousCursor;
     private int previousSpeedIndex;
 
@@ -349,6 +359,9 @@ public final class VideoExporter {
 
     private TimerStep timerStep() {
         timerPrepared = false;
+        if (draining) {
+            return TimerStep.HOLD;
+        }
         Playback playback = session.playback();
         switch (phase) {
             case PRE_ROLL -> {
@@ -390,6 +403,17 @@ public final class VideoExporter {
             finish(false);
             return;
         }
+        if (pendingReadbacks > 0 && System.nanoTime() - lastReadbackNanos > READBACK_TIMEOUT_NANOS) {
+            JustReplay.LOGGER.error("The GPU did not deliver {} frames in time, stopping the export", pendingReadbacks);
+            finish(false);
+            return;
+        }
+        if (draining) {
+            if (pendingReadbacks == 0) {
+                finish(true);
+            }
+            return;
+        }
         if (phase != Phase.CAPTURE) {
             warmUp(mc);
             return;
@@ -405,19 +429,11 @@ public final class VideoExporter {
             finish(false);
             return;
         }
-        try (NativeImage image = Screenshot.takeScreenshot(target)) {
-            int[] pixels = image.getPixelsABGR();
-            ByteBuffer bytes = ByteBuffer.allocate(pixels.length * 4).order(ByteOrder.LITTLE_ENDIAN);
-            bytes.asIntBuffer().put(pixels);
-            byte[] frame = bytes.array();
-            // Never block forever: if ffmpeg died the writer stops draining the queue.
-            while (!queue.offer(frame, 100, TimeUnit.MILLISECONDS)) {
-                if (failed || !process.isAlive()) {
-                    finish(false);
-                    return;
-                }
-            }
-        } catch (InterruptedException ex) {
+        if (pendingReadbacks >= MAX_PENDING_READBACKS) {
+            // The GPU is behind: the clock does not advance, this frame is rendered again and captured next time.
+            return;
+        }
+        if (!requestReadback(target)) {
             finish(false);
             return;
         }
@@ -429,8 +445,81 @@ public final class VideoExporter {
         Playback playback = session.playback();
         boolean reachedEnd = (long) (frames - 1) * 20 >= (long) (endTick - startTick) * fps;
         if (reachedEnd || playback.isPaused() && playback.cursor() >= playback.duration()) {
-            finish(true);
+            // The last frames are still on their way; finish once they all reached the writer.
+            draining = true;
         }
+    }
+
+    /**
+     * Copies the finished frame to a staging buffer. The copy is ordered in the GPU command stream, so later
+     * rendering cannot change it, and fenced tasks run first in, first out, so frames reach FFmpeg in order.
+     */
+    private boolean requestReadback(RenderTarget target) {
+        GpuTexture color = target.getColorTexture();
+        if (color == null || color.getFormat().pixelSize() != 4) {
+            JustReplay.LOGGER.error("Cannot capture a frame from the render target: {}", color == null ? "no color texture" : color.getFormat());
+            return false;
+        }
+        int rowBytes = width * 4;
+        GpuBuffer buffer = freeReadbackBuffers.poll();
+        if (buffer == null) {
+            buffer = RenderSystem.getDevice().createBuffer(() -> "Just Replay export frame",
+                    GpuBuffer.USAGE_COPY_DST | GpuBuffer.USAGE_MAP_READ, (long) rowBytes * height);
+        }
+        GpuBuffer staging = buffer;
+        CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
+        pendingReadbacks++;
+        lastReadbackNanos = System.nanoTime();
+        encoder.copyTextureToBuffer(color, staging, 0L, () -> onReadback(encoder, staging), 0);
+        return true;
+    }
+
+    /**
+     * Runs on the render thread inside the pending GPU tasks, so it must not throw and must not end the export
+     * itself (that resizes render targets): it only flags a failure, the next frame ends the export.
+     */
+    private void onReadback(CommandEncoder encoder, GpuBuffer staging) {
+        pendingReadbacks--;
+        lastReadbackNanos = System.nanoTime();
+        try {
+            if (!finished && !failed) {
+                byte[] frame;
+                try (GpuBuffer.MappedView view = encoder.mapBuffer(staging, true, false)) {
+                    frame = flipOpaque(view.data());
+                }
+                // Never block forever: if ffmpeg died the writer stops draining the queue.
+                while (!queue.offer(frame, 100, TimeUnit.MILLISECONDS)) {
+                    if (failed || !process.isAlive()) {
+                        failed = true;
+                        break;
+                    }
+                }
+            }
+        } catch (InterruptedException e) {
+            failed = true;
+            Thread.currentThread().interrupt();
+        } catch (Throwable t) {
+            failed = true;
+            JustReplay.LOGGER.error("Cannot read an export frame back from the GPU", t);
+        }
+        if (finished) {
+            staging.close();
+        } else {
+            freeReadbackBuffers.add(staging);
+        }
+    }
+
+    /** The texture is bottom row first; FFmpeg wants top row first and an opaque image. */
+    private byte[] flipOpaque(ByteBuffer pixels) {
+        int rowBytes = width * 4;
+        byte[] frame = new byte[rowBytes * height];
+        for (int y = 0; y < height; y++) {
+            pixels.get(y * rowBytes, frame, (height - y - 1) * rowBytes, rowBytes);
+        }
+        for (int i = 3; i < frame.length; i += 4) {
+            frame[i] = (byte) 0xFF;
+        }
+        return frame;
     }
 
     /** Pre-roll and settle frames: nothing is captured, chunks build and the world gets in motion. */
@@ -484,6 +573,9 @@ public final class VideoExporter {
         }
         finished = true;
         current = null;
+        // A readback still in flight closes its own buffer when it lands.
+        freeReadbackBuffers.forEach(GpuBuffer::close);
+        freeReadbackBuffers.clear();
         com.vyrriox.justreplay.compat.ReplayCompat.onExportEnd();
         Minecraft mc = Minecraft.getInstance();
         try {
