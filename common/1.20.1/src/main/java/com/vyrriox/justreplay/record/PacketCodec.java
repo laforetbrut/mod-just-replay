@@ -119,8 +119,7 @@ public final class PacketCodec {
             customPayloadId = -1;
             try {
                 byte[][] probe = new byte[1][];
-                encode(new net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket(
-                        new net.minecraft.network.protocol.common.custom.BrandPayload("justreplay")), b -> probe[0] = b);
+                encode(Payloads.make(new net.minecraft.resources.ResourceLocation("brand"), new byte[0]), b -> probe[0] = b);
                 customPayloadId = new net.minecraft.network.FriendlyByteBuf(Unpooled.wrappedBuffer(probe[0])).readVarInt();
             } catch (Throwable t) {
                 return null;

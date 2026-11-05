@@ -322,7 +322,7 @@ final class OverlaysPanel {
             }).icon(Icon.FILM));
         }
         f.put(button(tc("justreplay.audio.folder"), Icon.FOLDER, tc("justreplay.overlay.image.folder.tip"),
-                b -> Util.getPlatform().openPath(ImageLibrary.folder())), 0, 2);
+                b -> Util.getPlatform().openFile(ImageLibrary.folder().toFile())), 0, 2);
         f.put(button(tc("justreplay.overlay.image.reload"), Icon.ROTATE, tc("justreplay.overlay.image.reload.tip"), b -> {
             ImageLibrary.reload();
             screen.refresh();

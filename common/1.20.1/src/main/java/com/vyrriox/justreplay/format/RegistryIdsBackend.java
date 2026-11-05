@@ -46,14 +46,14 @@ public interface RegistryIdsBackend {
      */
     default void selfCheck(CheckLog log) {
         RegistryIdMap current = current();
-        ResourceLocation registry = ResourceLocation.withDefaultNamespace("recipe_serializer");
+        ResourceLocation registry = new ResourceLocation("recipe_serializer");
         if (!current.tables().containsKey(registry)) {
-            registry = ResourceLocation.withDefaultNamespace("item");
+            registry = new ResourceLocation("item");
         }
         boolean serializers = registry.getPath().equals("recipe_serializer");
         ResourceLocation dropped = serializers
-                ? ResourceLocation.withDefaultNamespace("crafting_shapeless")
-                : ResourceLocation.withDefaultNamespace("stick");
+                ? new ResourceLocation("crafting_shapeless")
+                : new ResourceLocation("stick");
         RegistryIdMap.Table table = current.tables().get(registry);
         Int2ObjectSortedMap<ResourceLocation> ids = new Int2ObjectRBTreeMap<>(table.ids());
         ids.values().removeIf(dropped::equals);

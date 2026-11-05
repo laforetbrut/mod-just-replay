@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.replay;
 
+import com.vyrriox.justreplay.record.Payloads;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.common.ClientboundCustomReportDetailsPacket;
 import net.minecraft.network.protocol.common.ClientboundDisconnectPacket;
@@ -127,16 +128,23 @@ public final class PacketFilter {
         return TRANSIENT.contains(packet.getClass());
     }
 
+    private static boolean isPlayerOnlyPayload(Packet<?> packet) {
+        net.minecraft.network.FriendlyByteBuf bytes = Payloads.bytes(packet);
+        try {
+            return com.vyrriox.justreplay.platform.ClientPlatform.get().isPlayerOnlyPayload(Payloads.idOf(packet), bytes);
+        } finally {
+            bytes.release();
+        }
+    }
+
     public static boolean shouldDrop(Packet<?> packet) {
         if (DROPPED.contains(packet.getClass())) {
             return true;
         }
-        if (packet instanceof net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket custom
-                && com.vyrriox.justreplay.platform.ClientPlatform.get().isPlayerOnlyPayload(custom.payload())) {
+        if (Payloads.isClientbound(packet) && isPlayerOnlyPayload(packet)) {
             return true;
         }
-        if (packet instanceof net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket custom
-                && "voicechat".equals(custom.payload().type().id().getNamespace())) {
+        if (Payloads.isClientbound(packet) && "voicechat".equals(Payloads.idOf(packet).getNamespace())) {
             // Voice chat connection data of the recorded server: replaying it would connect to that server's voice chat.
             return true;
         }

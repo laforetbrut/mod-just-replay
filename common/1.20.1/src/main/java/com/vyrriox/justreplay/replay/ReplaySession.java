@@ -9,7 +9,7 @@ import com.vyrriox.justreplay.format.RecordedPacket;
 import com.vyrriox.justreplay.format.ReplayMeta;
 import com.vyrriox.justreplay.format.ReplayStorage;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.GenericMessageScreen;
+import net.minecraft.client.gui.screens.GenericDirtMessageScreen;
 import net.minecraft.client.gui.screens.ReceivingLevelScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
@@ -275,7 +275,7 @@ public final class ReplaySession {
             return;
         }
         loading = true;
-        mc.forceSetScreen(new GenericMessageScreen(Component.translatable("justreplay.loading")));
+        mc.forceSetScreen(new GenericDirtMessageScreen(Component.translatable("justreplay.loading")));
         // Decompressing a long replay takes a while: do it off the render thread.
         java.util.concurrent.CompletableFuture.supplyAsync(() -> {
             try {
@@ -294,7 +294,7 @@ public final class ReplaySession {
             if (error != null) {
                 JustReplay.LOGGER.error("Cannot read replay {}", dir, error);
                 net.minecraft.client.gui.components.toasts.SystemToast.add(mc.getToasts(),
-                        net.minecraft.client.gui.components.toasts.SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+                        net.minecraft.client.gui.components.toasts.SystemToast.SystemToastIds.PERIODIC_NOTIFICATION,
                         Component.translatable("justreplay.toast.open_failed"), Component.literal(dir.getFileName().toString()));
                 mc.setScreen(parent);
                 return;
@@ -317,7 +317,7 @@ public final class ReplaySession {
         current = null;
         pendingWorldCleanup = true;
         net.minecraft.client.gui.components.toasts.SystemToast.add(mc.getToasts(),
-                net.minecraft.client.gui.components.toasts.SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+                net.minecraft.client.gui.components.toasts.SystemToast.SystemToastIds.PERIODIC_NOTIFICATION,
                 Component.translatable("justreplay.toast.open_failed"), Component.literal(dir.getFileName().toString()));
         if (mc.level == null) {
             mc.setScreen(parent);
@@ -343,7 +343,7 @@ public final class ReplaySession {
         current.parentScreen = parent;
         if (backup != null) {
             net.minecraft.client.gui.components.toasts.SystemToast.add(mc.getToasts(),
-                    net.minecraft.client.gui.components.toasts.SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+                    net.minecraft.client.gui.components.toasts.SystemToast.SystemToastIds.PERIODIC_NOTIFICATION,
                     Component.translatable("justreplay.toast.project_bad"), Component.literal(backup.getFileName().toString()));
         }
         JustReplay.LOGGER.info("Opening replay {} ({} ticks)", dir.getFileName(), packets.lastTick());
@@ -456,7 +456,7 @@ public final class ReplaySession {
             if (!differing.isEmpty()) {
                 String names = String.join(", ", differing.subList(0, Math.min(3, differing.size())));
                 net.minecraft.client.gui.components.toasts.SystemToast.add(mc.getToasts(),
-                        net.minecraft.client.gui.components.toasts.SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+                        net.minecraft.client.gui.components.toasts.SystemToast.SystemToastIds.PERIODIC_NOTIFICATION,
                         Component.translatable("justreplay.toast.registries_differ"),
                         differing.size() > 3 ? Component.literal(names + " +" + (differing.size() - 3)) : Component.literal(names));
             }

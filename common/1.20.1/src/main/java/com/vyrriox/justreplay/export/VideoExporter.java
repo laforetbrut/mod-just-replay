@@ -555,7 +555,7 @@ public final class VideoExporter {
                     case DONE_WITHOUT_SOUND -> "justreplay.export.done.nosound";
                     case FAILED -> cancelled ? "justreplay.export.cancelled" : "justreplay.export.failed";
                 };
-                SystemToast.add(mc.getToasts(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+                SystemToast.add(mc.getToasts(), SystemToast.SystemToastIds.PERIODIC_NOTIFICATION,
                         Component.translatable(title), Component.literal(shown.getFileName().toString()));
                 if (still != null && success && mc.player != null) {
                     mc.player.displayClientMessage(Component.translatable("justreplay.export.still.saved", shown.toString()), false);

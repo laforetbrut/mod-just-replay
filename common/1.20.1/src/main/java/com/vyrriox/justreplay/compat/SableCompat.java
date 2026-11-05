@@ -71,7 +71,7 @@ public final class SableCompat {
     }
 
     private static ResourceLocation id(String path) {
-        return ResourceLocation.fromNamespaceAndPath(NS, path);
+        return new ResourceLocation(NS, path);
     }
 
     private record Reflect(Method getContainer, Method inBounds, Method getSubLevel, Method getAllSubLevels, Method getOrigin,

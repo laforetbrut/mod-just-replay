@@ -206,7 +206,7 @@ public final class JustReplayClient {
             addWidget.accept(new GlassButton(x, y, 72, 20, Component.translatable("justreplay.button.replays"),
                     b -> mc.setScreen(new ReplayListScreen(title))).icon(Icon.FILM).iconColor(Theme.ACCENT)
                     .tip(Component.translatable("justreplay.button.replays.tip")));
-        } else if (screen instanceof PauseScreen pause && pause.showsPauseMenu()) {
+        } else if (screen instanceof PauseScreen pause && ((com.vyrriox.justreplay.mixin.PauseScreenAccessor) pause).justreplay$showsPauseMenu()) {
             if (ReplaySession.isRunning()) {
                 addWidget.accept(new GlassButton(4, 4, 110, 20, Component.translatable("justreplay.button.editor"),
                         b -> mc.setScreen(new EditorScreen(ReplaySession.current()))).icon(Icon.FILM).iconColor(Theme.ACCENT));

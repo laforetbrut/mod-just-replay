@@ -38,7 +38,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public final class BetterCombatCompat {
     private static final String NAMESPACE = "bettercombat";
-    private static final ResourceLocation ATTACK_ANIMATION = ResourceLocation.fromNamespaceAndPath(NAMESPACE, "attack_animation");
+    private static final ResourceLocation ATTACK_ANIMATION = new ResourceLocation(NAMESPACE, "attack_animation");
     private static Reflect reflect;
     private static boolean reflectFailed;
     /** Attacks (and cancelled attacks) of the recording player written for its actor. */

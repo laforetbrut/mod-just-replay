@@ -234,7 +234,7 @@ public class ActorScreen extends GlassScreen {
             cycleSkin();
             b.setMessage(skinLabel());
         }).icon(Icon.PERSON).tip(Component.translatable("justreplay.actor.skinfile.tip")), 0, skinW - Theme.ROW - 2);
-        f.at(new GlassButton(Component.empty(), b -> Util.getPlatform().openPath(SkinLibrary.folder())).icon(Icon.FOLDER)
+        f.at(new GlassButton(Component.empty(), b -> Util.getPlatform().openFile(SkinLibrary.folder().toFile())).icon(Icon.FOLDER)
                 .tip(Component.translatable("justreplay.actor.skinfile.folder")), skinW - Theme.ROW, Theme.ROW);
         f.at(new GlassSwitch(Component.translatable("justreplay.actor.slim"), () -> slim, () -> slim = !slim).icon(Icon.PERSON)
                 .tip(Component.translatable("justreplay.actor.slim.tip")), f.cellX(1, 2), skinW);
@@ -419,7 +419,7 @@ public class ActorScreen extends GlassScreen {
                 param.setValue(bar >= 0 ? v + value.substring(bar) : v);
             }).icon(Icon.PERSON), 0, w - Theme.ROW - 2);
         }
-        f.at(new GlassButton(Component.empty(), b -> Util.getPlatform().openPath(EmoteLibrary.folder())).icon(Icon.FOLDER)
+        f.at(new GlassButton(Component.empty(), b -> Util.getPlatform().openFile(EmoteLibrary.folder().toFile())).icon(Icon.FOLDER)
                 .tip(Component.translatable("justreplay.actor.emote.folder")), w - Theme.ROW, Theme.ROW);
         f.next();
         if (!broken.isEmpty()) {
@@ -472,7 +472,7 @@ public class ActorScreen extends GlassScreen {
         }
         String key = "justreplay.action.hint." + actionType.name().toLowerCase(java.util.Locale.ROOT);
         Component hint = Component.translatable(key);
-        param.setHint(hint.getString().equals(key) ? Component.empty() : hint.copy().withColor(Theme.TEXT_MUTED));
+        param.setHint(hint.getString().equals(key) ? Component.empty() : hint.copy().withStyle(st -> st.withColor(Theme.TEXT_MUTED)));
     }
 
     private String actionLabel(ReplayProject.ActorAction action) {

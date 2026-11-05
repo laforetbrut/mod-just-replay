@@ -115,7 +115,7 @@ public class ExportScreen extends GlassScreen {
         int bw = (boxW - 24 - 2 * Theme.GAP) / 3;
         int by = boxY + boxH - 10 - 16;
         addRenderableWidget(new GlassButton(boxX + 12, by, bw, 16, Component.translatable("justreplay.export.folder.short"),
-                b -> Util.getPlatform().openPath(ReplayStorage.exportRoot())).icon(Icon.FOLDER)
+                b -> Util.getPlatform().openFile(ReplayStorage.exportRoot().toFile())).icon(Icon.FOLDER)
                 .tip(Component.translatable("justreplay.export.folder")));
         addRenderableWidget(new GlassButton(boxX + 12 + bw + Theme.GAP, by, bw, 16, CommonComponents.GUI_CANCEL, b -> onClose()));
         addRenderableWidget(new GlassButton(boxX + 12 + 2 * (bw + Theme.GAP), by, bw, 16, Component.translatable("justreplay.export.start"),

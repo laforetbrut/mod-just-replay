@@ -85,7 +85,7 @@ final class AudioPanel {
         }
         f.put(new GlassButton(tc("justreplay.audio.add_clip"), b -> addClip()).icon(Icon.PLUS).style(GlassButton.Style.PRIMARY)
                 .enabled(picked != null).tip(tc("justreplay.audio.add_clip.tip")), 0, 2);
-        f.put(new GlassButton(tc("justreplay.audio.folder"), b -> Util.getPlatform().openPath(AudioLibrary.folder())).icon(Icon.FOLDER)
+        f.put(new GlassButton(tc("justreplay.audio.folder"), b -> Util.getPlatform().openFile(AudioLibrary.folder().toFile())).icon(Icon.FOLDER)
                 .tip(tc("justreplay.audio.folder.tip")), 1, 2);
         f.next();
         f.text(() -> status, Theme.WARNING);

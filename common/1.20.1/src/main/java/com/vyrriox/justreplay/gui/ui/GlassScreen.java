@@ -94,14 +94,14 @@ public abstract class GlassScreen extends Screen {
     // ---------------------------------------------------------------- render
 
     @Override
-    public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void renderBackground(GuiGraphics g) {
         if (!blurBackground) {
             return;
         }
+        // This version has no panorama or blur pass: the dirt tile stands in for the panorama, the scrim darkens the rest.
         if (minecraft.level == null) {
-            renderPanorama(g, partialTick);
+            renderDirtBackground(g);
         }
-        renderBlurredBackground(partialTick);
         g.fillGradient(0, 0, width, height, Theme.SCRIM_TOP, Theme.SCRIM_BOTTOM);
     }
 
@@ -115,7 +115,7 @@ public abstract class GlassScreen extends Screen {
         boolean blocked = popup != null;
         int mx = blocked ? -10000 : mouseX;
         int my = blocked ? -10000 : mouseY;
-        renderBackground(g, mouseX, mouseY, partialTick);
+        renderBackground(g);
         renderPanels(g, mx, my, partialTick);
         for (ScrollArea area : areas) {
             area.render(g, mx, my, partialTick);
@@ -247,7 +247,7 @@ public abstract class GlassScreen extends Screen {
     }
 
     @Override
-    public boolean mouseScrolled(double mx, double my, double sx, double sy) {
+    public boolean mouseScrolled(double mx, double my, double sy) {
         if (popup != null) {
             return popup.scrolled(mx, my, sy);
         }
@@ -256,7 +256,7 @@ public abstract class GlassScreen extends Screen {
                 return true;
             }
         }
-        return super.mouseScrolled(mx, my, sx, sy);
+        return super.mouseScrolled(mx, my, sy);
     }
 
     @Override

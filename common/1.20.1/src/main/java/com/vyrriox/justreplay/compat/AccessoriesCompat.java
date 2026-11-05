@@ -32,7 +32,7 @@ import java.util.function.Consumer;
  * @author vyrriox
  */
 public final class AccessoriesCompat {
-    private static final ResourceLocation CHANNEL = ResourceLocation.fromNamespaceAndPath("accessories", "main");
+    private static final ResourceLocation CHANNEL = new ResourceLocation("accessories", "main");
     /** Replies to the local player's own menus: a screen choice, a scroll, the camera's holder settings. */
     private static final Set<String> LIVE_ONLY = Set.of(
             "io.wispforest.accessories.networking.client.ScreenVariantPing",

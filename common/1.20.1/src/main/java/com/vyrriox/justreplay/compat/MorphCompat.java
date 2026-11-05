@@ -44,7 +44,7 @@ import java.util.function.Consumer;
  * @author vyrriox
  */
 public final class MorphCompat {
-    private static final ResourceLocation CHANNEL = ResourceLocation.fromNamespaceAndPath("morph", "morph_info");
+    private static final ResourceLocation CHANNEL = new ResourceLocation("morph", "morph_info");
     /** Ticks after which the acquisition animation (tendrils taking a mob) has surely ended. */
     private static final int ACQUISITION_TICKS = 200;
     private static Reflect reflect;

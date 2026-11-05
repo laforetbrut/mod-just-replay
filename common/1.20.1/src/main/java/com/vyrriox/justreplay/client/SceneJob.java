@@ -339,7 +339,7 @@ final class SceneJob {
                 if (mc.level != null) {
                     mc.level.disconnect();
                 }
-                mc.disconnect();
+                mc.clearLevel();
                 wait = 40;
             }
             case 1 -> {
@@ -371,7 +371,7 @@ final class SceneJob {
         if (mc.level != null) {
             mc.level.disconnect();
         }
-        mc.disconnect(new TitleScreen());
+        mc.clearLevel(new TitleScreen());
     }
 
     private static boolean atMenu(Minecraft mc) {

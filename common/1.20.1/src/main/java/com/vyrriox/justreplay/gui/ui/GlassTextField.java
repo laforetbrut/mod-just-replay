@@ -46,13 +46,7 @@ public class GlassTextField extends EditBox implements Tipped {
     @Override
     public void setWidth(int width) {
         super.setWidth(width);
-        moveCursorToStart(false);
-    }
-
-    /** The vanilla sprite frame is replaced by the glass one. */
-    @Override
-    public boolean isBordered() {
-        return false;
+        moveCursorToStart();
     }
 
     @Override
@@ -77,6 +71,18 @@ public class GlassTextField extends EditBox implements Tipped {
         if (leading != null) {
             Paint.iconOnText(g, leading, x + (leadingWidth + 3 - 8) / 2.0F, y + (height - 8) / 2, 8, Theme.mix(Theme.TEXT_MUTED, Theme.ACCENT, f));
         }
-        super.renderWidget(g, mouseX, mouseY, partialTick);
+        // The vanilla frame is replaced by the glass one. This version cannot override the border test of the box, so
+        // the border is switched off for the vanilla draw and the 4 pixel text inset it implies is applied by hand.
+        int baseX = getX(), baseY = getY();
+        setBordered(false);
+        setX(baseX + 4);
+        setY(baseY + (height - 8) / 2);
+        try {
+            super.renderWidget(g, mouseX, mouseY, partialTick);
+        } finally {
+            setX(baseX);
+            setY(baseY);
+            setBordered(true);
+        }
     }
 }

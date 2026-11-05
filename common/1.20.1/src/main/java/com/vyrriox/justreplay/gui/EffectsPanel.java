@@ -199,7 +199,7 @@ final class EffectsPanel {
                     save();
                 }).icon(Icon.FILM));
             }
-            f.put(new GlassButton(tc("justreplay.audio.folder"), b -> Util.getPlatform().openPath(LutLibrary.folder())).icon(Icon.FOLDER), 0, 2);
+            f.put(new GlassButton(tc("justreplay.audio.folder"), b -> Util.getPlatform().openFile(LutLibrary.folder().toFile())).icon(Icon.FOLDER), 0, 2);
             f.put(new GlassButton(tc("justreplay.fx.lut.reload"), b -> {
                 LutLibrary.reload();
                 screen.refresh();

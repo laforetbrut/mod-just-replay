@@ -195,8 +195,6 @@ public final class Recorder {
     // Cost measurement: measured per second, logged once a minute at debug level through the logger only.
     private final LongAdder networkNanos = new LongAdder();
     private final LongAdder networkPackets = new LongAdder();
-    /** Mod payloads this client could only read as raw bytes, by id: their content is not recorded. */
-    private final java.util.Map<net.minecraft.resources.ResourceLocation, LongAdder> discardedPayloads = new ConcurrentHashMap<>();
     private long clientNanos;
     /** Part of {@link #clientNanos} spent building chunks (extra chunks and checkpoints). */
     private long chunkNanos;
@@ -397,7 +395,6 @@ public final class Recorder {
             }
         }
         chunks.onPacket(packet);
-        countDiscarded(packet);
         if (packet instanceof net.minecraft.network.protocol.game.ClientboundForgetLevelChunkPacket forget) {
             // Queued from the network thread ahead of the packet's own handling, so it runs while the chunk is intact.
             Minecraft mc = Minecraft.getInstance();
@@ -424,25 +421,6 @@ public final class Recorder {
         networkPackets.increment();
     }
 
-    /** Counts a payload the client had no codec for. Its bytes are gone once decoded, so the replay lacks it. */
-    private void countDiscarded(Packet<?> packet) {
-        if (packet instanceof net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket custom
-                && custom.payload() instanceof net.minecraft.network.protocol.common.custom.DiscardedPayload) {
-            net.minecraft.resources.ResourceLocation id = custom.payload().type().id();
-            if (discardedPayloads.computeIfAbsent(id, k -> new LongAdder()).sum() == 0) {
-                JustReplay.LOGGER.warn("Payload {} has no codec on this client, its content is not recorded", id);
-            }
-            discardedPayloads.get(id).increment();
-        }
-    }
-
-    /** Logs how many payloads of each id were not recorded, then forgets them. */
-    private void logDiscarded() {
-        discardedPayloads.forEach((id, count) ->
-                JustReplay.LOGGER.info("Payload {}: {} packets without a codec were not recorded", id, count.sum()));
-        discardedPayloads.clear();
-    }
-
     private PacketCodec newCodec(ClientPacketListener listener) {
         PacketCodec c = PacketCodec.of(listener);
         c.onSubPacketFailure(this::logUnrecordable);
@@ -451,8 +429,7 @@ public final class Recorder {
 
     /** Logs once per packet type (custom payload id when it has one) a packet that cannot be encoded. */
     private void logUnrecordable(Packet<?> packet, Throwable t) {
-        Object type = packet instanceof net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket custom
-                ? custom.payload().type().id() : packet.getClass();
+        Object type = Payloads.idOf(packet) != null ? Payloads.idOf(packet) : packet.getClass();
         if (failedTypes.add(type)) {
             JustReplay.LOGGER.warn("Cannot record {}, it will be skipped: {}", type, t.toString(),
                     t.getCause() != null ? t.getCause() : t);
@@ -776,7 +753,6 @@ public final class Recorder {
             r.meta.durationTicks = Math.min(r.meta.durationTicks, Math.max(0, r.writer.lastTick()));
         }
         ReplayStorage.writeMeta(r.dir, r.meta);
-        c.logDiscarded();
         if (complete) {
             JustReplay.LOGGER.info("Recording saved to {} ({} ticks)", r.dir, r.meta.durationTicks);
         } else {

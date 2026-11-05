@@ -68,7 +68,7 @@ public final class DropTheBeamCompat {
     private static final String PONG_CLASS = "thefricadelle.dropthebeam.network.MusicPayloads$Pong";
     private static final String AUDIO_OUTPUT = "thefricadelle.dropthebeam.client.audio.AudioOutput";
     private static final String CLOCK_CLASS = "thefricadelle.dropthebeam.client.audio.ServerClock";
-    private static final ResourceLocation CLOCK_PONG = ResourceLocation.fromNamespaceAndPath(NAMESPACE, "clock_pong");
+    private static final ResourceLocation CLOCK_PONG = new ResourceLocation(NAMESPACE, "clock_pong");
     private static final String MUSIC_STATE = NAMESPACE + ":music_state";
     private static final String MUSIC_LIBRARY = NAMESPACE + ":library";
     private static final byte[] NAMESPACE_BYTES = (NAMESPACE + ":").getBytes(StandardCharsets.UTF_8);

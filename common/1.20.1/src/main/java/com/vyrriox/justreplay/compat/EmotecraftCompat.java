@@ -34,7 +34,7 @@ import java.util.function.Consumer;
  * @author vyrriox
  */
 public final class EmotecraftCompat {
-    private static final ResourceLocation EMOTE_CHANNEL = ResourceLocation.fromNamespaceAndPath("emotecraft", "emote");
+    private static final ResourceLocation EMOTE_CHANNEL = new ResourceLocation("emotecraft", "emote");
     private static Reflect reflect;
     private static boolean reflectFailed;
     /** Actors playing an emote started by the EMOTE action. */

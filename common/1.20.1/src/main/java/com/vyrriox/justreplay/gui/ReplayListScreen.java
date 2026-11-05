@@ -106,7 +106,7 @@ public class ReplayListScreen extends GlassScreen {
         int sortW = Math.min(170, contentW - searchW - 12);
         search = new GlassTextField(font, searchW, Component.translatable("justreplay.list.search"));
         search.leading(Icon.SEARCH, 12);
-        search.setHint(Component.translatable("justreplay.list.search").withColor(Theme.TEXT_MUTED));
+        search.setHint(Component.translatable("justreplay.list.search").withStyle(st -> st.withColor(Theme.TEXT_MUTED)));
         search.setValue(query);
         search.setPosition(listX + listW - searchW, headerY + 20);
         search.setResponder(text -> {
@@ -141,7 +141,7 @@ public class ReplayListScreen extends GlassScreen {
                 .icon(Icon.TRASH).style(GlassButton.Style.DANGER));
         bx += bw + Theme.GAP;
         addRenderableWidget(new GlassButton(bx, by, bw, 16, Component.translatable("justreplay.list.folder"),
-                b -> Util.getPlatform().openPath(ReplayStorage.root())).icon(Icon.FOLDER));
+                b -> Util.getPlatform().openFile(ReplayStorage.root().toFile())).icon(Icon.FOLDER));
         bx += bw + Theme.GAP;
         addRenderableWidget(new GlassButton(bx, by, bw, 16, CommonComponents.GUI_BACK, b -> onClose()).icon(Icon.CHEVRON_LEFT));
         filter();
@@ -302,12 +302,12 @@ public class ReplayListScreen extends GlassScreen {
     }
 
     @Override
-    public boolean mouseScrolled(double mx, double my, double sx, double sy) {
+    public boolean mouseScrolled(double mx, double my, double sy) {
         if (!hasPopup() && my >= listY && my < listY + listH) {
             scroll.to(Math.max(0, Math.min(maxScroll(), scroll.target() - (float) sy * 30)));
             return true;
         }
-        return super.mouseScrolled(mx, my, sx, sy);
+        return super.mouseScrolled(mx, my, sy);
     }
 
     @Override

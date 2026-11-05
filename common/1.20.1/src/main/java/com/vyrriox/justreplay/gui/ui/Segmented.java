@@ -160,4 +160,17 @@ public class Segmented<T> extends AbstractWidget implements Tipped {
     protected void updateWidgetNarration(NarrationElementOutput output) {
         defaultButtonNarrationText(output);
     }
+
+    /** Sets the height; this Minecraft version has no such method on every loader. */
+    public void setHeight(int value) {
+        this.height = value;
+    }
+
+    /** Sets size and position at once; this Minecraft version has no such method. */
+    public void setRectangle(int width, int height, int x, int y) {
+        this.width = width;
+        this.height = height;
+        setX(x);
+        setY(y);
+    }
 }

@@ -42,7 +42,7 @@ final class VoiceSoundInstance extends AbstractSoundInstance implements Tickable
 
     @Override
     public WeighedSoundEvents resolve(SoundManager manager) {
-        this.sound = new Sound(LOCATION, ConstantFloat.of(1.0F), ConstantFloat.of(1.0F), 1, Sound.Type.FILE, true, false, range);
+        this.sound = new Sound(LOCATION.toString(), ConstantFloat.of(1.0F), ConstantFloat.of(1.0F), 1, Sound.Type.FILE, true, false, range);
         return new WeighedSoundEvents(LOCATION, null);
     }
 

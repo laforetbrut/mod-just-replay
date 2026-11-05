@@ -46,8 +46,11 @@ public interface ClientPlatform {
         return null;
     }
 
-    /** True for the loader's own payloads that open a menu or update one, which only concern the recording player. */
-    boolean isPlayerOnlyPayload(Object payload);
+    /**
+     * True for the loader's own payloads that open a menu or update one, which only concern the recording player.
+     * {@code data} holds the bytes after the channel id; it is read from its start and the caller releases it.
+     */
+    boolean isPlayerOnlyPayload(ResourceLocation id, net.minecraft.network.FriendlyByteBuf data);
 
     RegistryIdsBackend registryIds();
 

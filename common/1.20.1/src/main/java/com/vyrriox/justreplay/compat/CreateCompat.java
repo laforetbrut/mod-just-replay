@@ -25,11 +25,11 @@ import java.util.Set;
 public final class CreateCompat {
     /** Create packets whose effect accumulates over the whole connection and that the server never sends again. */
     private static final Set<ResourceLocation> PERSISTENT = Set.of(
-            ResourceLocation.fromNamespaceAndPath("create", "sync_rail_graph"),
-            ResourceLocation.fromNamespaceAndPath("create", "sync_edge_group"),
-            ResourceLocation.fromNamespaceAndPath("create", "add_train"),
-            ResourceLocation.fromNamespaceAndPath("create", "remove_train"),
-            ResourceLocation.fromNamespaceAndPath("create", "track_graph_roll_call"));
+            new ResourceLocation("create", "sync_rail_graph"),
+            new ResourceLocation("create", "sync_edge_group"),
+            new ResourceLocation("create", "add_train"),
+            new ResourceLocation("create", "remove_train"),
+            new ResourceLocation("create", "track_graph_roll_call"));
 
     private CreateCompat() {
     }

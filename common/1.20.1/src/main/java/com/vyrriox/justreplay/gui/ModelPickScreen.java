@@ -56,7 +56,7 @@ public class ModelPickScreen extends GlassScreen {
         int bw = (boxW - 24 - Theme.GAP) / 2;
         int by = boxY + boxH - 10 - 16;
         addRenderableWidget(new GlassButton(boxX + 12, by, bw, 16, Component.translatable("justreplay.model.pick.folder"),
-                b -> Util.getPlatform().openPath(ModelLibrary.folder())).icon(Icon.FOLDER));
+                b -> Util.getPlatform().openFile(ModelLibrary.folder().toFile())).icon(Icon.FOLDER));
         addRenderableWidget(new GlassButton(boxX + 12 + bw + Theme.GAP, by, bw, 16, CommonComponents.GUI_CANCEL, b -> onClose()));
     }
 

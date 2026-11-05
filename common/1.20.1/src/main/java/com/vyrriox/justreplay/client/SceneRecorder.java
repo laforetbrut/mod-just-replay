@@ -116,7 +116,7 @@ public final class SceneRecorder {
                 if (mc.level != null) {
                     mc.level.disconnect();
                 }
-                mc.disconnect();
+                mc.clearLevel();
                 wait = 40;
             }
             case 5 -> {
@@ -310,7 +310,7 @@ public final class SceneRecorder {
                 if (mc.level != null) {
                     mc.level.disconnect();
                 }
-                mc.disconnect();
+                mc.clearLevel();
                 wait = 40;
             }
             case 5 -> {

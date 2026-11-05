@@ -1038,7 +1038,7 @@ public class EditorScreen extends GlassScreen {
                 JRConfig.EXPORT_FPS.get(), JRConfig.EXPORT_CRF.get()), Theme.TEXT_DIM);
         f.space(3);
         f.full(new GlassButton(tc("justreplay.editor.export.open"), b -> openExport()).icon(Icon.EXPORT).style(GlassButton.Style.PRIMARY));
-        f.full(new GlassButton(tc("justreplay.export.folder"), b -> Util.getPlatform().openPath(ReplayStorage.exportRoot())).icon(Icon.FOLDER));
+        f.full(new GlassButton(tc("justreplay.export.folder"), b -> Util.getPlatform().openFile(ReplayStorage.exportRoot().toFile())).icon(Icon.FOLDER));
         f.space(2);
         f.paragraph(tc("justreplay.editor.export.help"), Theme.TEXT_MUTED);
     }
@@ -1059,7 +1059,7 @@ public class EditorScreen extends GlassScreen {
         if (compact) {
             f.paragraph(tc("justreplay.editor.simple.export.help"), Theme.TEXT_MUTED);
         }
-        f.full(new GlassButton(tc("justreplay.export.folder"), b -> Util.getPlatform().openPath(ReplayStorage.exportRoot())).icon(Icon.FOLDER));
+        f.full(new GlassButton(tc("justreplay.export.folder"), b -> Util.getPlatform().openFile(ReplayStorage.exportRoot().toFile())).icon(Icon.FOLDER));
         f.full(new GlassButton(tc("justreplay.editor.simple.export.more"), b -> openExport()).icon(Icon.GEAR)
                 .tip(tc("justreplay.editor.export.tip")));
     }
@@ -1673,7 +1673,7 @@ public class EditorScreen extends GlassScreen {
     }
 
     @Override
-    public boolean mouseScrolled(double mx, double my, double sx, double sy) {
+    public boolean mouseScrolled(double mx, double my, double sy) {
         if (helpOpen) {
             helpScroll.to(Mth.clamp(helpScroll.target() - (float) sy * 24.0F, 0.0F, helpMax));
             return true;
@@ -1685,11 +1685,11 @@ public class EditorScreen extends GlassScreen {
             if (hasControlDown()) {
                 timeline.zoom(sy > 0 ? 0.8 : 1.25, mx);
             } else {
-                timeline.scroll(-(sy != 0 ? sy : -sx) * 0.12);
+                timeline.scroll(-sy * 0.12);
             }
             return true;
         }
-        return super.mouseScrolled(mx, my, sx, sy);
+        return super.mouseScrolled(mx, my, sy);
     }
 
     @Override

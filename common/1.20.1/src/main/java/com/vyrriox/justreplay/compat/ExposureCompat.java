@@ -270,7 +270,7 @@ public final class ExposureCompat {
                 extra.getField("EMPTY").get(null));
         Object start = Class.forName(CLIENTBOUND + "CaptureStartS2CP", false, cl)
                 .getConstructor(ResourceLocation.class, paramsClass)
-                .newInstance(ResourceLocation.fromNamespaceAndPath("exposure", "camera"), params);
+                .newInstance(new ResourceLocation("exposure", "camera"), params);
         return new ClientboundCustomPayloadPacket((CustomPacketPayload) start);
     }
 
