@@ -1,6 +1,6 @@
 package com.vyrriox.justreplay.editor;
 
-import net.minecraft.client.model.PlayerModel;
+import net.minecraft.client.model.player.PlayerModel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.HumanoidArm;
 
@@ -45,7 +45,7 @@ public final class BodyParts {
         return edit == null ? 0 : edit.hiddenParts & ALL;
     }
 
-    public static void apply(PlayerModel<?> model, int mask) {
+    public static void apply(PlayerModel model, int mask) {
         if ((mask & HEAD) != 0) {
             model.head.visible = false;
             model.hat.visible = false;

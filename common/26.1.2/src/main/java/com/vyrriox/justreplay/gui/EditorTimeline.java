@@ -401,7 +401,7 @@ final class EditorTimeline {
                 // The last label goes left of its tick rather than out of the timeline.
                 int lx = tx + 3 + lw <= x + w + 2 ? tx + 3 : tx - 1 - lw;
                 if (lx >= labelEnd + 4) {
-                    g.drawString(font, label, lx, top, 0xFF8E98A6, false);
+                    g.text(font, label, lx, top, 0xFF8E98A6, false);
                     labelEnd = lx + lw;
                 }
             } else {
@@ -454,7 +454,7 @@ final class EditorTimeline {
             if (camera != null && sw > 12) {
                 String label = font.plainSubstrByWidth((index + 1) + " " + camera.name, sw - 5);
                 if (!label.isEmpty()) {
-                    g.drawString(font, label, Math.max(sx, x) + 3, y + (h - 7) / 2, 0xFF0B0F16, false);
+                    g.text(font, label, Math.max(sx, x) + 3, y + (h - 7) / 2, 0xFF0B0F16, false);
                 }
             }
         }
@@ -511,7 +511,7 @@ final class EditorTimeline {
             }
             g.fill(ax, y + 1, ax + 1, y + h - 1, color);
             if (ax - lastLabel >= 16) {
-                g.drawString(font, action.actionType().shortLabel, ax + 2, y + 2, Theme.withAlpha(color, 0xE6), false);
+                g.text(font, action.actionType().shortLabel, ax + 2, y + 2, Theme.withAlpha(color, 0xE6), false);
                 lastLabel = ax;
             }
         }
@@ -542,7 +542,7 @@ final class EditorTimeline {
             Paint.rect(g, mx + 1, y + 1, 4, 3, 1, Timeline.MARKER_COLOR);
             if (mx + 7 > lastEnd) {
                 String name = font.plainSubstrByWidth(marker.name, 70);
-                g.drawString(font, name, mx + 7, y + (h - 7) / 2, 0xD9FFE082, false);
+                g.text(font, name, mx + 7, y + (h - 7) / 2, 0xD9FFE082, false);
                 lastEnd = mx + 7 + font.width(name) + 4;
             }
         }
@@ -572,11 +572,11 @@ final class EditorTimeline {
             String time = Timeline.formatTicks(ghostTick);
             int tw = font.width(time) + 8;
             int bx = Math.max(x - LABELS, Math.min(x + w - tw, gx - tw / 2));
-            g.pose().pushPose();
-            g.pose().translate(0, 0, 200);
+            g.pose().pushMatrix();
+            g.pose().translate(0, 0);
             Paint.rect(g, bx, top - 13, tw, 11, Theme.RADIUS_S, 0xF25AB4FF, 0xF22F86E0);
-            g.drawString(font, time, bx + 4, top - 11, Theme.TEXT_ON_ACCENT, false);
-            g.pose().popPose();
+            g.text(font, time, bx + 4, top - 11, Theme.TEXT_ON_ACCENT, false);
+            g.pose().popMatrix();
         }
     }
 }

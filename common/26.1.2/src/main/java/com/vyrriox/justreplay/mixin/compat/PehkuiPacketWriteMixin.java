@@ -46,23 +46,23 @@ public abstract class PehkuiPacketWriteMixin {
         buf.writeInt(syncedScales.size());
         for (Map.Entry<Identifier, CompoundTag> entry : syncedScales.entrySet()) {
             CompoundTag tag = entry.getValue();
-            buf.writeResourceLocation(entry.getKey());
-            buf.writeFloat(tag.getFloat("scale"));
-            buf.writeFloat(tag.getFloat("previous"));
-            buf.writeFloat(tag.getFloat("initial"));
-            buf.writeFloat(tag.getFloat("target"));
-            buf.writeInt(tag.getInt("ticks"));
-            buf.writeInt(tag.getInt("total_ticks"));
-            ListTag modifiers = tag.getList("baseValueModifiers", Tag.TAG_STRING);
+            buf.writeIdentifier(entry.getKey());
+            buf.writeFloat(tag.getFloatOr("scale", 0.0F));
+            buf.writeFloat(tag.getFloatOr("previous", 0.0F));
+            buf.writeFloat(tag.getFloatOr("initial", 0.0F));
+            buf.writeFloat(tag.getFloatOr("target", 0.0F));
+            buf.writeInt(tag.getIntOr("ticks", 0));
+            buf.writeInt(tag.getIntOr("total_ticks", 0));
+            ListTag modifiers = tag.getListOrEmpty("baseValueModifiers");
             buf.writeInt(modifiers.size());
             for (int i = 0; i < modifiers.size(); i++) {
-                buf.writeUtf(modifiers.getString(i));
+                buf.writeUtf(modifiers.getStringOr(i, ""));
             }
-            buf.writeByte(tag.contains("persistent") ? (tag.getBoolean("persistent") ? 1 : 0) : -1);
+            buf.writeByte(tag.contains("persistent") ? (tag.getBooleanOr("persistent", false) ? 1 : 0) : -1);
             boolean easing = tag.contains("easing");
             buf.writeBoolean(easing);
             if (easing) {
-                buf.writeUtf(tag.getString("easing"));
+                buf.writeUtf(tag.getStringOr("easing", ""));
             }
         }
         ci.cancel();

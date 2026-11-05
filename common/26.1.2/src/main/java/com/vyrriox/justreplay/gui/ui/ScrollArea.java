@@ -120,8 +120,8 @@ public final class ScrollArea {
         int mx = inside ? mouseX : -10000;
         int my = inside ? mouseY : -10000;
         g.enableScissor(x, y, x + w, y + h);
-        g.pose().pushPose();
-        g.pose().translate(0, -frac, 0);
+        g.pose().pushMatrix();
+        g.pose().translate(0, -frac);
         for (DecoItem d : decos) {
             int dy = y + d.relY - base;
             if (dy + d.height > y && dy < y + h) {
@@ -130,10 +130,10 @@ public final class ScrollArea {
         }
         for (Item item : items) {
             if (item.widget.visible) {
-                item.widget.render(g, mx, my, partialTick);
+                item.widget.extractRenderState(g, mx, my, partialTick);
             }
         }
-        g.pose().popPose();
+        g.pose().popMatrix();
         g.disableScissor();
         if (scrollable()) {
             renderBar(g, mouseX, mouseY, s);

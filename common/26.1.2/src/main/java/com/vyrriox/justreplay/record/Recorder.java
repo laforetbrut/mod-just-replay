@@ -212,8 +212,8 @@ public final class Recorder {
     private Recorder(Connection connection) {
         this.connection = connection;
         GameProfile profile = Minecraft.getInstance().getGameProfile();
-        this.localUuid = profile.getId();
-        this.actorUuid = UUID.nameUUIDFromBytes(("justreplay:actor:" + profile.getId()).getBytes(StandardCharsets.UTF_8));
+        this.localUuid = profile.id();
+        this.actorUuid = UUID.nameUUIDFromBytes(("justreplay:actor:" + profile.id()).getBytes(StandardCharsets.UTF_8));
     }
 
     // ---------------------------------------------------------------- queries
@@ -521,14 +521,14 @@ public final class Recorder {
         } else if (mc.getSingleplayerServer() != null) {
             meta.server = mc.getSingleplayerServer().getWorldData().getLevelName();
         }
-        meta.minecraftVersion = SharedConstants.getCurrentVersion().getName();
+        meta.minecraftVersion = SharedConstants.getCurrentVersion().name();
         meta.loader = Platform.get().loaderName();
         meta.mc = meta.minecraftVersion;
         meta.modVersion = Platform.get().modVersion();
         meta.mods.addAll(Platform.get().modList());
         GameProfile profile = mc.getGameProfile();
-        meta.recorderName = profile.getName();
-        meta.recorderUuid = profile.getId().toString();
+        meta.recorderName = profile.name();
+        meta.recorderUuid = profile.id().toString();
         meta.actorUuid = actor.toString();
         com.vyrriox.justreplay.compat.ReplayCompat.describeLevel(meta, mc.level, true);
         return meta;
@@ -1074,7 +1074,7 @@ public final class Recorder {
             if (JRConfig.CAPTURE_EXTRA_CHUNKS.get()) {
                 radius = Math.max(radius, extraChunkRadius(mc));
             }
-            chunks.startCheckpoint(at, levelEpoch, mc.level, mc.player.chunkPosition().x, mc.player.chunkPosition().z, radius, head, tail,
+            chunks.startCheckpoint(at, levelEpoch, mc.level, mc.player.chunkPosition().x(), mc.player.chunkPosition().z(), radius, head, tail,
                     records -> deliverCheckpoint(at, records));
             started = true;
         } catch (Throwable t) {
@@ -1153,14 +1153,14 @@ public final class Recorder {
             return;
         }
         int scanRadius = JRConfig.CAPTURE_EXTRA_CHUNKS.get() ? extraChunkRadius(mc) : -1;
-        chunks.tick(level, player.chunkPosition().x, player.chunkPosition().z, scanRadius, epoch, mc.getFrameTimeNs(),
+        chunks.tick(level, player.chunkPosition().x(), player.chunkPosition().z(), scanRadius, epoch, mc.getFrameTimeNs(),
                 (packet, out) -> write(listener, packet, out), data -> acceptIfEpoch(epoch, data));
     }
 
     /** The recording player's actor as a fresh spawn with its current state. */
     private void writeActorState(ClientPacketListener listener, LocalPlayer player, Consumer<byte[]> sink) {
         writeActorSpawn(listener, player, sink);
-        write(listener, new ClientboundTeleportEntityPacket(player), sink);
+        write(listener, ClientboundTeleportEntityPacket.teleport(player.getId(), net.minecraft.world.entity.PositionMoveRotation.of(player), java.util.Set.of(), player.onGround()), sink);
         write(listener, new ClientboundRotateHeadPacket(player, (byte) Mth.floor(player.getYHeadRot() * 256.0F / 360.0F)), sink);
         List<SynchedEntityData.DataValue<?>> data = player.getEntityData().getNonDefaultValues();
         if (data != null) {
@@ -1243,7 +1243,7 @@ public final class Recorder {
 
         Vec3 pos = player.position();
         if (respawned || !pos.equals(lastPos) || player.getYRot() != lastYRot || player.getXRot() != lastXRot) {
-            write(listener, new ClientboundTeleportEntityPacket(player));
+            write(listener, ClientboundTeleportEntityPacket.teleport(player.getId(), net.minecraft.world.entity.PositionMoveRotation.of(player), java.util.Set.of(), player.onGround()));
             lastPos = pos;
             lastYRot = player.getYRot();
             lastXRot = player.getXRot();
@@ -1325,9 +1325,8 @@ public final class Recorder {
     /** Tab list entry and entity of the actor standing for the recording player (vanilla never sends it its own). */
     private void writeActorSpawn(ClientPacketListener listener, LocalPlayer player, Consumer<byte[]> out) {
         GameProfile source = player.getGameProfile();
-        PlayerInfo info = listener.getPlayerInfo(source.getId());
-        GameProfile actorProfile = new GameProfile(actorUuid, source.getName());
-        actorProfile.getProperties().putAll((info != null ? info.getProfile() : source).getProperties());
+        PlayerInfo info = listener.getPlayerInfo(source.id());
+        GameProfile actorProfile = new GameProfile(actorUuid, source.name(), (info != null ? info.getProfile() : source).properties());
         write(listener, PlayerInfoPackets.build(listener, List.of(
                 new PlayerInfoPackets.Info(actorUuid, actorProfile, GameType.SURVIVAL, false, 0, null))), out);
         write(listener, new ClientboundAddEntityPacket(player.getId(), actorUuid, player.getX(), player.getY(), player.getZ(),
@@ -1360,8 +1359,8 @@ public final class Recorder {
         ClientLevel level = mc.level;
         LocalPlayer player = mc.player;
         int radius = lastChunkRadius + 1;
-        int cx = player.chunkPosition().x;
-        int cz = player.chunkPosition().z;
+        int cx = player.chunkPosition().x();
+        int cz = player.chunkPosition().z();
         for (int x = cx - radius; x <= cx + radius; x++) {
             for (int z = cz - radius; z <= cz + radius; z++) {
                 LevelChunk chunk = level.getChunkSource().getChunk(x, z, ChunkStatus.FULL, false);
@@ -1388,13 +1387,13 @@ public final class Recorder {
         write(listener, new ClientboundLoginPacket(player.getId(), login.hardcore(), listener.levels(), login.maxPlayers(),
                 lastChunkRadius, login.simulationDistance(), login.reducedDebugInfo(), login.showDeathScreen(),
                 login.doLimitedCrafting(), new CommonPlayerSpawnInfo(level.dimensionTypeRegistration(), level.dimension(),
-                spawn.seed(), mode, spawn.previousGameType(), spawn.isDebug(), spawn.isFlat(), spawn.lastDeathLocation(), 0),
+                spawn.seed(), mode, spawn.previousGameType(), spawn.isDebug(), spawn.isFlat(), spawn.lastDeathLocation(), 0, spawn.seaLevel()),
                 login.enforcesSecureChat()), sink);
 
         List<PlayerInfoPackets.Info> infos = new ArrayList<>();
         var listed = listener.getListedOnlinePlayers();
         for (PlayerInfo info : listener.getOnlinePlayers()) {
-            infos.add(new PlayerInfoPackets.Info(info.getProfile().getId(), info.getProfile(), info.getGameMode(),
+            infos.add(new PlayerInfoPackets.Info(info.getProfile().id(), info.getProfile(), info.getGameMode(),
                     listed.contains(info), info.getLatency(), info.getTabListDisplayName()));
         }
         if (!infos.isEmpty()) {
@@ -1421,8 +1420,10 @@ public final class Recorder {
             JustReplay.LOGGER.warn("Skipping boss bars in the snapshot: {}", t.toString());
         }
 
-        write(listener, new ClientboundSetTimePacket(level.getGameTime(), level.getDayTime(),
-                level.getGameRules().getBoolean(GameRules.RULE_DAYLIGHT)), sink);
+        write(listener, new ClientboundSetTimePacket(level.getGameTime(),
+                level.dimensionType().defaultClock().<java.util.Map<net.minecraft.core.Holder<net.minecraft.world.clock.WorldClock>, net.minecraft.world.clock.ClockNetworkState>>map(
+                        clock -> java.util.Map.of(clock, new net.minecraft.world.clock.ClockNetworkState(level.getDefaultClockTime(), 0.0F, 1.0F)))
+                        .orElse(java.util.Map.of())), sink);
         write(listener, new ClientboundInitializeBorderPacket(level.getWorldBorder()), sink);
         if (level.isRaining()) {
             write(listener, new ClientboundGameEventPacket(ClientboundGameEventPacket.START_RAINING, 0.0F), sink);
@@ -1431,7 +1432,7 @@ public final class Recorder {
         }
 
         write(listener, new ClientboundSetChunkCacheRadiusPacket(lastChunkRadius), sink);
-        write(listener, new ClientboundSetChunkCacheCenterPacket(player.chunkPosition().x, player.chunkPosition().z), sink);
+        write(listener, new ClientboundSetChunkCacheCenterPacket(player.chunkPosition().x(), player.chunkPosition().z()), sink);
     }
 
     /** Snapshot packets that come after the chunks: end of the initial chunk load and every entity. */
@@ -1558,7 +1559,7 @@ public final class Recorder {
                     }
                 }
             }
-            write(listener, new ClientboundTeleportEntityPacket(entity), sink);
+            write(listener, ClientboundTeleportEntityPacket.teleport(entity.getId(), net.minecraft.world.entity.PositionMoveRotation.of(entity), java.util.Set.of(), entity.onGround()), sink);
         } else if (!writeWholeSpawn(listener, entity, sink)) {
             write(listener, new ClientboundAddEntityPacket(entity.getId(), entity.getUUID(), entity.getX(), entity.getY(), entity.getZ(),
                     entity.getXRot(), entity.getYRot(), entity.getType(), spawnData(entity), entity.getDeltaMovement(), entity.getYHeadRot()), sink);

@@ -144,7 +144,7 @@ public final class ImageLibrary {
         }
         generation++;
         Identifier location = JustReplay.id("overlay/" + sanitize(fileName) + "_" + generation);
-        DynamicTexture texture = new DynamicTexture(image);
+        DynamicTexture texture = new com.vyrriox.justreplay.gui.ui.JrTexture("justreplay", image, false);
         Minecraft.getInstance().getTextureManager().register(location, texture);
         return new Loaded(location, image.getWidth(), image.getHeight());
     }
@@ -173,7 +173,7 @@ public final class ImageLibrary {
                 int argb = buffered.getRGB(px, py);
                 // NativeImage stores ABGR.
                 int abgr = (argb & 0xFF00FF00) | ((argb >> 16) & 0xFF) | ((argb & 0xFF) << 16);
-                image.setPixelRGBA(px, py, abgr);
+                image.setPixelABGR(px, py, abgr);
             }
         }
         return image;

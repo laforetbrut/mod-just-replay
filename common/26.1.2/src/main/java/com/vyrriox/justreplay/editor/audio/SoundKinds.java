@@ -28,7 +28,7 @@ public final class SoundKinds {
 
     /** The kind of a sound: footsteps by their name, everything else by its category; null for a kind not handled. */
     public static String of(SoundInstance sound) {
-        String path = sound.getLocation().getPath();
+        String path = sound.getIdentifier().getPath();
         if (path.endsWith(".step")) {
             return FOOTSTEPS;
         }

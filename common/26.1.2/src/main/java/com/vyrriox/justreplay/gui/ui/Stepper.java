@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.gui.ui;
 
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -85,7 +86,7 @@ public class Stepper extends AbstractWidget implements Tipped {
     }
 
     @Override
-    protected void renderWidget(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+    protected void extractWidgetRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         Font font = Minecraft.getInstance().font;
         boolean on = active && enabled.getAsBoolean();
         float alpha = on ? 1.0F : 0.45F;
@@ -106,7 +107,7 @@ public class Stepper extends AbstractWidget implements Tipped {
             cachedWidth = avail;
             cachedLabel = Paint.ellipsize(font, getMessage().getString(), Math.max(0, avail));
         }
-        g.drawString(font, cachedLabel, left, textY, Theme.text(Theme.TEXT_DIM, alpha), false);
+        g.text(font, cachedLabel, left, textY, Theme.text(Theme.TEXT_DIM, alpha), false);
         float r = Theme.RADIUS_M;
         // Field holding the value, the two buttons sit at its ends.
         Paint.rect(g, mx, y, px + BUTTON - mx, height, r, Theme.fade(Theme.FIELD, alpha));
@@ -117,12 +118,12 @@ public class Stepper extends AbstractWidget implements Tipped {
         Paint.iconOnText(g, Icon.PLUS, px + (BUTTON - 7) / 2.0F, textY, 7, Theme.text(Theme.TEXT, alpha));
         String t = text();
         if (!t.isEmpty()) {
-            g.drawString(font, t, mx + BUTTON + Math.round((VALUE - font.width(t) + 1) / 2.0F), textY, Theme.text(Theme.TEXT, alpha), false);
+            g.text(font, t, mx + BUTTON + Math.round((VALUE - font.width(t) + 1) / 2.0F), textY, Theme.text(Theme.TEXT, alpha), false);
         }
     }
 
     @Override
-    public void onClick(double mouseX, double mouseY) {
+    public void onClick(MouseButtonEvent ev_, boolean dbl_) { double mouseX = ev_.x(); double mouseY = ev_.y();
         if (!enabled.getAsBoolean()) {
             return;
         }
@@ -134,8 +135,8 @@ public class Stepper extends AbstractWidget implements Tipped {
     }
 
     @Override
-    protected boolean clicked(double mouseX, double mouseY) {
-        return super.clicked(mouseX, mouseY) && (mouseX >= minusX() && mouseX < minusX() + BUTTON || mouseX >= plusX() && mouseX < plusX() + BUTTON);
+    public boolean isMouseOver(double mouseX, double mouseY) {
+        return super.isMouseOver(mouseX, mouseY) && (mouseX >= minusX() && mouseX < minusX() + BUTTON || mouseX >= plusX() && mouseX < plusX() + BUTTON);
     }
 
     @Override

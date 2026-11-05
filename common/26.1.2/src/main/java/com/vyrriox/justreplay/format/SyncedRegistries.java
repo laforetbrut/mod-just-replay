@@ -95,8 +95,8 @@ public final class SyncedRegistries {
         Map<String, List<String>> result = new TreeMap<>();
         access.registries().forEach(entry -> {
             // Static registries are covered by RegistryIds.
-            if (!BuiltInRegistries.REGISTRY.containsKey(entry.key().location())) {
-                result.put(entry.key().location().toString(), keys(entry.value()));
+            if (!BuiltInRegistries.REGISTRY.containsKey(entry.key().identifier())) {
+                result.put(entry.key().identifier().toString(), keys(entry.value()));
             }
         });
         return result;

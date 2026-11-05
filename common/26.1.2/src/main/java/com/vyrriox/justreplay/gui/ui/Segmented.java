@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.gui.ui;
 
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -96,7 +97,7 @@ public class Segmented<T> extends AbstractWidget implements Tipped {
     }
 
     @Override
-    protected void renderWidget(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+    protected void extractWidgetRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         Font font = Minecraft.getInstance().font;
         int n = values.size();
         float seg = width / (float) n;
@@ -124,7 +125,7 @@ public class Segmented<T> extends AbstractWidget implements Tipped {
                     Paint.icon(g, icon, sx + (seg - Theme.ICON) / 2.0F, top, Theme.ICON, color);
                 }
                 String text = Paint.ellipsize(font, texts.get(i), (int) seg - 4);
-                g.drawString(font, text, Math.round(sx + (seg - font.width(text) + 1) / 2.0F), Math.round(top + Theme.ICON + gap), color, false);
+                g.text(font, text, Math.round(sx + (seg - font.width(text) + 1) / 2.0F), Math.round(top + Theme.ICON + gap), color, false);
                 continue;
             }
             String text = iconsOnly ? "" : Paint.ellipsize(font, texts.get(i), (int) seg - 6 - (icon != null ? Theme.ICON + 3 : 0));
@@ -142,12 +143,12 @@ public class Segmented<T> extends AbstractWidget implements Tipped {
                 Paint.iconOnText(g, icon, Math.round(cx), textY, Theme.ICON, color);
                 cx += Theme.ICON + 3;
             }
-            g.drawString(font, text, Math.round(cx), textY, color, false);
+            g.text(font, text, Math.round(cx), textY, color, false);
         }
     }
 
     @Override
-    public void onClick(double mouseX, double mouseY) {
+    public void onClick(MouseButtonEvent ev_, boolean dbl_) { double mouseX = ev_.x(); double mouseY = ev_.y();
         int n = values.size();
         int i = Math.max(0, Math.min(n - 1, (int) ((mouseX - getX()) / (width / (float) n))));
         if (i != index) {

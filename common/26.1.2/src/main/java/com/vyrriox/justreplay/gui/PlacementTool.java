@@ -95,7 +95,7 @@ public final class PlacementTool {
             session.actors().refresh(actor);
         }
         Entity entity = session.actors().entityOf(actor);
-        float cameraYaw = mc.gameRenderer.getMainCamera().getYRot();
+        float cameraYaw = mc.gameRenderer.getMainCamera().yRot();
         // A new actor faces the camera; a moved one keeps its facing until the wheel turns it.
         float yaw = !isNew && entity != null && kind != ActorPlacement.Kind.WALK_TO ? entity.getYRot() : cameraYaw + 180.0F;
         active = new PlacementTool(editor, session, actor, kind, isNew, yaw);
@@ -144,12 +144,12 @@ public final class PlacementTool {
             return;
         }
         BlockHitResult hit = ActorPlacement.crosshair(outline(kind));
-        spot = spotFor(kind, hit, session.actors().entityOf(actor), baseYaw, offset, Screen.hasControlDown());
+        spot = spotFor(kind, hit, session.actors().entityOf(actor), baseYaw, offset, net.minecraft.client.Minecraft.getInstance().hasControlDown());
         session.actors().setPreview(actor, spot);
     }
 
     private void rotate(double wheel) {
-        offset += (float) Math.signum(wheel) * (Screen.hasShiftDown() ? FINE_STEP : STEP);
+        offset += (float) Math.signum(wheel) * (net.minecraft.client.Minecraft.getInstance().hasShiftDown() ? FINE_STEP : STEP);
     }
 
     /** Writes the placement at the play head and returns to the editor. */
@@ -231,7 +231,7 @@ public final class PlacementTool {
         PlacementTool tool = active;
         if (newScreen instanceof PauseScreen) {
             Minecraft mc = Minecraft.getInstance();
-            mc.tell(() -> {
+            mc.execute(() -> {
                 // pauseGame() pauses the sounds right after asking for the menu.
                 mc.getSoundManager().resume();
                 tool.cancel();
@@ -258,7 +258,7 @@ public final class PlacementTool {
         Minecraft mc = Minecraft.getInstance();
         PlacementTool tool = active;
         ActorPlacement.Spot s = tool.spot;
-        Vec3 cam = camera.getPosition();
+        Vec3 cam = camera.position();
         pose.pushPose();
         pose.translate(-cam.x, -cam.y, -cam.z);
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
@@ -367,14 +367,14 @@ public final class PlacementTool {
             default -> Icon.PIN;
         };
         Paint.iconOnText(g, icon, bx + 8, by + 7, 9, Theme.ACCENT);
-        g.drawString(font, Paint.ellipsize(font, title.getString(), boxW - 30), bx + 21, by + 7, Theme.TEXT, false);
+        g.text(font, Paint.ellipsize(font, title.getString(), boxW - 30), bx + 21, by + 7, Theme.TEXT, false);
         int ly = by + 19;
         for (String l : keyLines) {
-            g.drawString(font, Paint.ellipsize(font, l, boxW - 16), bx + 8, ly, Theme.TEXT_DIM, false);
+            g.text(font, Paint.ellipsize(font, l, boxW - 16), bx + 8, ly, Theme.TEXT_DIM, false);
             ly += 11;
         }
         if (status != null) {
-            g.drawString(font, Paint.ellipsize(font, status.getString(), boxW - 16), bx + 8, ly, statusColor, false);
+            g.text(font, Paint.ellipsize(font, status.getString(), boxW - 16), bx + 8, ly, statusColor, false);
         }
     }
 }

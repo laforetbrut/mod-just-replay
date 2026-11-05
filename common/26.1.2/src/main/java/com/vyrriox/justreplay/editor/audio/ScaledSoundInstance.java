@@ -27,8 +27,8 @@ final class ScaledSoundInstance implements SoundInstance {
     }
 
     @Override
-    public Identifier getLocation() {
-        return wrapped.getLocation();
+    public Identifier getIdentifier() {
+        return wrapped.getIdentifier();
     }
 
     @Override

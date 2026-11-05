@@ -1,5 +1,7 @@
 package com.vyrriox.justreplay.gui;
 
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.input.KeyEvent;
 import com.vyrriox.justreplay.JustReplay;
 import com.vyrriox.justreplay.client.JRKeys;
 import com.vyrriox.justreplay.format.ReplayMeta;
@@ -250,8 +252,8 @@ public class ReplayListScreen extends GlassScreen {
     }
 
     @Override
-    public boolean mouseClicked(double mx, double my, int button) {
-        if (super.mouseClicked(mx, my, button)) {
+    public boolean mouseClicked(MouseButtonEvent ev_, boolean dbl_) { double mx = ev_.x(); double my = ev_.y(); int button = ev_.button();
+        if (super.mouseClicked(ev_, dbl_)) {
             return true;
         }
         if (onBar(mx, my)) {
@@ -284,21 +286,21 @@ public class ReplayListScreen extends GlassScreen {
     }
 
     @Override
-    public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
+    public boolean mouseDragged(MouseButtonEvent ev_, double dx, double dy) { double mx = ev_.x(); double my = ev_.y(); int button = ev_.button();
         if (draggingBar) {
             dragBar(my);
             return true;
         }
-        return super.mouseDragged(mx, my, button, dx, dy);
+        return super.mouseDragged(ev_, dx, dy);
     }
 
     @Override
-    public boolean mouseReleased(double mx, double my, int button) {
+    public boolean mouseReleased(MouseButtonEvent ev_) { double mx = ev_.x(); double my = ev_.y(); int button = ev_.button();
         if (draggingBar) {
             draggingBar = false;
             return true;
         }
-        return super.mouseReleased(mx, my, button);
+        return super.mouseReleased(ev_);
     }
 
     @Override
@@ -311,7 +313,7 @@ public class ReplayListScreen extends GlassScreen {
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(KeyEvent ev_) { int keyCode = ev_.key(); int scanCode = ev_.scancode(); int modifiers = ev_.modifiers();
         if (!search.isFocused() && !shown.isEmpty()) {
             int index = selected == null ? -1 : shown.indexOf(selected);
             int step = switch (keyCode) {
@@ -332,7 +334,7 @@ public class ReplayListScreen extends GlassScreen {
                 return true;
             }
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(ev_);
     }
 
     private void revealSelected() {
@@ -358,9 +360,9 @@ public class ReplayListScreen extends GlassScreen {
     protected void renderOverlay(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         float a = intro();
         Paint.iconOnText(g, Icon.FILM, listX, 11, 14, Theme.ACCENT);
-        g.drawString(font, title, listX + 19, 11, Theme.TEXT, false);
+        g.text(font, title, listX + 19, 11, Theme.TEXT, false);
         Component count = Component.translatable("justreplay.list.count", shown.size());
-        g.drawString(font, count, listX + 19 + font.width(title) + 8, 11, Theme.TEXT_MUTED, false);
+        g.text(font, count, listX + 19 + font.width(title) + 8, 11, Theme.TEXT_MUTED, false);
 
         if (all.isEmpty()) {
             renderEmpty(g);
@@ -384,7 +386,7 @@ public class ReplayListScreen extends GlassScreen {
         g.disableScissor();
         if (shown.isEmpty()) {
             Component none = Component.translatable("justreplay.list.no_match");
-            g.drawString(font, none, width / 2 - font.width(none) / 2, listY + 20, Theme.TEXT_DIM, false);
+            g.text(font, none, width / 2 - font.width(none) / 2, listY + 20, Theme.TEXT_DIM, false);
         }
         if (maxScroll() > 0) {
             float bar = barHeight();
@@ -413,8 +415,8 @@ public class ReplayListScreen extends GlassScreen {
         int tx = x + 46;
         int iy = (int) y;
         int textW = cardW - 46 - 8;
-        g.drawString(font, Paint.ellipsize(font, entry.meta().name, textW), tx, iy + 7, Theme.TEXT, false);
-        g.drawString(font, Paint.ellipsize(font, card.info, textW), tx, iy + 18, Theme.TEXT_DIM, false);
+        g.text(font, Paint.ellipsize(font, entry.meta().name, textW), tx, iy + 7, Theme.TEXT, false);
+        g.text(font, Paint.ellipsize(font, card.info, textW), tx, iy + 18, Theme.TEXT_DIM, false);
         int cx = tx;
         cx = chip(g, Icon.CLOCK, card.duration, cx, iy + 29);
         cx = chip(g, Icon.SAVE, card.size, cx, iy + 29);
@@ -427,7 +429,7 @@ public class ReplayListScreen extends GlassScreen {
         int w = font.width(text) + 16;
         Paint.rect(g, x, y, w, 11, 5.5F, 0x1FFFFFFF);
         Paint.iconOnText(g, icon, x + 3, y + 2, 7, Theme.TEXT_MUTED);
-        g.drawString(font, text, x + 12, y + 2, Theme.TEXT_DIM, false);
+        g.text(font, text, x + 12, y + 2, Theme.TEXT_DIM, false);
         return x + w + 4;
     }
 
@@ -442,7 +444,7 @@ public class ReplayListScreen extends GlassScreen {
         Component text = Component.translatable("justreplay.list.empty.key", JRKeys.RECORD.getTranslatedKeyMessage());
         int ly = y + 42;
         for (var line : font.split(text, w - 20)) {
-            g.drawString(font, line, width / 2 - font.width(line) / 2, ly, Theme.TEXT_DIM, false);
+            g.text(font, line, width / 2 - font.width(line) / 2, ly, Theme.TEXT_DIM, false);
             ly += 10;
         }
     }

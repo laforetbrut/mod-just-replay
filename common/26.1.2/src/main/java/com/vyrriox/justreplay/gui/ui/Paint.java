@@ -1,12 +1,7 @@
 package com.vyrriox.justreplay.gui.ui;
 
 import com.mojang.blaze3d.platform.NativeImage;
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.MeshData;
-import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.vyrriox.justreplay.JustReplay;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
@@ -172,14 +167,13 @@ public final class Paint {
         float u1 = (col + 1) * p / (float) atlas.width(), v1 = (row + 1) * p / (float) atlas.height();
         float inv = (float) (1.0 / s);
         prepare(atlas.location());
-        Matrix4f m = g.pose().last().pose();
-        BufferBuilder b = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+        UiQuads b = UiQuads.begin(g, PREP);
         float ax = x0 * inv, ay = y0 * inv, bx = (x0 + p) * inv, by = (y0 + p) * inv;
-        b.addVertex(m, ax, ay, 0).setUv(u0, v0).setColor(color);
-        b.addVertex(m, ax, by, 0).setUv(u0, v1).setColor(color);
-        b.addVertex(m, bx, by, 0).setUv(u1, v1).setColor(color);
-        b.addVertex(m, bx, ay, 0).setUv(u1, v0).setColor(color);
-        finish(b);
+        b.v(ax, ay, u0, v0, color);
+        b.v(ax, by, u0, v1, color);
+        b.v(bx, by, u1, v1, color);
+        b.v(bx, ay, u1, v0, color);
+        b.submit(g);
     }
 
     /** Icon centred in a box. */
@@ -237,9 +231,9 @@ public final class Paint {
             y = g.guiHeight() - h - 8;
         }
         // Above everything of the screen: popups (300) and overlays (350) included.
-        g.flush();
-        g.pose().pushPose();
-        g.pose().translate(0, (1.0F - alpha) * 3.0F, 500);
+        g.nextStratum();
+        g.pose().pushMatrix();
+        g.pose().translate(0, (1.0F - alpha) * 3.0F);
         // Four pixels of padding around the capitals of the first and last lines.
         int bh = h + 7;
         shadow(g, x - 4, y - 4, w + 8, bh, Theme.RADIUS_S, 4, Theme.fade(Theme.SHADOW, alpha));
@@ -247,11 +241,10 @@ public final class Paint {
         outline(g, x - 4, y - 4, w + 8, bh, Theme.RADIUS_S, Theme.fade(0x59FFFFFF, alpha), Theme.fade(0x1FFFFFFF, alpha));
         int ty = y;
         for (FormattedCharSequence line : lines) {
-            g.drawString(font, line, x, ty, Theme.text(Theme.TEXT, alpha), false);
+            g.text(font, line, x, ty, Theme.text(Theme.TEXT, alpha), false);
             ty += 10;
         }
-        g.flush();
-        g.pose().popPose();
+        g.pose().popMatrix();
     }
 
     public static void tooltip(GuiGraphicsExtractor g, Font font, Component text, int mouseX, int mouseY) {
@@ -260,21 +253,10 @@ public final class Paint {
 
     // ---------------------------------------------------------------- textures
 
-    private static void prepare(Identifier texture) {
-        RenderSystem.setShaderTexture(0, texture);
-        RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.disableDepthTest();
-    }
+    private static Identifier PREP;
 
-    private static void finish(BufferBuilder b) {
-        MeshData mesh = b.build();
-        if (mesh != null) {
-            BufferUploader.drawWithShader(mesh);
-        }
-        RenderSystem.enableDepthTest();
-        RenderSystem.disableBlend();
+    private static void prepare(Identifier texture) {
+        PREP = texture;
     }
 
     /**
@@ -306,8 +288,7 @@ public final class Paint {
             ROW_COLORS[i] = top == bottom ? top : Theme.mix(top, bottom, (YS[i] - y0) / height);
         }
         prepare(texture);
-        Matrix4f m = g.pose().last().pose();
-        BufferBuilder b = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+        UiQuads b = UiQuads.begin(g, PREP);
         for (int j = 0; j < 3; j++) {
             if (YS[j + 1] <= YS[j]) {
                 continue;
@@ -321,13 +302,13 @@ public final class Paint {
                 }
                 float xa = XS[i] * inv, xb = XS[i + 1] * inv;
                 float ua = US[2 * i], ub = US[2 * i + 1];
-                b.addVertex(m, xa, ya, 0).setUv(ua, va).setColor(ca);
-                b.addVertex(m, xa, yb, 0).setUv(ua, vb).setColor(cb);
-                b.addVertex(m, xb, yb, 0).setUv(ub, vb).setColor(cb);
-                b.addVertex(m, xb, ya, 0).setUv(ub, va).setColor(ca);
+                b.v(xa, ya, ua, va, ca);
+                b.v(xa, yb, ua, vb, cb);
+                b.v(xb, yb, ub, vb, cb);
+                b.v(xb, ya, ub, va, ca);
             }
         }
-        finish(b);
+        b.submit(g);
     }
 
     /**
@@ -360,11 +341,10 @@ public final class Paint {
                     a = t * t * (3.0F - 2.0F * t);
                 }
                 int alpha = Math.round(Anim.clamp01(a) * 255.0F);
-                image.setPixelRGBA(i, j, alpha << 24 | 0xFFFFFF);
+                image.setPixelABGR(i, j, alpha << 24 | 0xFFFFFF);
             }
         }
-        DynamicTexture texture = new DynamicTexture(image);
-        texture.setFilter(true, false);
+        DynamicTexture texture = new com.vyrriox.justreplay.gui.ui.JrTexture("justreplay", image, true);
         Identifier location = JustReplay.id("ui/shape_" + kind + "_" + c + "_" + r + "_" + param);
         Minecraft.getInstance().getTextureManager().register(location, texture);
         SHAPES.put(key, location);

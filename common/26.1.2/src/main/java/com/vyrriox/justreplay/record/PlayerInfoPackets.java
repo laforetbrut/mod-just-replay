@@ -43,12 +43,12 @@ public final class PlayerInfoPackets {
             buf.writeVarInt(infos.size());
             for (Info info : infos) {
                 buf.writeUUID(info.uuid());
-                String name = info.profile().getName();
+                String name = info.profile().name();
                 if (name.length() > 16) {
                     name = name.substring(0, 16);
                 }
                 buf.writeUtf(name, 16);
-                ByteBufCodecs.GAME_PROFILE_PROPERTIES.encode(buf, info.profile().getProperties());
+                ByteBufCodecs.GAME_PROFILE_PROPERTIES.encode(buf, info.profile().properties());
                 buf.writeVarInt(info.gameMode().getId());
                 buf.writeBoolean(info.listed());
                 buf.writeVarInt(info.latency());

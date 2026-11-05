@@ -98,7 +98,7 @@ final class DistantHorizonsCompat {
         if (meta == null || level == null) {
             return;
         }
-        String dimension = level.dimension().location().toString();
+        String dimension = level.dimension().identifier().toString();
         if (meta.distantHorizons.containsKey(dimension)) {
             return;
         }

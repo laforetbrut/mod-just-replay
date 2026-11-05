@@ -23,7 +23,7 @@ import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
 import net.minecraft.network.protocol.game.ClientboundCooldownPacket;
 import net.minecraft.network.protocol.game.ClientboundCustomChatCompletionsPacket;
 import net.minecraft.network.protocol.game.ClientboundGameEventPacket;
-import net.minecraft.network.protocol.game.ClientboundHorseScreenOpenPacket;
+import net.minecraft.network.protocol.game.ClientboundMountScreenOpenPacket;
 import net.minecraft.network.protocol.game.ClientboundMerchantOffersPacket;
 import net.minecraft.network.protocol.game.ClientboundMoveVehiclePacket;
 import net.minecraft.network.protocol.game.ClientboundOpenBookPacket;
@@ -36,9 +36,11 @@ import net.minecraft.network.protocol.game.ClientboundPlayerCombatEnterPacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerCombatKillPacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerLookAtPacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
-import net.minecraft.network.protocol.game.ClientboundRecipePacket;
+import net.minecraft.network.protocol.game.ClientboundRecipeBookAddPacket;
+import net.minecraft.network.protocol.game.ClientboundRecipeBookRemovePacket;
+import net.minecraft.network.protocol.game.ClientboundRecipeBookSettingsPacket;
 import net.minecraft.network.protocol.game.ClientboundSetCameraPacket;
-import net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket;
+import net.minecraft.network.protocol.game.ClientboundSetHeldSlotPacket;
 import net.minecraft.network.protocol.game.ClientboundSetExperiencePacket;
 import net.minecraft.network.protocol.game.ClientboundSetHealthPacket;
 import net.minecraft.network.protocol.game.ClientboundStartConfigurationPacket;
@@ -74,12 +76,12 @@ public final class PacketFilter {
             ClientboundSetHealthPacket.class,
             ClientboundSetExperiencePacket.class,
             ClientboundPlayerAbilitiesPacket.class,
-            ClientboundSetCarriedItemPacket.class,
+            ClientboundSetHeldSlotPacket.class,
             ClientboundPlayerCombatEnterPacket.class,
             ClientboundPlayerCombatEndPacket.class,
             ClientboundPlayerCombatKillPacket.class,
             ClientboundOpenScreenPacket.class,
-            ClientboundHorseScreenOpenPacket.class,
+            ClientboundMountScreenOpenPacket.class,
             ClientboundOpenBookPacket.class,
             ClientboundOpenSignEditorPacket.class,
             ClientboundMerchantOffersPacket.class,
@@ -89,7 +91,9 @@ public final class PacketFilter {
             ClientboundContainerSetSlotPacket.class,
             ClientboundCooldownPacket.class,
             ClientboundPlaceGhostRecipePacket.class,
-            ClientboundRecipePacket.class,
+            ClientboundRecipeBookAddPacket.class,
+            ClientboundRecipeBookRemovePacket.class,
+            ClientboundRecipeBookSettingsPacket.class,
             ClientboundUpdateRecipesPacket.class,
             ClientboundCommandsPacket.class,
             ClientboundCommandSuggestionsPacket.class,

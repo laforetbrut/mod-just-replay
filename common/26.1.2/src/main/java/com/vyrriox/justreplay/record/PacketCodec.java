@@ -134,7 +134,7 @@ public final class PacketCodec {
             if (buf.readVarInt() != customPayloadId) {
                 return null;
             }
-            net.minecraft.resources.Identifier id = buf.readResourceLocation();
+            net.minecraft.resources.Identifier id = buf.readIdentifier();
             return ClientPlatform.get().canDecodePayload(id) ? null : id;
         } catch (Throwable t) {
             return null;

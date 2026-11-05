@@ -56,7 +56,7 @@ final class AudioPanel {
 
     /** Small step, or a fine one with Shift held. */
     private static double step(double normal, double fine) {
-        return Screen.hasShiftDown() ? fine : normal;
+        return net.minecraft.client.Minecraft.getInstance().hasShiftDown() ? fine : normal;
     }
 
     // ---------------------------------------------------------------- layout

@@ -1112,7 +1112,7 @@ public final class SelfTest {
                     double d = Math.hypot(x - 31.5, y - 31.5);
                     // A gradient disc with a white ring on a transparent square (ABGR).
                     int abgr = d > 30 ? 0 : d > 26 ? 0xFFFFFFFF : 0xFF000000 | 200 << 16 | (y * 4) << 8 | (x * 4);
-                    image.setPixelRGBA(x, y, abgr);
+                    image.setPixelABGR(x, y, abgr);
                 }
             }
             image.writeToFile(png);

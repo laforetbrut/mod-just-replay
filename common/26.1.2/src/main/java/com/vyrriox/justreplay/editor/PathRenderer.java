@@ -44,7 +44,7 @@ public final class PathRenderer {
             return;
         }
         ReplayProject project = session.project();
-        Vec3 cam = view.getPosition();
+        Vec3 cam = view.position();
         poseStack.pushPose();
         poseStack.translate(-cam.x, -cam.y, -cam.z);
         PoseStack.Pose pose = poseStack.last();

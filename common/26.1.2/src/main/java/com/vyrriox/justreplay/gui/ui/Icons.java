@@ -60,12 +60,11 @@ public final class Icons {
                     float gy = 12.0F + ((j + 0.5F) * unit - 12.0F * zoom);
                     float d = sdf.d(gx, gy) / unit;
                     int a = Math.round(Anim.clamp01(0.5F - d) * 255.0F);
-                    image.setPixelRGBA(ox + i, oy + j, a << 24 | 0xFFFFFF);
+                    image.setPixelABGR(ox + i, oy + j, a << 24 | 0xFFFFFF);
                 }
             }
         }
-        DynamicTexture texture = new DynamicTexture(image);
-        texture.setFilter(true, false);
+        DynamicTexture texture = new com.vyrriox.justreplay.gui.ui.JrTexture("justreplay", image, true);
         Identifier location = JustReplay.id("ui/icons_" + px);
         Minecraft.getInstance().getTextureManager().register(location, texture);
         return new Atlas(location, w, h);

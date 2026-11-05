@@ -93,7 +93,7 @@ public final class EntityTool {
             target = e == null || ActorManager.isActorEntity(e) ? null : e;
         } else {
             target = EntitiesPanel.selectedEntity();
-            spot = ActorPlacement.ground(ActorPlacement.crosshair(false), 0.0F, Screen.hasControlDown());
+            spot = ActorPlacement.ground(ActorPlacement.crosshair(false), 0.0F, net.minecraft.client.Minecraft.getInstance().hasControlDown());
         }
     }
 
@@ -108,7 +108,7 @@ public final class EntityTool {
             if (spot == null || !spot.valid()) {
                 return;
             }
-            float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+            float partial = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false);
             Vec3 real = target.getPosition(partial);
             ReplayProject.EntityEdit edit = EntitiesPanel.ensureEdit(session, target);
             int tick = session.playback().cursor();
@@ -141,7 +141,7 @@ public final class EntityTool {
     public static boolean onScroll(double deltaX, double deltaY) {
         if (using() && active.mode == Mode.MOVE) {
             double wheel = deltaY != 0 ? deltaY : deltaX;
-            active.turn += (float) Math.signum(wheel) * (Screen.hasShiftDown() ? FINE_STEP : STEP);
+            active.turn += (float) Math.signum(wheel) * (net.minecraft.client.Minecraft.getInstance().hasShiftDown() ? FINE_STEP : STEP);
             return true;
         }
         return false;
@@ -170,7 +170,7 @@ public final class EntityTool {
         EntityTool tool = active;
         if (newScreen instanceof PauseScreen) {
             Minecraft mc = Minecraft.getInstance();
-            mc.tell(() -> {
+            mc.execute(() -> {
                 mc.getSoundManager().resume();
                 if (active == tool) {
                     tool.finish();
@@ -197,7 +197,7 @@ public final class EntityTool {
         Minecraft mc = Minecraft.getInstance();
         EntityTool tool = active;
         Entity e = tool.target;
-        Vec3 cam = camera.getPosition();
+        Vec3 cam = camera.position();
         pose.pushPose();
         pose.translate(-cam.x, -cam.y, -cam.z);
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
@@ -205,7 +205,7 @@ public final class EntityTool {
         double half = Math.max(0.2, e.getBbWidth() / 2.0);
         double height = e.getBbHeight();
         if (tool.mode == Mode.PICK) {
-            float partial = mc.getTimer().getGameTimeDeltaPartialTick(false);
+            float partial = mc.getDeltaTracker().getGameTimeDeltaPartialTick(false);
             Vec3 p = e.getPosition(partial);
             double[] o = EntityEdits.offset(e);
             if (o != null) {
@@ -246,7 +246,7 @@ public final class EntityTool {
         int by = 8;
         Paint.glass(g, bx, by, boxW, 30, Theme.RADIUS_L);
         Paint.iconOnText(g, tool.mode == Mode.PICK ? Icon.TARGET : Icon.PIN, bx + 8, by + 7, 9, Theme.ACCENT);
-        g.drawString(font, Paint.ellipsize(font, title.getString(), boxW - 30), bx + 21, by + 7, Theme.TEXT, false);
-        g.drawString(font, Paint.ellipsize(font, keys.getString(), boxW - 16), bx + 8, by + 19, Theme.TEXT_DIM, false);
+        g.text(font, Paint.ellipsize(font, title.getString(), boxW - 30), bx + 21, by + 7, Theme.TEXT, false);
+        g.text(font, Paint.ellipsize(font, keys.getString(), boxW - 16), bx + 8, by + 19, Theme.TEXT_DIM, false);
     }
 }

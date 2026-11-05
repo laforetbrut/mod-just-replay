@@ -129,7 +129,7 @@ public final class SkinLibrary {
             // Two file names that sanitize alike must not share one texture.
             location = JustReplay.id("actor_skins/" + sanitize(fileName) + "_" + (++generation));
         }
-        Minecraft.getInstance().getTextureManager().register(location, new DynamicTexture(image));
+        Minecraft.getInstance().getTextureManager().register(location, new com.vyrriox.justreplay.gui.ui.JrTexture("justreplay", image, false));
         return location;
     }
 
@@ -150,7 +150,7 @@ public final class SkinLibrary {
         for (int[] area : BASE_LAYER) {
             for (int y = area[1]; y < area[3]; y++) {
                 for (int x = area[0]; x < area[2]; x++) {
-                    image.setPixelRGBA(x, y, image.getPixelRGBA(x, y) | 0xFF000000);
+                    image.setPixel(x, y, image.getPixel(x, y) | 0xFF000000);
                 }
             }
         }

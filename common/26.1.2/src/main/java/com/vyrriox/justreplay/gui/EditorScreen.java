@@ -1,5 +1,8 @@
 package com.vyrriox.justreplay.gui;
 
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.CharacterEvent;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.vyrriox.justreplay.mixin.KeyMappingAccessor;
 import com.vyrriox.justreplay.JustReplay;
@@ -836,7 +839,7 @@ public class EditorScreen extends GlassScreen {
             return;
         }
         Vec3 at = entity != null ? entity.position() : new Vec3(state[0], state[1], state[2]);
-        float yaw = ActorPlacement.yawTowards(at, minecraft.gameRenderer.getMainCamera().getPosition());
+        float yaw = ActorPlacement.yawTowards(at, minecraft.gameRenderer.getMainCamera().position());
         selectedActorKey = ActorPlacement.keyframe(actor, tick, state[0], state[1], state[2], yaw);
         session.saveProject();
         setStatus(Component.translatable("justreplay.editor.simple.turned", Timeline.formatTicks(tick)), Theme.SUCCESS);
@@ -1401,9 +1404,9 @@ public class EditorScreen extends GlassScreen {
         double aspect = (double) minecraft.getWindow().getWidth() / Math.max(1, minecraft.getWindow().getHeight());
         double nx = mx / width * 2.0 - 1.0;
         double ny = 1.0 - my / height * 2.0;
-        Vec3 dir = new Vec3(camera.getLookVector()).add(new Vec3(camera.getUpVector()).scale(ny * tan))
-                .add(new Vec3(camera.getLeftVector()).scale(-nx * tan * aspect));
-        Vec3 from = camera.getPosition();
+        Vec3 dir = new Vec3(camera.forwardVector()).add(new Vec3(camera.upVector()).scale(ny * tan))
+                .add(new Vec3(camera.leftVector()).scale(-nx * tan * aspect));
+        Vec3 from = camera.position();
         return new Vec3[]{from, from.add(dir.normalize().scale(ActorPlacement.REACH))};
     }
 
@@ -1431,13 +1434,13 @@ public class EditorScreen extends GlassScreen {
     // ---------------------------------------------------------------- input
 
     @Override
-    public boolean mouseClicked(double mx, double my, int button) {
+    public boolean mouseClicked(MouseButtonEvent ev_, boolean dbl_) { double mx = ev_.x(); double my = ev_.y(); int button = ev_.button();
         if (helpOpen) {
             helpOpen = false;
             return true;
         }
         if (hasPopup()) {
-            return super.mouseClicked(mx, my, button);
+            return super.mouseClicked(ev_, dbl_);
         }
         if (button == 0 && timeline.barClicked(mx, my)) {
             return true;
@@ -1511,7 +1514,7 @@ public class EditorScreen extends GlassScreen {
             ghostTick = timeline.tickAt(mx);
             return true;
         }
-        if (super.mouseClicked(mx, my, button)) {
+        if (super.mouseClicked(ev_, dbl_)) {
             return true;
         }
         // A click on the world itself selects the actor under the mouse, else the recorded player or mob under it.
@@ -1607,7 +1610,7 @@ public class EditorScreen extends GlassScreen {
     }
 
     @Override
-    public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
+    public boolean mouseDragged(MouseButtonEvent ev_, double dx, double dy) { double mx = ev_.x(); double my = ev_.y(); int button = ev_.button();
         if (timeline.barDragged(mx) || audioLanes.mouseDragged(timeline, mx, my) || overlaysPanel.mouseDragged(timeline, mx)) {
             return true;
         }
@@ -1642,11 +1645,11 @@ public class EditorScreen extends GlassScreen {
             ghostTick = timeline.tickAt(mx);
             return true;
         }
-        return super.mouseDragged(mx, my, button, dx, dy);
+        return super.mouseDragged(ev_, dx, dy);
     }
 
     @Override
-    public boolean mouseReleased(double mx, double my, int button) {
+    public boolean mouseReleased(MouseButtonEvent ev_) { double mx = ev_.x(); double my = ev_.y(); int button = ev_.button();
         if (timeline.barReleased() || audioLanes.mouseReleased() || overlaysPanel.mouseReleased()) {
             return true;
         }
@@ -1669,7 +1672,7 @@ public class EditorScreen extends GlassScreen {
             ghostTick = -1;
             return true;
         }
-        return super.mouseReleased(mx, my, button);
+        return super.mouseReleased(ev_);
     }
 
     @Override
@@ -1682,7 +1685,7 @@ public class EditorScreen extends GlassScreen {
             if (timeline.laneAt(my) == EditorTimeline.Lane.AUDIO && audioLanes.mouseScrolled(sy)) {
                 return true;
             }
-            if (hasControlDown()) {
+            if (net.minecraft.client.Minecraft.getInstance().hasControlDown()) {
                 timeline.zoom(sy > 0 ? 0.8 : 1.25, mx);
             } else {
                 timeline.scroll(-(sy != 0 ? sy : -sx) * 0.12);
@@ -1693,16 +1696,16 @@ public class EditorScreen extends GlassScreen {
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(KeyEvent ev_) { int keyCode = ev_.key(); int scanCode = ev_.scancode(); int modifiers = ev_.modifiers();
         if (helpOpen && (keyCode == GLFW.GLFW_KEY_ESCAPE || keyCode == GLFW.GLFW_KEY_F1)) {
             helpOpen = false;
             return true;
         }
         if (hasPopup() || typingInField()) {
-            return super.keyPressed(keyCode, scanCode, modifiers);
+            return super.keyPressed(ev_);
         }
-        if (hasControlDown() && (keyCode == GLFW.GLFW_KEY_Z || keyCode == GLFW.GLFW_KEY_Y)) {
-            boolean redo = keyCode == GLFW.GLFW_KEY_Y || hasShiftDown();
+        if (net.minecraft.client.Minecraft.getInstance().hasControlDown() && (keyCode == GLFW.GLFW_KEY_Z || keyCode == GLFW.GLFW_KEY_Y)) {
+            boolean redo = keyCode == GLFW.GLFW_KEY_Y || net.minecraft.client.Minecraft.getInstance().hasShiftDown();
             boolean done = redo ? session.redo() : session.undo();
             if (done) {
                 // Selections point at the previous objects: reopen the editor on the restored project.
@@ -1745,11 +1748,11 @@ public class EditorScreen extends GlassScreen {
             default -> {
             }
         }
-        if (JRKeys.EDITOR.matches(keyCode, scanCode)) {
+        if (JRKeys.EDITOR.matches(ev_)) {
             onClose();
             return true;
         }
-        if (JRKeys.CAMERA_PATH.matches(keyCode, scanCode)) {
+        if (JRKeys.CAMERA_PATH.matches(ev_)) {
             session.setCameraPath(!session.isCameraPathActive());
             return true;
         }
@@ -1758,7 +1761,7 @@ public class EditorScreen extends GlassScreen {
             CameraPanel.quickSwitch(session, cut);
             return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(ev_);
     }
 
     private boolean typingInField() {
@@ -1766,12 +1769,12 @@ public class EditorScreen extends GlassScreen {
     }
 
     @Override
-    public boolean charTyped(char c, int modifiers) {
+    public boolean charTyped(CharacterEvent ev_) { char c = (char) ev_.codepoint(); int modifiers = 0;
         if (c == '?' && !hasPopup() && !typingInField()) {
             toggleHelp();
             return true;
         }
-        return super.charTyped(c, modifiers);
+        return super.charTyped(ev_);
     }
 
     // ---------------------------------------------------------------- render
@@ -1821,7 +1824,7 @@ public class EditorScreen extends GlassScreen {
             shownCursor = playback.cursor();
             timeText = Timeline.formatTicks(playback.cursor()) + " / " + Timeline.formatTicks(playback.duration());
         }
-        g.drawString(font, timeText, timeX, Paint.textY(dockTop + 4, rowH), Theme.TEXT, false);
+        g.text(font, timeText, timeX, Paint.textY(dockTop + 4, rowH), Theme.TEXT, false);
         timeline.render(g, font, session, cameras.selectedKey, cameras.selectedCut, selectedActor, selectedActorKey, selectedAction,
                 ghostTick, mouseX, mouseY);
         if (timeline.contains(mouseX, mouseY) && dragging == null && !scrubbing && !helpOpen && !audioLanes.dragging() && !overlaysPanel.dragging()) {
@@ -1840,12 +1843,12 @@ public class EditorScreen extends GlassScreen {
         Component state = savedMtime < 0 ? tc("justreplay.editor.unsaved") : tc("justreplay.editor.saved");
         int stateW = font.width(state) + 12;
         String name = Paint.ellipsize(font, session.meta().name, Math.max(20, nameRight - x - stateW - 10));
-        g.drawString(font, name, x, y, Theme.TEXT, false);
+        g.text(font, name, x, y, Theme.TEXT, false);
         int sx = x + font.width(name) + 10;
         if (sx + stateW <= nameRight) {
             int color = savedMtime < 0 ? Theme.TEXT_MUTED : Theme.mix(0xFF7FA894, Theme.SUCCESS, flash);
             Paint.iconOnText(g, savedMtime < 0 ? Icon.DOT : Icon.CHECK, sx, y, 8, color);
-            g.drawString(font, state, sx + 11, y, Theme.text(Theme.mix(Theme.TEXT_MUTED, Theme.TEXT_DIM, flash), 1.0F), false);
+            g.text(font, state, sx + 11, y, Theme.text(Theme.mix(Theme.TEXT_MUTED, Theme.TEXT_DIM, flash), 1.0F), false);
             if (mouseX >= sx && mouseX < sx + stateW && mouseY >= 4 && mouseY < 4 + TOP_H && savedMtime >= 0) {
                 savedTip = new SimpleDateFormat("HH:mm:ss").format(new Date(savedMtime));
                 deferTooltip(Component.translatable("justreplay.editor.saved.tip", savedTip), mouseX, mouseY);
@@ -2046,8 +2049,8 @@ public class EditorScreen extends GlassScreen {
      */
     private void renderHelp(GuiGraphicsExtractor g) {
         float a = Anim.easeOutCubic(Anim.progress(helpAt, 200));
-        g.pose().pushPose();
-        g.pose().translate(0, 0, 350);
+        g.pose().pushMatrix();
+        g.pose().translate(0, 0);
         g.fill(0, 0, width, height, Theme.fade(0x8C05080C, a));
         int split = 0;
         for (int i = 1; i < help.size(); i++) {
@@ -2078,9 +2081,9 @@ public class EditorScreen extends GlassScreen {
         Component hint = tc("justreplay.help.dismiss");
         int hintX = bx + boxW - 10 - font.width(hint);
         boolean showHint = bx + 25 + font.width(title) + 12 <= hintX;
-        g.drawString(font, Paint.ellipsize(font, title, boxW - 35), bx + 25, by + 10, Theme.TEXT, false);
+        g.text(font, Paint.ellipsize(font, title, boxW - 35), bx + 25, by + 10, Theme.TEXT, false);
         if (showHint) {
-            g.drawString(font, hint, hintX, by + 10, Theme.TEXT_MUTED, false);
+            g.text(font, hint, hintX, by + 10, Theme.TEXT_MUTED, false);
         }
         int top = by + 28 - Math.round(scroll);
         g.enableScissor(bx, by + 24, bx + boxW, by + boxH - 4);
@@ -2097,7 +2100,7 @@ public class EditorScreen extends GlassScreen {
             Paint.rect(g, bx + boxW - 5, trackY, 2, trackH, 1, 0x1AFFFFFF);
             Paint.rect(g, bx + boxW - 5, ty, 2, thumb, 1, 0x80FFFFFF);
         }
-        g.pose().popPose();
+        g.pose().popMatrix();
     }
 
     /** Width of the key column of a help column. */
@@ -2131,7 +2134,7 @@ public class EditorScreen extends GlassScreen {
         for (String[] row : rows) {
             if (row[0] == null) {
                 if (y + 12 > clipTop && y < clipBottom) {
-                    g.drawString(font, row[1].toUpperCase(Locale.ROOT), x, y + 2, Theme.ACCENT, false);
+                    g.text(font, row[1].toUpperCase(Locale.ROOT), x, y + 2, Theme.ACCENT, false);
                 }
                 y += 12;
                 continue;
@@ -2143,10 +2146,10 @@ public class EditorScreen extends GlassScreen {
                 int kw = font.width(keys) + 8;
                 Paint.rect(g, x + keyW - kw, y, kw, 10, Theme.RADIUS_S, 0x33FFFFFF, 0x1AFFFFFF);
                 Paint.outline(g, x + keyW - kw, y, kw, 10, Theme.RADIUS_S, 0x4DFFFFFF, 0x1AFFFFFF);
-                g.drawString(font, keys, x + keyW - kw + 4, y + 1, Theme.TEXT, false);
+                g.text(font, keys, x + keyW - kw + 4, y + 1, Theme.TEXT, false);
                 int ly = y + 1;
                 for (FormattedCharSequence line : lines) {
-                    g.drawString(font, line, x + keyW + 6, ly, Theme.TEXT_DIM, false);
+                    g.text(font, line, x + keyW + 6, ly, Theme.TEXT_DIM, false);
                     ly += 10;
                 }
             }

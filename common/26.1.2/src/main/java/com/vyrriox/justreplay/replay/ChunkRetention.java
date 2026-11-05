@@ -71,7 +71,7 @@ final class ChunkRetention {
             if (Math.abs(chunk.getX() - centerX) > range || Math.abs(chunk.getZ() - centerZ) > range) {
                 return null;
             }
-            loaded.add(ChunkPos.asLong(chunk.getX(), chunk.getZ()));
+            loaded.add(ChunkPos.pack(chunk.getX(), chunk.getZ()));
         }
         return packet;
     }

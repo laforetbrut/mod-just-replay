@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.gui.ui;
 
+import net.minecraft.client.input.InputWithModifiers;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -53,12 +54,12 @@ public class GlassSwitch extends AbstractButton implements Tipped {
     }
 
     @Override
-    public void onPress() {
+    public void onPress(InputWithModifiers in_) {
         toggle.run();
     }
 
     @Override
-    protected void renderWidget(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+    protected void extractContents(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         Font font = Minecraft.getInstance().font;
         boolean on = state.getAsBoolean();
         float k = knob.to(on ? 1.0F : 0.0F);
@@ -80,7 +81,7 @@ public class GlassSwitch extends AbstractButton implements Tipped {
             cachedWidth = avail;
             cachedLabel = Paint.ellipsize(font, getMessage().getString(), Math.max(0, avail));
         }
-        g.drawString(font, cachedLabel, left, textY, Theme.text(Theme.mix(Theme.TEXT_DIM, Theme.TEXT, Math.max(h, k)), alpha), false);
+        g.text(font, cachedLabel, left, textY, Theme.text(Theme.mix(Theme.TEXT_DIM, Theme.TEXT, Math.max(h, k)), alpha), false);
         int trackTop = Theme.mix(0x33FFFFFF, 0xFF6CC0FF, k);
         int trackBottom = Theme.mix(0x1FFFFFFF, 0xFF3B8FE5, k);
         Paint.rect(g, tx, ty, tw, th, th / 2, Theme.fade(trackTop, alpha), Theme.fade(trackBottom, alpha));

@@ -22,6 +22,8 @@ public final class GlassToast implements Toast {
     private Component detail;
     private long shownAt = -1;
     private boolean changed;
+    private Visibility wanted = Visibility.SHOW;
+    private long displayLimit = DISPLAY;
 
     private GlassToast(Icon icon, int accent, Component title, Component detail) {
         this.icon = icon;
@@ -32,7 +34,7 @@ public final class GlassToast implements Toast {
 
     /** Shows a notification; {@code detail} may be null. */
     public static void show(Icon icon, int accent, Component title, Component detail) {
-        ToastManager toasts = Minecraft.getInstance().getToasts();
+        ToastManager toasts = Minecraft.getInstance().getToastManager();
         GlassToast existing = toasts.getToast(GlassToast.class, TOKEN);
         if (existing != null) {
             existing.icon = icon;
@@ -66,12 +68,23 @@ public final class GlassToast implements Toast {
     }
 
     @Override
-    public Visibility render(GuiGraphicsExtractor g, ToastManager component, long timeSinceLastVisible) {
+    public Visibility getWantedVisibility() {
+        return wanted;
+    }
+
+    @Override
+    public void update(ToastManager manager, long fullyVisibleForMs) {
         if (changed || shownAt < 0) {
-            shownAt = timeSinceLastVisible;
+            shownAt = fullyVisibleForMs;
             changed = false;
         }
-        Font font = component.getMinecraft().font;
+        long limit = (long) (DISPLAY * manager.getNotificationDisplayTimeMultiplier());
+        wanted = fullyVisibleForMs - shownAt >= limit ? Visibility.HIDE : Visibility.SHOW;
+        displayLimit = limit;
+    }
+
+    @Override
+    public void extractRenderState(GuiGraphicsExtractor g, Font font, long timeSinceLastVisible) {
         int w = width(), h = height();
         Paint.shadow(g, 2, 2, w - 4, h - 4, Theme.RADIUS_L, 5, 0x66000000);
         Paint.rect(g, 2, 2, w - 4, h - 4, Theme.RADIUS_L, 0xE61B212B, 0xE6131820);
@@ -79,14 +92,13 @@ public final class GlassToast implements Toast {
         Paint.circle(g, 15, h / 2.0F, 7, Theme.withAlpha(accent, 0x40));
         Paint.icon(g, icon, 10.5F, h / 2.0F - 4.5F, 9, accent);
         if (detail == null) {
-            g.drawString(font, title, 27, (h - 7) / 2, Theme.TEXT, false);
+            g.text(font, title, 27, (h - 7) / 2, Theme.TEXT, false);
         } else {
-            g.drawString(font, title, 27, 7, Theme.TEXT, false);
-            g.drawString(font, font.plainSubstrByWidth(detail.getString(), w - 34), 27, 18, Theme.TEXT_DIM, false);
+            g.text(font, title, 27, 7, Theme.TEXT, false);
+            g.text(font, font.plainSubstrByWidth(detail.getString(), w - 34), 27, 18, Theme.TEXT_DIM, false);
         }
         long elapsed = timeSinceLastVisible - shownAt;
-        float progress = Anim.clamp01(elapsed / (float) (DISPLAY * component.getNotificationDisplayTimeMultiplier()));
+        float progress = Anim.clamp01(elapsed / (float) Math.max(1L, displayLimit));
         Paint.rect(g, 8, h - 4, (w - 16) * (1.0F - progress), 1, 0.5F, Theme.withAlpha(accent, 0x99));
-        return elapsed >= DISPLAY * component.getNotificationDisplayTimeMultiplier() ? Visibility.HIDE : Visibility.SHOW;
     }
 }

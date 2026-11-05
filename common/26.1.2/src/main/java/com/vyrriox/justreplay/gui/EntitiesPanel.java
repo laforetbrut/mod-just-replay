@@ -184,7 +184,7 @@ final class EntitiesPanel {
         buildSelected(f);
 
         f.header(tc("justreplay.entities.nearby"), Icon.EYE);
-        Vec3 cam = mc.gameRenderer.getMainCamera().getPosition();
+        Vec3 cam = mc.gameRenderer.getMainCamera().position();
         List<Entity> near = new ArrayList<>();
         if (mc.level != null) {
             for (Entity e : mc.level.entitiesForRendering()) {

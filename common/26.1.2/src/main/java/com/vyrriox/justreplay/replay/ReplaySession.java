@@ -10,7 +10,7 @@ import com.vyrriox.justreplay.format.ReplayMeta;
 import com.vyrriox.justreplay.format.ReplayStorage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.GenericMessageScreen;
-import net.minecraft.client.gui.screens.ReceivingLevelScreen;
+import net.minecraft.client.gui.screens.LevelLoadingScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.Holder;
@@ -275,7 +275,7 @@ public final class ReplaySession {
             return;
         }
         loading = true;
-        mc.forceSetScreen(new GenericMessageScreen(Component.translatable("justreplay.loading")));
+        mc.setScreenAndShow(new GenericMessageScreen(Component.translatable("justreplay.loading")));
         // Decompressing a long replay takes a while: do it off the render thread.
         java.util.concurrent.CompletableFuture.supplyAsync(() -> {
             try {
@@ -293,7 +293,7 @@ public final class ReplaySession {
             loading = false;
             if (error != null) {
                 JustReplay.LOGGER.error("Cannot read replay {}", dir, error);
-                net.minecraft.client.gui.components.toasts.SystemToast.add(mc.getToasts(),
+                net.minecraft.client.gui.components.toasts.SystemToast.add(mc.getToastManager(),
                         net.minecraft.client.gui.components.toasts.SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
                         Component.translatable("justreplay.toast.open_failed"), Component.literal(dir.getFileName().toString()));
                 mc.setScreen(parent);
@@ -309,6 +309,20 @@ public final class ReplaySession {
     }
 
     private static boolean loading;
+    private static boolean rulesApplied;
+
+    /** Sets the rules of the replay world on the integrated server as soon as it exists. */
+    private static void applyWorldRules(Minecraft mc) {
+        net.minecraft.server.MinecraftServer server = mc.getSingleplayerServer();
+        if (rulesApplied || server == null) {
+            return;
+        }
+        rulesApplied = true;
+        GameRules rules = server.getGameRules();
+        rules.set(GameRules.ADVANCE_TIME, false, server);
+        rules.set(GameRules.ADVANCE_WEATHER, false, server);
+        rules.set(GameRules.SPAWN_MOBS, false, server);
+    }
     /** Far more than the host needs (at most one of its ticks); past this something is wrong and the replay still starts. */
     private static final int HOST_DRAIN_TICKS = 40;
 
@@ -316,7 +330,7 @@ public final class ReplaySession {
     private static void abortStart(Minecraft mc, Path dir, Screen parent) {
         current = null;
         pendingWorldCleanup = true;
-        net.minecraft.client.gui.components.toasts.SystemToast.add(mc.getToasts(),
+        net.minecraft.client.gui.components.toasts.SystemToast.add(mc.getToastManager(),
                 net.minecraft.client.gui.components.toasts.SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
                 Component.translatable("justreplay.toast.open_failed"), Component.literal(dir.getFileName().toString()));
         if (mc.level == null) {
@@ -342,20 +356,17 @@ public final class ReplaySession {
         current = new ReplaySession(dir, ReplayStorage.readMeta(dir), loaded, packets);
         current.parentScreen = parent;
         if (backup != null) {
-            net.minecraft.client.gui.components.toasts.SystemToast.add(mc.getToasts(),
+            net.minecraft.client.gui.components.toasts.SystemToast.add(mc.getToastManager(),
                     net.minecraft.client.gui.components.toasts.SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
                     Component.translatable("justreplay.toast.project_bad"), Component.literal(backup.getFileName().toString()));
         }
         JustReplay.LOGGER.info("Opening replay {} ({} ticks)", dir.getFileName(), packets.lastTick());
         deleteSessionWorld(mc);
 
-        GameRules rules = new GameRules();
-        rules.getRule(GameRules.RULE_DAYLIGHT).set(false, null);
-        rules.getRule(GameRules.RULE_WEATHER_CYCLE).set(false, null);
-        rules.getRule(GameRules.RULE_DOMOBSPAWNING).set(false, null);
-        rules.getRule(GameRules.RULE_SPAWN_CHUNK_RADIUS).set(0, null);
-        LevelSettings settings = new LevelSettings(WORLD_NAME, GameType.SPECTATOR, false, Difficulty.PEACEFUL, true, rules,
-                WorldDataConfiguration.DEFAULT);
+        // The rules of the replay world (no day cycle, no weather cycle, no mob spawning) are set on the server once it runs.
+        rulesApplied = false;
+        LevelSettings settings = new LevelSettings(WORLD_NAME, GameType.SPECTATOR,
+                new LevelSettings.DifficultySettings(Difficulty.PEACEFUL, false, true), true, WorldDataConfiguration.DEFAULT);
         try {
             mc.createWorldOpenFlows().createFreshLevel(WORLD_NAME, settings, new WorldOptions(0L, false, false),
                     ReplaySession::voidDimensions, parent);
@@ -371,10 +382,10 @@ public final class ReplaySession {
         }
     }
 
-    private static WorldDimensions voidDimensions(RegistryAccess access) {
-        WorldDimensions dimensions = access.registryOrThrow(Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT)
+    private static WorldDimensions voidDimensions(net.minecraft.core.HolderLookup.Provider access) {
+        WorldDimensions dimensions = access.lookupOrThrow(Registries.WORLD_PRESET).getOrThrow(WorldPresets.FLAT)
                 .value().createWorldDimensions();
-        Holder<Biome> voidBiome = access.registryOrThrow(Registries.BIOME).getHolderOrThrow(Biomes.THE_VOID);
+        Holder<Biome> voidBiome = access.lookupOrThrow(Registries.BIOME).getOrThrow(Biomes.THE_VOID);
         FlatLevelGeneratorSettings flat = new FlatLevelGeneratorSettings(Optional.of(HolderSet.direct()), voidBiome, List.of());
         return dimensions.replaceOverworldGenerator(access, new FlatLevelSource(flat));
     }
@@ -455,7 +466,7 @@ public final class ReplaySession {
             List<String> differing = com.vyrriox.justreplay.format.SyncedRegistries.differing(s.dir, mc.getConnection().registryAccess());
             if (!differing.isEmpty()) {
                 String names = String.join(", ", differing.subList(0, Math.min(3, differing.size())));
-                net.minecraft.client.gui.components.toasts.SystemToast.add(mc.getToasts(),
+                net.minecraft.client.gui.components.toasts.SystemToast.add(mc.getToastManager(),
                         net.minecraft.client.gui.components.toasts.SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
                         Component.translatable("justreplay.toast.registries_differ"),
                         differing.size() > 3 ? Component.literal(names + " +" + (differing.size() - 3)) : Component.literal(names));
@@ -474,7 +485,8 @@ public final class ReplaySession {
             JustReplay.LOGGER.debug("Voice playback failed", t);
         }
         Playback.enforceCamera(mc);
-        if (mc.screen instanceof ReceivingLevelScreen) {
+        applyWorldRules(mc);
+        if (mc.screen instanceof LevelLoadingScreen) {
             mc.setScreen(null);
         }
         if (s.playback.consumeWorldReset() && !s.spectate.isActive() && !s.isCameraPathActive()) {

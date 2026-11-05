@@ -50,13 +50,14 @@ public final class WorldOverride {
         }
         long game = data.getGameTime();
         if (!applied) {
-            recDay = data.getDayTime();
+            recDay = dayTime(lvl);
             recRain = ((LevelWeatherAccessor) lvl).justreplay$getRainLevel();
             recThunder = ((LevelWeatherAccessor) lvl).justreplay$getThunderLevel();
         } else {
-            long day = data.getDayTime();
+            long day = dayTime(lvl);
             if (day != lastDay) {
-                boolean cycle = lvl.getGameRules().getBoolean(GameRules.RULE_DAYLIGHT);
+                // 26.1 keeps the day cycle in the clock rate, which is not readable on the client: assume it runs.
+                boolean cycle = true;
                 long ticks = game - recGame;
                 // Only the day clock moved: the recorded time moves along. Anything else is a recorded SetTime.
                 recDay = cycle && day - lastDay == ticks ? recDay + ticks : day;
@@ -71,7 +72,7 @@ public final class WorldOverride {
         recGame = game;
         if (world == null || !world.active()) {
             if (applied) {
-                data.setDayTime(recDay);
+                setDayTime(lvl, recDay);
                 lvl.setRainLevel(recRain);
                 lvl.setThunderLevel(recThunder);
                 applied = false;
@@ -106,7 +107,7 @@ public final class WorldOverride {
             }
         }
         // ClientLevelData directly: ClientLevel.setDayTime would also flip the daylight game rule.
-        data.setDayTime(day);
+        setDayTime(lvl, day);
         lvl.setRainLevel(rain);
         lvl.setThunderLevel(thunder);
         lastDay = day;
@@ -115,11 +116,22 @@ public final class WorldOverride {
         applied = true;
     }
 
+    /** Day time of the default world clock of the level (ticks), 0 when the dimension has none. */
+    private static long dayTime(ClientLevel lvl) {
+        return lvl.getDefaultClockTime();
+    }
+
+    /** Sets the default world clock of the level to a total tick count, running at the normal rate. */
+    private static void setDayTime(ClientLevel lvl, long ticks) {
+        lvl.dimensionType().defaultClock().ifPresent(clock -> lvl.clockManager().handleUpdates(lvl.getGameTime(),
+                java.util.Map.of(clock, new net.minecraft.world.clock.ClockNetworkState(ticks, 0.0F, 1.0F))));
+    }
+
     /** Recorded day time last seen (the live day time when no override is applied). */
     public static long recordedDay() {
         Minecraft mc = Minecraft.getInstance();
         if (!applied && mc.level != null) {
-            return mc.level.getLevelData().getDayTime();
+            return dayTime(mc.level);
         }
         return recDay;
     }

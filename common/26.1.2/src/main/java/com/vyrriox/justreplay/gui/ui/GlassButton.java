@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.gui.ui;
 
+import net.minecraft.client.input.InputWithModifiers;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -95,9 +96,9 @@ public class GlassButton extends Button implements Tipped {
     }
 
     @Override
-    public void onPress() {
+    public void onPress(InputWithModifiers in_) {
         pressedAt = Anim.now();
-        super.onPress();
+        super.onPress(in_);
     }
 
     protected boolean keyboardFocused() {
@@ -109,17 +110,17 @@ public class GlassButton extends Button implements Tipped {
     }
 
     @Override
-    protected void renderWidget(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+    protected void extractContents(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         float h = hover.to(active && (isHovered() || keyboardFocused()) ? 1.0F : 0.0F);
         float o = on.to(isOn() ? 1.0F : 0.0F);
         float press = 1.0F - Anim.easeOutCubic(Anim.progress(pressedAt, 180));
         float alpha = active ? 1.0F : 0.45F;
         float lift = style == Style.ROW ? 0.0F : h * 0.5F - press * 0.5F;
-        g.pose().pushPose();
-        g.pose().translate(0, -lift, 0);
+        g.pose().pushMatrix();
+        g.pose().translate(0, -lift);
         drawFrame(g, getX(), getY(), width, height, h, o, press, alpha);
         drawContent(g, Minecraft.getInstance().font, getX(), getY(), width, height, h, o, alpha);
-        g.pose().popPose();
+        g.pose().popMatrix();
     }
 
     protected float radius() {
@@ -234,7 +235,7 @@ public class GlassButton extends Button implements Tipped {
             Paint.iconOnText(g, ic, cx, ty, iconSize, shownIconColor(color, alpha));
             cx += (int) iconSize + 3;
         }
-        g.drawString(font, label, cx, ty, color, false);
+        g.text(font, label, cx, ty, color, false);
     }
 
     private int shownIconColor(int textColor, float alpha) {

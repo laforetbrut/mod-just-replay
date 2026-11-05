@@ -1,5 +1,7 @@
 package com.vyrriox.justreplay.gui.ui;
 
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.input.KeyEvent;
 import com.vyrriox.justreplay.mixin.ScreenAccessor;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -94,14 +96,14 @@ public abstract class GlassScreen extends Screen {
     // ---------------------------------------------------------------- render
 
     @Override
-    public void renderBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+    public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         if (!blurBackground) {
             return;
         }
         if (minecraft.level == null) {
-            renderPanorama(g, partialTick);
+            extractPanorama(g, partialTick);
         }
-        renderBlurredBackground(partialTick);
+        extractBlurredBackground(g);
         g.fillGradient(0, 0, width, height, Theme.SCRIM_TOP, Theme.SCRIM_BOTTOM);
     }
 
@@ -111,25 +113,25 @@ public abstract class GlassScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+    public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         boolean blocked = popup != null;
         int mx = blocked ? -10000 : mouseX;
         int my = blocked ? -10000 : mouseY;
-        renderBackground(g, mouseX, mouseY, partialTick);
+        extractBackground(g, mouseX, mouseY, partialTick);
         renderPanels(g, mx, my, partialTick);
         for (ScrollArea area : areas) {
             area.render(g, mx, my, partialTick);
         }
         for (Renderable renderable : ((ScreenAccessor) this).justreplay$getRenderables()) {
-            renderable.render(g, mx, my, partialTick);
+            renderable.extractRenderState(g, mx, my, partialTick);
         }
         deferredTip = null;
         renderOverlay(g, mx, my, partialTick);
         if (popup != null) {
-            g.pose().pushPose();
-            g.pose().translate(0, 0, 300);
+            g.pose().pushMatrix();
+            g.pose().translate(0, 0);
             popup.render(g, font, mouseX, mouseY);
-            g.pose().popPose();
+            g.pose().popMatrix();
         } else if (tooltipsEnabled()) {
             // Tooltips go last: every widget, overlay and popup is already drawn under them.
             if (!renderTooltip(g, mouseX, mouseY) && deferredTip != null) {
@@ -189,7 +191,7 @@ public abstract class GlassScreen extends Screen {
     // ---------------------------------------------------------------- input
 
     @Override
-    public boolean mouseClicked(double mx, double my, int button) {
+    public boolean mouseClicked(MouseButtonEvent ev_, boolean dbl_) { double mx = ev_.x(); double my = ev_.y(); int button = ev_.button();
         if (popup != null) {
             Popup p = popup;
             if (!p.contains(mx, my) || p.clicked(mx, my, button)) {
@@ -209,7 +211,7 @@ public abstract class GlassScreen extends Screen {
             if (area != null && !area.contains(mx, my)) {
                 continue;
             }
-            if (child.mouseClicked(mx, my, button)) {
+            if (child.mouseClicked(ev_, dbl_)) {
                 setFocused(child);
                 if (button == 0) {
                     setDragging(true);
@@ -221,7 +223,7 @@ public abstract class GlassScreen extends Screen {
     }
 
     @Override
-    public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
+    public boolean mouseDragged(MouseButtonEvent ev_, double dx, double dy) { double mx = ev_.x(); double my = ev_.y(); int button = ev_.button();
         if (popup != null) {
             return true;
         }
@@ -230,11 +232,11 @@ public abstract class GlassScreen extends Screen {
                 return true;
             }
         }
-        return super.mouseDragged(mx, my, button, dx, dy);
+        return super.mouseDragged(ev_, dx, dy);
     }
 
     @Override
-    public boolean mouseReleased(double mx, double my, int button) {
+    public boolean mouseReleased(MouseButtonEvent ev_) { double mx = ev_.x(); double my = ev_.y(); int button = ev_.button();
         boolean bar = false;
         for (ScrollArea area : areas) {
             bar |= area.mouseReleased();
@@ -243,7 +245,7 @@ public abstract class GlassScreen extends Screen {
             setDragging(false);
             return true;
         }
-        return super.mouseReleased(mx, my, button);
+        return super.mouseReleased(ev_);
     }
 
     @Override
@@ -260,7 +262,7 @@ public abstract class GlassScreen extends Screen {
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(KeyEvent ev_) { int keyCode = ev_.key(); int scanCode = ev_.scancode(); int modifiers = ev_.modifiers();
         if (popup != null) {
             if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
                 popup = null;
@@ -269,6 +271,6 @@ public abstract class GlassScreen extends Screen {
             popup.keyPressed(keyCode);
             return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(ev_);
     }
 }

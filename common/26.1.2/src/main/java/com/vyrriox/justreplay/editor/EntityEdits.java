@@ -51,14 +51,14 @@ public final class EntityEdits {
         if (s == null) {
             return 0.0;
         }
-        return CameraController.frameTime(s, Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false));
+        return CameraController.frameTime(s, Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false));
     }
 
     /**
      * Skin of a recorded player at the current frame from its timed skin changes, or null to keep its own skin.
      * Called for every player at every frame: bails out early when the project has no entity edits.
      */
-    public static net.minecraft.client.resources.PlayerSkin skinOf(Entity entity) {
+    public static net.minecraft.world.entity.player.PlayerSkin skinOf(Entity entity) {
         ReplayProject.EntityEdit edit = editOf(entity);
         if (edit == null || edit.skinChanges.isEmpty()) {
             return null;

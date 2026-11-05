@@ -96,7 +96,7 @@ public final class OverlayPlacementTool {
     /** Anchors an overlay where a ray hits, without the interactive tool (self test, quick actions). */
     public static void anchorAt(ReplaySession session, Overlay overlay, Vec3 from, Vec3 direction, double freeDistance, boolean isNew) {
         Aim aim = aim(session, from, direction, freeDistance, false);
-        apply(overlay, aim, isNew, Minecraft.getInstance().gameRenderer.getMainCamera().getYRot());
+        apply(overlay, aim, isNew, Minecraft.getInstance().gameRenderer.getMainCamera().yRot());
     }
 
     // ---------------------------------------------------------------- aiming
@@ -200,8 +200,8 @@ public final class OverlayPlacementTool {
             return;
         }
         net.minecraft.client.Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
-        aim = aim(session, camera.getPosition(), new Vec3(camera.getLookVector()), distance, Screen.hasControlDown());
-        apply(overlay, aim, isNew, camera.getYRot());
+        aim = aim(session, camera.position(), new Vec3(camera.forwardVector()), distance, net.minecraft.client.Minecraft.getInstance().hasControlDown());
+        apply(overlay, aim, isNew, camera.yRot());
     }
 
     /** Anchors the overlay where the crosshair aims and returns to the editor. */
@@ -252,7 +252,7 @@ public final class OverlayPlacementTool {
     public static boolean onScroll(double deltaX, double deltaY) {
         if (placing()) {
             double wheel = deltaY != 0 ? deltaY : deltaX;
-            double step = Screen.hasShiftDown() ? 0.1 : 0.5;
+            double step = net.minecraft.client.Minecraft.getInstance().hasShiftDown() ? 0.1 : 0.5;
             active.distance = Math.max(MIN_DISTANCE, Math.min(MAX_DISTANCE, active.distance + Math.signum(wheel) * step));
             return true;
         }
@@ -278,7 +278,7 @@ public final class OverlayPlacementTool {
         OverlayPlacementTool tool = active;
         if (newScreen instanceof PauseScreen) {
             Minecraft mc = Minecraft.getInstance();
-            mc.tell(() -> {
+            mc.execute(() -> {
                 // pauseGame() pauses the sounds right after asking for the menu.
                 mc.getSoundManager().resume();
                 tool.cancel();
@@ -303,7 +303,7 @@ public final class OverlayPlacementTool {
         }
         Minecraft mc = Minecraft.getInstance();
         Aim aim = active.aim;
-        Vec3 cam = camera.getPosition();
+        Vec3 cam = camera.position();
         PoseStack pose = new PoseStack();
         pose.translate(-cam.x, -cam.y, -cam.z);
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
@@ -381,12 +381,12 @@ public final class OverlayPlacementTool {
         int by = 8 - Math.round((1.0F - a) * 6);
         Paint.glass(g, bx, by, boxW, boxH, Theme.RADIUS_L);
         Paint.iconOnText(g, Icon.PIN, bx + 8, by + 7, 9, Theme.ACCENT);
-        g.drawString(font, Paint.ellipsize(font, title.getString(), boxW - 30), bx + 21, by + 7, Theme.TEXT, false);
+        g.text(font, Paint.ellipsize(font, title.getString(), boxW - 30), bx + 21, by + 7, Theme.TEXT, false);
         int ly = by + 19;
         for (String l : keyLines) {
-            g.drawString(font, Paint.ellipsize(font, l, boxW - 16), bx + 8, ly, Theme.TEXT_DIM, false);
+            g.text(font, Paint.ellipsize(font, l, boxW - 16), bx + 8, ly, Theme.TEXT_DIM, false);
             ly += 11;
         }
-        g.drawString(font, Paint.ellipsize(font, status, boxW - 16), bx + 8, ly, Theme.ACCENT, false);
+        g.text(font, Paint.ellipsize(font, status, boxW - 16), bx + 8, ly, Theme.ACCENT, false);
     }
 }

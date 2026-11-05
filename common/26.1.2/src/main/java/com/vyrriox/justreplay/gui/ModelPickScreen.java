@@ -63,22 +63,22 @@ public class ModelPickScreen extends GlassScreen {
     @Override
     protected void renderPanels(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         float a = intro();
-        g.pose().pushPose();
-        g.pose().translate(0, (1.0F - a) * 6.0F, 0);
+        g.pose().pushMatrix();
+        g.pose().translate(0, (1.0F - a) * 6.0F);
         Paint.glass(g, boxX, boxY, boxW, boxH, Theme.RADIUS_L);
-        g.pose().popPose();
+        g.pose().popMatrix();
     }
 
     @Override
     protected void renderOverlay(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         Paint.iconOnText(g, Icon.CUBE, boxX + 12, boxY + 12, 10, Theme.ACCENT);
-        g.drawString(font, Paint.ellipsize(font, title.getString(), boxW - 40), boxX + 27, boxY + 12, Theme.TEXT, false);
+        g.text(font, Paint.ellipsize(font, title.getString(), boxW - 40), boxX + 27, boxY + 12, Theme.TEXT, false);
         if (files.isEmpty()) {
             Component empty = Component.translatable("justreplay.model.pick.empty");
             Paint.icon(g, Icon.FOLDER, width / 2.0F - 8, boxY + boxH / 2.0F - 22, 16, Theme.TEXT_MUTED);
             int ly = boxY + boxH / 2 + 2;
             for (var line : font.split(empty, boxW - 30)) {
-                g.drawString(font, line, width / 2 - font.width(line) / 2, ly, Theme.TEXT_DIM, false);
+                g.text(font, line, width / 2 - font.width(line) / 2, ly, Theme.TEXT_DIM, false);
                 ly += 10;
             }
         }

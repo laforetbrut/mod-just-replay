@@ -17,8 +17,8 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.TamableAnimal;
 import net.minecraft.world.entity.animal.golem.IronGolem;
-import net.minecraft.world.entity.monster.AbstractIllager;
-import net.minecraft.world.entity.monster.AbstractSkeleton;
+import net.minecraft.world.entity.monster.illager.AbstractIllager;
+import net.minecraft.world.entity.monster.skeleton.AbstractSkeleton;
 import net.minecraft.world.entity.monster.Ravager;
 import net.minecraft.world.entity.monster.Zoglin;
 import net.minecraft.world.entity.monster.zombie.Zombie;
@@ -244,7 +244,7 @@ public final class ActorAnimator {
         if (custom == null || session == null) {
             return;
         }
-        float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+        float partial = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false);
         double ticks = (CameraController.frameTime(session, partial) - custom.start()) * custom.speed();
         EmoteLibrary.apply(model, EmoteLibrary.sample(custom.emote(), ticks, custom.clipFrom(), custom.clipTo()));
     }
@@ -262,7 +262,7 @@ public final class ActorAnimator {
         if (session == null) {
             return;
         }
-        float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+        float partial = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false);
         double ticks = (CameraController.frameTime(session, partial) - custom.start()) * custom.speed();
         EmoteLibrary.applyWholeBody(stack, EmoteLibrary.sample(custom.emote(), ticks, custom.clipFrom(), custom.clipTo()));
     }
@@ -296,7 +296,7 @@ public final class ActorAnimator {
         if (dance == null || session == null) {
             return;
         }
-        float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+        float partial = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false);
         double beats = dance.beats(CameraController.frameTime(session, partial));
         float p = (float) (beats - Math.floor(beats));
         float e = dance.energy();
@@ -429,7 +429,7 @@ public final class ActorAnimator {
             rightArm.y += drop;
             leftArm.y += drop;
         }
-        model.hat.copyFrom(model.head);
+        model.hat.loadPose(model.head.storePose());
         Gesture gesture = GESTURES.get(entity.getId());
         if (gesture != null) {
             applyGestureArms(gesture, entity.tickCount + partial, model.head, rightArm, leftArm);
@@ -868,7 +868,6 @@ public final class ActorAnimator {
 
     private static boolean isFlyer(Entity entity) {
         return entity instanceof net.minecraft.world.entity.animal.FlyingAnimal
-                || entity instanceof net.minecraft.world.entity.FlyingMob
                 || entity instanceof net.minecraft.world.entity.ambient.Bat
                 || entity instanceof net.minecraft.world.entity.monster.Vex
                 || entity instanceof net.minecraft.world.entity.monster.Blaze
@@ -915,7 +914,7 @@ public final class ActorAnimator {
                 continue;
             }
             if (e.getUUID().toString().equalsIgnoreCase(key)
-                    || (e instanceof Player p && p.getGameProfile().getName().equalsIgnoreCase(key))
+                    || (e instanceof Player p && p.getGameProfile().name().equalsIgnoreCase(key))
                     || (e.hasCustomName() && e.getCustomName().getString().equalsIgnoreCase(key))) {
                 return e.position();
             }
@@ -927,7 +926,7 @@ public final class ActorAnimator {
         String name = param == null ? "" : param.trim();
         if (name.isEmpty() || name.equalsIgnoreCase("camera")) {
             Minecraft mc = Minecraft.getInstance();
-            return mc.gameRenderer.getMainCamera().getPosition();
+            return mc.gameRenderer.getMainCamera().position();
         }
         for (ReplayProject.ActorData other : project.actors) {
             if (other != self && (other.name.equalsIgnoreCase(name) || other.id.equals(name))) {
@@ -1137,13 +1136,10 @@ public final class ActorAnimator {
     private void applyDragon(ReplayProject.ActorData actor, ReplayProject project,
                              net.minecraft.world.entity.boss.enderdragon.EnderDragon dragon, int cursor, boolean paused,
                              State state, Frame now, Frame before, double[] fallback) {
-        dragon.posPointer = dragon.positions.length - 1;
-        for (int k = 0; k < DRAGON_HISTORY; k++) {
+        // Oldest sample first: the history is a ring the renderer reads back by delay.
+        for (int k = DRAGON_HISTORY - 1; k >= 0; k--) {
             Frame f = k == 0 ? now : k == 1 && !paused ? before : frame(actor, project, cursor - k, dragon, fallback);
-            double[] slot = dragon.positions[(dragon.posPointer - k) & (dragon.positions.length - 1)];
-            slot[0] = Mth.wrapDegrees(f.yaw + 180.0F);
-            slot[1] = f.y;
-            slot[2] = 0.0;
+            dragon.flightHistory.record(f.y, Mth.wrapDegrees(f.yaw + 180.0F));
         }
         if (paused) {
             dragon.oFlapTime = dragon.flapTime = state.flap;

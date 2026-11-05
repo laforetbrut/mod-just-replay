@@ -162,7 +162,7 @@ public final class ModelLibrary {
             try {
                 NativeImage image = NativeImage.read(png);
                 Identifier location = JustReplay.id("bbmodel/" + base + "/" + i);
-                Minecraft.getInstance().getTextureManager().register(location, new DynamicTexture(image));
+                Minecraft.getInstance().getTextureManager().register(location, new com.vyrriox.justreplay.gui.ui.JrTexture("justreplay", image, false));
                 UPLOADED.add(location);
                 textures[i] = location;
             } catch (Exception e) {

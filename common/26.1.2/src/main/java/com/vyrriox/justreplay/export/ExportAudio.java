@@ -86,7 +86,7 @@ public final class ExportAudio {
 
         Event(SoundInstance instance, long start, Sound sound, float volume, boolean positional, float range) {
             this.instance = instance;
-            this.location = instance.getLocation();
+            this.location = instance.getIdentifier();
             this.source = instance.getSource();
             this.start = start;
             this.loop = instance.isLooping();
@@ -173,7 +173,7 @@ public final class ExportAudio {
             float kind = session != null ? SoundKinds.gain(session.project(), instance)
                     * com.vyrriox.justreplay.editor.EntityEdits.soundGain(instance) : 1.0F;
             float volume = Math.min(1.0F, instance.getVolume()) * mc.options.getSoundSourceVolume(instance.getSource()) * gameGain() * kind;
-            if (instance.getLocation().getPath().endsWith(".step")) {
+            if (instance.getIdentifier().getPath().endsWith(".step")) {
                 footsteps++;
                 footstepVolume += volume;
             }
@@ -188,7 +188,7 @@ public final class ExportAudio {
                 ticking.add(event);
             }
         } catch (Throwable t) {
-            JustReplay.LOGGER.debug("Cannot log sound {}", instance.getLocation(), t);
+            JustReplay.LOGGER.debug("Cannot log sound {}", instance.getIdentifier(), t);
         }
     }
 

@@ -73,7 +73,7 @@ public final class ActorPlacement {
     /** Where the camera looks: the main camera position and its view direction. */
     public static BlockHitResult crosshair(boolean outline) {
         net.minecraft.client.Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
-        return raycast(camera.getPosition(), new Vec3(camera.getLookVector()), outline);
+        return raycast(camera.position(), new Vec3(camera.forwardVector()), outline);
     }
 
     /** Standing spot of a hit: on a top face where it was hit, else just in front of the face, on the ground. */

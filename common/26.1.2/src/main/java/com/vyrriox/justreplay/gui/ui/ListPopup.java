@@ -52,8 +52,8 @@ public final class ListPopup extends Popup {
     @Override
     public void render(GuiGraphicsExtractor g, Font font, int mouseX, int mouseY) {
         float a = appear();
-        g.pose().pushPose();
-        g.pose().translate(0, (1.0F - a) * -4.0F, 0);
+        g.pose().pushMatrix();
+        g.pose().translate(0, (1.0F - a) * -4.0F);
         Paint.shadow(g, x, y + 2, w, h, Theme.RADIUS_M, 8, Theme.fade(0x80000000, a));
         Paint.rect(g, x, y, w, h, Theme.RADIUS_M, Theme.fade(0xF01A202A, a), Theme.fade(0xF0121720, a));
         Paint.outline(g, x, y, w, h, Theme.RADIUS_M, Theme.fade(0x73FFFFFF, a), Theme.fade(0x26FFFFFF, a));
@@ -70,7 +70,7 @@ public final class ListPopup extends Popup {
             if (selected) {
                 Paint.icon(g, Icon.CHECK, x + 6, ry + 2.5F, 8, Theme.fade(Theme.ACCENT, a));
             }
-            g.drawString(font, Paint.ellipsize(font, labels.get(i), w - 26), x + 18, (int) ry + 3,
+            g.text(font, Paint.ellipsize(font, labels.get(i), w - 26), x + 18, (int) ry + 3,
                     Theme.text(selected ? Theme.ACCENT : hover ? Theme.TEXT : Theme.TEXT_DIM, a), false);
         }
         g.disableScissor();
@@ -79,7 +79,7 @@ public final class ListPopup extends Popup {
             float by = y + 3 + (h - 6 - bh) * (s / Math.max(1, maxScroll()));
             Paint.rect(g, x + w - 4, by, 2, bh, 1, Theme.fade(0x80FFFFFF, a));
         }
-        g.pose().popPose();
+        g.pose().popMatrix();
     }
 
     private int indexAt(double my) {

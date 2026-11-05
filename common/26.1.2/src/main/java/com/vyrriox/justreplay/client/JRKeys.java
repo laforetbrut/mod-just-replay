@@ -64,7 +64,7 @@ public final class JRKeys {
     /** Index of the live switching key matching a key press, or -1. */
     public static int cutKeyIndex(int keyCode, int scanCode) {
         for (int i = 0; i < CUT_TO.length; i++) {
-            if (CUT_TO[i].matches(keyCode, scanCode)) {
+            if (CUT_TO[i].matches(new net.minecraft.client.input.KeyEvent(keyCode, scanCode, 0))) {
                 return i;
             }
         }

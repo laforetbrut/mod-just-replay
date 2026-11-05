@@ -127,7 +127,7 @@ public final class PehkuiCompat {
             boolean gradual = false;
             for (Object tag : ((Map<?, ?>) r.synced.get(custom.payload())).values()) {
                 CompoundTag scale = (CompoundTag) tag;
-                gradual |= scale.getInt("ticks") < scale.getInt("total_ticks");
+                gradual |= scale.getIntOr("ticks", 0) < scale.getIntOr("total_ticks", 0);
             }
             if (!gradual) {
                 return packet;
@@ -137,8 +137,8 @@ public final class PehkuiCompat {
             Object copy = r.payloadRead.newInstance(buf);
             for (Object tag : ((Map<?, ?>) r.synced.get(copy)).values()) {
                 CompoundTag scale = (CompoundTag) tag;
-                int total = scale.getInt("total_ticks");
-                scale.putInt("ticks", (int) Math.min((long) scale.getInt("ticks") + late, total));
+                int total = scale.getIntOr("total_ticks", 0);
+                scale.putInt("ticks", (int) Math.min((long) scale.getIntOr("ticks", 0) + late, total));
             }
             return new ClientboundCustomPayloadPacket((CustomPacketPayload) copy);
         } catch (Throwable t) {

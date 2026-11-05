@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.gui.ui;
 
+import net.minecraft.client.input.InputWithModifiers;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -46,8 +47,8 @@ public class Dropdown<T> extends GlassButton {
     }
 
     @Override
-    public void onPress() {
-        super.onPress();
+    public void onPress(InputWithModifiers in_) {
+        super.onPress(in_);
         Font font = Minecraft.getInstance().font;
         List<String> labels = new ArrayList<>(values.size());
         for (T v : values) {
@@ -77,13 +78,13 @@ public class Dropdown<T> extends GlassButton {
         }
         String caption = label(font, Math.max(0, (right - left) / 2));
         if (!caption.isEmpty()) {
-            g.drawString(font, caption, left, textY, Theme.text(Theme.TEXT_DIM, alpha), false);
+            g.text(font, caption, left, textY, Theme.text(Theme.TEXT_DIM, alpha), false);
             left += font.width(caption) + 4;
         }
         int space = right - 3 - left;
         String shown = valueWidth <= space ? valueLabel : Paint.ellipsize(font, valueLabel, space);
         int vw = shown == valueLabel ? valueWidth : font.width(shown);
         int vx = caption.isEmpty() ? left : right - 3 - vw;
-        g.drawString(font, shown, vx, textY, textColor(h, o, alpha), false);
+        g.text(font, shown, vx, textY, textColor(h, o, alpha), false);
     }
 }

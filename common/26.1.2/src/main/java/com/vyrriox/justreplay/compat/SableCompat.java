@@ -234,7 +234,7 @@ public final class SableCompat {
             try {
                 Object plot = r.getPlot.invoke(subLevel);
                 ChunkPos plotPos = (ChunkPos) r.plotPos.get(plot);
-                long key = ChunkPos.asLong(plotPos.x - origin.x, plotPos.z - origin.y);
+                long key = ChunkPos.pack(plotPos.x() - origin.x, plotPos.z() - origin.y);
                 Object interpolator = r.getInterpolator.invoke(subLevel);
                 List<Object[]> history = new ArrayList<>();
                 List<?> buffer = (List<?>) r.buffer.get(interpolator);

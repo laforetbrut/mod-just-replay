@@ -67,7 +67,7 @@ public final class ReplayHud {
         Paint.iconOnText(g, playback.isPaused() ? Icon.PLAY : Icon.PAUSE, cx, textY, 8, Theme.TEXT);
         cx += 12;
         String time = time(playback.cursor(), playback.duration());
-        g.drawString(font, time, cx, textY, Theme.TEXT, false);
+        g.text(font, time, cx, textY, Theme.TEXT, false);
         cx += font.width(time) + 8;
 
         int right = x + w - 8;
@@ -77,12 +77,12 @@ public final class ReplayHud {
             right -= bw;
             Paint.rect(g, right, textY - 2, bw, Paint.CAP + 4, (Paint.CAP + 4) / 2.0F, 0xCC5AB4FF, 0xCC2F86E0);
             Paint.iconOnText(g, Icon.CAMERA, right + 3, textY, 7, Theme.TEXT_ON_ACCENT);
-            g.drawString(font, cam, right + 11, textY, Theme.TEXT_ON_ACCENT, false);
+            g.text(font, cam, right + 11, textY, Theme.TEXT_ON_ACCENT, false);
             right -= 6;
         }
         String speed = speed(playback.speed());
         right -= font.width(speed);
-        g.drawString(font, speed, right, textY, Theme.TEXT_DIM, false);
+        g.text(font, speed, right, textY, Theme.TEXT_DIM, false);
         right -= 8;
         if (right - cx > 20) {
             Timeline.renderCompact(g, cx, y + 4, right - cx, 9, session);
@@ -95,7 +95,7 @@ public final class ReplayHud {
             int sw = Math.min(w, font.width(spectating) + 22);
             Paint.glass(g, x, y - 16, sw, 13, 6.5F);
             Paint.iconOnText(g, Icon.EYE, x + 5, y - 13, 9, Theme.WARNING);
-            g.drawString(font, Paint.ellipsize(font, spectating.getString(), sw - 22), x + 17, y - 13, 0xFFFFE08A, false);
+            g.text(font, Paint.ellipsize(font, spectating.getString(), sw - 22), x + 17, y - 13, 0xFFFFE08A, false);
             used = x + sw + 6;
         }
         String hint = hint();
@@ -103,7 +103,7 @@ public final class ReplayHud {
         int hx = x + w - hw;
         if (hx > used) {
             Paint.glass(g, hx, y - 16, hw, 13, 6.5F);
-            g.drawString(font, hint, hx + 6, y - 13, Theme.TEXT_DIM, false);
+            g.text(font, hint, hx + 6, y - 13, Theme.TEXT_DIM, false);
         }
     }
 
@@ -117,7 +117,7 @@ public final class ReplayHud {
         float pulse = 0.5F + 0.5F * (float) Math.sin(Anim.now() / 1000.0 * Math.PI * 1.6);
         Paint.circle(g, 13, 13, 3.0F + pulse * 1.6F, Theme.withAlpha(Theme.RECORD, (int) (0x30 + 0x40 * pulse)));
         Paint.circle(g, 13, 13, 2.6F, Theme.mix(0xFFB33636, Theme.RECORD, pulse));
-        g.drawString(font, recText, 20, 10, Theme.TEXT, false);
+        g.text(font, recText, 20, 10, Theme.TEXT, false);
     }
 
     private static String time(int cursor, int duration) {

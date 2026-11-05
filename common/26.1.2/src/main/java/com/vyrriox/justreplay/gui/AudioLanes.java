@@ -177,7 +177,7 @@ final class AudioLanes {
             int y = laneY(t, row);
             boolean audible = track.audible(tracks());
             if (track.clips.isEmpty()) {
-                g.drawString(font, Paint.ellipsize(font, track.name, t.w - 8), t.x + 4, y + (LANE - 7) / 2, 0x597F8896, false);
+                g.text(font, Paint.ellipsize(font, track.name, t.w - 8), t.x + 4, y + (LANE - 7) / 2, 0x597F8896, false);
             }
             for (AudioClip clip : track.clips) {
                 renderClip(g, font, t, track, clip, color(first + row), y, audible);
@@ -236,7 +236,7 @@ final class AudioLanes {
         if (w > 30) {
             String name = Paint.ellipsize(font, label(clip), Math.max(0, Math.min(to, x0 + w) - Math.max(from, x0) - 6));
             if (!name.isEmpty()) {
-                g.drawString(font, name, Math.max(from, x0) + 3, y + 2, audible ? 0xF2FFFFFF : 0x99FFFFFF, false);
+                g.text(font, name, Math.max(from, x0) + 3, y + 2, audible ? 0xF2FFFFFF : 0x99FFFFFF, false);
             }
         }
         if (sel) {
@@ -385,7 +385,7 @@ final class AudioLanes {
 
     /** Nearest snap target within reach of {@code tick}, or {@code tick} itself. */
     private double snap(EditorTimeline t, double tick) {
-        if (Screen.hasShiftDown()) {
+        if (net.minecraft.client.Minecraft.getInstance().hasShiftDown()) {
             return tick;
         }
         int px = t.xOf(tick);
@@ -489,7 +489,7 @@ final class AudioLanes {
 
     /** Shift + wheel over the lanes scrolls the track list when it is longer than the lanes. */
     boolean mouseScrolled(double sy) {
-        if (tracks().size() <= maxVisible || !Screen.hasShiftDown()) {
+        if (tracks().size() <= maxVisible || !net.minecraft.client.Minecraft.getInstance().hasShiftDown()) {
             return false;
         }
         scroll += sy > 0 ? -1 : 1;
@@ -498,10 +498,10 @@ final class AudioLanes {
     }
 
     boolean keyPressed(int keyCode) {
-        if (keyCode == GLFW.GLFW_KEY_S && !Screen.hasControlDown()) {
+        if (keyCode == GLFW.GLFW_KEY_S && !net.minecraft.client.Minecraft.getInstance().hasControlDown()) {
             return splitAtPlayHead();
         }
-        if (keyCode == GLFW.GLFW_KEY_D && Screen.hasControlDown() && selectedClip != null) {
+        if (keyCode == GLFW.GLFW_KEY_D && net.minecraft.client.Minecraft.getInstance().hasControlDown() && selectedClip != null) {
             duplicateSelected();
             return true;
         }

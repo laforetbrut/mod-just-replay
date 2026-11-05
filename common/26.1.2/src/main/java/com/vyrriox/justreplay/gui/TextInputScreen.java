@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.gui;
 
+import net.minecraft.client.input.KeyEvent;
 import com.vyrriox.justreplay.gui.ui.GlassButton;
 import com.vyrriox.justreplay.gui.ui.GlassScreen;
 import com.vyrriox.justreplay.gui.ui.GlassTextField;
@@ -63,29 +64,29 @@ public class TextInputScreen extends GlassScreen {
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(KeyEvent ev_) { int keyCode = ev_.key(); int scanCode = ev_.scancode(); int modifiers = ev_.modifiers();
         if (keyCode == 257 || keyCode == 335) {
             done();
             return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(ev_);
     }
 
     @Override
     protected void renderPanels(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         float a = intro();
-        g.pose().pushPose();
-        g.pose().translate(0, (1.0F - a) * 6.0F, 0);
+        g.pose().pushMatrix();
+        g.pose().translate(0, (1.0F - a) * 6.0F);
         Paint.glass(g, boxX, boxY, boxW, boxH, Theme.RADIUS_L);
-        g.pose().popPose();
+        g.pose().popMatrix();
     }
 
     @Override
     protected void renderOverlay(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         Paint.circle(g, boxX + 20, boxY + 18, 8, Theme.ACCENT_SOFT);
         Paint.iconOnText(g, Icon.EDIT, boxX + 16, boxY + 14, 8, Theme.ACCENT);
-        g.drawString(font, Paint.ellipsize(font, title.getString(), boxW - 44), boxX + 34, boxY + 14, Theme.TEXT, false);
-        g.drawString(font, Paint.ellipsize(font, label.getString(), boxW - 24), boxX + 13, boxY + 31, Theme.TEXT_DIM, false);
+        g.text(font, Paint.ellipsize(font, title.getString(), boxW - 44), boxX + 34, boxY + 14, Theme.TEXT, false);
+        g.text(font, Paint.ellipsize(font, label.getString(), boxW - 24), boxX + 13, boxY + 31, Theme.TEXT_DIM, false);
     }
 
     @Override

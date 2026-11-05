@@ -96,8 +96,8 @@ public final class SimulatedCompat {
         }
         List<LevelChunk> chunks = new ArrayList<>();
         int radius = mc.options.renderDistance().get() + 2;
-        int cx = mc.player.chunkPosition().x;
-        int cz = mc.player.chunkPosition().z;
+        int cx = mc.player.chunkPosition().x();
+        int cz = mc.player.chunkPosition().z();
         for (int x = cx - radius; x <= cx + radius; x++) {
             for (int z = cz - radius; z <= cz + radius; z++) {
                 LevelChunk chunk = level.getChunkSource().getChunk(x, z, ChunkStatus.FULL, false);

@@ -104,8 +104,7 @@ public final class LutLibrary {
                 FAILED.put(file, stamp);
                 return null;
             }
-            DynamicTexture texture = new DynamicTexture(image);
-            texture.setFilter(true, false);
+            DynamicTexture texture = new com.vyrriox.justreplay.gui.ui.JrTexture("justreplay", image, true);
             Lut lut = new Lut(texture, size, image.getWidth(), image.getHeight(), stamp);
             CACHE.put(file, lut);
             JustReplay.LOGGER.info("Loaded LUT {} ({}x{}, cube {})", file, image.getWidth(), image.getHeight(), size);

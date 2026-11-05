@@ -258,7 +258,7 @@ public final class Playback {
             // Tab list entries of players from later in the recording, kept by a login. The camera keeps its own.
             List<java.util.UUID> known = new java.util.ArrayList<>();
             for (net.minecraft.client.multiplayer.PlayerInfo info : listener.getOnlinePlayers()) {
-                java.util.UUID id = info.getProfile().getId();
+                java.util.UUID id = info.getProfile().id();
                 if (mc.player == null || !id.equals(mc.player.getUUID())) {
                     known.add(id);
                 }
@@ -402,7 +402,7 @@ public final class Playback {
     private static ClientboundLoginPacket rewriteLogin(ClientboundLoginPacket login, int chunkRadius) {
         CommonPlayerSpawnInfo s = login.commonPlayerSpawnInfo();
         CommonPlayerSpawnInfo spawn = new CommonPlayerSpawnInfo(s.dimensionType(), s.dimension(), s.seed(), GameType.SPECTATOR,
-                s.previousGameType(), s.isDebug(), s.isFlat(), s.lastDeathLocation(), s.portalCooldown());
+                s.previousGameType(), s.isDebug(), s.isFlat(), s.lastDeathLocation(), s.portalCooldown(), s.seaLevel());
         return new ClientboundLoginPacket(CAMERA_ENTITY_ID, login.hardcore(), login.levels(), login.maxPlayers(), chunkRadius,
                 login.simulationDistance(), false, false, login.doLimitedCrafting(), spawn, false);
     }

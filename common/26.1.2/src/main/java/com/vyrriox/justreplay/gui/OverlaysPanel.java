@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.gui;
 
+import net.minecraft.client.input.MouseButtonEvent;
 import com.vyrriox.justreplay.config.JRConfig.EditorMode;
 import com.vyrriox.justreplay.editor.ReplayProject;
 import com.vyrriox.justreplay.editor.fx.FxEffect;
@@ -202,7 +203,7 @@ final class OverlaysPanel {
                 v -> tc("justreplay.overlay.facing." + v.toLowerCase(Locale.ROOT)), v -> {
             if (Overlay.FIXED.equals(v) && !Overlay.FIXED.equals(o.facing) && !o.animated(Overlay.YAW)) {
                 // Turning a billboard into a fixed overlay keeps it facing the current camera.
-                o.setBase(Overlay.YAW, net.minecraft.util.Mth.wrapDegrees(Minecraft.getInstance().gameRenderer.getMainCamera().getYRot()));
+                o.setBase(Overlay.YAW, net.minecraft.util.Mth.wrapDegrees(Minecraft.getInstance().gameRenderer.getMainCamera().yRot()));
             }
             o.facing = v;
             save();
@@ -446,7 +447,7 @@ final class OverlaysPanel {
     /** A fixed position three blocks in front of the camera, facing it. */
     private void inFrontOfCamera(Overlay o) {
         net.minecraft.client.Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
-        Vec3 at = camera.getPosition().add(new Vec3(camera.getLookVector()).scale(3.0));
+        Vec3 at = camera.position().add(new Vec3(camera.forwardVector()).scale(3.0));
         o.anchor = Overlay.POSITION;
         o.x = at.x;
         o.y = at.y;
@@ -457,7 +458,7 @@ final class OverlaysPanel {
         o.setBase(Overlay.OFFSET_X, 0.0F);
         o.setBase(Overlay.OFFSET_Y, 0.0F);
         o.setBase(Overlay.OFFSET_Z, 0.0F);
-        o.setBase(Overlay.YAW, net.minecraft.util.Mth.wrapDegrees(camera.getYRot()));
+        o.setBase(Overlay.YAW, net.minecraft.util.Mth.wrapDegrees(camera.yRot()));
         save();
         screen.refresh();
     }
@@ -473,7 +474,7 @@ final class OverlaysPanel {
     }
 
     private static int fadeStep() {
-        return Screen.hasShiftDown() ? 1 : 5;
+        return net.minecraft.client.Minecraft.getInstance().hasShiftDown() ? 1 : 5;
     }
 
     private void fade(Overlay o, boolean in, int delta) {
@@ -487,14 +488,14 @@ final class OverlaysPanel {
     }
 
     private void fontSize(Overlay o, int direction) {
-        float step = Screen.hasShiftDown() ? 0.01F : 0.05F;
+        float step = net.minecraft.client.Minecraft.getInstance().hasShiftDown() ? 0.01F : 0.05F;
         o.fontSize = Math.max(0.02F, Math.min(8.0F, Math.round((o.fontSize + direction * step) * 100.0F) / 100.0F));
         save();
     }
 
     private void size(Overlay o, boolean width, int direction) {
         float value = width ? o.width : o.height;
-        float step = Screen.hasShiftDown() ? 0.05F : value >= 4.0F ? 0.5F : 0.25F;
+        float step = net.minecraft.client.Minecraft.getInstance().hasShiftDown() ? 0.05F : value >= 4.0F ? 0.5F : 0.25F;
         value = Math.max(0.05F, Math.min(64.0F, Math.round((value + direction * step) * 100.0F) / 100.0F));
         if (width) {
             o.width = value;
@@ -664,7 +665,7 @@ final class OverlaysPanel {
             if (bar.h() >= 9 && w > 14) {
                 String label = font.plainSubstrByWidth(o.displayName(), w - 5);
                 if (!label.isEmpty()) {
-                    g.drawString(font, label, Math.max(x0, t.x) + 3, bar.y() + (bar.h() - 7) / 2, 0xFF0B0F16, false);
+                    g.text(font, label, Math.max(x0, t.x) + 3, bar.y() + (bar.h() - 7) / 2, 0xFF0B0F16, false);
                 }
             }
         }
@@ -809,12 +810,12 @@ final class OverlaysPanel {
         }
 
         @Override
-        protected void renderWidget(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+        protected void extractWidgetRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
             Font font = Minecraft.getInstance().font;
             int x = getX(), y = getY();
             float h = hover.to(isHovered() || dragging ? 1.0F : 0.0F);
             float value = overlay.value(param, cursor());
-            g.drawString(font, Paint.ellipsize(font, label, labelW() - 4), x + 3, y + (height - 7) / 2, Theme.TEXT_DIM, false);
+            g.text(font, Paint.ellipsize(font, label, labelW() - 4), x + 3, y + (height - 7) / 2, Theme.TEXT_DIM, false);
             int tx = trackX(), tw = trackW();
             float t = (value - param.min()) / (param.max() - param.min());
             float ty = y + height / 2.0F - 2;
@@ -828,14 +829,14 @@ final class OverlaysPanel {
                 float range = param.max() - param.min();
                 shownText = range >= 20 ? Integer.toString(Math.round(value)) : String.format(Locale.ROOT, "%.2f", value);
             }
-            g.drawString(font, shownText, tx + tw + 3, y + (height - 7) / 2, Theme.TEXT, false);
+            g.text(font, shownText, tx + tw + 3, y + (height - 7) / 2, Theme.TEXT, false);
             FxEffect.Key key = overlay.keyAt(param, cursor());
             int color = key != null ? TEXT_COLOR : animated ? Theme.mix(TEXT_COLOR, Theme.TEXT_MUTED, 0.5F) : Theme.TEXT_MUTED;
             Paint.iconCentered(g, Icon.KEY, keyX(), y, KEY_W, height, key != null ? 9 : 7, color);
         }
 
         @Override
-        public void onClick(double mouseX, double mouseY) {
+        public void onClick(MouseButtonEvent ev_, boolean dbl_) { double mouseX = ev_.x(); double mouseY = ev_.y();
             if (mouseX >= keyX()) {
                 toggleKey();
                 return;
@@ -845,14 +846,14 @@ final class OverlaysPanel {
         }
 
         @Override
-        protected void onDrag(double mouseX, double mouseY, double dx, double dy) {
+        protected void onDrag(MouseButtonEvent ev_, double dx, double dy) { double mouseX = ev_.x(); double mouseY = ev_.y();
             if (dragging) {
                 setFrom(mouseX);
             }
         }
 
         @Override
-        public void onRelease(double mouseX, double mouseY) {
+        public void onRelease(MouseButtonEvent ev_) { double mouseX = ev_.x(); double mouseY = ev_.y();
             if (dragging) {
                 dragging = false;
                 save();
@@ -867,7 +868,7 @@ final class OverlaysPanel {
         }
 
         private void toggleKey() {
-            if (Screen.hasShiftDown()) {
+            if (net.minecraft.client.Minecraft.getInstance().hasShiftDown()) {
                 overlay.keys.remove(param.name());
             } else {
                 FxEffect.Key key = overlay.keyAt(param, cursor());

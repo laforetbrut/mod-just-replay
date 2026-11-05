@@ -13,7 +13,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.player.RemotePlayer;
-import net.minecraft.client.resources.PlayerSkin;
+import net.minecraft.world.entity.player.PlayerSkin;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -233,7 +233,8 @@ public final class ActorManager {
         if (texture == null) {
             return null;
         }
-        return new PlayerSkin(texture, null, null, null, slim ? PlayerSkin.Model.SLIM : PlayerSkin.Model.WIDE, true);
+        return new PlayerSkin(new net.minecraft.core.ClientAsset.ResourceTexture(texture, texture), null, null,
+                slim ? net.minecraft.world.entity.player.PlayerModelType.SLIM : net.minecraft.world.entity.player.PlayerModelType.WIDE, true);
     }
 
     static boolean hasCustomSkins() {
@@ -318,9 +319,9 @@ public final class ActorManager {
             ClientPacketListener listener = mc.getConnection();
             if (listener != null) {
                 // ADD_PLAYER keeps an existing entry, so drop it first to pick up the resolved skin.
-                listener.handlePlayerInfoRemove(new net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket(List.of(profile.getId())));
+                listener.handlePlayerInfoRemove(new net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket(List.of(profile.id())));
                 listener.handlePlayerInfoUpdate(PlayerInfoPackets.build(listener,
-                        List.of(new PlayerInfoPackets.Info(profile.getId(), profile, GameType.SURVIVAL, false, 0, null))));
+                        List.of(new PlayerInfoPackets.Info(profile.id(), profile, GameType.SURVIVAL, false, 0, null))));
             }
             entity = new RemotePlayer(level, profile);
         } else if (actor.isModel()) {
@@ -328,7 +329,7 @@ public final class ActorManager {
             net.minecraft.world.entity.decoration.ArmorStand stand = new net.minecraft.world.entity.decoration.ArmorStand(EntityType.ARMOR_STAND, level);
             stand.setInvisible(true);
             stand.setNoBasePlate(true);
-            stand.noCulling = true;
+            // 26.1 has no noCulling flag on entities: the stand is culled like any invisible entity.
             entity = stand;
         } else {
             Optional<EntityType<?>> type = EntityType.byString(actor.type);
@@ -336,7 +337,7 @@ public final class ActorManager {
                 return null;
             }
             try {
-                entity = type.get().create(level);
+                entity = type.get().create(level, net.minecraft.world.entity.EntitySpawnReason.LOAD);
             } catch (Throwable t) {
                 JustReplay.LOGGER.warn("Cannot create actor of type {}", actor.type, t);
                 return null;
@@ -382,9 +383,9 @@ public final class ActorManager {
         }
         double[] state = Interpolation.actor(actor.keyframes, session.playback().cursor());
         if (state != null) {
-            entity.moveTo(state[0], state[1], state[2], (float) state[3], (float) state[4]);
+            entity.snapTo(state[0], state[1], state[2], (float) state[3], (float) state[4]);
         } else if (mc.player != null) {
-            entity.moveTo(mc.player.getX(), mc.player.getY(), mc.player.getZ(), mc.player.getYRot(), 0);
+            entity.snapTo(mc.player.getX(), mc.player.getY(), mc.player.getZ(), mc.player.getYRot(), 0);
         }
         level.addEntity(entity);
         if (actor.isModel()) {
@@ -401,7 +402,7 @@ public final class ActorManager {
         if (id == null) {
             return;
         }
-        Item item = BuiltInRegistries.ITEM.get(id);
+        Item item = BuiltInRegistries.ITEM.getOptional(id).orElse(Items.AIR);
         if (item != Items.AIR) {
             living.setItemSlot(slot, new ItemStack(item));
         }
@@ -431,7 +432,9 @@ public final class ActorManager {
             lookupQueue.add(lookup);
         }
         if (lookup.done) {
-            lookup.result.ifPresent(p -> profile.getProperties().putAll(p.getProperties()));
+            if (lookup.result.isPresent()) {
+                profile = new GameProfile(profile.id(), profile.name(), lookup.result.get().properties());
+            }
             profiles.put(actor.id, profile);
         }
         return profile;
@@ -464,7 +467,7 @@ public final class ActorManager {
     private void start(Lookup lookup) {
         CompletableFuture<Optional<GameProfile>> future;
         try {
-            future = lookup.attempt == 0 ? SkullBlockEntity.fetchGameProfile(lookup.name) : retryLookup(lookup.name, lookup.knownId);
+            future = lookup.attempt == 0 ? CompletableFuture.supplyAsync(() -> Minecraft.getInstance().services().profileResolver().fetchByName(lookup.name), Util.backgroundExecutor()) : retryLookup(lookup.name, lookup.knownId);
         } catch (Throwable t) {
             future = CompletableFuture.failedFuture(t);
         }
@@ -477,25 +480,12 @@ public final class ActorManager {
      */
     private static CompletableFuture<Optional<GameProfile>> retryLookup(String name, UUID knownId) {
         Minecraft mc = Minecraft.getInstance();
-        MinecraftServer server = mc.getSingleplayerServer();
-        GameProfileRepository repository = server == null ? null : server.getProfileRepository();
-        MinecraftSessionService sessions = mc.getMinecraftSessionService();
+        var services = mc.services();
+        MinecraftSessionService sessions = services.sessionService();
         return CompletableFuture.supplyAsync(() -> {
             UUID id = knownId;
-            if (id == null && repository != null) {
-                AtomicReference<GameProfile> found = new AtomicReference<>();
-                repository.findProfilesByNames(new String[]{name}, new ProfileLookupCallback() {
-                    @Override
-                    public void onProfileLookupSucceeded(GameProfile profile) {
-                        found.set(profile);
-                    }
-
-                    @Override
-                    public void onProfileLookupFailed(String profileName, Exception exception) {
-                        found.set(null);
-                    }
-                });
-                id = found.get() == null ? null : found.get().getId();
+            if (id == null) {
+                id = services.profileResolver().fetchByName(name).map(GameProfile::id).orElse(null);
             }
             if (id == null) {
                 return Optional.<GameProfile>empty();
@@ -511,13 +501,13 @@ public final class ActorManager {
             return;
         }
         boolean found = error == null && result != null && result.isPresent()
-                && result.get().getProperties().containsKey("textures");
+                && result.get().properties().containsKey("textures");
         if (!found && lookup.attempt == 0) {
             lookup.attempt = 1;
             lookup.notBefore = Util.getMillis() + LOOKUP_RETRY_MS;
-            if (error == null && result != null && result.isPresent() && result.get().getId().version() == 4) {
+            if (error == null && result != null && result.isPresent() && result.get().id().version() == 4) {
                 // The name was found (an offline profile has a version 3 id), only the skin request failed.
-                lookup.knownId = result.get().getId();
+                lookup.knownId = result.get().id();
             }
             lookupQueue.add(lookup);
             JustReplay.LOGGER.debug("Skin lookup of actor {} failed ({}), retrying in {} ms", lookup.name,

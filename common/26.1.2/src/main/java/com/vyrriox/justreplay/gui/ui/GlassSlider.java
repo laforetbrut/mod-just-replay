@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.gui.ui;
 
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -63,14 +64,14 @@ public class GlassSlider extends AbstractSliderButton {
     }
 
     @Override
-    public void onClick(double mouseX, double mouseY) {
+    public void onClick(MouseButtonEvent ev_, boolean dbl_) { double mouseX = ev_.x(); double mouseY = ev_.y();
         dragging = true;
-        super.onClick(mouseX, mouseY);
+        super.onClick(ev_, dbl_);
     }
 
     @Override
-    public void onRelease(double mouseX, double mouseY) {
-        super.onRelease(mouseX, mouseY);
+    public void onRelease(MouseButtonEvent ev_) { double mouseX = ev_.x(); double mouseY = ev_.y();
+        super.onRelease(ev_);
         if (dragging) {
             dragging = false;
             if (onCommit != null) {
@@ -80,12 +81,12 @@ public class GlassSlider extends AbstractSliderButton {
     }
 
     @Override
-    public void renderWidget(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+    public void extractWidgetRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         Font font = Minecraft.getInstance().font;
         float h = hover.to(isHovered() || isFocused() ? 1.0F : 0.0F);
         float t = shown.to((float) ((actual() - min) / (max - min)));
         int x = getX(), y = getY();
-        g.drawString(font, getMessage(), x + 2, y + 1, Theme.TEXT, false);
+        g.text(font, getMessage(), x + 2, y + 1, Theme.TEXT, false);
         float tx = x + 4, tw = width - 8, ty = y + height - 7, th = 4;
         Paint.rect(g, tx, ty, tw, th, 2, Theme.TRACK);
         Paint.rect(g, tx, ty, Math.max(th, tw * t), th, 2, 0xFF7CC4FF, Theme.ACCENT_DEEP);

@@ -406,7 +406,7 @@ public final class VideoExporter {
             return;
         }
         try (NativeImage image = Screenshot.takeScreenshot(target)) {
-            int[] pixels = image.getPixelsRGBA();
+            int[] pixels = image.getPixelsABGR();
             ByteBuffer bytes = ByteBuffer.allocate(pixels.length * 4).order(ByteOrder.LITTLE_ENDIAN);
             bytes.asIntBuffer().put(pixels);
             byte[] frame = bytes.array();
@@ -423,9 +423,9 @@ public final class VideoExporter {
         }
         frames++;
         Camera camera = mc.gameRenderer.getMainCamera();
-        audio.onFrame(camera.getPosition().x, camera.getPosition().y, camera.getPosition().z, camera.getYRot());
-        com.vyrriox.justreplay.compat.ReplayCompat.onExportFrame(audio, frames - 1, fps, camera.getPosition().x, camera.getPosition().y,
-                camera.getPosition().z, camera.getYRot(), partialTick);
+        audio.onFrame(camera.position().x, camera.position().y, camera.position().z, camera.yRot());
+        com.vyrriox.justreplay.compat.ReplayCompat.onExportFrame(audio, frames - 1, fps, camera.position().x, camera.position().y,
+                camera.position().z, camera.yRot(), partialTick);
         Playback playback = session.playback();
         boolean reachedEnd = (long) (frames - 1) * 20 >= (long) (endTick - startTick) * fps;
         if (reachedEnd || playback.isPaused() && playback.cursor() >= playback.duration()) {
@@ -555,10 +555,10 @@ public final class VideoExporter {
                     case DONE_WITHOUT_SOUND -> "justreplay.export.done.nosound";
                     case FAILED -> cancelled ? "justreplay.export.cancelled" : "justreplay.export.failed";
                 };
-                SystemToast.add(mc.getToasts(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+                SystemToast.add(mc.getToastManager(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
                         Component.translatable(title), Component.literal(shown.getFileName().toString()));
                 if (still != null && success && mc.player != null) {
-                    mc.player.displayClientMessage(Component.translatable("justreplay.export.still.saved", shown.toString()), false);
+                    mc.player.sendSystemMessage(Component.translatable("justreplay.export.still.saved", shown.toString()));
                 }
                 restorePlayback(success);
             });

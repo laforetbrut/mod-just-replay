@@ -615,25 +615,25 @@ public class ActorScreen extends GlassScreen {
     }
 
     @Override
-    public void resize(net.minecraft.client.Minecraft mc, int width, int height) {
+    public void resize(int width, int height) {
         stash();
-        super.resize(mc, width, height);
+        super.resize(width, height);
     }
 
     @Override
     protected void renderPanels(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         float a = intro();
-        g.pose().pushPose();
-        g.pose().translate(0, (1.0F - a) * 6.0F, 0);
+        g.pose().pushMatrix();
+        g.pose().translate(0, (1.0F - a) * 6.0F);
         Paint.glass(g, boxX, boxY, boxW, boxH, Theme.RADIUS_L);
-        g.pose().popPose();
+        g.pose().popMatrix();
     }
 
     @Override
     protected void renderOverlay(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         Paint.iconOnText(g, actor.isModel() ? Icon.CUBE : Icon.PERSON, boxX + 12, boxY + 11, 10, Theme.ACCENT);
         String who = actor.name.isBlank() ? actor.type : actor.name;
-        g.drawString(font, Paint.ellipsize(font, title.getString() + "  " + who, boxW - 10 - tabsW - 27 - 8), boxX + 27, boxY + 11, Theme.TEXT, false);
+        g.text(font, Paint.ellipsize(font, title.getString() + "  " + who, boxW - 10 - tabsW - 27 - 8), boxX + 27, boxY + 11, Theme.TEXT, false);
     }
 
     /** Animation names of the chosen model as a tooltip, or null when there is none. */

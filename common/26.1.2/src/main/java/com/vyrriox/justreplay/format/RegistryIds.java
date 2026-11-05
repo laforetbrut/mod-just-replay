@@ -70,7 +70,7 @@ public final class RegistryIds {
         String example = null;
         for (Map.Entry<Identifier, RegistryIdMap.Table> entry : recorded.tables().entrySet()) {
             RegistryIdMap.Table table = entry.getValue();
-            Registry<?> registry = BuiltInRegistries.REGISTRY.get(entry.getKey());
+            Registry<?> registry = BuiltInRegistries.REGISTRY.getValue(entry.getKey());
             if (registry == null) {
                 result.put(entry.getKey(), table);
                 continue;

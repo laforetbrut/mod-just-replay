@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.gui;
 
+import net.minecraft.client.input.MouseButtonEvent;
 import com.vyrriox.justreplay.editor.ReplayProject;
 import com.vyrriox.justreplay.editor.fx.FxEffect;
 import com.vyrriox.justreplay.editor.fx.FxParam;
@@ -250,7 +251,7 @@ final class EffectsPanel {
     }
 
     private static int step() {
-        return Screen.hasShiftDown() ? 1 : 10;
+        return net.minecraft.client.Minecraft.getInstance().hasShiftDown() ? 1 : 10;
     }
 
     private void fade(boolean in, int delta) {
@@ -360,7 +361,7 @@ final class EffectsPanel {
     }
 
     private static void duration(ReplaySession session, ReplayProject.Cut cut, int direction) {
-        if (Screen.hasShiftDown()) {
+        if (net.minecraft.client.Minecraft.getInstance().hasShiftDown()) {
             cut.transitionTicks = Math.max(1, Math.min(200, cut.transitionTicks + direction));
         } else {
             int[] steps = TransitionType.DURATIONS;
@@ -480,12 +481,12 @@ final class EffectsPanel {
         }
 
         @Override
-        protected void renderWidget(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+        protected void extractWidgetRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
             Font font = Minecraft.getInstance().font;
             int x = getX(), y = getY();
             float h = hover.to(isHovered() || dragging ? 1.0F : 0.0F);
             float value = effect.value(param, cursor());
-            g.drawString(font, Paint.ellipsize(font, label, labelW() - 4), x + 3, y + (height - 7) / 2, Theme.TEXT_DIM, false);
+            g.text(font, Paint.ellipsize(font, label, labelW() - 4), x + 3, y + (height - 7) / 2, Theme.TEXT_DIM, false);
             int tx = trackX(), tw = trackW();
             float t = (value - param.min()) / (param.max() - param.min());
             float ty = y + height / 2.0F - 2;
@@ -500,14 +501,14 @@ final class EffectsPanel {
                 float range = param.max() - param.min();
                 shownText = range >= 20 ? Integer.toString(Math.round(value)) : String.format(Locale.ROOT, range >= 4 ? "%.1f" : "%.2f", value);
             }
-            g.drawString(font, shownText, tx + tw + 3, y + (height - 7) / 2, Theme.TEXT, false);
+            g.text(font, shownText, tx + tw + 3, y + (height - 7) / 2, Theme.TEXT, false);
             FxEffect.Key key = effect.keyAt(param, cursor());
             int color = key != null ? FX_COLOR : animated ? Theme.mix(FX_COLOR, Theme.TEXT_MUTED, 0.5F) : Theme.TEXT_MUTED;
             Paint.iconCentered(g, Icon.KEY, keyX(), y, KEY_W, height, key != null ? 9 : 7, color);
         }
 
         @Override
-        public void onClick(double mouseX, double mouseY) {
+        public void onClick(MouseButtonEvent ev_, boolean dbl_) { double mouseX = ev_.x(); double mouseY = ev_.y();
             if (mouseX >= keyX()) {
                 toggleKey();
                 return;
@@ -517,14 +518,14 @@ final class EffectsPanel {
         }
 
         @Override
-        protected void onDrag(double mouseX, double mouseY, double dx, double dy) {
+        protected void onDrag(MouseButtonEvent ev_, double dx, double dy) { double mouseX = ev_.x(); double mouseY = ev_.y();
             if (dragging) {
                 setFrom(mouseX);
             }
         }
 
         @Override
-        public void onRelease(double mouseX, double mouseY) {
+        public void onRelease(MouseButtonEvent ev_) { double mouseX = ev_.x(); double mouseY = ev_.y();
             if (dragging) {
                 dragging = false;
                 save();
@@ -539,7 +540,7 @@ final class EffectsPanel {
         }
 
         private void toggleKey() {
-            if (Screen.hasShiftDown()) {
+            if (net.minecraft.client.Minecraft.getInstance().hasShiftDown()) {
                 effect.keys.remove(param.name());
             } else {
                 FxEffect.Key key = effect.keyAt(param, cursor());

@@ -61,7 +61,7 @@ public class GlassTextField extends EditBox implements Tipped {
     }
 
     @Override
-    public void renderWidget(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+    public void extractWidgetRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         if (!isVisible()) {
             return;
         }
@@ -77,6 +77,6 @@ public class GlassTextField extends EditBox implements Tipped {
         if (leading != null) {
             Paint.iconOnText(g, leading, x + (leadingWidth + 3 - 8) / 2.0F, y + (height - 8) / 2, 8, Theme.mix(Theme.TEXT_MUTED, Theme.ACCENT, f));
         }
-        super.renderWidget(g, mouseX, mouseY, partialTick);
+        super.extractWidgetRenderState(g, mouseX, mouseY, partialTick);
     }
 }

@@ -152,13 +152,13 @@ public final class MorphCompat {
 
     /** Replaces a UUID (stored as four ints) anywhere in a tag. True when one was found. */
     private static boolean replaceUuid(Tag tag, UUID from, UUID to) {
-        return replaceUuid(tag, UUIDUtil.uuidToIntArray(from), NbtUtils.createUUID(to));
+        return replaceUuid(tag, UUIDUtil.uuidToIntArray(from), new net.minecraft.nbt.IntArrayTag(UUIDUtil.uuidToIntArray(to)));
     }
 
     private static boolean replaceUuid(Tag tag, int[] from, IntArrayTag to) {
         boolean found = false;
         if (tag instanceof CompoundTag compound) {
-            for (String key : compound.getAllKeys().toArray(new String[0])) {
+            for (String key : compound.keySet().toArray(new String[0])) {
                 Tag child = compound.get(key);
                 if (child instanceof IntArrayTag ints && Arrays.equals(ints.getAsIntArray(), from)) {
                     compound.put(key, to.copy());
@@ -229,8 +229,8 @@ public final class MorphCompat {
             if (nbt == null || !nbt.contains("prevState") || !nbt.contains("nextState")) {
                 return packet;
             }
-            int morphingTime = nbt.getInt("morphingTime");
-            int morphTime = nbt.getInt("morphTime");
+            int morphingTime = nbt.getIntOr("morphingTime", 0);
+            int morphTime = nbt.getIntOr("morphTime", 0);
             if (morphingTime <= 0 || morphTime >= morphingTime - 1) {
                 return packet;
             }

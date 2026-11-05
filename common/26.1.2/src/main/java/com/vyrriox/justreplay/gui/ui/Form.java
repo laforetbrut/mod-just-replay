@@ -78,7 +78,7 @@ public final class Form {
         String s = text.getString();
         area.deco(y, 9, (g, x, dy, aw, mx, my) -> {
             Font font = Minecraft.getInstance().font;
-            g.drawString(font, Paint.ellipsize(font, s, w - 2), x + x0 + 1, dy, Theme.TEXT_DIM, false);
+            g.text(font, Paint.ellipsize(font, s, w - 2), x + x0 + 1, dy, Theme.TEXT_DIM, false);
         });
     }
 
@@ -118,7 +118,7 @@ public final class Form {
                 Paint.iconOnText(g, icon, left, dy + 1, 8, Theme.ACCENT);
                 left += 11;
             }
-            g.drawString(font, text, left, dy + 1, Theme.TEXT_MUTED, false);
+            g.text(font, text, left, dy + 1, Theme.TEXT_MUTED, false);
             int lineX = left + font.width(text) + 4;
             if (lineX < x + width - 2) {
                 // Hairline on the middle of the capitals.
@@ -134,7 +134,7 @@ public final class Form {
             Font font = Minecraft.getInstance().font;
             Component c = text.get();
             if (c != null) {
-                g.drawString(font, Paint.ellipsize(font, c.getString(), width - 4), x + 2, dy + 1, color, false);
+                g.text(font, Paint.ellipsize(font, c.getString(), width - 4), x + 2, dy + 1, color, false);
             }
         });
         y += 11;
@@ -148,7 +148,7 @@ public final class Form {
         area.deco(top, lines.size() * 10, (g, x, dy, w, mx, my) -> {
             int ly = dy + 1;
             for (var line : lines) {
-                g.drawString(font, line, x + 2, ly, color, false);
+                g.text(font, line, x + 2, ly, color, false);
                 ly += 10;
             }
         });

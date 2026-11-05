@@ -186,16 +186,16 @@ public class ExportScreen extends GlassScreen {
     @Override
     protected void renderPanels(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         float a = intro();
-        g.pose().pushPose();
-        g.pose().translate(0, (1.0F - a) * 6.0F, 0);
+        g.pose().pushMatrix();
+        g.pose().translate(0, (1.0F - a) * 6.0F);
         Paint.glass(g, boxX, boxY, boxW, boxH, Theme.RADIUS_L);
-        g.pose().popPose();
+        g.pose().popMatrix();
     }
 
     @Override
     protected void renderOverlay(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         Paint.iconOnText(g, Icon.FILM, boxX + 12, boxY + 11, 10, Theme.ACCENT);
-        g.drawString(font, Paint.ellipsize(font, title.getString(), boxW - 40), boxX + 27, boxY + 11, Theme.TEXT, false);
+        g.text(font, Paint.ellipsize(font, title.getString(), boxW - 40), boxX + 27, boxY + 11, Theme.TEXT, false);
     }
 
     @Override

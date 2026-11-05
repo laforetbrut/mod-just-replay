@@ -54,20 +54,20 @@ public class ConfirmDialog extends GlassScreen {
     @Override
     protected void renderPanels(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         float a = intro();
-        g.pose().pushPose();
-        g.pose().translate(0, (1.0F - a) * 6.0F, 0);
+        g.pose().pushMatrix();
+        g.pose().translate(0, (1.0F - a) * 6.0F);
         Paint.glass(g, boxX, boxY, boxW, boxH, Theme.RADIUS_L);
-        g.pose().popPose();
+        g.pose().popMatrix();
     }
 
     @Override
     protected void renderOverlay(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         Paint.circle(g, boxX + 22, boxY + 22, 10, Theme.DANGER_SOFT);
         Paint.iconOnText(g, Icon.TRASH, boxX + 17, boxY + 19, 10, Theme.DANGER);
-        g.drawString(font, Paint.ellipsize(font, title.getString(), boxW - 50), boxX + 40, boxY + 19, Theme.TEXT, false);
+        g.text(font, Paint.ellipsize(font, title.getString(), boxW - 50), boxX + 40, boxY + 19, Theme.TEXT, false);
         int y = boxY + 40;
         for (FormattedCharSequence line : lines) {
-            g.drawString(font, line, boxX + 12, y, Theme.TEXT_DIM, false);
+            g.text(font, line, boxX + 12, y, Theme.TEXT_DIM, false);
             y += 10;
         }
     }

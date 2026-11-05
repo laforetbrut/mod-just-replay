@@ -250,7 +250,7 @@ public final class OverlayRenderer {
 
     private static void render(Minecraft mc, ReplaySession session, Camera camera, float partialTick) {
         double time = CameraController.frameTime(session, partialTick);
-        Vec3 cam = camera.getPosition();
+        Vec3 cam = camera.position();
         List<Pending> list = new ArrayList<>();
         for (Overlay o : session.project().overlays) {
             boolean forced = o.id.equals(forcedId);

@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.gui.ui;
 
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
@@ -72,12 +73,12 @@ public class ListRow extends GlassButton {
     }
 
     @Override
-    public void onClick(double mouseX, double mouseY) {
+    public void onClick(MouseButtonEvent ev_, boolean dbl_) { double mouseX = ev_.x(); double mouseY = ev_.y();
         if (action != null && mouseX >= actionX()) {
             onAction.run();
             return;
         }
-        super.onClick(mouseX, mouseY);
+        super.onClick(ev_, dbl_);
     }
 
     @Override
@@ -114,18 +115,18 @@ public class ListRow extends GlassButton {
         if (dw > 0) {
             // Muted grey is unreadable on the blue of a selected row.
             int detailColor = Theme.mix(Theme.TEXT_MUTED, Theme.TEXT_DIM, o);
-            g.drawString(font, shownDetail, right - dw, ty, Theme.text(detailColor, alpha), false);
+            g.text(font, shownDetail, right - dw, ty, Theme.text(detailColor, alpha), false);
             right -= dw + 5;
         }
         String label = label(font, Math.max(0, right - left));
-        g.drawString(font, label, left, ty, color, false);
+        g.text(font, label, left, ty, color, false);
     }
 
     private int lastMouseX;
 
     @Override
-    protected void renderWidget(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+    public void extractWidgetRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         lastMouseX = mouseX;
-        super.renderWidget(g, mouseX, mouseY, partialTick);
+        super.extractWidgetRenderState(g, mouseX, mouseY, partialTick);
     }
 }

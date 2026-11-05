@@ -119,9 +119,9 @@ final class ChunkCapture {
     /** Tracks which chunks the server itself provides; called for every captured packet. */
     void onPacket(Packet<?> packet) {
         if (packet instanceof ClientboundLevelChunkWithLightPacket chunk) {
-            events.add(new Event(Event.SENT, ChunkPos.asLong(chunk.getX(), chunk.getZ())));
+            events.add(new Event(Event.SENT, ChunkPos.pack(chunk.getX(), chunk.getZ())));
         } else if (packet instanceof ClientboundForgetLevelChunkPacket forget) {
-            events.add(new Event(Event.FORGOTTEN, forget.pos().toLong()));
+            events.add(new Event(Event.FORGOTTEN, ChunkPos.pack(forget.pos().x(), forget.pos().z())));
         } else if (packet instanceof ClientboundLoginPacket || packet instanceof ClientboundRespawnPacket) {
             events.add(new Event(Event.RESET, 0L));
         }
@@ -153,7 +153,7 @@ final class ChunkCapture {
 
     /** Records a chunk written by a snapshot into the main stream. */
     void markWritten(int x, int z) {
-        written.add(ChunkPos.asLong(x, z));
+        written.add(ChunkPos.pack(x, z));
     }
 
     /**
@@ -197,16 +197,16 @@ final class ChunkCapture {
      */
     void beforeForget(ClientLevel level, ChunkPos pos, Output out) {
         CheckpointJob job = checkpoint;
-        if (job == null || level != job.level || Math.abs(pos.x - job.centerX) > job.radius
-                || Math.abs(pos.z - job.centerZ) > job.radius) {
+        if (job == null || level != job.level || Math.abs(pos.x() - job.centerX) > job.radius
+                || Math.abs(pos.z() - job.centerZ) > job.radius) {
             return;
         }
-        buildInto(job, level, pos.x, pos.z, out);
+        buildInto(job, level, pos.x(), pos.z(), out);
     }
 
     /** Builds a chunk of the job unless it is already built or absent; true when a packet was built. */
     private static boolean buildInto(CheckpointJob job, ClientLevel level, int x, int z, Output out) {
-        long key = ChunkPos.asLong(x, z);
+        long key = ChunkPos.pack(x, z);
         if (job.built.contains(key)) {
             return false;
         }
@@ -294,7 +294,7 @@ final class ChunkCapture {
             int x = cx + scanOffsets[scanIndex * 2];
             int z = cz + scanOffsets[scanIndex * 2 + 1];
             scanIndex++;
-            long key = ChunkPos.asLong(x, z);
+            long key = ChunkPos.pack(x, z);
             if (written.contains(key) || serverChunks.contains(key)) {
                 continue;
             }
