@@ -12,18 +12,13 @@ import com.vyrriox.justreplay.gui.OverlayPlacementTool;
 import com.vyrriox.justreplay.gui.PlacementTool;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import net.minecraft.client.renderer.ShaderInstance;
-import net.minecraft.client.resources.sounds.SoundInstance;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.client.event.RegisterShadersEvent;
 import net.neoforged.neoforge.client.event.RenderFrameEvent;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
-import net.neoforged.neoforge.client.event.RenderLivingEvent;
-import net.neoforged.neoforge.client.event.ScreenEvent;
-import net.neoforged.neoforge.client.event.sound.PlaySoundEvent;
 
 import java.io.IOException;
 
@@ -107,14 +102,6 @@ public final class NeoForgeEditorEvents {
         }
 
         @SubscribeEvent
-        public static void onRenderLiving(RenderLivingEvent.Pre<?, ?> event) {
-            if (ModelRenderer.onRenderLiving(event.getEntity(), event.getPartialTick(), event.getPoseStack(),
-                    event.getMultiBufferSource(), event.getPackedLight())) {
-                event.setCanceled(true);
-            }
-        }
-
-        @SubscribeEvent
         public static void onRenderGui(RenderGuiEvent.Post event) {
             OverlayPlacementTool.onRenderGui(event.getGuiGraphics());
         }
@@ -127,45 +114,6 @@ public final class NeoForgeEditorEvents {
             AudioPlayer.onTick();
             ModelRenderer.onTick();
             OverlayRenderer.onTick();
-        }
-
-        // ------------------------------------------------------------ sound
-
-        @SubscribeEvent
-        public static void onPlaySound(PlaySoundEvent event) {
-            SoundInstance sound = event.getSound();
-            SoundInstance result = AudioPlayer.onPlaySound(sound);
-            if (result != sound) {
-                event.setSound(result);
-            }
-        }
-
-        // ------------------------------------------------------------ input
-
-        @SubscribeEvent
-        public static void onScroll(InputEvent.MouseScrollingEvent event) {
-            double x = event.getScrollDeltaX();
-            double y = event.getScrollDeltaY();
-            if (EntityTool.onScroll(x, y) | OverlayPlacementTool.onScroll(x, y) | PlacementTool.onScroll(x, y)) {
-                event.setCanceled(true);
-            }
-        }
-
-        @SubscribeEvent
-        public static void onMouse(InputEvent.MouseButton.Pre event) {
-            int button = event.getButton();
-            int action = event.getAction();
-            if (EntityTool.onMouse(button, action) | OverlayPlacementTool.onMouse(button, action) | PlacementTool.onMouse(button, action)) {
-                event.setCanceled(true);
-            }
-        }
-
-        @SubscribeEvent
-        public static void onScreenOpening(ScreenEvent.Opening event) {
-            if (EntityTool.onScreenOpening(event.getNewScreen()) | OverlayPlacementTool.onScreenOpening(event.getNewScreen())
-                    | PlacementTool.onScreenOpening(event.getNewScreen())) {
-                event.setCanceled(true);
-            }
         }
     }
 }

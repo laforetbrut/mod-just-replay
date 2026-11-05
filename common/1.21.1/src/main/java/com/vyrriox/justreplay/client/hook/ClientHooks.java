@@ -1,6 +1,10 @@
 package com.vyrriox.justreplay.client.hook;
 
 import com.vyrriox.justreplay.client.JustReplayClient;
+import com.vyrriox.justreplay.editor.audio.AudioPlayer;
+import com.vyrriox.justreplay.gui.EntityTool;
+import com.vyrriox.justreplay.gui.OverlayPlacementTool;
+import com.vyrriox.justreplay.gui.PlacementTool;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.gui.LayeredDraw;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -86,6 +90,12 @@ public final class ClientHooks {
         return JustReplayClient.cancelsScreen(screen);
     }
 
+    /** All the replay's checks on a screen about to open; the tools are not told about a screen already refused. */
+    public static boolean cancelsScreenOpening(Screen screen) {
+        return cancelsScreen(screen) || EntityTool.onScreenOpening(screen) | OverlayPlacementTool.onScreenOpening(screen)
+                | PlacementTool.onScreenOpening(screen);
+    }
+
     public static boolean cancelsEntityTick(Entity entity) {
         return JustReplayClient.cancelsEntityTick(entity);
     }
@@ -102,6 +112,19 @@ public final class ClientHooks {
     /** @return false to drop the sound */
     public static boolean onSound(SoundInstance sound) {
         return JustReplayClient.onPlaySound(sound);
+    }
+
+    /** @return the sound to play: the same one, a scaled copy, or null to drop it */
+    public static SoundInstance filterSound(SoundInstance sound) {
+        return onSound(sound) ? AudioPlayer.onPlaySound(sound) : null;
+    }
+
+    public static boolean cancelsMouse(int button, int action) {
+        return EntityTool.onMouse(button, action) | OverlayPlacementTool.onMouse(button, action) | PlacementTool.onMouse(button, action);
+    }
+
+    public static boolean cancelsScroll(double x, double y) {
+        return EntityTool.onScroll(x, y) | OverlayPlacementTool.onScroll(x, y) | PlacementTool.onScroll(x, y);
     }
 
     public static void onScreenInit(Screen screen, Consumer<AbstractWidget> addWidget) {

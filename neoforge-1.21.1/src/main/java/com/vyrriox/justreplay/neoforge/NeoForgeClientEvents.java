@@ -7,19 +7,14 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.ComputeFovModifierEvent;
-import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.RenderFrameEvent;
 import net.neoforged.neoforge.client.event.RenderGuiLayerEvent;
 import net.neoforged.neoforge.client.event.RenderHighlightEvent;
-import net.neoforged.neoforge.client.event.RenderNameTagEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.client.event.ViewportEvent;
-import net.neoforged.neoforge.client.event.sound.PlaySoundEvent;
 import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
-import net.neoforged.neoforge.common.util.TriState;
-import net.neoforged.neoforge.event.tick.EntityTickEvent;
 
 import java.util.Set;
 
@@ -58,13 +53,6 @@ public final class NeoForgeClientEvents {
                 JustReplay.id("hud"),
                 JustReplay.id("placement"),
                 JustReplay.id("entity_tool"));
-
-        @SubscribeEvent
-        public static void onNameTag(RenderNameTagEvent event) {
-            if (ClientHooks.hidesNameTag(event.getEntity())) {
-                event.setCanRender(TriState.FALSE);
-            }
-        }
 
         @SubscribeEvent
         public static void onTick(ClientTickEvent.Post event) {
@@ -128,38 +116,9 @@ public final class NeoForgeClientEvents {
         }
 
         @SubscribeEvent
-        public static void onScreenOpening(ScreenEvent.Opening event) {
-            if (ClientHooks.cancelsScreen(event.getNewScreen())) {
-                event.setCanceled(true);
-            }
-        }
-
-        @SubscribeEvent
-        public static void onEntityTick(EntityTickEvent.Pre event) {
-            if (ClientHooks.cancelsEntityTick(event.getEntity())) {
-                event.setCanceled(true);
-            }
-        }
-
-        @SubscribeEvent
-        public static void onInteractionKey(InputEvent.InteractionKeyMappingTriggered event) {
-            if (event.isAttack() && ClientHooks.cancelsAttack()) {
-                event.setCanceled(true);
-                event.setSwingHand(false);
-            }
-        }
-
-        @SubscribeEvent
         public static void onBlockHighlight(RenderHighlightEvent.Block event) {
             if (ClientHooks.cancelsBlockHighlight()) {
                 event.setCanceled(true);
-            }
-        }
-
-        @SubscribeEvent
-        public static void onPlaySound(PlaySoundEvent event) {
-            if (!ClientHooks.onSound(event.getSound())) {
-                event.setSound(null);
             }
         }
 

@@ -43,7 +43,14 @@
     "EntityBoundSoundAccessor",
     "EntityEditRenderMixin",
     "EntityEditGlowMixin",
-    "SoundManagerStopMixin"
+    "SoundManagerStopMixin",
+    "MinecraftHooksMixin",
+    "MouseHandlerHooksMixin",
+    "SoundEngineHooksMixin",
+    "ClientLevelTickMixin",
+    "EntityRideTickMixin",
+    "EntityRendererNameTagMixin",
+    "LivingEntityRendererHooksMixin"
   ],
   "injectors": {
     "defaultRequire": 1
