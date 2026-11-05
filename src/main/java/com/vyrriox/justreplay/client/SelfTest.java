@@ -92,8 +92,17 @@ public final class SelfTest {
             }
         }
     }
-    /** Frame clocks of the mods: replay ticks one sample is allowed to be off, a frame may not be rendered yet. */
+    /**
+     * Frame clocks of the mods: playback steps one sample may trail the cursor. A clock shows the time of a frame, one
+     * step behind the cursor just after a tick (see CameraController.frameTime), and Iris' was set by the last frame
+     * rendered, which can be one step older; the third step is the margin for a slow frame.
+     */
     private static final double CLOCK_TOLERANCE = 3.0;
+    /** A step that sits longer than this cannot finish, see {@link #stallLimit}. */
+    private static final long STALL_MILLIS = 5 * 60 * 1000L;
+    private static int watchedStep = -1;
+    private static long watchedSince;
+    private static int clockStartStep = 1;
     private static double clockGecko;
     private static double clockIris;
     private static double clockEntity;
@@ -158,12 +167,19 @@ public final class SelfTest {
         }
     }
 
-    /** The clocks must rise with the replay cursor, whatever the speed and the render time. */
-    private static void checkClockRise(String name, int ticks, double gecko, double geckoNow, double iris, double irisNow) {
+    /**
+     * The clocks must rise with the replay cursor, whatever the speed and the render time. A step is worth several
+     * replay ticks above x1, so a late last sample takes up to {@link #CLOCK_TOLERANCE} of the last step off the rise
+     * and a late first sample adds up to as many of the first step. A clock ignoring the speed still fails: at x4 it
+     * rises 10 for 44 ticks, under the 32 this allows.
+     */
+    private static void checkClockRise(String name, int ticks, int firstStep, int lastStep, double gecko, double geckoNow, double iris, double irisNow) {
+        double min = ticks - CLOCK_TOLERANCE * lastStep;
+        double max = ticks + CLOCK_TOLERANCE * firstStep;
         double geckoRise = geckoNow - gecko;
         double irisRise = (irisNow - iris) * 20.0;
-        logClock(name, "geckolib", geckoNow, "rose " + geckoRise + " for " + ticks + " ticks", Math.abs(geckoRise - ticks) <= CLOCK_TOLERANCE);
-        logClock(name, "iris", irisNow, "rose " + irisRise + " for " + ticks + " ticks", Math.abs(irisRise - ticks) <= CLOCK_TOLERANCE);
+        logClock(name, "geckolib", geckoNow, "rose " + geckoRise + " for " + ticks + " ticks", geckoRise >= min && geckoRise <= max);
+        logClock(name, "iris", irisNow, "rose " + irisRise + " for " + ticks + " ticks", irisRise >= min && irisRise <= max);
     }
 
     /** First and last client tick of the export once its first frame passed. */
@@ -229,6 +245,32 @@ public final class SelfTest {
         log("restored user export settings: {} fps, CRF {}, {}", savedFps, savedCrf, savedResolution);
     }
 
+    /** Ends the run: a failed test quits with its reason in the log, it never leaves the game idle. */
+    private static void fail(Minecraft mc, String reason, Throwable cause) {
+        JustReplay.LOGGER.error("SELFTEST FAIL at step " + step + ": " + reason, cause);
+        step = 100;
+        com.vyrriox.justreplay.config.JRConfig.REPLAY_BUFFER.set(false);
+        restoreUserConfig();
+        try {
+            Files.deleteIfExists(FLAG);
+        } catch (java.io.IOException e) {
+            JustReplay.LOGGER.warn("SELFTEST cannot delete {}", FLAG, e);
+        }
+        mc.stop();
+    }
+
+    /** How long a step may run. Loading the game and an export take long on a slow machine, no other step does. */
+    private static long stallLimit() {
+        return step == 0 || VideoExporter.isActive() ? 4 * STALL_MILLIS : STALL_MILLIS;
+    }
+
+    /** A step waiting for a replay to start can never finish once the session has died: no need to wait the limit. */
+    private static void failIfReplayDied(Minecraft mc) {
+        if (ReplaySession.current() == null && !ReplaySession.isOpening()) {
+            fail(mc, "the replay closed before its playback started", null);
+        }
+    }
+
     private static void shot(Minecraft mc, String name) {
         Screenshot.grab(mc.gameDirectory, "selftest-" + name + ".png", mc.getMainRenderTarget(), c -> log("screenshot {}", name));
     }
@@ -242,6 +284,22 @@ public final class SelfTest {
         if (mc.screen instanceof net.minecraft.client.gui.screens.PauseScreen) {
             mc.setScreen(null);
         }
+        if (step == 100) {
+            return;
+        }
+        long now = net.minecraft.Util.getMillis();
+        if (step != watchedStep) {
+            watchedStep = step;
+            watchedSince = now;
+        } else if (now - watchedSince > stallLimit()) {
+            fail(mc, "stalled for " + (now - watchedSince) / 1000 + " s, screen=" + mc.screen + " level=" + mc.level, null);
+            return;
+        }
+        if (Mods.loaded("geckolib") && ReplaySession.isRunning()) {
+            // The GeckoLib clock only counts when it is read, as anything GeckoLib renders does every frame. A scene
+            // showing none has no reader, and the two reads of a check would see a single jump back and no rise.
+            geckoClock();
+        }
         if (wait > 0) {
             wait--;
             return;
@@ -249,9 +307,7 @@ public final class SelfTest {
         try {
             run(mc);
         } catch (Throwable t) {
-            JustReplay.LOGGER.error("SELFTEST FAIL at step {}", step, t);
-            restoreUserConfig();
-            step = 100;
+            fail(mc, t.toString(), t);
         }
     }
 
@@ -418,6 +474,8 @@ public final class SelfTest {
             case 5 -> {
                 if (ReplaySession.isRunning() && p != null) {
                     next(60);
+                } else {
+                    failIfReplayDied(mc);
                 }
             }
             case 6 -> {
@@ -482,6 +540,7 @@ public final class SelfTest {
                 checkClockBackSeek(clockGecko, geckoClock(), clockEntity, com.vyrriox.justreplay.compat.ReplayCompat.lastGeckoEntityFrameTime());
                 clockGecko = geckoClock();
                 clockIris = irisClock();
+                clockStartStep = Math.max(1, s.playback().lastStep());
                 speedStart = s.playback().cursor();
                 s.playback().changeSpeed(2);
                 next(10);
@@ -490,7 +549,8 @@ public final class SelfTest {
                 ReplaySession s = ReplaySession.current();
                 if (ironsPhase == 0) {
                     log("speed x{}: cursor advanced {} ticks in 10 client ticks", s.playback().speed(), s.playback().cursor() - speedStart);
-                    checkClockRise("speed", s.playback().cursor() - speedStart, clockGecko, geckoClock(), clockIris, irisClock());
+                    checkClockRise("speed", s.playback().cursor() - speedStart, clockStartStep, Math.max(1, s.playback().lastStep()),
+                            clockGecko, geckoClock(), clockIris, irisClock());
                     s.playback().resetSpeed();
                 }
                 if (Mods.checkIrons(mc, s)) {
@@ -898,7 +958,7 @@ public final class SelfTest {
                 if (exportClockFirst < 0) {
                     log("clock export: no sample while the export ran FAIL");
                 } else {
-                    checkClockRise("export", exportClockLast - exportClockFirst, exportClockGecko[0], exportClockGecko[1], exportClockIris[0], exportClockIris[1]);
+                    checkClockRise("export", exportClockLast - exportClockFirst, 1, 1, exportClockGecko[0], exportClockGecko[1], exportClockIris[0], exportClockIris[1]);
                 }
                 log("local effects heard in the replay: bell={} anvil={} footsteps={} of which the recording player's own={} -> {}", localBell,
                         localAnvil, replaySteps, recorderSteps, localBell > 0 && localAnvil > 0 && recorderSteps > 0 ? "OK" : "FAIL");
@@ -923,6 +983,8 @@ public final class SelfTest {
             case 17 -> {
                 if (ReplaySession.isRunning() && p != null) {
                     next(60);
+                } else {
+                    failIfReplayDied(mc);
                 }
             }
             case 18 -> {

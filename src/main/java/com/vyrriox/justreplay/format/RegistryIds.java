@@ -132,7 +132,10 @@ public final class RegistryIds {
         }
     }
 
-    /** Applies the ids saved with a replay. Returns false when the replay has none (older recordings). */
+    /**
+     * Applies the ids saved with a replay. Returns false when the replay has none (older recordings). The registries
+     * are incomplete while this runs: nothing may be encoding or decoding on another thread, see ReplaySession.
+     */
     public static boolean apply(Path dir) {
         Path file = dir.resolve(FILE);
         if (!Files.exists(file)) {
