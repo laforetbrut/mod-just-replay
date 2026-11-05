@@ -15,7 +15,6 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.event.IModBusEvent;
-import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.neoforged.neoforge.common.NeoForge;
 
@@ -47,7 +46,7 @@ final class NeoForgeClient {
     }
 
     static void init(IEventBus modBus, ModContainer container) {
-        container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
+        container.registerExtensionPoint(IConfigScreenFactory.class, (mod, parent) -> new com.vyrriox.justreplay.gui.JRConfigScreen(parent));
         for (Class<?> subscriber : SUBSCRIBERS) {
             subscribe(subscriber, modBus);
         }

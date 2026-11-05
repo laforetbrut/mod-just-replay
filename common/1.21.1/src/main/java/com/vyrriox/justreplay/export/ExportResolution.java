@@ -1,14 +1,13 @@
 package com.vyrriox.justreplay.export;
 
 import net.minecraft.network.chat.Component;
-import net.neoforged.neoforge.common.TranslatableEnum;
 
 /**
  * Output size of a video export. {@link #WINDOW} keeps the size of the game window.
  *
  * @author vyrriox
  */
-public enum ExportResolution implements TranslatableEnum {
+public enum ExportResolution {
     WINDOW(0, 0),
     HD_720(1280, 720),
     FULL_HD_1080(1920, 1080),
@@ -37,7 +36,6 @@ public enum ExportResolution implements TranslatableEnum {
         return height;
     }
 
-    @Override
     public Component getTranslatedName() {
         return isWindow() ? Component.translatable("justreplay.export.resolution.window")
                 : Component.literal(width + " x " + height);
