@@ -1394,7 +1394,7 @@ public final class Recorder {
         var listed = listener.getListedOnlinePlayers();
         for (PlayerInfo info : listener.getOnlinePlayers()) {
             infos.add(new PlayerInfoPackets.Info(info.getProfile().id(), info.getProfile(), info.getGameMode(),
-                    listed.contains(info), info.getLatency(), info.getTabListDisplayName()));
+                    listed.contains(info), info.getLatency(), info.getTabListDisplayName(), info.getTabListOrder(), info.showHat()));
         }
         if (!infos.isEmpty()) {
             write(listener, PlayerInfoPackets.build(listener, infos), sink);
@@ -1420,10 +1420,12 @@ public final class Recorder {
             JustReplay.LOGGER.warn("Skipping boss bars in the snapshot: {}", t.toString());
         }
 
-        write(listener, new ClientboundSetTimePacket(level.getGameTime(),
-                level.dimensionType().defaultClock().<java.util.Map<net.minecraft.core.Holder<net.minecraft.world.clock.WorldClock>, net.minecraft.world.clock.ClockNetworkState>>map(
-                        clock -> java.util.Map.of(clock, new net.minecraft.world.clock.ClockNetworkState(level.getDefaultClockTime(), 0.0F, 1.0F)))
-                        .orElse(java.util.Map.of())), sink);
+        java.util.Map<net.minecraft.core.Holder<net.minecraft.world.clock.WorldClock>, net.minecraft.world.clock.ClockNetworkState> clocks = new java.util.HashMap<>();
+        net.minecraft.client.ClientClockManager clockManager = level.clockManager();
+        level.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.WORLD_CLOCK).listElements().forEach(clock ->
+                clocks.put(clock, new net.minecraft.world.clock.ClockNetworkState(clockManager.getTotalTicks(clock),
+                        clockManager.getPartialTick(clock), ((com.vyrriox.justreplay.replay.ClockRates) clockManager).justreplay$rate(clock))));
+        write(listener, new ClientboundSetTimePacket(level.getGameTime(), clocks), sink);
         write(listener, new ClientboundInitializeBorderPacket(level.getWorldBorder()), sink);
         if (level.isRaining()) {
             write(listener, new ClientboundGameEventPacket(ClientboundGameEventPacket.START_RAINING, 0.0F), sink);

@@ -24,7 +24,11 @@ import java.util.UUID;
  * @author vyrriox
  */
 public final class PlayerInfoPackets {
-    public record Info(UUID uuid, GameProfile profile, GameType gameMode, boolean listed, int latency, @Nullable Component displayName) {
+    public record Info(UUID uuid, GameProfile profile, GameType gameMode, boolean listed, int latency, @Nullable Component displayName,
+            int listOrder, boolean showHat) {
+        public Info(UUID uuid, GameProfile profile, GameType gameMode, boolean listed, int latency, @Nullable Component displayName) {
+            this(uuid, profile, gameMode, listed, latency, displayName, 0, true);
+        }
     }
 
     private PlayerInfoPackets() {
@@ -38,7 +42,9 @@ public final class PlayerInfoPackets {
                     ClientboundPlayerInfoUpdatePacket.Action.UPDATE_GAME_MODE,
                     ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LISTED,
                     ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LATENCY,
-                    ClientboundPlayerInfoUpdatePacket.Action.UPDATE_DISPLAY_NAME);
+                    ClientboundPlayerInfoUpdatePacket.Action.UPDATE_DISPLAY_NAME,
+                    ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LIST_ORDER,
+                    ClientboundPlayerInfoUpdatePacket.Action.UPDATE_HAT);
             buf.writeEnumSet(actions, ClientboundPlayerInfoUpdatePacket.Action.class);
             buf.writeVarInt(infos.size());
             for (Info info : infos) {
@@ -53,6 +59,8 @@ public final class PlayerInfoPackets {
                 buf.writeBoolean(info.listed());
                 buf.writeVarInt(info.latency());
                 FriendlyByteBuf.writeNullable(buf, info.displayName(), ComponentSerialization.TRUSTED_STREAM_CODEC);
+                buf.writeVarInt(info.listOrder());
+                buf.writeBoolean(info.showHat());
             }
             return ClientboundPlayerInfoUpdatePacket.STREAM_CODEC.decode(buf);
         } finally {

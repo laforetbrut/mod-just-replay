@@ -103,7 +103,15 @@ public final class PacketFilter {
             ClientboundChunkBatchFinishedPacket.class,
             ClientboundTickingStatePacket.class,
             ClientboundTickingStepPacket.class,
-            net.minecraft.network.protocol.game.ClientboundDeleteChatPacket.class
+            net.minecraft.network.protocol.game.ClientboundDeleteChatPacket.class,
+            net.minecraft.network.protocol.game.ClientboundPlayerRotationPacket.class,
+            net.minecraft.network.protocol.game.ClientboundSetCursorItemPacket.class,
+            net.minecraft.network.protocol.game.ClientboundSetPlayerInventoryPacket.class,
+            net.minecraft.network.protocol.game.ClientboundGameRuleValuesPacket.class,
+            net.minecraft.network.protocol.game.ClientboundLowDiskSpaceWarningPacket.class,
+            net.minecraft.network.protocol.game.ClientboundTestInstanceBlockStatus.class,
+            net.minecraft.network.protocol.common.ClientboundShowDialogPacket.class,
+            net.minecraft.network.protocol.common.ClientboundClearDialogPacket.class
     );
 
     private PacketFilter() {

@@ -4,6 +4,7 @@
   "package": "com.vyrriox.justreplay.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
+    "ClientClockManagerMixin",
     "ConnectionMixin",
     "ConnectionAccessor",
     "KeyMappingAccessor",

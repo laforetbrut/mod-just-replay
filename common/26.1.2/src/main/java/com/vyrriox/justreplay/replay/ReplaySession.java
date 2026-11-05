@@ -318,10 +318,12 @@ public final class ReplaySession {
             return;
         }
         rulesApplied = true;
-        GameRules rules = server.getGameRules();
-        rules.set(GameRules.ADVANCE_TIME, false, server);
-        rules.set(GameRules.ADVANCE_WEATHER, false, server);
-        rules.set(GameRules.SPAWN_MOBS, false, server);
+        server.execute(() -> {
+            GameRules rules = server.getGameRules();
+            rules.set(GameRules.ADVANCE_TIME, false, server);
+            rules.set(GameRules.ADVANCE_WEATHER, false, server);
+            rules.set(GameRules.SPAWN_MOBS, false, server);
+        });
     }
     /** Far more than the host needs (at most one of its ticks); past this something is wrong and the replay still starts. */
     private static final int HOST_DRAIN_TICKS = 40;
@@ -452,6 +454,9 @@ public final class ReplaySession {
                 s.waitingTicks = 0;
             }
         }
+        if (s != null) {
+            applyWorldRules(mc);
+        }
         if (s == null || mc.player == null || mc.getConnection() == null) {
             return;
         }
@@ -485,7 +490,6 @@ public final class ReplaySession {
             JustReplay.LOGGER.debug("Voice playback failed", t);
         }
         Playback.enforceCamera(mc);
-        applyWorldRules(mc);
         if (mc.screen instanceof LevelLoadingScreen) {
             mc.setScreen(null);
         }

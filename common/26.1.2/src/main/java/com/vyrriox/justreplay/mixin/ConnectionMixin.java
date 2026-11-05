@@ -2,9 +2,9 @@ package com.vyrriox.justreplay.mixin;
 
 import com.vyrriox.justreplay.record.Recorder;
 import com.vyrriox.justreplay.replay.ReplaySession;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import net.minecraft.network.Connection;
-import net.minecraft.network.PacketSendListener;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
@@ -35,9 +35,9 @@ public abstract class ConnectionMixin {
     }
 
     /** The camera's movement is never sent to the replay host, so its server player never loads chunks. */
-    @Inject(method = "send(Lnet/minecraft/network/protocol/Packet;Lnet/minecraft/network/PacketSendListener;Z)V",
+    @Inject(method = "send(Lnet/minecraft/network/protocol/Packet;Lio/netty/channel/ChannelFutureListener;Z)V",
             at = @At("HEAD"), cancellable = true)
-    private void justreplay$onSend(Packet<?> packet, PacketSendListener listener, boolean flush, CallbackInfo ci) {
+    private void justreplay$onSend(Packet<?> packet, ChannelFutureListener listener, boolean flush, CallbackInfo ci) {
         if (packet instanceof net.minecraft.network.protocol.game.ClientboundUpdateRecipesPacket && ReplaySession.current() != null
                 && ((Connection) (Object) this).getSending() == PacketFlow.CLIENTBOUND) {
             // The replay world's own server has nothing to say about recipes (the recording carries its own), and a
