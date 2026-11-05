@@ -62,6 +62,8 @@ public final class SelfTest {
     private static com.vyrriox.justreplay.editor.ActorPlacement.Spot seatSpot;
     private static int fxStep;
     private static boolean curiosGiven;
+    private static volatile net.minecraft.world.item.Item accessoryGiven;
+    private static java.util.SequencedMap<?, ?> accessorySlots;
     private static int cullSkipped;
     /** Sounds the recording player made itself, heard again while the replay plays (see recordLocalEffect). */
     private static int localBell;
@@ -311,6 +313,7 @@ public final class SelfTest {
                 modsBase = base;
                 Mods.prepare(mc);
                 Mods.seedExposure();
+                Mods.prepareAccessories(mc);
                 stairPos = base.offset(9, 0, 0);
                 bedPos = base.offset(9, 0, -3);
                 p.connection.sendCommand(String.format("setblock %d %d %d minecraft:oak_stairs[facing=west]", stairPos.getX(), stairPos.getY(), stairPos.getZ()));
@@ -421,6 +424,7 @@ public final class SelfTest {
                 logWorld(mc, s, "playing");
                 log("mods while playing: {}", Mods.state(mc, s));
                 Mods.checkCurios(mc, s, "at start");
+                Mods.checkAccessories(mc, s, "at start");
                 Mods.checkCulling("during the replay", false);
                 cullSkipped = Math.max(0, com.vyrriox.justreplay.compat.EntityCullingCompat.skippedEntityTicks());
                 shot(mc, "1-playing");
@@ -460,6 +464,7 @@ public final class SelfTest {
                 shot(mc, "2-seek150");
                 clockGecko = geckoClock();
                 clockEntity = com.vyrriox.justreplay.compat.ReplayCompat.lastGeckoEntityFrameTime();
+                Mods.clearAccessorySlots();
                 s.playback().seek(20);
                 next(30);
             }
@@ -467,6 +472,7 @@ public final class SelfTest {
                 ReplaySession s = ReplaySession.current();
                 logWorld(mc, s, "after backward seek");
                 Mods.checkCurios(mc, s, "after backward seek");
+                Mods.checkAccessoriesAfterClear(mc, s);
                 shot(mc, "3-seek20");
                 checkClockBackSeek(clockGecko, geckoClock(), clockEntity, com.vyrriox.justreplay.compat.ReplayCompat.lastGeckoEntityFrameTime());
                 clockGecko = geckoClock();
@@ -1273,6 +1279,72 @@ public final class SelfTest {
             }
             int worn = com.vyrriox.justreplay.compat.CuriosCompat.wornCount(s.findRecorder(mc));
             log("curios {}: worn stacks on the actor={} -> {}", label, worn, worn == 1 ? "OK" : "FAIL");
+        }
+
+        /** An accessory worn before the recording starts, put on by the integrated server; a logged skip when it cannot be. */
+        static void prepareAccessories(Minecraft mc) {
+            if (!loaded("accessories")) {
+                log("accessories: mod absent, skipped");
+                return;
+            }
+            net.minecraft.world.item.Item ring = accessoryRing();
+            net.minecraft.client.server.IntegratedServer server = mc.getSingleplayerServer();
+            if (ring == null || server == null) {
+                log("accessories: no ring item or no integrated server, skipped");
+                return;
+            }
+            java.util.UUID id = mc.player.getUUID();
+            server.execute(() -> {
+                net.minecraft.server.level.ServerPlayer player = server.getPlayerList().getPlayer(id);
+                if (player != null && com.vyrriox.justreplay.compat.AccessoriesCompat.equip(player, "ring", new net.minecraft.world.item.ItemStack(ring))) {
+                    accessoryGiven = ring;
+                } else {
+                    log("accessories: the player has no ring slot, skipped");
+                }
+            });
+        }
+
+        private static net.minecraft.world.item.Item accessoryRing() {
+            for (String namespace : new String[]{"accessories", "curios"}) {
+                net.minecraft.world.item.Item ring = net.minecraft.core.registries.BuiltInRegistries.ITEM
+                        .getTag(net.minecraft.tags.TagKey.create(net.minecraft.core.registries.Registries.ITEM,
+                                net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(namespace, "ring")))
+                        .flatMap(tag -> tag.stream().findFirst()).map(net.minecraft.core.Holder::value).orElse(null);
+                if (ring != null) {
+                    return ring;
+                }
+            }
+            return null;
+        }
+
+        /** The actor has its capability, the ring in its slot, and nothing moved to the invalid stacks. */
+        static void checkAccessories(Minecraft mc, ReplaySession s, String label) {
+            net.minecraft.world.item.Item ring = accessoryGiven;
+            if (!loaded("accessories") || ring == null) {
+                log("accessories {}: skipped", label);
+                return;
+            }
+            net.minecraft.world.entity.Entity actor = s.findRecorder(mc);
+            net.minecraft.world.item.ItemStack worn = com.vyrriox.justreplay.compat.AccessoriesCompat.worn(actor, "ring");
+            int invalid = com.vyrriox.justreplay.compat.AccessoriesCompat.invalidCount(actor);
+            log("accessories {}: ring on the actor={} invalid stacks={} -> {}", label, worn, invalid,
+                    worn != null && worn.is(ring) && invalid == 0 ? "OK" : "FAIL");
+        }
+
+        /** A game just started has no slot definitions: the seek that follows must bring them back from the recording. */
+        static void clearAccessorySlots() {
+            if (loaded("accessories") && accessoryGiven != null) {
+                accessorySlots = com.vyrriox.justreplay.compat.AccessoriesCompat.clearClientEntitySlots();
+            }
+        }
+
+        static void checkAccessoriesAfterClear(Minecraft mc, ReplaySession s) {
+            checkAccessories(mc, s, "after a seek with empty slot definitions");
+            if (accessorySlots != null) {
+                com.vyrriox.justreplay.compat.AccessoriesCompat.restoreClientEntitySlots(accessorySlots);
+                accessorySlots = null;
+            }
+            log("accessories mob holder: no mob with slots in the test scene, skipped");
         }
 
         /** Entity Culling's switch against the expected value; skipped when the mod is absent. */

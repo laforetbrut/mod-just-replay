@@ -43,6 +43,7 @@ public final class ReplayCompat {
     static final boolean ENTITY_CULLING = isLoaded("entityculling");
     static final boolean IRONS_SPELLS = isLoaded("irons_spellbooks");
     static final boolean EXPOSURE = isLoaded("exposure");
+    static final boolean ACCESSORIES = isLoaded("accessories");
     private static final Set<String> FAILED = Collections.synchronizedSet(new HashSet<>());
     private static double monotonicFrame = -1;
     private static double monotonicValue;
@@ -317,6 +318,9 @@ public final class ReplayCompat {
         if (EXPOSURE && packet != null) {
             packet = ExposureCompat.filterPlayback(packet);
         }
+        if (ACCESSORIES && packet != null) {
+            packet = AccessoriesCompat.filterPlayback(packet);
+        }
         return packet;
     }
 
@@ -334,7 +338,8 @@ public final class ReplayCompat {
                 || CUSTOM_NPCS && CustomNpcsCompat.blockServerbound(packet)
                 || EPIC_FIGHT && EpicFightCompat.blockServerbound(packet)
                 || IRONS_SPELLS && IronsSpellsCompat.blockServerbound(packet)
-                || EXPOSURE && ExposureCompat.blockServerbound(packet);
+                || EXPOSURE && ExposureCompat.blockServerbound(packet)
+                || ACCESSORIES && AccessoriesCompat.blockServerbound(packet);
     }
 
     // ---------------------------------------------------------------- recording hooks
@@ -428,6 +433,9 @@ public final class ReplayCompat {
         if (CURIOS) {
             CuriosCompat.writeCurrent(player, out);
         }
+        if (ACCESSORIES) {
+            AccessoriesCompat.writeCurrent(player, out);
+        }
         if (IRONS_SPELLS) {
             IronsSpellsCompat.writeCurrent(player, out);
         }
@@ -448,6 +456,9 @@ public final class ReplayCompat {
         }
         if (CURIOS) {
             CuriosCompat.writeCurrent(entity, out);
+        }
+        if (ACCESSORIES) {
+            AccessoriesCompat.writeCurrent(entity, out);
         }
         if (IRONS_SPELLS) {
             IronsSpellsCompat.writeCurrent(entity, out);
@@ -474,6 +485,9 @@ public final class ReplayCompat {
         }
         if (CURIOS) {
             CuriosCompat.writeCurrent(player, out);
+        }
+        if (ACCESSORIES) {
+            AccessoriesCompat.writeCurrent(player, out);
         }
         if (IRONS_SPELLS) {
             IronsSpellsCompat.writeCurrent(player, out);
@@ -504,6 +518,14 @@ public final class ReplayCompat {
 
     /** Mod state a snapshot or checkpoint must write because the server sends it only on a change. */
     public static void writeSnapshot(java.util.function.Consumer<Packet<?>> out) {
+        if (ACCESSORIES) {
+            try {
+                // First: holders read without these definitions lose every stack, and players and entities follow.
+                AccessoriesCompat.writeSnapshot(out);
+            } catch (Throwable t) {
+                warnOnce("accessories.definitions", "Cannot write the Accessories slot definitions into the snapshot", t);
+            }
+        }
         if (SABLE) {
             try {
                 SableCompat.writeSnapshot(out);
