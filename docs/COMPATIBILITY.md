@@ -71,6 +71,7 @@ Every integration is optional: it is reached by reflection or by optional mixins
 
 ### Known limits
 
+- Curios on Minecraft 1.20.1, released jars of 1.1.0: curios can be missing from a replay when their slots come only from a data pack of the world or the server, since the slot definitions were not recorded. A fix is on `main` and not yet confirmed in game. Slots from a mod's own jar should work; this was read in the code, not tested.
 - A block changed in the very tick a recording starts in the middle of a session can be missed: the packet is
   captured before the start but handled by the client after the snapshot.
 - WaterFrames in exports: WaterMedia seeks are asynchronous, so a video can lag a few frames behind the exported
@@ -410,6 +411,8 @@ du tampon de sections est retirée, la règle du rayon de chunks d'apparition es
 d'apparition de GeckoLib ne se jouent probablement pas dans les replays. Un enregistrement ne s'ouvre que sur la version
 de Minecraft et le loader où il a été fait. Les animations GeckoLib déclenchées avant le début d'un enregistrement ou
 la cible d'un saut ne sont pas restaurées, et la phase des boucles peut différer après un saut en arrière.
+
+Curios sur Minecraft 1.20.1, jars publiés de la 1.1.0 : des objets portés peuvent manquer dans un replay quand leurs emplacements viennent seulement d'un datapack du monde ou du serveur, car les définitions d'emplacements n'étaient pas enregistrées. Un correctif est sur `main`, pas encore confirmé en jeu. Les emplacements fournis par le jar d'un mod devraient fonctionner : c'est lu dans le code, pas testé.
 
 Limites connues : un bloc modifié dans le tick exact où un enregistrement démarre en cours de partie peut
 manquer ; en export, une vidéo WaterFrames peut avoir quelques images de retard ; les trains de Create dans un
