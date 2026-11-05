@@ -30,7 +30,10 @@ import java.util.function.Consumer;
  * from the checkpoint applies those same absolute changes again, so the world converges on the recorded state.
  * <p>
  * Building a chunk packet is the most expensive thing the recorder does on the client thread, so each tick has a
- * small time budget, and nothing optional runs while frames are slow.
+ * small time budget, and the scan does not run while frames are slow. A checkpoint waits for a fast frame once, then
+ * keeps going on slow frames with a few builds per tick so it ends in bounded time. A chunk the server forgets while
+ * a checkpoint is running is built just before the client unloads it: unloading clears its light and block entities,
+ * so a reference kept from the start of the job would not be enough.
  *
  * @author vyrriox
  */
@@ -48,8 +51,10 @@ final class ChunkCapture {
     private static final long CHECKPOINT_BUDGET_NANOS = 600_000L;
     /** A frame slower than this (under 40 fps) skips the optional work of the tick. */
     private static final long SLOW_FRAME_NANOS = 25_000_000L;
-    /** A checkpoint never waits more than this many ticks for faster frames. */
+    /** A checkpoint waits for faster frames only before its first step, and never more than this many ticks. */
     private static final int MAX_DEFERRED_TICKS = 40;
+    /** Ticks a checkpoint aims to finish in, whatever the frame rate; sets its minimum builds per tick. */
+    private static final int CHECKPOINT_TARGET_TICKS = 600;
     static final int MAX_RADIUS = 64;
 
     /** What the network thread saw; drained on the client thread so the sets below need no locking or boxing. */
@@ -73,7 +78,8 @@ final class ChunkCapture {
     private int[] scanOffsets = new int[0];
     private int scanIndex;
     private CheckpointJob checkpoint;
-    private int deferred;
+    /** Self test: frame duration forced on the budget logic, 0 for the real one. */
+    static volatile long forcedFrameNanos;
 
     private static final class CheckpointJob {
         final int at;
@@ -85,8 +91,13 @@ final class ChunkCapture {
         final List<byte[]> head;
         final List<byte[]> tail;
         final List<byte[]> chunks = new ArrayList<>();
+        /** Chunks built so far, so one built just before its unload is not built again if the server resends it. */
+        final LongOpenHashSet built = new LongOpenHashSet();
         final Consumer<List<byte[]>> done;
+        final int radius;
         int index;
+        int deferred;
+        int steps;
 
         CheckpointJob(int at, int epoch, ClientLevel level, int centerX, int centerZ, int radius, List<byte[]> head, List<byte[]> tail,
                       Consumer<List<byte[]>> done) {
@@ -95,6 +106,7 @@ final class ChunkCapture {
             this.level = level;
             this.centerX = centerX;
             this.centerZ = centerZ;
+            this.radius = radius;
             this.offsets = offsets(radius);
             this.head = head;
             this.tail = tail;
@@ -168,7 +180,6 @@ final class ChunkCapture {
         if (checkpoint != null) {
             checkpoint.done.accept(null);
         }
-        deferred = 0;
         checkpoint = new CheckpointJob(at, epoch, level, centerX, centerZ, Math.min(MAX_RADIUS, radius), head, tail, done);
     }
 
@@ -178,6 +189,34 @@ final class ChunkCapture {
             checkpoint = null;
             job.done.accept(null);
         }
+    }
+
+    /**
+     * The client is about to unload a chunk: a running checkpoint that still needs it builds it now. Runs on the client
+     * thread right before the packet's own handling, while the chunk still has its light and block entities.
+     */
+    void beforeForget(ClientLevel level, ChunkPos pos, Output out) {
+        CheckpointJob job = checkpoint;
+        if (job == null || level != job.level || Math.abs(pos.x - job.centerX) > job.radius
+                || Math.abs(pos.z - job.centerZ) > job.radius) {
+            return;
+        }
+        buildInto(job, level, pos.x, pos.z, out);
+    }
+
+    /** Builds a chunk of the job unless it is already built or absent; true when a packet was built. */
+    private static boolean buildInto(CheckpointJob job, ClientLevel level, int x, int z, Output out) {
+        long key = ChunkPos.asLong(x, z);
+        if (job.built.contains(key)) {
+            return false;
+        }
+        LevelChunk chunk = level.getChunkSource().getChunk(x, z, ChunkStatus.FULL, false);
+        if (chunk == null || chunk.isEmpty()) {
+            return false;
+        }
+        job.built.add(key);
+        out.write(new ClientboundLevelChunkWithLightPacket(chunk, level.getLightEngine(), null, null), job.chunks::add);
+        return true;
     }
 
     /**
@@ -191,13 +230,13 @@ final class ChunkCapture {
     void tick(ClientLevel level, int playerChunkX, int playerChunkZ, int scanRadius, int epoch, long lastFrameNanos, Output out,
               Consumer<byte[]> mainSink) {
         drain();
-        boolean slow = lastFrameNanos > SLOW_FRAME_NANOS;
+        boolean slow = Math.max(lastFrameNanos, forcedFrameNanos) > SLOW_FRAME_NANOS;
         long start = System.nanoTime();
         if (checkpoint != null) {
-            if (slow && ++deferred <= MAX_DEFERRED_TICKS) {
+            if (slow && checkpoint.steps == 0 && ++checkpoint.deferred <= MAX_DEFERRED_TICKS) {
                 return;
             }
-            deferred = 0;
+            checkpoint.steps++;
             stepCheckpoint(level, epoch, out, start + CHECKPOINT_BUDGET_NANOS);
             return;
         }
@@ -214,17 +253,18 @@ final class ChunkCapture {
         }
         int count = job.offsets.length / 2;
         int builds = 0;
+        // The time budget only counts past this minimum, spread over the ticks left of the target.
+        int ticksLeft = Math.max(1, CHECKPOINT_TARGET_TICKS - job.steps);
+        int minBuilds = Math.min(CHECKPOINT_MAX_BUILDS, Math.max(1, (count - job.index + ticksLeft - 1) / ticksLeft));
         for (int checks = 0; job.index < count && checks < CHECKPOINT_MAX_CHECKS && builds < CHECKPOINT_MAX_BUILDS; checks++) {
             int x = job.centerX + job.offsets[job.index * 2];
             int z = job.centerZ + job.offsets[job.index * 2 + 1];
             job.index++;
-            LevelChunk chunk = level.getChunkSource().getChunk(x, z, ChunkStatus.FULL, false);
-            if (chunk == null || chunk.isEmpty()) {
+            if (!buildInto(job, level, x, z, out)) {
                 continue;
             }
-            out.write(new ClientboundLevelChunkWithLightPacket(chunk, level.getLightEngine(), null, null), job.chunks::add);
             builds++;
-            if (System.nanoTime() > deadline) {
+            if (builds >= minBuilds && System.nanoTime() > deadline) {
                 break;
             }
         }

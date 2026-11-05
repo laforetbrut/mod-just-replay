@@ -41,6 +41,7 @@
   "justreplay.toast.failed": "Cannot start recording",
   "justreplay.toast.disk_failed": "Recording stopped: the disk write failed. The replay is incomplete",
   "justreplay.toast.incomplete": "Replay saved incompletely",
+  "justreplay.toast.registries_differ": "Data packs differ from the recording, some content may look wrong",
   "justreplay.toast.open_failed": "Cannot open this replay",
   "justreplay.toast.project_bad": "project.json was unreadable and was kept aside",
   "justreplay.toast.keyframe": "Camera keyframe added",

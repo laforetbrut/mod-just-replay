@@ -68,6 +68,8 @@ public final class ReplaySession {
     private boolean cameraPath;
     private boolean hudVisible = true;
     private boolean cameraPlaced;
+    /** Past this cursor, the camera stops waiting for the recorder's entity to appear. */
+    private int cameraPlaceDeadline = 40;
 
     private ReplaySession(Path dir, ReplayMeta meta, ReplayProject project, com.vyrriox.justreplay.format.PacketStream packets) {
         this.dir = dir;
@@ -413,6 +415,14 @@ public final class ReplaySession {
             // Recorded ids must be in place before the codec decodes anything.
             boolean ids = com.vyrriox.justreplay.format.RegistryIds.apply(s.dir);
             JustReplay.LOGGER.info("Registry ids from the recording: {}", ids ? "applied" : "none (older replay)");
+            List<String> differing = com.vyrriox.justreplay.format.SyncedRegistries.differing(s.dir, mc.getConnection().registryAccess());
+            if (!differing.isEmpty()) {
+                String names = String.join(", ", differing.subList(0, Math.min(3, differing.size())));
+                net.minecraft.client.gui.components.toasts.SystemToast.add(mc.getToasts(),
+                        net.minecraft.client.gui.components.toasts.SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+                        Component.translatable("justreplay.toast.registries_differ"),
+                        differing.size() > 3 ? Component.literal(names + " +" + (differing.size() - 3)) : Component.literal(names));
+            }
             s.playback.start(mc.getConnection());
             JustReplay.LOGGER.info("Replay playback started: {} ticks", s.playback.duration());
         }
@@ -430,7 +440,11 @@ public final class ReplaySession {
         if (mc.screen instanceof ReceivingLevelScreen) {
             mc.setScreen(null);
         }
-        s.playback.consumeWorldReset();
+        if (s.playback.consumeWorldReset() && !s.spectate.isActive() && !s.isCameraPathActive()) {
+            // A recorded dimension change left the free camera at the origin of the new level.
+            s.cameraPlaced = false;
+            s.cameraPlaceDeadline = s.playback.cursor() + 40;
+        }
         if (!s.cameraPlaced) {
             s.placeCameraOnRecorder(mc);
         }
@@ -448,7 +462,7 @@ public final class ReplaySession {
             Playback.placeCamera(player, recorder.position().add(0, recorder.getEyeHeight() - player.getEyeHeight(), 0),
                     recorder.getYRot(), recorder.getXRot());
             cameraPlaced = true;
-        } else if (playback.cursor() > 40) {
+        } else if (playback.cursor() > cameraPlaceDeadline) {
             cameraPlaced = true;
         }
     }

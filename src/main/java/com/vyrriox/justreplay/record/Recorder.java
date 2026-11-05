@@ -100,6 +100,8 @@ import java.util.function.Consumer;
 public final class Recorder {
     private static volatile Recorder capture;
     private static volatile ClientboundLoginPacket lastLogin;
+    /** Chunk radius the server uses now: from the login, then from every radius packet. */
+    private static volatile int lastChunkRadius;
 
     /** The property only exists to test checkpoints on short recordings. */
     private static final Integer CHECKPOINT_OVERRIDE = Integer.getInteger("justreplay.checkpointTicks");
@@ -140,6 +142,9 @@ public final class Recorder {
                 ReplayMeta meta = newMeta(connection, actor, stamp);
                 ReplayStorage.writeMeta(dir, meta);
                 RegistryIds.save(dir);
+                if (connection.getPacketListener() instanceof ClientPacketListener listener) {
+                    com.vyrriox.justreplay.format.SyncedRegistries.write(dir, com.vyrriox.justreplay.format.SyncedRegistries.encode(listener.registryAccess()));
+                }
                 return new Recording(dir, new ReplayWriter(dir.resolve(ReplayStorage.STREAM)), meta);
             } catch (Throwable t) {
                 deleteQuietly(dir);
@@ -160,6 +165,8 @@ public final class Recorder {
     /** Lowest tick a packet may be written with; raised past a checkpoint so later packets never share its tick. */
     private int floorTick;
     private volatile boolean checkpointPending;
+    private int slowCheckpointStart;
+    private int slowCheckpointTicks = -1;
     private int lastCheckpointTick;
     /** Chunks the recorder builds itself: extra cached chunks and checkpoint chunks, a few per tick. */
     private final ChunkCapture chunks = new ChunkCapture();
@@ -306,6 +313,7 @@ public final class Recorder {
     public static void onPacketReceived(Connection connection, Packet<?> packet) {
         if (packet instanceof ClientboundLoginPacket login) {
             lastLogin = login;
+            lastChunkRadius = login.chunkRadius();
             if (capture == null && !ReplaySession.isReplayConnection(connection) && ReplaySession.current() == null) {
                 boolean record = connection.isMemoryConnection() ? JRConfig.AUTO_RECORD_SINGLEPLAYER.get() : JRConfig.AUTO_RECORD_MULTIPLAYER.get();
                 boolean buffer = JRConfig.REPLAY_BUFFER.get();
@@ -313,6 +321,9 @@ public final class Recorder {
                     startFromLogin(connection, record, buffer);
                 }
             }
+        }
+        if (packet instanceof ClientboundSetChunkCacheRadiusPacket radius) {
+            lastChunkRadius = radius.getRadius();
         }
         if (!ReplaySession.isReplayConnection(connection)) {
             trackSpawns(connection, packet);
@@ -386,6 +397,21 @@ public final class Recorder {
             }
         }
         chunks.onPacket(packet);
+        if (packet instanceof net.minecraft.network.protocol.game.ClientboundForgetLevelChunkPacket forget) {
+            // Queued from the network thread ahead of the packet's own handling, so it runs while the chunk is intact.
+            Minecraft mc = Minecraft.getInstance();
+            mc.execute(() -> {
+                try {
+                    if (mc.level != null) {
+                        chunks.beforeForget(mc.level, forget.pos(), (built, out) -> write(listener, built, out));
+                    }
+                } catch (Throwable t) {
+                    if (failedTypes.add(ChunkCapture.class)) {
+                        JustReplay.LOGGER.warn("Cannot build a chunk the server forgets: {}", t.toString());
+                    }
+                }
+            });
+        }
         try {
             c.encode(com.vyrriox.justreplay.compat.ReplayCompat.rewriteRecorded(packet, localUuid, actorUuid), sink);
         } catch (Throwable t) {
@@ -750,7 +776,12 @@ public final class Recorder {
             Path dir = uniqueDir(stamp + "_buffer");
             ReplayMeta meta = newMeta(c.connection, c.actorUuid, stamp);
             meta.startedAt = System.currentTimeMillis();
-            return b.save(dir, meta, c.registryIds);
+            String synced = c.connection.getPacketListener() instanceof ClientPacketListener listener
+                    ? com.vyrriox.justreplay.format.SyncedRegistries.encode(listener.registryAccess()) : null;
+            return b.save(dir, meta, c.registryIds).thenApply(saved -> {
+                com.vyrriox.justreplay.format.SyncedRegistries.write(dir, synced);
+                return saved;
+            });
         } catch (Throwable t) {
             return CompletableFuture.failedFuture(t);
         }
@@ -1015,7 +1046,7 @@ public final class Recorder {
             List<byte[]> tail = new ArrayList<>();
             writeSnapshotTail(mc, listener, tail::add);
             writeActorState(listener, mc.player, tail::add);
-            int radius = lastLogin.chunkRadius() + 1;
+            int radius = lastChunkRadius + 1;
             if (JRConfig.CAPTURE_EXTRA_CHUNKS.get()) {
                 radius = Math.max(radius, extraChunkRadius(mc));
             }
@@ -1032,8 +1063,25 @@ public final class Recorder {
         }
     }
 
+    /** Self test: forces slow frames and asks for a checkpoint; see {@link #slowCheckpointTicks()}. */
+    public void startSlowCheckpointTest() {
+        ChunkCapture.forcedFrameNanos = 100_000_000L;
+        slowCheckpointStart = tick;
+        slowCheckpointTicks = -1;
+        requestCheckpoint(Minecraft.getInstance());
+    }
+
+    /** Self test: ends the forced slow frames; ticks the checkpoint took under them, or -1 when it did not finish. */
+    public int slowCheckpointTicks() {
+        ChunkCapture.forcedFrameNanos = 0L;
+        return slowCheckpointTicks;
+    }
+
     private void deliverCheckpoint(int at, List<byte[]> records) {
         checkpointPending = false;
+        if (records != null && ChunkCapture.forcedFrameNanos > 0L && slowCheckpointTicks < 0) {
+            slowCheckpointTicks = tick - slowCheckpointStart;
+        }
         if (records == null || stopped) {
             JustReplay.LOGGER.debug("Checkpoint at tick {} dropped (level changed or capture stopped)", at);
             return;
@@ -1306,7 +1354,7 @@ public final class Recorder {
         writeSnapshotHead(mc, listener, sink);
         ClientLevel level = mc.level;
         LocalPlayer player = mc.player;
-        int radius = lastLogin.chunkRadius() + 1;
+        int radius = lastChunkRadius + 1;
         int cx = player.chunkPosition().x;
         int cz = player.chunkPosition().z;
         for (int x = cx - radius; x <= cx + radius; x++) {
@@ -1333,7 +1381,7 @@ public final class Recorder {
         CommonPlayerSpawnInfo spawn = login.commonPlayerSpawnInfo();
         GameType mode = mc.gameMode != null ? mc.gameMode.getPlayerMode() : spawn.gameType();
         write(listener, new ClientboundLoginPacket(player.getId(), login.hardcore(), listener.levels(), login.maxPlayers(),
-                login.chunkRadius(), login.simulationDistance(), login.reducedDebugInfo(), login.showDeathScreen(),
+                lastChunkRadius, login.simulationDistance(), login.reducedDebugInfo(), login.showDeathScreen(),
                 login.doLimitedCrafting(), new CommonPlayerSpawnInfo(level.dimensionTypeRegistration(), level.dimension(),
                 spawn.seed(), mode, spawn.previousGameType(), spawn.isDebug(), spawn.isFlat(), spawn.lastDeathLocation(), 0),
                 login.enforcesSecureChat()), sink);
@@ -1377,7 +1425,7 @@ public final class Recorder {
             write(listener, new ClientboundGameEventPacket(ClientboundGameEventPacket.THUNDER_LEVEL_CHANGE, level.getThunderLevel(1.0F)), sink);
         }
 
-        write(listener, new ClientboundSetChunkCacheRadiusPacket(login.chunkRadius()), sink);
+        write(listener, new ClientboundSetChunkCacheRadiusPacket(lastChunkRadius), sink);
         write(listener, new ClientboundSetChunkCacheCenterPacket(player.chunkPosition().x, player.chunkPosition().z), sink);
     }
 
@@ -1393,6 +1441,7 @@ public final class Recorder {
             write(listener, packet, sink);
         }
         com.vyrriox.justreplay.compat.ReplayCompat.writeSnapshot(packet -> write(listener, packet, sink));
+        writeMaps(level, listener, sink);
         write(listener, new ClientboundGameEventPacket(ClientboundGameEventPacket.LEVEL_CHUNKS_LOAD_START, 0.0F), sink);
 
         List<Entity> withPassengers = new ArrayList<>();
@@ -1420,6 +1469,21 @@ public final class Recorder {
         }
         com.vyrriox.justreplay.compat.ReplayCompat.writeEntityState(level.entitiesForRendering(), packet -> write(listener, packet, sink));
         com.vyrriox.justreplay.compat.ReplayCompat.writeEntityStates(level, packet -> write(listener, packet, sink));
+    }
+
+    /** Map contents: the server only sends them when they change or on first sight, and a login forgets them. */
+    private void writeMaps(ClientLevel level, ClientPacketListener listener, Consumer<byte[]> sink) {
+        for (var entry : java.util.Map.copyOf(((com.vyrriox.justreplay.mixin.ClientLevelAccessor) level).justreplay$getMapData()).entrySet()) {
+            try {
+                net.minecraft.world.level.saveddata.maps.MapItemSavedData map = entry.getValue();
+                List<net.minecraft.world.level.saveddata.maps.MapDecoration> decorations = new ArrayList<>();
+                map.getDecorations().forEach(decorations::add);
+                write(listener, new net.minecraft.network.protocol.game.ClientboundMapItemDataPacket(entry.getKey(), map.scale, map.locked, decorations,
+                        new net.minecraft.world.level.saveddata.maps.MapItemSavedData.MapPatch(0, 0, 128, 128, map.colors)), sink);
+            } catch (Throwable t) {
+                JustReplay.LOGGER.warn("Skipping map {} in the snapshot: {}", entry.getKey(), t.toString());
+            }
+        }
     }
 
     private void writeTabListText(Minecraft mc, ClientPacketListener listener, Consumer<byte[]> sink) {
@@ -1467,6 +1531,13 @@ public final class Recorder {
             // The server's own spawn packets carry what client state cannot rebuild (spawn data, NeoForge payloads).
             for (Packet<?> spawnPacket : original) {
                 write(listener, spawnPacket, sink);
+                if (spawnPacket instanceof ClientboundSetPassengersPacket riders) {
+                    // That list may be out of date by now: the final pass writes the vehicle's current one.
+                    Entity vehicle = entity.level().getEntity(riders.getVehicle());
+                    if (vehicle != null && !withPassengers.contains(vehicle)) {
+                        withPassengers.add(vehicle);
+                    }
+                }
             }
             write(listener, new ClientboundTeleportEntityPacket(entity), sink);
         } else {
@@ -1481,7 +1552,8 @@ public final class Recorder {
                 }
             }
         }
-        List<SynchedEntityData.DataValue<?>> data = entity.getEntityData().getNonDefaultValues();
+        // The spawn packets carry the state at spawn: values back to their default must be written as well.
+        List<SynchedEntityData.DataValue<?>> data = original != null ? allDataValues(entity.getEntityData()) : entity.getEntityData().getNonDefaultValues();
         if (data != null) {
             write(listener, new ClientboundSetEntityDataPacket(entity.getId(), data), sink);
         }
@@ -1489,7 +1561,7 @@ public final class Recorder {
             List<Pair<EquipmentSlot, ItemStack>> equipment = new ArrayList<>();
             for (EquipmentSlot slot : EquipmentSlot.values()) {
                 ItemStack stack = living.getItemBySlot(slot);
-                if (!stack.isEmpty()) {
+                if (original != null || !stack.isEmpty()) {
                     equipment.add(Pair.of(slot, stack.copy()));
                 }
             }
@@ -1498,8 +1570,26 @@ public final class Recorder {
             }
             writeAttributes(listener, living, sink);
         }
-        if (!entity.getPassengers().isEmpty()) {
+        if (!entity.getPassengers().isEmpty() && !withPassengers.contains(entity)) {
             withPassengers.add(entity);
+        }
+    }
+
+    /** Every entity data value, default or not; the non-default ones when the items cannot be read. */
+    private static List<SynchedEntityData.DataValue<?>> allDataValues(SynchedEntityData data) {
+        if (DATA_ITEMS == null) {
+            return data.getNonDefaultValues();
+        }
+        try {
+            List<SynchedEntityData.DataValue<?>> values = new ArrayList<>();
+            for (SynchedEntityData.DataItem<?> item : (SynchedEntityData.DataItem<?>[]) DATA_ITEMS.get(data)) {
+                if (item != null) {
+                    values.add(item.value());
+                }
+            }
+            return values.isEmpty() ? null : values;
+        } catch (Throwable t) {
+            return data.getNonDefaultValues();
         }
     }
 }
