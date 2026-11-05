@@ -346,6 +346,7 @@ public final class SelfTest {
                     }
                     if (mc.screen == null) {
                         log("in world at {}", p.position());
+                        Mods.summonAircraft(p);
                         next(60);
                     }
                 }
@@ -1299,6 +1300,17 @@ public final class SelfTest {
                     && ("mekanism".equals(modId) || com.vyrriox.justreplay.compat.CompatTargets.isSupported(modId));
         }
 
+        /**
+         * An equipped biplane, out of the walking circle, summoned early enough that the client holds its equipment when
+         * the recording starts: the recording's snapshot has to write it. Slot 1 is the biplane's weapon slot.
+         */
+        static void summonAircraft(LocalPlayer p) {
+            if (loaded("immersive_aircraft")) {
+                p.connection.sendCommand("summon immersive_aircraft:biplane ~-9 ~ ~6 "
+                        + "{Inventory:[{Slot:1b,id:\"immersive_aircraft:rotary_cannon\",count:1}]}");
+            }
+        }
+
         /** Makes the test video before the recording starts (FFmpeg takes a moment). */
         static void prepare(Minecraft mc) {
             if (loaded("waterframes")) {
@@ -1428,7 +1440,7 @@ public final class SelfTest {
         /**
          * Jade: with the clean HUD on, its tooltip must be gone during the replay, and its recorded "show overlay" packet
          * must be dropped. Immersive Aircraft: every aircraft that has equipment keeps it (at least one filled slot);
-         * checked on the aircraft in view, none in view is a skip. Each part is skipped with a log line when its mod is absent.
+         * checked on the aircraft in view, where the summoned one must be. Each part is skipped with a log line when its mod is absent.
          */
         static void checkJadeAircraft(Minecraft mc, String label) {
             if (!loaded("jade")) {
@@ -1465,7 +1477,7 @@ public final class SelfTest {
                     }
                 }
                 if (aircraft == 0) {
-                    log("aircraft {}: skipped, no aircraft in view", label);
+                    log("aircraft {}: the summoned aircraft is missing -> FAIL", label);
                 } else {
                     log("aircraft {}: aircraft={} with equipment={} -> {}", label, aircraft, equipped, equipped > 0 ? "OK" : "FAIL");
                 }
