@@ -42,6 +42,7 @@ public final class ReplayCompat {
     static final boolean CURIOS = isLoaded("curios");
     static final boolean ENTITY_CULLING = isLoaded("entityculling");
     static final boolean IRONS_SPELLS = isLoaded("irons_spellbooks");
+    static final boolean EXPOSURE = isLoaded("exposure");
     private static final Set<String> FAILED = Collections.synchronizedSet(new HashSet<>());
     private static double monotonicFrame = -1;
     private static double monotonicValue;
@@ -313,6 +314,9 @@ public final class ReplayCompat {
         if (IRONS_SPELLS && packet != null) {
             packet = IronsSpellsCompat.filterPlayback(packet);
         }
+        if (EXPOSURE && packet != null) {
+            packet = ExposureCompat.filterPlayback(packet);
+        }
         return packet;
     }
 
@@ -329,7 +333,8 @@ public final class ReplayCompat {
                 || MORPH && MorphCompat.blockServerbound(packet)
                 || CUSTOM_NPCS && CustomNpcsCompat.blockServerbound(packet)
                 || EPIC_FIGHT && EpicFightCompat.blockServerbound(packet)
-                || IRONS_SPELLS && IronsSpellsCompat.blockServerbound(packet);
+                || IRONS_SPELLS && IronsSpellsCompat.blockServerbound(packet)
+                || EXPOSURE && ExposureCompat.blockServerbound(packet);
     }
 
     // ---------------------------------------------------------------- recording hooks
@@ -533,6 +538,13 @@ public final class ReplayCompat {
                 CustomNpcsCompat.writeSnapshot(out);
             } catch (Throwable t) {
                 warnOnce("customnpcs.snapshot", "Cannot write the Custom NPCs player skins into the snapshot", t);
+            }
+        }
+        if (EXPOSURE) {
+            try {
+                ExposureCompat.writeSnapshot(out);
+            } catch (Throwable t) {
+                warnOnce("exposure.snapshot", "Cannot write the Exposure photographs into the snapshot", t);
             }
         }
     }
