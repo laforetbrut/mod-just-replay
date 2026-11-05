@@ -19,6 +19,13 @@ public final class CuriosCompat {
         return 0;
     }
 
+    public static int slotTypes(Entity entity) {
+        return -1;
+    }
+
+    public static void rebuildSlots(Entity entity) {
+    }
+
     static void writeDefinitions(Consumer<Packet<?>> out) {
     }
 

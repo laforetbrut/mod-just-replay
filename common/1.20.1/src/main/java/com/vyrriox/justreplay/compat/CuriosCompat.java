@@ -138,6 +138,41 @@ public final class CuriosCompat {
         }
     }
 
+    /** Slot types an entity has a handler for now, or -1 when Curios is absent or has no inventory for it. */
+    public static int slotTypes(Entity entity) {
+        Reflect r = reflect();
+        if (r == null || !(entity instanceof LivingEntity living)) {
+            return -1;
+        }
+        try {
+            Map<?, ?> curios = curios(r, living);
+            return curios == null ? -1 : curios.size();
+        } catch (Throwable t) {
+            ReplayCompat.warnOnce("curios.count", "Cannot read the Curios of " + entity, t);
+            return -1;
+        }
+    }
+
+    /**
+     * Self test: rebuilds an entity's handlers from the definitions on its side. A datapack reload keeps an inventory
+     * that has no handler empty, so a slot it grants to a player already in the world otherwise comes only at the next join.
+     */
+    public static void rebuildSlots(Entity entity) {
+        Reflect r = reflect();
+        if (r == null || !(entity instanceof LivingEntity living)) {
+            return;
+        }
+        try {
+            Optional<?> inventory = ((LazyOptional<?>) r.getInventory.invoke(null, living)).resolve();
+            if (inventory.isPresent()) {
+                Class.forName("top.theillusivec4.curios.api.type.capability.ICuriosItemHandler", false,
+                        CuriosCompat.class.getClassLoader()).getMethod("reset").invoke(inventory.get());
+            }
+        } catch (Throwable t) {
+            ReplayCompat.warnOnce("curios.rebuild", "Cannot rebuild the Curios of " + entity, t);
+        }
+    }
+
     /**
      * Writes the slot definitions the client holds now (snapshots and checkpoints), in the form of the server's own
      * sync. It must come before the worn curios of any entity.

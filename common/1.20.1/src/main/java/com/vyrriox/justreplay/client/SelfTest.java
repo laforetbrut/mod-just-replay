@@ -68,6 +68,7 @@ public final class SelfTest {
     private static int fxStep;
     private static boolean curiosGiven;
     private static int ringWaits;
+    private static boolean ringRebuilt;
     private static int cullSkipped;
     /** Sounds the recording player made itself, heard again while the replay plays (see recordLocalEffect). */
     private static int localBell;
@@ -406,7 +407,7 @@ public final class SelfTest {
                 }
             }
             case 2 -> {
-                if (Mods.ringPending()) {
+                if (Mods.ringPending(mc)) {
                     wait = 5;
                     return;
                 }
@@ -455,6 +456,7 @@ public final class SelfTest {
                 }
                 if (t == 100) {
                     p.connection.sendCommand("setblock ~ ~3 ~ minecraft:diamond_block");
+                    Mods.checkRecordingCurios(p);
                 }
                 if (t % 40 == 0 && Recorder.capturing() != null) {
                     log("recording cost: {}", Recorder.capturing().lastCost());
@@ -1362,13 +1364,48 @@ public final class SelfTest {
             mc.player.connection.sendCommand("reload");
         }
 
-        /** True while the datapack reload has not reached the client yet, for ten seconds at most. */
-        static boolean ringPending() {
+        /**
+         * True while the ring is not ready, for ten seconds at most. Curios' reload keeps an inventory without handlers
+         * empty (its readTag returns on an empty list), and the player joined before the datapack existed. Once the
+         * reload has reached the client, the server rebuilds the handlers of the player and a second reload syncs them.
+         */
+        static boolean ringPending(Minecraft mc) {
             if (ringWaits <= 0) {
                 return false;
             }
-            ringWaits = ringItem() != null ? 0 : ringWaits - 1;
-            return ringWaits > 0;
+            ringWaits--;
+            if (ringItem() == null) {
+                return ringWaits > 0;
+            }
+            net.minecraft.client.server.IntegratedServer server = mc.getSingleplayerServer();
+            if (!ringRebuilt && server != null) {
+                ringRebuilt = true;
+                java.util.UUID id = mc.player.getUUID();
+                server.execute(() -> {
+                    com.vyrriox.justreplay.compat.CuriosCompat.rebuildSlots(server.getPlayerList().getPlayer(id));
+                    mc.execute(() -> {
+                        if (mc.player != null) {
+                            mc.player.connection.sendCommand("reload");
+                        }
+                    });
+                });
+                return true;
+            }
+            int slots = com.vyrriox.justreplay.compat.CuriosCompat.slotTypes(mc.player);
+            if (slots > 0 || ringWaits <= 0) {
+                log("curios: slot types on the player before recording={} -> {}", slots, slots > 0 ? "OK" : "FAIL");
+                ringWaits = 0;
+                return false;
+            }
+            return true;
+        }
+
+        /** Curios worn by the recording player, expected 1: tells a lost ring apart from one the replay lost. */
+        static void checkRecordingCurios(LocalPlayer p) {
+            if (loaded("curios") && curiosGiven) {
+                int worn = com.vyrriox.justreplay.compat.CuriosCompat.wornCount(p);
+                log("curios while recording: worn stacks on the player={} -> {}", worn, worn == 1 ? "OK" : "FAIL");
+            }
         }
 
         /** Curios worn by the recording player's actor in the replay, expected 1; skipped when Curios or the ring is absent. */
