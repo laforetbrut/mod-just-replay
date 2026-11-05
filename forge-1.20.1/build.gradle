@@ -88,6 +88,12 @@ mixin {
     add sourceSets.main, 'justreplay.refmap.json'
 }
 
+// MixinGradle writes the refmap outside the outputs of compileJava: a build cache hit restores the
+// classes without it, and the jar ships with no refmap, which only breaks outside dev.
+tasks.named('compileJava') {
+    outputs.cacheIf { false }
+}
+
 repositories {
     mavenCentral()
     maven {

@@ -112,3 +112,10 @@
 **Root cause:** `sourceSets.main.java.srcDir(fileTree(dir) { exclude ... })` hands Loom the individual files of the tree, not the directory.
 **Fix:** add the directory with `srcDir(new File(commonDir, 'java'))` and drop the one file with `sourceSets.main.java.filter.exclude { ... }`, matching the file by name and by its common path.
 **Prevention:** for a Loom project, add a source root as a directory and filter it with the set's filter, never with a file tree.
+
+## [2026-11-05 19:10] — Forge 1.20.1 jar built without its refmap after a build cache hit
+**Context:** `gradlew clean build` of `forge-1.20.1` to prepare a production run.
+**Error:** `justreplay.refmap.json` absent from the reobfuscated jar while the mixin configs still name it; the log shows `:compileJava FROM-CACHE`.
+**Root cause:** MixinGradle writes the refmap outside the declared outputs of `compileJava`, so a cache hit restores the classes only. Dev runs do not read the jar and hide it.
+**Fix:** `outputs.cacheIf { false }` on `compileJava` in `forge-1.20.1/build.gradle`.
+**Prevention:** after a build of a mixin jar meant for release or a production run, read the refmap in the jar and check it holds SRG names.
