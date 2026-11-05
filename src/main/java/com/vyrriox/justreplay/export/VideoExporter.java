@@ -97,7 +97,15 @@ public final class VideoExporter {
     /** For a still: the PNG the first frame is moved to once the one frame export is done. */
     private Path still;
     private volatile boolean failed;
+    private volatile boolean cancelled;
     private boolean finished;
+    private int previousCursor;
+    private int previousSpeedIndex;
+
+    /** How an export ended: complete, complete but silent because the sound could not be added, or not at all. */
+    private enum Outcome {
+        DONE, DONE_WITHOUT_SOUND, FAILED
+    }
 
     private VideoExporter(ReplaySession session, int startTick, int endTick, int fps, Path output, boolean pngSequence, Process process,
                           int width, int height, boolean previousHideGui, boolean previousPauseOnLostFocus) {
@@ -256,15 +264,11 @@ public final class VideoExporter {
             process = launch(output, png, fps, crf, renderWidth, renderHeight, trueSize ? 0 : outWidth, outHeight);
         } catch (IOException e) {
             JustReplay.LOGGER.error("Cannot start ffmpeg", e);
+            deleteOutput(output, png, false);
             return Component.translatable("justreplay.export.error.ffmpeg", JRConfig.FFMPEG_PATH.get());
         }
 
-        boolean previousHideGui = mc.options.hideGui;
-        boolean previousPauseOnLostFocus = mc.options.pauseOnLostFocus;
-        mc.getSoundManager().stop(); // live sounds would be heard out of sync; the track is rebuilt offline
-        mc.options.hideGui = true;
-        mc.options.pauseOnLostFocus = false;
-        mc.setScreen(null);
+        // The screen stays open until FFmpeg runs for good, so an error can still be shown on it.
         // The render size is changed before the warm-up so shader packs rebuild their pipeline before capture.
         ExportRenderSize.lock();
         if (!ExportRenderSize.apply(renderWidth, renderHeight)) {
@@ -283,20 +287,26 @@ public final class VideoExporter {
             } catch (IOException e) {
                 JustReplay.LOGGER.error("Cannot start ffmpeg", e);
                 ExportRenderSize.unlock();
-                mc.options.hideGui = previousHideGui;
-                mc.options.pauseOnLostFocus = previousPauseOnLostFocus;
-                SystemToast.add(mc.getToasts(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
-                        Component.translatable("justreplay.export.failed"), Component.literal(output.getFileName().toString()));
+                deleteOutput(output, png, false);
                 return Component.translatable("justreplay.export.error.ffmpeg", JRConfig.FFMPEG_PATH.get());
             }
         }
 
+        boolean previousHideGui = mc.options.hideGui;
+        boolean previousPauseOnLostFocus = mc.options.pauseOnLostFocus;
+        mc.getSoundManager().stop(); // live sounds would be heard out of sync; the track is rebuilt offline
+        mc.options.hideGui = true;
+        mc.options.pauseOnLostFocus = false;
+        mc.setScreen(null);
+
         VideoExporter exporter = new VideoExporter(session, startTick, endTick, fps, output, png, process, renderWidth, renderHeight,
                 previousHideGui, previousPauseOnLostFocus);
+        Playback playback = session.playback();
+        exporter.previousCursor = playback.cursor();
+        exporter.previousSpeedIndex = playback.speedIndex();
         current = exporter;
         com.vyrriox.justreplay.compat.ReplayCompat.onExportStart();
         exporter.writerThread.start();
-        Playback playback = session.playback();
         playback.resetSpeed();
         playback.setPaused(false);
         playback.seek(Math.max(0, startTick + 1 - PRE_ROLL_TICKS));
@@ -485,52 +495,124 @@ public final class VideoExporter {
         mc.options.pauseOnLostFocus = previousPauseOnLostFocus;
         session.playback().setPaused(true);
         Thread waiter = new Thread(() -> {
-            boolean ok = success;
+            Outcome outcome = Outcome.FAILED;
             try {
-                // A full queue is normal at the end: the game renders faster than FFmpeg encodes. The end marker
-                // waits here, off the render thread, for room; only a dead FFmpeg makes the export give up.
-                while (!queue.offer(END, 1, TimeUnit.SECONDS)) {
-                    if (failed || !process.isAlive()) {
-                        failed = true;
-                        queue.clear();
-                        queue.offer(END);
-                        ok = false;
-                        break;
-                    }
-                }
-                writerThread.join();
-                if (!process.waitFor(10, TimeUnit.MINUTES)) {
-                    process.destroy();
-                    ok = false;
-                }
-                ok = ok && process.exitValue() == 0;
-                if (ok && still != null) {
-                    ok = keepStill();
-                } else if (ok && !audio.isEmpty()) {
-                    ok = pngSequence ? writeAudioTrack() : addAudio();
-                }
-            } catch (InterruptedException e) {
-                ok = false;
+                outcome = waitForOutput(success);
+            } catch (Throwable t) {
+                JustReplay.LOGGER.error("The export could not be finished", t);
+            } finally {
+                conclude(mc, outcome);
             }
-            boolean result = ok;
-            Path shown = still != null && result ? still : output;
-            mc.execute(() -> {
-                SystemToast.add(mc.getToasts(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
-                        Component.translatable(result ? still != null ? "justreplay.export.still.done" : "justreplay.export.done"
-                                : "justreplay.export.failed"), Component.literal(shown.getFileName().toString()));
-                if (still != null && result && mc.player != null) {
-                    mc.player.displayClientMessage(Component.translatable("justreplay.export.still.saved", shown.toString()), false);
-                }
-                if (still != null) {
-                    // Back on the frame the still was taken from.
-                    session.playback().seek(startTick);
-                }
-            });
-            JustReplay.LOGGER.info("Export {} ({} frames): {}", result ? "finished" : "failed", frames, output);
-            completion.complete(result);
         }, "JustReplay export finisher");
         waiter.setDaemon(true);
         waiter.start();
+    }
+
+    /** Runs on the finisher thread: lets FFmpeg end, then completes the output. */
+    private Outcome waitForOutput(boolean success) throws InterruptedException {
+        boolean ok = success;
+        // A full queue is normal at the end: the game renders faster than FFmpeg encodes. The end marker
+        // waits here, off the render thread, for room; only a dead FFmpeg makes the export give up.
+        while (!queue.offer(END, 1, TimeUnit.SECONDS)) {
+            if (failed || !process.isAlive()) {
+                failed = true;
+                queue.clear();
+                queue.offer(END);
+                ok = false;
+                break;
+            }
+        }
+        writerThread.join();
+        if (!process.waitFor(10, TimeUnit.MINUTES)) {
+            JustReplay.LOGGER.error("FFmpeg did not end after the last frame, stopping it");
+            return Outcome.FAILED;
+        }
+        if (!ok || process.exitValue() != 0) {
+            return Outcome.FAILED;
+        }
+        if (still != null) {
+            return keepStill() ? Outcome.DONE : Outcome.FAILED;
+        }
+        audio.awaitVoices();
+        if (audio.isEmpty()) {
+            return Outcome.DONE;
+        }
+        return pngSequence ? writeAudioTrack() : addAudio();
+    }
+
+    /** Always runs last: removes what a failed export left, tells the player and completes the future. */
+    private void conclude(Minecraft mc, Outcome outcome) {
+        boolean success = outcome != Outcome.FAILED;
+        try {
+            if (!success) {
+                stopProcess(process);
+                deleteOutput(output, pngSequence, !cancelled);
+            }
+            Path shown = still != null && success ? still : output;
+            mc.execute(() -> {
+                String title = switch (outcome) {
+                    case DONE -> still != null ? "justreplay.export.still.done" : "justreplay.export.done";
+                    case DONE_WITHOUT_SOUND -> "justreplay.export.done.nosound";
+                    case FAILED -> cancelled ? "justreplay.export.cancelled" : "justreplay.export.failed";
+                };
+                SystemToast.add(mc.getToasts(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+                        Component.translatable(title), Component.literal(shown.getFileName().toString()));
+                if (still != null && success && mc.player != null) {
+                    mc.player.displayClientMessage(Component.translatable("justreplay.export.still.saved", shown.toString()), false);
+                }
+                restorePlayback(success);
+            });
+            JustReplay.LOGGER.info("Export {} ({} frames): {}", outcome == Outcome.DONE ? "finished"
+                    : success ? "finished without sound" : "failed", frames, output);
+        } catch (Throwable t) {
+            JustReplay.LOGGER.error("Cannot report the end of the export", t);
+        } finally {
+            completion.complete(success);
+        }
+    }
+
+    /**
+     * Back to the editing state after a failed or cancelled export or a still; a finished video stays on its last
+     * frame. Nothing happens when the replay was closed or another export has started.
+     */
+    private void restorePlayback(boolean success) {
+        if (ReplaySession.current() != session || current != null || success && still == null) {
+            return;
+        }
+        Playback playback = session.playback();
+        playback.setSpeedIndex(previousSpeedIndex);
+        // A still goes back on the frame it was taken from.
+        playback.seek(success ? startTick : previousCursor);
+    }
+
+    private static void stopProcess(Process process) {
+        if (process.isAlive()) {
+            process.destroyForcibly();
+            try {
+                process.waitFor(5, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
+    /** Frees the name of an export that did not finish: removes its file or frame folder, and its log unless asked to keep it. */
+    private static void deleteOutput(Path output, boolean png, boolean keepLog) {
+        try {
+            if (png && java.nio.file.Files.isDirectory(output)) {
+                try (java.util.stream.Stream<Path> files = java.nio.file.Files.list(output)) {
+                    for (Path file : (Iterable<Path>) files::iterator) {
+                        java.nio.file.Files.deleteIfExists(file);
+                    }
+                }
+            }
+            java.nio.file.Files.deleteIfExists(output);
+            if (!keepLog) {
+                java.nio.file.Files.deleteIfExists(output.resolveSibling(output.getFileName() + ".log"));
+            }
+        } catch (IOException | java.io.UncheckedIOException e) {
+            JustReplay.LOGGER.warn("Could not remove the unfinished export {}", output, e);
+        }
     }
 
     /** Moves the first frame to the still file and removes the frame folder. */
@@ -545,7 +627,7 @@ public final class VideoExporter {
             for (Path file : (Iterable<Path>) files::iterator) {
                 java.nio.file.Files.deleteIfExists(file);
             }
-        } catch (IOException e) {
+        } catch (IOException | java.io.UncheckedIOException e) {
             JustReplay.LOGGER.warn("Could not empty the frame folder {}", output, e);
         }
         try {
@@ -558,36 +640,47 @@ public final class VideoExporter {
     }
 
     /** Mixes the logged sounds into {@code audio.wav} beside the frames of a PNG sequence. */
-    private boolean writeAudioTrack() {
+    private Outcome writeAudioTrack() {
+        Path wav = output.resolve("audio.wav");
         try {
-            audio.writeWav(output.resolve("audio.wav"), frames);
-        } catch (Exception e) {
+            audio.writeWav(wav, frames);
+            return Outcome.DONE;
+        } catch (Exception | Error e) {
             JustReplay.LOGGER.warn("Could not write the audio track, the frames are kept without sound", e);
+            try {
+                java.nio.file.Files.deleteIfExists(wav);
+            } catch (IOException ignored) {
+            }
+            return Outcome.DONE_WITHOUT_SOUND;
         }
-        return true;
     }
 
     /** Mixes the logged sounds and muxes them into the finished video (video stream copied, AAC audio). */
-    private boolean addAudio() {
+    private Outcome addAudio() {
         Path wav = output.resolveSibling(output.getFileName() + ".wav");
         Path muxed = output.resolveSibling(output.getFileName() + ".tmp.mp4");
+        Process mux = null;
         try {
             audio.writeWav(wav, frames);
-            Process mux = new ProcessBuilder(JRConfig.FFMPEG_PATH.get(), "-y", "-i", output.toString(), "-i", wav.toString(),
+            mux = new ProcessBuilder(JRConfig.FFMPEG_PATH.get(), "-y", "-i", output.toString(), "-i", wav.toString(),
                     "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart", muxed.toString())
                     .redirectErrorStream(true)
                     .redirectOutput(output.resolveSibling(output.getFileName() + ".audio.log").toFile())
                     .start();
             if (!mux.waitFor(10, TimeUnit.MINUTES) || mux.exitValue() != 0) {
                 JustReplay.LOGGER.warn("Could not add the audio track, the video is kept without sound");
-                return true;
+                return Outcome.DONE_WITHOUT_SOUND;
             }
             java.nio.file.Files.move(muxed, output, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-            return true;
-        } catch (Exception e) {
+            return Outcome.DONE;
+        } catch (Exception | Error e) {
             JustReplay.LOGGER.warn("Could not add the audio track, the video is kept without sound", e);
-            return true;
+            return Outcome.DONE_WITHOUT_SOUND;
         } finally {
+            if (mux != null) {
+                // A hung mux holds the temp files, which Windows then refuses to delete.
+                stopProcess(mux);
+            }
             try {
                 java.nio.file.Files.deleteIfExists(wav);
                 java.nio.file.Files.deleteIfExists(muxed);
@@ -602,13 +695,36 @@ public final class VideoExporter {
         if (e == null || event.getSound() == null) {
             return;
         }
-        e.audio.onSound(event.getSound(), e.frames, e.phase == Phase.CAPTURE);
+        e.audio.onSound(event.getSound(), e.trackSample(), e.phase == Phase.CAPTURE);
         event.setSound(null);
+    }
+
+    /** A sound was stopped by the game (see the sound manager mixin). */
+    public static void onSoundStopped(net.minecraft.client.resources.sounds.SoundInstance sound) {
+        VideoExporter e = current;
+        if (e != null) {
+            e.audio.onStop(sound, e.trackSample());
+        }
+    }
+
+    /** Sounds were stopped by name and source, either of which may be null (see the sound manager mixin). */
+    public static void onSoundsStopped(net.minecraft.resources.ResourceLocation name, net.minecraft.sounds.SoundSource source) {
+        VideoExporter e = current;
+        if (e != null) {
+            e.audio.onStop(name, source, e.trackSample());
+        }
+    }
+
+    /** Sample of the audio track being reached; before the first frame it is negative, counted in pre-roll ticks. */
+    private long trackSample() {
+        return phase == Phase.CAPTURE ? (long) frames * ExportAudio.RATE / fps
+                : Math.min(0L, (long) session.playback().cursor() - captureCursor) * ExportAudio.RATE / 20;
     }
 
     public static void cancel() {
         VideoExporter e = current;
         if (e != null) {
+            e.cancelled = true;
             e.failed = true;
             e.finish(false);
         }

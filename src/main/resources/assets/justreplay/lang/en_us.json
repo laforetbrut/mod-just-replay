@@ -139,6 +139,7 @@
   "justreplay.export.resolution.render": "Rendered at %s x %s, whatever the window size",
   "justreplay.export.resolution.scaled": "Too large for the graphics card: window size scaled to %s x %s",
   "justreplay.export.done": "Video exported",
+  "justreplay.export.done.nosound": "Video exported without sound, see the log",
   "justreplay.export.cancelled": "Video export cancelled",
   "justreplay.export.failed": "Video export failed, see the .log file",
   "justreplay.export.error.running": "An export is already running",

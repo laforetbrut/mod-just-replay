@@ -36,7 +36,8 @@
     "SectionOcclusionGraphAccessor",
     "EntityBoundSoundAccessor",
     "EntityEditRenderMixin",
-    "EntityEditGlowMixin"
+    "EntityEditGlowMixin",
+    "SoundManagerStopMixin"
   ],
   "injectors": {
     "defaultRequire": 1

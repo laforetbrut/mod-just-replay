@@ -74,6 +74,16 @@ public final class VoicePlayer {
         return track;
     }
 
+    /** Waits for the background load, off the client thread; null when the replay has no voice track or it cannot be read. */
+    public VoiceTrack awaitTrack() {
+        try {
+            return loading.get(2, java.util.concurrent.TimeUnit.MINUTES);
+        } catch (Exception e) {
+            JustReplay.LOGGER.warn("Cannot read the voice track: {}", e.toString());
+            return null;
+        }
+    }
+
     /** Called every client tick after the playback tick. */
     public void tick(Minecraft mc, ReplaySession session) {
         VoiceTrack t = track();
