@@ -3,16 +3,22 @@ package com.vyrriox.justreplay.compat;
 import com.vyrriox.justreplay.JustReplay;
 import com.vyrriox.justreplay.record.Payloads;
 import io.netty.buffer.Unpooled;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.StringTag;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.network.simple.SimpleChannel;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.Optional;
@@ -24,6 +30,10 @@ import java.util.function.Consumer;
  * (and a seek that rebuilds the entities) would show nobody's curios until the next change. The current content is
  * written as the server sends it: a message of Curios' Forge channel, keyed by entity id, so the recording player's
  * actor, which shares the id, gets it too. Everything is reached by reflection.
+ * <p>
+ * Curios gives an entity no inventory at all while its client-side definitions list no slot for that entity type, and
+ * then drops every message about it. Those definitions come from the data of the server played on, which the replay
+ * host does not have when a world or server datapack supplies them, so snapshots and checkpoints carry them too.
  *
  * @author vyrriox
  */
@@ -32,12 +42,32 @@ public final class CuriosCompat {
     private static final ResourceLocation CHANNEL = new ResourceLocation("curios", "main");
     private static Reflect reflect;
     private static boolean reflectFailed;
+    private static Definitions definitions;
+    private static boolean definitionsFailed;
 
     private CuriosCompat() {
     }
 
     private record Reflect(Method getInventory, Method getCurios, Method getStacks, Method getCosmeticStacks,
                            Method getSlots, Method getStackInSlot, SimpleChannel channel, Constructor<?> syncNew) {
+    }
+
+    private record Definitions(Field slotManager, Method getSlots, Method writeNbt, Field entityManager,
+                               Method getEntitySlots, Constructor<?> syncNew) {
+    }
+
+    private static Definitions definitions() throws ReflectiveOperationException {
+        if (definitions == null) {
+            ClassLoader loader = CuriosCompat.class.getClassLoader();
+            Class<?> slots = Class.forName("top.theillusivec4.curios.common.data.CuriosSlotManager", false, loader);
+            Class<?> entities = Class.forName("top.theillusivec4.curios.common.data.CuriosEntityManager", false, loader);
+            Class<?> slotType = Class.forName("top.theillusivec4.curios.api.type.ISlotType", false, loader);
+            Class<?> sync = Class.forName("top.theillusivec4.curios.common.network.server.sync.SPacketSyncData", false, loader);
+            definitions = new Definitions(slots.getField("CLIENT"), slots.getMethod("getSlots"),
+                    slotType.getMethod("writeNbt"), entities.getField("CLIENT"),
+                    entities.getMethod("getEntitySlots", EntityType.class), sync.getConstructor(ListTag.class, ListTag.class));
+        }
+        return definitions;
     }
 
     private static Reflect reflect() {
@@ -105,6 +135,46 @@ public final class CuriosCompat {
         } catch (Throwable t) {
             ReplayCompat.warnOnce("curios.count", "Cannot read the Curios of " + entity, t);
             return -1;
+        }
+    }
+
+    /**
+     * Writes the slot definitions the client holds now (snapshots and checkpoints), in the form of the server's own
+     * sync. It must come before the worn curios of any entity.
+     */
+    static void writeDefinitions(Consumer<Packet<?>> out) {
+        Reflect r = reflect();
+        if (r == null || definitionsFailed) {
+            return;
+        }
+        try {
+            Definitions d = definitions();
+            Object slotManager = d.slotManager.get(null);
+            Object entityManager = d.entityManager.get(null);
+            ListTag slots = new ListTag();
+            for (Object slot : ((Map<?, ?>) d.getSlots.invoke(slotManager)).values()) {
+                slots.add((CompoundTag) d.writeNbt.invoke(slot));
+            }
+            ListTag entities = new ListTag();
+            for (EntityType<?> type : BuiltInRegistries.ENTITY_TYPE) {
+                Map<?, ?> entitySlots = (Map<?, ?>) d.getEntitySlots.invoke(entityManager, type);
+                if (!entitySlots.isEmpty()) {
+                    ListTag names = new ListTag();
+                    for (Object name : entitySlots.keySet()) {
+                        names.add(StringTag.valueOf((String) name));
+                    }
+                    CompoundTag entry = new CompoundTag();
+                    entry.putString("Entity", BuiltInRegistries.ENTITY_TYPE.getKey(type).toString());
+                    entry.put("Slots", names);
+                    entities.add(entry);
+                }
+            }
+            FriendlyByteBuf bytes = new FriendlyByteBuf(Unpooled.buffer());
+            r.channel.encodeMessage(d.syncNew.newInstance(slots, entities), bytes);
+            out.accept(Payloads.make(CHANNEL, bytes));
+        } catch (Throwable t) {
+            definitionsFailed = true;
+            ReplayCompat.warnOnce("curios.definitions", "Cannot record the Curios slot definitions", t);
         }
     }
 

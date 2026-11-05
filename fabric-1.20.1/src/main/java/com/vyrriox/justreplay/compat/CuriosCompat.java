@@ -19,6 +19,9 @@ public final class CuriosCompat {
         return 0;
     }
 
+    static void writeDefinitions(Consumer<Packet<?>> out) {
+    }
+
     static void writeCurrent(Entity entity, Consumer<Packet<?>> out) {
     }
 }

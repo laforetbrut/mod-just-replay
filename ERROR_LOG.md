@@ -154,3 +154,10 @@
 **Root cause:** javac builds a synthetic constructor for an anonymous class and names its parameters from the superclass; here those names clashed with the ones in the patched Minecraft classes on the CI machine. The exact difference with the local machine was not established.
 **Fix:** a named `NoEntityClip` class with an explicit constructor. The tag was not moved, and the behaviour is the same.
 **Prevention:** run the CI matrix on the release commit before tagging, through a pull request or a manual workflow run.
+
+## [2026-11-05 21:30] - Curios worn items dropped in a replay when a datapack supplies the slots (1.20.1)
+**Context:** production self test on Forge 1.20.1 with Curios 5.14.1 and the test ring datapack.
+**Error:** `SELFTEST curios at start: worn stacks on the actor=-1 -> FAIL`, with no warning logged.
+**Root cause:** `CurioInventoryCapability$Provider.getCapability` returns empty while the client's `CuriosEntityManager.CLIENT` lists no slot for the entity type. That map comes from the data of the server played on; the replay host lacks a world or server datapack, and the recording did not carry the definitions, so every Curios sync message was dropped.
+**Fix:** snapshots and checkpoints write an `SPacketSyncData` built from the client's definitions, before the entities.
+**Prevention:** a mod's per-entity sync can depend on definitions from server data. Test an integration with data only the recorded world has, not only with data shipped in a mod jar.
