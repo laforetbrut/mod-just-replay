@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.gui.ui;
 
+import com.vyrriox.justreplay.mixin.ScreenAccessor;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.events.GuiEventListener;
@@ -119,7 +120,7 @@ public abstract class GlassScreen extends Screen {
         for (ScrollArea area : areas) {
             area.render(g, mx, my, partialTick);
         }
-        for (Renderable renderable : renderables) {
+        for (Renderable renderable : ((ScreenAccessor) this).justreplay$getRenderables()) {
             renderable.render(g, mx, my, partialTick);
         }
         deferredTip = null;

@@ -22,7 +22,7 @@ public class GlassTextField extends EditBox implements Tipped {
         super(font, 0, 0, width, Theme.ROW + 2, label);
         setTextColor(Theme.TEXT);
         setTextColorUneditable(Theme.TEXT_MUTED);
-        setTextShadow(false);
+        com.vyrriox.justreplay.platform.ClientPlatform.get().disableTextShadow(this);
     }
 
     /** Draws an icon in a zone of {@code width} pixels on the left of the field (outside its click area). */

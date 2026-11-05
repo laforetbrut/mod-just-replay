@@ -11,6 +11,8 @@ import com.vyrriox.justreplay.format.ReplayMeta;
 import com.vyrriox.justreplay.format.ReplayStorage;
 import com.vyrriox.justreplay.format.ReplayWriter;
 import com.vyrriox.justreplay.mixin.BossHealthOverlayAccessor;
+import com.vyrriox.justreplay.mixin.ConnectionAccessor;
+import com.vyrriox.justreplay.mixin.SynchedEntityDataAccessor;
 import com.vyrriox.justreplay.mixin.PlayerTabOverlayAccessor;
 import com.vyrriox.justreplay.replay.ReplaySession;
 import com.vyrriox.justreplay.voice.VoiceRecorder;
@@ -67,7 +69,6 @@ import net.minecraft.world.scores.Scoreboard;
 import com.vyrriox.justreplay.platform.Platform;
 
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -106,8 +107,6 @@ public final class Recorder {
     /** The property only exists to test checkpoints on short recordings. */
     private static final Integer CHECKPOINT_OVERRIDE = Integer.getInteger("justreplay.checkpointTicks");
     private static final EquipmentSlot[] SLOTS = EquipmentSlot.values();
-    /** Entity data items, read directly so an unchanged player costs no allocation per tick; null falls back to lists. */
-    private static final Field DATA_ITEMS = findDataItems();
 
     /** A recording written to a replay folder. */
     public static final class Recording {
@@ -182,7 +181,6 @@ public final class Recorder {
     private int lastEntityId = Integer.MIN_VALUE;
     private Vec3 lastPos;
     private float lastYRot, lastXRot, lastHeadRot;
-    private List<SynchedEntityData.DataValue<?>> lastData;
     private Object[] lastDataValues;
     /** Syncable attributes of the recording player, refreshed on respawn and now and then. */
     private List<net.minecraft.world.entity.ai.attributes.AttributeInstance> actorAttributes;
@@ -1010,7 +1008,7 @@ public final class Recorder {
         }
         checkpointPending = true;
         try {
-            connection.channel().eventLoop().execute(() -> {
+            ((ConnectionAccessor) connection).justreplay$getChannel().eventLoop().execute(() -> {
                 int at;
                 synchronized (this) {
                     if (stopped) {
@@ -1174,17 +1172,6 @@ public final class Recorder {
         }
     }
 
-    private static Field findDataItems() {
-        try {
-            Field field = SynchedEntityData.class.getDeclaredField("itemsById");
-            field.setAccessible(true);
-            return field;
-        } catch (Throwable t) {
-            JustReplay.LOGGER.debug("Entity data items not reachable, comparing value lists instead: {}", t.toString());
-            return null;
-        }
-    }
-
     /**
      * True when the entity data changed since the last call. Values are compared by reference first: the data only
      * replaces a value when it differs, so an idle player costs one array walk and no allocation.
@@ -1192,7 +1179,7 @@ public final class Recorder {
     private boolean entityDataChanged(SynchedEntityData data) {
         SynchedEntityData.DataItem<?>[] items;
         try {
-            items = (SynchedEntityData.DataItem<?>[]) DATA_ITEMS.get(data);
+            items = ((SynchedEntityDataAccessor) data).justreplay$getItemsById();
         } catch (Throwable t) {
             return true;
         }
@@ -1223,7 +1210,6 @@ public final class Recorder {
             lastPlayer = player;
             lastLevel = mc.level;
             lastEntityId = player.getId();
-            lastData = null;
             lastDataValues = null;
             java.util.Arrays.fill(lastEquipment, null);
             actorAttributes = null;
@@ -1244,18 +1230,11 @@ public final class Recorder {
             lastHeadRot = player.getYHeadRot();
         }
 
-        if (DATA_ITEMS != null) {
-            if (entityDataChanged(player.getEntityData())) {
-                List<SynchedEntityData.DataValue<?>> data = player.getEntityData().getNonDefaultValues();
-                if (data != null) {
-                    write(listener, new ClientboundSetEntityDataPacket(player.getId(), data));
-                }
-            }
-        } else {
+        // The items are read directly so an unchanged player costs no allocation per tick.
+        if (entityDataChanged(player.getEntityData())) {
             List<SynchedEntityData.DataValue<?>> data = player.getEntityData().getNonDefaultValues();
-            if (data != null && !data.equals(lastData)) {
+            if (data != null) {
                 write(listener, new ClientboundSetEntityDataPacket(player.getId(), data));
-                lastData = data;
             }
         }
 
@@ -1580,12 +1559,9 @@ public final class Recorder {
 
     /** Every entity data value, default or not; the non-default ones when the items cannot be read. */
     private static List<SynchedEntityData.DataValue<?>> allDataValues(SynchedEntityData data) {
-        if (DATA_ITEMS == null) {
-            return data.getNonDefaultValues();
-        }
         try {
             List<SynchedEntityData.DataValue<?>> values = new ArrayList<>();
-            for (SynchedEntityData.DataItem<?> item : (SynchedEntityData.DataItem<?>[]) DATA_ITEMS.get(data)) {
+            for (SynchedEntityData.DataItem<?> item : ((SynchedEntityDataAccessor) data).justreplay$getItemsById()) {
                 if (item != null) {
                     values.add(item.value());
                 }

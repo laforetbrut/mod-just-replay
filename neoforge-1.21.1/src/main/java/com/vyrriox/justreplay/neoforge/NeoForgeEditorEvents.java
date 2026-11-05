@@ -10,6 +10,8 @@ import com.vyrriox.justreplay.editor.overlay.OverlayRenderer;
 import com.vyrriox.justreplay.gui.EntityTool;
 import com.vyrriox.justreplay.gui.OverlayPlacementTool;
 import com.vyrriox.justreplay.gui.PlacementTool;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.client.resources.sounds.SoundInstance;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -40,7 +42,8 @@ public final class NeoForgeEditorEvents {
 
         @SubscribeEvent
         public static void onShaders(RegisterShadersEvent event) throws IOException {
-            FxEngine.registerShaders(event.getResourceProvider(), event::registerShader);
+            FxEngine.registerShaders((name, onLoaded) -> event.registerShader(
+                    new ShaderInstance(event.getResourceProvider(), name, DefaultVertexFormat.POSITION), onLoaded));
         }
     }
 

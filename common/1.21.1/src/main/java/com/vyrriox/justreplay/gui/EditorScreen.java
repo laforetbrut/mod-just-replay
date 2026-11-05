@@ -1,6 +1,7 @@
 package com.vyrriox.justreplay.gui;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.vyrriox.justreplay.mixin.KeyMappingAccessor;
 import com.vyrriox.justreplay.JustReplay;
 import com.vyrriox.justreplay.client.JRKeys;
 import com.vyrriox.justreplay.config.JRConfig;
@@ -1976,7 +1977,7 @@ public class EditorScreen extends GlassScreen {
         if (mapping.isUnbound()) {
             return "-";
         }
-        InputConstants.Key key = mapping.getKey();
+        InputConstants.Key key = ((KeyMappingAccessor) mapping).justreplay$getKey();
         String name = key.getType() == InputConstants.Type.KEYSYM ? keyName(key.getValue()) : key.getDisplayName().getString();
         return com.vyrriox.justreplay.platform.ClientPlatform.get().keyModifierPrefix(mapping) + name;
     }
@@ -1985,15 +1986,15 @@ public class EditorScreen extends GlassScreen {
     private static String keyRange(KeyMapping[] mappings) {
         KeyMapping first = mappings[0];
         KeyMapping last = mappings[mappings.length - 1];
-        boolean consecutive = !first.isUnbound() && first.getKey().getType() == InputConstants.Type.KEYSYM;
+        boolean consecutive = !first.isUnbound() && ((KeyMappingAccessor) first).justreplay$getKey().getType() == InputConstants.Type.KEYSYM;
         for (int i = 1; i < mappings.length && consecutive; i++) {
-            InputConstants.Key key = mappings[i].getKey();
+            InputConstants.Key key = ((KeyMappingAccessor) mappings[i]).justreplay$getKey();
             consecutive = !mappings[i].isUnbound() && key.getType() == InputConstants.Type.KEYSYM
-                    && key.getValue() == first.getKey().getValue() + i && com.vyrriox.justreplay.platform.ClientPlatform.get().keyModifierPrefix(mappings[i])
+                    && key.getValue() == ((KeyMappingAccessor) first).justreplay$getKey().getValue() + i && com.vyrriox.justreplay.platform.ClientPlatform.get().keyModifierPrefix(mappings[i])
                     .equals(com.vyrriox.justreplay.platform.ClientPlatform.get().keyModifierPrefix(first));
         }
         if (consecutive) {
-            return key(first) + "–" + keyName(last.getKey().getValue());
+            return key(first) + "–" + keyName(((KeyMappingAccessor) last).justreplay$getKey().getValue());
         }
         return key(first) + " … " + key(last);
     }

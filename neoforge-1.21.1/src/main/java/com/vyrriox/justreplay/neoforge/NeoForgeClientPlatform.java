@@ -103,6 +103,11 @@ public final class NeoForgeClientPlatform implements ClientPlatform {
     }
 
     @Override
+    public void disableTextShadow(net.minecraft.client.gui.components.EditBox box) {
+        box.setTextShadow(false);
+    }
+
+    @Override
     public String keyModifierPrefix(KeyMapping key) {
         return switch (key.getKeyModifier()) {
             case CONTROL -> "Ctrl+";

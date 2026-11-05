@@ -1,6 +1,7 @@
 package com.vyrriox.justreplay.replay;
 
 import com.vyrriox.justreplay.JustReplay;
+import com.vyrriox.justreplay.mixin.ConnectionAccessor;
 import com.vyrriox.justreplay.editor.ActorManager;
 import com.vyrriox.justreplay.editor.ReplayProject;
 import com.vyrriox.justreplay.export.VideoExporter;
@@ -531,10 +532,10 @@ public final class ReplaySession {
                 drained.complete(null);
                 return;
             }
-            io.netty.channel.Channel channel = hosted.get(0).channel();
+            io.netty.channel.Channel channel = ((ConnectionAccessor) hosted.get(0)).justreplay$getChannel();
             channel.eventLoop().execute(() -> {
                 channel.flush();
-                client.channel().eventLoop().execute(() -> drained.complete(null));
+                ((ConnectionAccessor) client).justreplay$getChannel().eventLoop().execute(() -> drained.complete(null));
             });
         });
         return drained;

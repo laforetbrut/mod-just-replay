@@ -2,6 +2,7 @@ package com.vyrriox.justreplay.replay;
 
 import com.vyrriox.justreplay.editor.CameraController;
 import com.vyrriox.justreplay.editor.WorldSettings;
+import com.vyrriox.justreplay.mixin.LevelWeatherAccessor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.world.level.GameRules;
@@ -50,8 +51,8 @@ public final class WorldOverride {
         long game = data.getGameTime();
         if (!applied) {
             recDay = data.getDayTime();
-            recRain = lvl.rainLevel;
-            recThunder = lvl.thunderLevel;
+            recRain = ((LevelWeatherAccessor) lvl).justreplay$getRainLevel();
+            recThunder = ((LevelWeatherAccessor) lvl).justreplay$getThunderLevel();
         } else {
             long day = data.getDayTime();
             if (day != lastDay) {
@@ -60,11 +61,11 @@ public final class WorldOverride {
                 // Only the day clock moved: the recorded time moves along. Anything else is a recorded SetTime.
                 recDay = cycle && day - lastDay == ticks ? recDay + ticks : day;
             }
-            if (lvl.rainLevel != lastRain) {
-                recRain = lvl.rainLevel;
+            if (((LevelWeatherAccessor) lvl).justreplay$getRainLevel() != lastRain) {
+                recRain = ((LevelWeatherAccessor) lvl).justreplay$getRainLevel();
             }
-            if (lvl.thunderLevel != lastThunder) {
-                recThunder = lvl.thunderLevel;
+            if (((LevelWeatherAccessor) lvl).justreplay$getThunderLevel() != lastThunder) {
+                recThunder = ((LevelWeatherAccessor) lvl).justreplay$getThunderLevel();
             }
         }
         recGame = game;
@@ -109,8 +110,8 @@ public final class WorldOverride {
         lvl.setRainLevel(rain);
         lvl.setThunderLevel(thunder);
         lastDay = day;
-        lastRain = lvl.rainLevel;
-        lastThunder = lvl.thunderLevel;
+        lastRain = ((LevelWeatherAccessor) lvl).justreplay$getRainLevel();
+        lastThunder = ((LevelWeatherAccessor) lvl).justreplay$getThunderLevel();
         applied = true;
     }
 

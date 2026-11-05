@@ -17,7 +17,6 @@ import com.vyrriox.justreplay.export.VideoExporter;
 import com.vyrriox.justreplay.replay.ReplaySession;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.ShaderInstance;
-import net.minecraft.server.packs.resources.ResourceProvider;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
 
@@ -82,18 +81,18 @@ public final class FxEngine {
     // ---------------------------------------------------------------- shaders
 
     /** Registers the effect shaders; the loader glue passes its own registration and resource provider. */
-    public static void registerShaders(ResourceProvider provider, ShaderRegistrar registrar) throws IOException {
-        registrar.register(new ShaderInstance(provider, JustReplay.id("fx_grade"), DefaultVertexFormat.POSITION),
+    public static void registerShaders(ShaderRegistrar registrar) throws IOException {
+        registrar.register(JustReplay.id("fx_grade"),
                 s -> grade = s);
-        registrar.register(new ShaderInstance(provider, JustReplay.id("fx_blur"), DefaultVertexFormat.POSITION),
+        registrar.register(JustReplay.id("fx_blur"),
                 s -> blur = s);
-        registrar.register(new ShaderInstance(provider, JustReplay.id("fx_transition"), DefaultVertexFormat.POSITION),
+        registrar.register(JustReplay.id("fx_transition"),
                 s -> transition = s);
     }
 
-    /** Loader neutral view of a shader registration. */
+    /** Loader neutral view of a shader registration: the loader builds the position format shader of that name. */
     public interface ShaderRegistrar {
-        void register(ShaderInstance shader, java.util.function.Consumer<ShaderInstance> onLoaded);
+        void register(net.minecraft.resources.ResourceLocation name, java.util.function.Consumer<ShaderInstance> onLoaded) throws IOException;
     }
 
     /** End of a render frame. */

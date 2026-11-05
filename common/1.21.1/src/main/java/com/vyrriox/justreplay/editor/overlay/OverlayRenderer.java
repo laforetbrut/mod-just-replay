@@ -1,9 +1,7 @@
 package com.vyrriox.justreplay.editor.overlay;
 
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.math.Axis;
 import com.vyrriox.justreplay.JustReplay;
 import com.vyrriox.justreplay.editor.CameraController;
@@ -16,7 +14,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
@@ -449,17 +446,7 @@ public final class OverlayRenderer {
         RenderType[] types = IMAGE_TYPES.computeIfAbsent(texture, t -> new RenderType[2]);
         int i = through ? 1 : 0;
         if (types[i] == null) {
-            RenderType.CompositeState.CompositeStateBuilder builder = RenderType.CompositeState.builder()
-                    .setShaderState(through ? RenderStateShard.RENDERTYPE_TEXT_SEE_THROUGH_SHADER : RenderStateShard.RENDERTYPE_TEXT_SHADER)
-                    .setTextureState(new RenderStateShard.TextureStateShard(texture, true, false))
-                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
-                    .setLightmapState(RenderStateShard.LIGHTMAP);
-            if (through) {
-                builder.setDepthTestState(RenderStateShard.NO_DEPTH_TEST).setWriteMaskState(RenderStateShard.COLOR_WRITE);
-            }
-            types[i] = RenderType.create(JustReplay.MOD_ID + "_overlay_image" + (through ? "_see_through" : ""),
-                    DefaultVertexFormat.POSITION_COLOR_TEX_LIGHTMAP, VertexFormat.Mode.QUADS, 256, false, true,
-                    builder.createCompositeState(false));
+            types[i] = ImageRenderType.image(texture, through);
         }
         return types[i];
     }

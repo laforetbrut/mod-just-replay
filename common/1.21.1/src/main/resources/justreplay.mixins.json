@@ -5,6 +5,11 @@
   "compatibilityLevel": "JAVA_21",
   "client": [
     "ConnectionMixin",
+    "ConnectionAccessor",
+    "KeyMappingAccessor",
+    "LevelWeatherAccessor",
+    "ScreenAccessor",
+    "SynchedEntityDataAccessor",
     "DeltaTrackerTimerMixin",
     "PlayerListMixin",
     "IntegratedServerMixin",

@@ -26,6 +26,9 @@ import java.util.Set;
  */
 public final class RegistryIds {
     public static final String FILE = "registries.bin";
+    /** Namespace first, then path: the order the loader used before, so a recording keeps its numbering. */
+    private static final java.util.Comparator<ResourceLocation> NAMESPACE_FIRST = java.util.Comparator
+            .comparing(ResourceLocation::getNamespace).thenComparing(ResourceLocation::getPath);
 
     private RegistryIds() {
     }
@@ -84,7 +87,7 @@ public final class RegistryIds {
                 result.put(entry.getKey(), table);
                 continue;
             }
-            extra.sort(ResourceLocation::compareNamespaced);
+            extra.sort(NAMESPACE_FIRST);
             int next = ids.isEmpty() ? 0 : ids.lastIntKey() + 1;
             for (ResourceLocation key : extra) {
                 ids.put(next++, key);

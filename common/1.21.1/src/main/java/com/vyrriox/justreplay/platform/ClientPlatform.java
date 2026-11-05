@@ -50,6 +50,9 @@ public interface ClientPlatform {
     /** The modifier of a binding as a prefix of its name ("Ctrl+"), empty without one or on a loader that has none. */
     String keyModifierPrefix(KeyMapping key);
 
+    /** Draws the text of a field without a shadow; a loader without that option keeps the vanilla look. */
+    void disableTextShadow(net.minecraft.client.gui.components.EditBox box);
+
     /** Initialized on first use. */
     final class Holder {
         private static final ClientPlatform INSTANCE = LoaderGlue.create(ClientPlatform.class, "ClientPlatform");

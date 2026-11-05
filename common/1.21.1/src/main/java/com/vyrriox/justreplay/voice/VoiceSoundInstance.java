@@ -46,7 +46,7 @@ final class VoiceSoundInstance extends AbstractSoundInstance implements Tickable
         return new WeighedSoundEvents(LOCATION, null);
     }
 
-    @Override
+    /** Not an override in vanilla: the loader declares it on its sound instances and the JVM dispatches to this. */
     public CompletableFuture<AudioStream> getStream(SoundBufferLibrary soundBuffers, Sound sound, boolean looping) {
         return CompletableFuture.completedFuture(stream);
     }

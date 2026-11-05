@@ -101,8 +101,35 @@ final class ScaledSoundInstance implements SoundInstance {
         return wrapped.canPlaySound();
     }
 
-    @Override
+    /**
+     * Not an override in vanilla: the loader declares it on its sound instances. It is called through reflection so
+     * the wrapped sound keeps its own stream; without it the stream is the one vanilla would open.
+     */
     public CompletableFuture<AudioStream> getStream(SoundBufferLibrary soundBuffers, Sound sound, boolean looping) {
-        return wrapped.getStream(soundBuffers, sound, looping);
+        if (LOADER_GET_STREAM != null) {
+            try {
+                @SuppressWarnings("unchecked")
+                CompletableFuture<AudioStream> stream = (CompletableFuture<AudioStream>) LOADER_GET_STREAM.invoke(wrapped, soundBuffers, sound, looping);
+                return stream;
+            } catch (java.lang.reflect.InvocationTargetException e) {
+                if (e.getCause() instanceof RuntimeException runtime) {
+                    throw runtime;
+                }
+                throw new IllegalStateException(e.getCause());
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+        return soundBuffers.getStream(sound.getPath(), looping);
+    }
+
+    private static final java.lang.reflect.Method LOADER_GET_STREAM = findGetStream();
+
+    private static java.lang.reflect.Method findGetStream() {
+        try {
+            return SoundInstance.class.getMethod("getStream", SoundBufferLibrary.class, Sound.class, boolean.class);
+        } catch (NoSuchMethodException e) {
+            return null;
+        }
     }
 }

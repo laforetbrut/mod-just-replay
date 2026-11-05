@@ -411,7 +411,7 @@ public final class SelfTest {
                 }
                 if (t % 15 == 0) {
                     if (Mods.loaded("bettercombat") && t > 5 && mc.screen == null) {
-                        net.minecraft.client.KeyMapping.click(mc.options.keyAttack.getKey());
+                        net.minecraft.client.KeyMapping.click(((com.vyrriox.justreplay.mixin.KeyMappingAccessor) mc.options.keyAttack).justreplay$getKey());
                         log("attack click at recording tick {} holding {} aiming at {}", t, p.getMainHandItem().getItem(),
                                 mc.hitResult != null ? mc.hitResult.getType() : null);
                     } else {
