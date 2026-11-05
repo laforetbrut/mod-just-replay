@@ -244,6 +244,17 @@ public final class Playback {
             }
             mc.gui.getBossOverlay().reset();
             mc.gui.getTabList().reset();
+            // Tab list entries of players from later in the recording, kept by a login. The camera keeps its own.
+            List<java.util.UUID> known = new java.util.ArrayList<>();
+            for (net.minecraft.client.multiplayer.PlayerInfo info : listener.getOnlinePlayers()) {
+                java.util.UUID id = info.getProfile().getId();
+                if (mc.player == null || !id.equals(mc.player.getUUID())) {
+                    known.add(id);
+                }
+            }
+            if (!known.isEmpty()) {
+                listener.handlePlayerInfoRemove(new net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket(known));
+            }
         } catch (Throwable t) {
             JustReplay.LOGGER.warn("Cannot reset the scoreboard and overlays: {}", t.toString());
         }
@@ -318,6 +329,12 @@ public final class Playback {
             resetConnectionState(mc, listener);
             packet = rewriteLogin(login, chunks.onLogin(login));
         }
+        // Playing through a respawn builds a new camera player at the origin; a seek puts the camera back itself.
+        boolean liveRespawn = packet instanceof ClientboundRespawnPacket && skippingTo < 0 && mc.player != null && mc.level != null;
+        Vec3 camPos = liveRespawn ? mc.player.position() : null;
+        float camYaw = liveRespawn ? mc.player.getYRot() : 0;
+        float camPitch = liveRespawn ? mc.player.getXRot() : 0;
+        Object camDimension = liveRespawn ? mc.level.dimension() : null;
         dispatching = true;
         dispatchTick = recorded.tick();
         try {
@@ -334,8 +351,14 @@ public final class Playback {
             // reach the level through the player (Sable creating airships) would act on the level before the seek.
             ((com.vyrriox.justreplay.mixin.EntityInvoker) mc.player).justreplay$setLevel(mc.level);
         }
+        if (liveRespawn && mc.player != null && mc.level != null) {
+            if (mc.level.dimension().equals(camDimension)) {
+                placeCamera(mc.player, camPos, camYaw, camPitch);
+            } else {
+                worldReset = true;
+            }
+        }
         if (packet instanceof ClientboundLoginPacket || packet instanceof ClientboundRespawnPacket) {
-            worldReset = true;
             enforceCamera(mc);
         }
     }

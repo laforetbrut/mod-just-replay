@@ -15,6 +15,7 @@
     "WindowMixin",
     "MinecraftBlitMixin",
     "LivingEntityAccessor",
+    "ClientLevelAccessor",
     "EntityInvoker",
     "WalkAnimationStateAccessor",
     "IronGolemAccessor",

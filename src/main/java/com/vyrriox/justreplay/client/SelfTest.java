@@ -280,6 +280,9 @@ public final class SelfTest {
                 if (t % 40 == 0 && Recorder.capturing() != null) {
                     log("recording cost: {}", Recorder.capturing().lastCost());
                 }
+                if (t == 10 && Recorder.capturing() != null) {
+                    Recorder.capturing().startSlowCheckpointTest();
+                }
                 if (t >= 200 && clipSave == null) {
                     clipSave = Recorder.saveBuffer();
                     log("buffer save requested: {}", clipSave != null);
@@ -289,6 +292,8 @@ public final class SelfTest {
                 }
                 if (t >= 200 && clipSave.isDone()) {
                     verifyClip(mc);
+                    int slowTicks = Recorder.capturing() != null ? Recorder.capturing().slowCheckpointTicks() : -1;
+                    log("checkpoint under forced slow frames: {} ({} ticks)", slowTicks >= 0 ? "PASS" : "FAIL", slowTicks);
                     replay = Recorder.stop();
                     log("record stopped: {} packets={} stream={} bytes checkpoints={} bytes in {} files", replay,
                             ReplayStorage.readStream(replay).size(), Files.size(replay.resolve(ReplayStorage.STREAM)),
