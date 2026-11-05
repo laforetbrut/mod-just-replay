@@ -6,7 +6,7 @@ import com.vyrriox.justreplay.format.ReplayMeta;
 import com.vyrriox.justreplay.replay.ReplaySession;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.level.Level;
-import net.neoforged.fml.loading.FMLPaths;
+import com.vyrriox.justreplay.platform.Platform;
 
 import java.io.File;
 import java.io.IOException;
@@ -81,7 +81,7 @@ final class DistantHorizonsCompat {
     }
 
     private static Path gameDir() {
-        return FMLPaths.GAMEDIR.get().toAbsolutePath().normalize();
+        return Platform.get().gameDir().toAbsolutePath().normalize();
     }
 
     private static Path stagingRoot() {

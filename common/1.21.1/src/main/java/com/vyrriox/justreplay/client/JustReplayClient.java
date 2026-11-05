@@ -20,9 +20,7 @@ import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
-import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
@@ -42,7 +40,6 @@ public final class JustReplayClient {
     private JustReplayClient() {
     }
 
-    @EventBusSubscriber(modid = JustReplay.MOD_ID, value = Dist.CLIENT)
     public static final class ModEvents {
         @SubscribeEvent
         public static void onKeys(RegisterKeyMappingsEvent event) {
@@ -57,7 +54,6 @@ public final class JustReplayClient {
         }
     }
 
-    @EventBusSubscriber(modid = JustReplay.MOD_ID, value = Dist.CLIENT)
     public static final class GameEvents {
         @SubscribeEvent
         public static void onNameTag(net.neoforged.neoforge.client.event.RenderNameTagEvent event) {
@@ -277,12 +273,6 @@ public final class JustReplayClient {
                 }
             }
         }
-    }
-
-    /** Config screen in the mod list; only called on the client. */
-    public static void registerConfigScreen(net.neoforged.fml.ModContainer container) {
-        container.registerExtensionPoint(net.neoforged.neoforge.client.gui.IConfigScreenFactory.class,
-                net.neoforged.neoforge.client.gui.ConfigurationScreen::new);
     }
 
     private static void toggleRecording() {

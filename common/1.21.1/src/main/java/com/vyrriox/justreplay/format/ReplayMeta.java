@@ -21,6 +21,10 @@ public final class ReplayMeta {
     public int durationTicks;
     public String minecraftVersion = "";
     public String modVersion = "";
+    /** Loader the recording was made on (neoforge, forge, fabric). Empty in recordings made before this field existed. */
+    public String loader = "";
+    /** Minecraft version the recording was made on. Empty in recordings made before this field existed. */
+    public String mc = "";
     public String recorderName = "";
     public String recorderUuid = "";
     /** UUID given to the entity that represents the recording player during playback. */

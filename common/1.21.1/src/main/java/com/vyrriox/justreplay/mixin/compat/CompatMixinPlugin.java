@@ -1,6 +1,6 @@
 package com.vyrriox.justreplay.mixin.compat;
 
-import net.neoforged.fml.loading.FMLLoader;
+import com.vyrriox.justreplay.platform.EarlyMods;
 import org.objectweb.asm.tree.ClassNode;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
 import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
@@ -17,8 +17,7 @@ import java.util.Set;
  */
 public final class CompatMixinPlugin implements IMixinConfigPlugin {
     private static boolean loaded(String modId) {
-        var list = FMLLoader.getLoadingModList();
-        return list != null && list.getModFileById(modId) != null;
+        return EarlyMods.isLoaded(modId);
     }
 
     @Override

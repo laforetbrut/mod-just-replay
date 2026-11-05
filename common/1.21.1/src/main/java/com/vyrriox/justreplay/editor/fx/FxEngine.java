@@ -17,9 +17,7 @@ import com.vyrriox.justreplay.export.VideoExporter;
 import com.vyrriox.justreplay.replay.ReplaySession;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.ShaderInstance;
-import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RegisterShadersEvent;
 import net.neoforged.neoforge.client.event.RenderFrameEvent;
 import org.lwjgl.opengl.GL11;
@@ -85,7 +83,6 @@ public final class FxEngine {
 
     // ---------------------------------------------------------------- shaders
 
-    @EventBusSubscriber(modid = JustReplay.MOD_ID, value = Dist.CLIENT)
     public static final class ModEvents {
         @SubscribeEvent
         public static void onShaders(RegisterShadersEvent event) throws IOException {
@@ -98,7 +95,6 @@ public final class FxEngine {
         }
     }
 
-    @EventBusSubscriber(modid = JustReplay.MOD_ID, value = Dist.CLIENT)
     public static final class GameEvents {
         @SubscribeEvent
         public static void onFrameEnd(RenderFrameEvent.Post event) {

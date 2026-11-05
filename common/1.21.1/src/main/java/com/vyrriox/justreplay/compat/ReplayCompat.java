@@ -6,11 +6,9 @@ import com.vyrriox.justreplay.replay.Playback;
 import com.vyrriox.justreplay.replay.ReplaySession;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.protocol.Packet;
-import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.ModList;
-import net.neoforged.fml.common.EventBusSubscriber;
+import com.vyrriox.justreplay.platform.Platform;
 import net.neoforged.neoforge.client.event.RenderFrameEvent;
 
 import java.util.Collections;
@@ -57,7 +55,7 @@ public final class ReplayCompat {
 
     private static boolean isLoaded(String modId) {
         try {
-            return ModList.get() != null && ModList.get().isLoaded(modId);
+            return Platform.get().isModLoaded(modId);
         } catch (Throwable t) {
             return false;
         }
@@ -662,7 +660,6 @@ public final class ReplayCompat {
         return packet;
     }
 
-    @EventBusSubscriber(modid = JustReplay.MOD_ID, value = Dist.CLIENT)
     public static final class Events {
         private Events() {
         }

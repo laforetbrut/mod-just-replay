@@ -14,9 +14,7 @@ import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
-import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RenderLivingEvent;
 
@@ -30,7 +28,6 @@ import java.util.Map;
  *
  * @author vyrriox
  */
-@EventBusSubscriber(modid = JustReplay.MOD_ID, value = Dist.CLIENT)
 public final class ModelRenderer {
     private static final Map<Integer, ReplayProject.ActorData> ACTORS = new HashMap<>();
 

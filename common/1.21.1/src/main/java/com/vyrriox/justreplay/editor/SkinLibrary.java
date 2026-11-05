@@ -6,9 +6,7 @@ import com.vyrriox.justreplay.replay.ReplaySession;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.ResourceLocation;
-import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 
 import java.io.FileNotFoundException;
@@ -32,7 +30,6 @@ import java.util.Set;
  *
  * @author vyrriox
  */
-@EventBusSubscriber(modid = JustReplay.MOD_ID, value = Dist.CLIENT)
 public final class SkinLibrary {
     private static final Map<String, ResourceLocation> LOADED = new HashMap<>();
     private static final Set<String> FAILED = new HashSet<>();

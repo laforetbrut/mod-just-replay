@@ -1,6 +1,6 @@
 package com.vyrriox.justreplay.voice;
 
-import net.neoforged.fml.ModList;
+import com.vyrriox.justreplay.platform.Platform;
 
 import java.util.function.Supplier;
 
@@ -34,7 +34,7 @@ public final class VoiceBridge {
     public static boolean isLoaded() {
         Boolean value = loaded;
         if (value == null) {
-            value = loaded = ModList.get() != null && ModList.get().isLoaded(MOD_ID);
+            value = loaded = Platform.get().isModLoaded(MOD_ID);
         }
         return value;
     }

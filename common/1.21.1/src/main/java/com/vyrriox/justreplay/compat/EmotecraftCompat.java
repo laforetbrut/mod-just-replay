@@ -357,7 +357,7 @@ public final class EmotecraftCompat {
         Class<?> serializer = Class.forName("io.github.kosmx.emotes.server.serializer.UniversalEmoteSerializer", false, loader);
         Method read = serializer.getMethod("readData", java.io.InputStream.class, String.class);
         java.util.List<Object> out = new java.util.ArrayList<>();
-        java.nio.file.Path dir = net.neoforged.fml.loading.FMLPaths.GAMEDIR.get().resolve("emotes");
+        java.nio.file.Path dir = com.vyrriox.justreplay.platform.Platform.get().gameDir().resolve("emotes");
         if (java.nio.file.Files.isDirectory(dir)) {
             try (java.util.stream.Stream<java.nio.file.Path> files = java.nio.file.Files.list(dir)) {
                 for (java.nio.file.Path file : (Iterable<java.nio.file.Path>) files::iterator) {

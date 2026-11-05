@@ -1093,8 +1093,7 @@ public class EditorScreen extends GlassScreen {
     }
 
     private void openSettings() {
-        net.neoforged.fml.ModList.get().getModContainerById(JustReplay.MOD_ID).ifPresent(container ->
-                minecraft.setScreen(new net.neoforged.neoforge.client.gui.ConfigurationScreen(container, this)));
+        com.vyrriox.justreplay.platform.ClientPlatform.get().openConfigScreen(this);
     }
 
     // ---------------------------------------------------------------- shared with CameraPanel

@@ -22,9 +22,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RenderFrameEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
@@ -47,7 +45,6 @@ import java.util.UUID;
  *
  * @author vyrriox
  */
-@EventBusSubscriber(modid = JustReplay.MOD_ID, value = Dist.CLIENT)
 public final class OverlayRenderer {
     /** Text pixels per line: the font is 9 pixels high, plus one of spacing. */
     private static final int LINE = 10;

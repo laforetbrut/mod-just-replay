@@ -30,9 +30,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.client.event.RenderFrameEvent;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
@@ -51,7 +49,6 @@ import java.util.Optional;
  *
  * @author vyrriox
  */
-@EventBusSubscriber(modid = JustReplay.MOD_ID, value = Dist.CLIENT)
 public final class OverlayPlacementTool {
     private static final double MIN_DISTANCE = 0.5;
     private static final double MAX_DISTANCE = 64.0;

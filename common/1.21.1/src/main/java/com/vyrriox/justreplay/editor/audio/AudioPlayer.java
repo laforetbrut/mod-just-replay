@@ -9,9 +9,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.client.resources.sounds.SoundInstance;
 import net.minecraft.sounds.SoundSource;
-import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.sound.PlaySoundEvent;
 
@@ -29,7 +27,6 @@ import java.util.List;
  *
  * @author vyrriox
  */
-@EventBusSubscriber(modid = JustReplay.MOD_ID, value = Dist.CLIENT)
 public final class AudioPlayer {
     /** Ticks rendered ahead of the cursor. */
     private static final int LEAD_TICKS = 2;

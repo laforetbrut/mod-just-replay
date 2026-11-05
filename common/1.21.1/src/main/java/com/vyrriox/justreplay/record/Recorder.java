@@ -64,7 +64,7 @@ import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.PlayerScoreEntry;
 import net.minecraft.world.scores.PlayerTeam;
 import net.minecraft.world.scores.Scoreboard;
-import net.neoforged.fml.ModList;
+import com.vyrriox.justreplay.platform.Platform;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -502,9 +502,10 @@ public final class Recorder {
             meta.server = mc.getSingleplayerServer().getWorldData().getLevelName();
         }
         meta.minecraftVersion = SharedConstants.getCurrentVersion().getName();
-        meta.modVersion = ModList.get().getModContainerById(JustReplay.MOD_ID)
-                .map(c -> c.getModInfo().getVersion().toString()).orElse("");
-        ModList.get().getMods().forEach(info -> meta.mods.add(info.getModId() + "@" + info.getVersion()));
+        meta.loader = Platform.get().loaderName();
+        meta.mc = meta.minecraftVersion;
+        meta.modVersion = Platform.get().modVersion();
+        meta.mods.addAll(Platform.get().modList());
         GameProfile profile = mc.getGameProfile();
         meta.recorderName = profile.getName();
         meta.recorderUuid = profile.getId().toString();

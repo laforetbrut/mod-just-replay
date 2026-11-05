@@ -4,7 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.vyrriox.justreplay.JustReplay;
 import com.vyrriox.justreplay.editor.ReplayProject;
-import net.neoforged.fml.loading.FMLPaths;
+import com.vyrriox.justreplay.platform.Platform;
 
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;
@@ -38,11 +38,11 @@ public final class ReplayStorage {
     }
 
     public static Path root() {
-        return ensure(FMLPaths.GAMEDIR.get().resolve(JustReplay.MOD_ID).resolve("replays"));
+        return ensure(Platform.get().gameDir().resolve(JustReplay.MOD_ID).resolve("replays"));
     }
 
     public static Path exportRoot() {
-        return ensure(FMLPaths.GAMEDIR.get().resolve(JustReplay.MOD_ID).resolve("exports"));
+        return ensure(Platform.get().gameDir().resolve(JustReplay.MOD_ID).resolve("exports"));
     }
 
     private static Path ensure(Path dir) {

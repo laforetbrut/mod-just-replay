@@ -1,0 +1,24 @@
+package com.vyrriox.justreplay.neoforge;
+
+import com.vyrriox.justreplay.JustReplay;
+import com.vyrriox.justreplay.config.JRConfig;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.config.ModConfig;
+import net.neoforged.fml.loading.FMLEnvironment;
+
+/**
+ * NeoForge entry point.
+ *
+ * @author vyrriox
+ */
+@Mod(JustReplay.MOD_ID)
+public final class JustReplayNeoForge {
+    public JustReplayNeoForge(IEventBus modEventBus, ModContainer container) {
+        container.registerConfig(ModConfig.Type.CLIENT, JRConfig.SPEC);
+        if (FMLEnvironment.dist.isClient()) {
+            NeoForgeClient.init(modEventBus, container);
+        }
+    }
+}

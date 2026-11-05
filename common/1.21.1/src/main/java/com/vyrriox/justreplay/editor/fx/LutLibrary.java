@@ -3,7 +3,7 @@ package com.vyrriox.justreplay.editor.fx;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.vyrriox.justreplay.JustReplay;
 import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.neoforged.fml.loading.FMLPaths;
+import com.vyrriox.justreplay.platform.Platform;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -36,7 +36,7 @@ public final class LutLibrary {
     }
 
     public static Path folder() {
-        Path dir = FMLPaths.GAMEDIR.get().resolve(JustReplay.MOD_ID).resolve("luts");
+        Path dir = Platform.get().gameDir().resolve(JustReplay.MOD_ID).resolve("luts");
         try {
             Files.createDirectories(dir);
         } catch (IOException e) {

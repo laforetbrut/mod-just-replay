@@ -2,7 +2,7 @@ package com.vyrriox.justreplay.editor.audio;
 
 import com.vyrriox.justreplay.JustReplay;
 import net.minecraft.Util;
-import net.neoforged.fml.loading.FMLPaths;
+import com.vyrriox.justreplay.platform.Platform;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -52,7 +52,7 @@ public final class AudioLibrary {
     }
 
     public static Path folder() {
-        Path dir = FMLPaths.GAMEDIR.get().resolve(JustReplay.MOD_ID).resolve("audio");
+        Path dir = Platform.get().gameDir().resolve(JustReplay.MOD_ID).resolve("audio");
         try {
             Files.createDirectories(dir);
         } catch (IOException e) {

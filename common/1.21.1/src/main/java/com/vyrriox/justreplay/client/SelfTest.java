@@ -35,7 +35,7 @@ import java.nio.file.Path;
  * @author vyrriox
  */
 public final class SelfTest {
-    private static final Path FLAG = net.neoforged.fml.loading.FMLPaths.GAMEDIR.get().resolve("justreplay").resolve("selftest.flag");
+    private static final Path FLAG = com.vyrriox.justreplay.platform.Platform.get().gameDir().resolve("justreplay").resolve("selftest.flag");
     private static final boolean ENABLED = Boolean.getBoolean("justreplay.selftest") || Files.exists(FLAG);
     private static final String WORLD = "justreplay-selftest";
 
@@ -1321,7 +1321,7 @@ public final class SelfTest {
         }
 
         static boolean loaded(String modId) {
-            return net.neoforged.fml.ModList.get().isLoaded(modId);
+            return com.vyrriox.justreplay.platform.Platform.get().isModLoaded(modId);
         }
 
         /** Makes the test video before the recording starts (FFmpeg takes a moment). */
