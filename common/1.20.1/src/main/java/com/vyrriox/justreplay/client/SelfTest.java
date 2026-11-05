@@ -124,9 +124,9 @@ public final class SelfTest {
     private SelfTest() {
     }
 
-    /** RenderUtil.getCurrentTick, NaN without GeckoLib. */
+    /** RenderUtils.getCurrentTick, NaN without GeckoLib. */
     private static double geckoClock() {
-        return readClock("software.bernie.geckolib.util.RenderUtil", "getCurrentTick", null);
+        return readClock("software.bernie.geckolib.util.RenderUtils", "getCurrentTick", null);
     }
 
     /** Iris' frameTimeCounter in seconds, NaN without Iris. Moves with or without a shader pack. */

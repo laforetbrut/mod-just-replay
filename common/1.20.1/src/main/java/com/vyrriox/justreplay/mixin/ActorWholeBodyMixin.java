@@ -19,7 +19,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class ActorWholeBodyMixin {
     @Inject(method = "setupRotations", at = @At("TAIL"))
     private void justreplay$wholeBody(LivingEntity entity, PoseStack poseStack, float bob, float yBodyRot, float partialTick,
-                                      float scale, CallbackInfo ci) {
+                                      CallbackInfo ci) {
         ActorAnimator.applyCustomEmoteBody(entity, poseStack);
     }
 }

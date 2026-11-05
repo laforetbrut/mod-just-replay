@@ -23,14 +23,14 @@ public abstract class SectionBufferGuardMixin {
         return ReplaySession.isRunning() && (buffer.isInvalid() || ((VertexBufferAccessor) buffer).justreplay$mode() == null);
     }
 
-    @Redirect(method = "renderSectionLayer", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/VertexBuffer;bind()V"))
+    @Redirect(method = "renderChunkLayer", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/VertexBuffer;bind()V"))
     private void justreplay$bind(VertexBuffer buffer) {
         if (!justreplay$unusable(buffer)) {
             buffer.bind();
         }
     }
 
-    @Redirect(method = "renderSectionLayer", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/VertexBuffer;draw()V"))
+    @Redirect(method = "renderChunkLayer", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/VertexBuffer;draw()V"))
     private void justreplay$draw(VertexBuffer buffer) {
         if (!justreplay$unusable(buffer)) {
             buffer.draw();
