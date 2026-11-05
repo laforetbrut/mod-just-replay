@@ -32,3 +32,6 @@ run-*/
 __pycache__/
 images/*
 !images/tools/
+
+# Local run folders of the loader projects
+*/run-compat/
