@@ -19,7 +19,7 @@ The self test passes with 0 failures on all nine targets, in a development clien
 | Fabric 1.21.1 | Production: GeckoLib, Entity Culling, Iris, Sodium, Jade, Exposure, Accessories, Immersive Paintings: run. Immersive Aircraft: run. | Armourer's Workshop, Better Combat, Bobby, Distant Horizons, Emotecraft, Pehkui, Player Animator, Sable, WaterFrames |
 | Forge 1.21.1 | Production: GeckoLib, Entity Culling: run. | None |
 | NeoForge 1.20.1 | No third-party mod. | Curios, GeckoLib, Jade |
-| Forge 1.20.1 | Production: GeckoLib, Jade, Entity Culling: run. Curios: run with the fix on `main`, see the known limits. | None |
+| Forge 1.20.1 | Production: GeckoLib, Jade, Entity Culling: run. Curios: run. | None |
 | Fabric 1.20.1 | No third-party mod. | Entity Culling, GeckoLib, Jade |
 | NeoForge 26.1.2 | Production: GeckoLib, Iris, Sodium, Jade, Entity Culling: run. | None |
 | Fabric 26.1.2 | Production: GeckoLib, Iris, Sodium, Jade, Entity Culling: run. | None |
@@ -57,7 +57,7 @@ Every integration is optional: it is reached by reflection or by optional mixins
 | **Mekanism** | Machines are block entities synced by update packets and chunk data: no dedicated code. | Machine placed in the self test, no error in the log; visuals not inspected. |
 | **Distant Horizons** | The distant terrain (LODs) of the recorded world shows in replays and exports. While recording, the DH level folder of each visited dimension (`IDhApiLevelWrapper.getDhSaveFolder()`, holding `DistantHorizons.sqlite`: `saves/<world>/data`, `saves/<world>/DIM-1/data`... in singleplayer, `Distant_Horizons_server_data/<server>/<dimension>` on a server) is written to `meta.json` (`distantHorizons`, relative to the game folder). When the replay opens, those databases are copied once to `justreplay/dh-session` (DH never opens the originals), and a save structure override (`IDhApiSaveStructure`, only for folders inside the replay world) points the replay world's levels at the copies. The DH world is set read only when its first level loads, before DH opens the database, so neither the void host chunks nor the replayed chunks change the LODs; distant generation is turned off with an API override. The copies are deleted once the replay world has closed. Without a copy (option `playback.distantHorizonsLods` off, recording made before this, missing database, database above `distantHorizonsMaxCopyMb`) LOD rendering is turned off for the replay as before. | Previous version (LODs off) tested with DH 3.3.3. LODs in replays: compiled against DH's public API names, not yet tested in game. |
 | **GeckoLib** | GeckoLib's render clock and the tick its models read follow the replay: animated mobs, block entities, items, armor and textures hold while paused, follow the speed and advance by the exact frame time in an export. The clock never goes back after a seek, since a clock going back holds animations at 0. | Run by the self test on the targets above. On 26.1.2 it is GeckoLib 5. |
-| **Curios** | A full sync is sent only when an entity starts being tracked, and later changes are slot deltas. Snapshots and checkpoints therefore write the worn items of every entity, so a recording started mid-session and seeks show them. | Run on NeoForge 1.21.1 and, with the fix on `main`, on Forge 1.20.1. Read on NeoForge 1.20.1. |
+| **Curios** | A full sync is sent only when an entity starts being tracked, and later changes are slot deltas. Snapshots and checkpoints therefore write the worn items of every entity, so a recording started mid-session and seeks show them. | Run on NeoForge 1.21.1 and on Forge 1.20.1. Read on NeoForge 1.20.1. |
 | **Iron's Spellbooks** | The recording player's cast packets are written for its actor, and snapshots and checkpoints carry cast state. Packets aimed at the receiving client's own player (mana, cooldowns, cast state, motion) are dropped, as are serverbound ones. | Run on NeoForge 1.21.1 only. |
 | **Iris** | The frame time and frame counter seconds of shader packs are set from the replay clock: paused with the replay, at its speed, and the same at a given tick in every export. | Clock run by the self test. No human has looked at the result with real shader packs. |
 | **Entity Culling** | The mod's global switch is saved, forced off during a replay (again every tick, so its key cannot bring it back) and restored at the end, since its culling thread uses wall clock time and would make exports differ. Replays with many entities can run slower. | Run on NeoForge, Fabric and Forge 1.21.1, Forge 1.20.1, NeoForge and Fabric 26.1.2. Read on Fabric 1.20.1. |
@@ -71,7 +71,6 @@ Every integration is optional: it is reached by reflection or by optional mixins
 
 ### Known limits
 
-- Curios on NeoForge 1.21.1 (read in the code, not reproduced) and on Minecraft 1.20.1, released jars of 1.1.0: curios can be missing from a replay when their slots come only from a data pack of the world or the server, since the slot definitions were not recorded. The fix is on `main`, confirmed by the production self test on Forge 1.20.1 and NeoForge 1.21.1 with slots from a data pack, and reaches players in the next released version. Slots from a mod's own jar should work in 1.1.0; this was read in the code, not tested.
 - A block changed in the very tick a recording starts in the middle of a session can be missed: the packet is
   captured before the start but handled by the client after the snapshot.
 - WaterFrames in exports: WaterMedia seeks are asynchronous, so a video can lag a few frames behind the exported
@@ -208,7 +207,7 @@ Le test automatique passe avec 0 échec sur les neuf cibles, en client de dével
 | Fabric 1.21.1 | Production : GeckoLib, Entity Culling, Iris, Sodium, Jade, Exposure, Accessories, Immersive Paintings : testés. Immersive Aircraft : testé. | Armourer's Workshop, Better Combat, Bobby, Distant Horizons, Emotecraft, Pehkui, Player Animator, Sable, WaterFrames |
 | Forge 1.21.1 | Production : GeckoLib, Entity Culling : testés. | Aucune |
 | NeoForge 1.20.1 | Aucun mod tiers. | Curios, GeckoLib, Jade |
-| Forge 1.20.1 | Production : GeckoLib, Jade, Entity Culling : testés. Curios : testé avec le correctif présent sur `main`, voir les limites connues. | Aucune |
+| Forge 1.20.1 | Production : GeckoLib, Jade, Entity Culling : testés. Curios : testé. | Aucune |
 | Fabric 1.20.1 | Aucun mod tiers. | Entity Culling, GeckoLib, Jade |
 | NeoForge 26.1.2 | Production : GeckoLib, Iris, Sodium, Jade, Entity Culling : testés. | Aucune |
 | Fabric 26.1.2 | Production : GeckoLib, Iris, Sodium, Jade, Entity Culling : testés. | Aucune |
@@ -392,7 +391,7 @@ fait rien quand le mod est absent. Le code se trouve dans `com.vyrriox.justrepla
   Aeronautics 1.3.2, pas encore testé en jeu.
 
 - **GeckoLib** : l'horloge de rendu de GeckoLib et le tick lu par ses modèles suivent le replay : mobs, blocs, objets, armures et textures animés se figent en pause, suivent la vitesse et avancent du temps exact de l'image en export. Testé par le test automatique sur les cibles du tableau ; en 26.1.2 c'est GeckoLib 5.
-- **Curios** : les instantanés et points de reprise écrivent les objets portés de chaque entité. Testé sur NeoForge 1.21.1 et, avec le correctif présent sur `main`, sur Forge 1.20.1 ; seulement lu sur NeoForge 1.20.1.
+- **Curios** : les instantanés et points de reprise écrivent les objets portés de chaque entité. Testé sur NeoForge 1.21.1 et sur Forge 1.20.1 ; seulement lu sur NeoForge 1.20.1.
 - **Iron's Spellbooks** : les paquets de sorts du joueur enregistré sont écrits pour son acteur, et les instantanés et points de reprise gardent l'état d'incantation. Les paquets visant le joueur du client qui les reçoit (mana, recharges, poussées) et ceux vers le serveur sont bloqués. Testé sur NeoForge 1.21.1 seulement.
 - **Iris** : le temps des shader packs vient de l'horloge du replay, figé en pause, à sa vitesse et identique à un tick donné dans chaque export. Horloge testée ; personne n'a regardé le résultat avec de vrais shader packs.
 - **Entity Culling** : l'interrupteur global du mod est sauvé, forcé à l'arrêt pendant un replay (à chaque tick, sa touche ne peut donc pas le remettre) et rétabli à la fin. Un replay avec beaucoup d'entités peut être plus lent. Testé sur NeoForge, Fabric et Forge 1.21.1, Forge 1.20.1, NeoForge et Fabric 26.1.2 ; seulement lu sur Fabric 1.20.1.
@@ -411,8 +410,6 @@ du tampon de sections est retirée, la règle du rayon de chunks d'apparition es
 d'apparition de GeckoLib ne se jouent probablement pas dans les replays. Un enregistrement ne s'ouvre que sur la version
 de Minecraft et le loader où il a été fait. Les animations GeckoLib déclenchées avant le début d'un enregistrement ou
 la cible d'un saut ne sont pas restaurées, et la phase des boucles peut différer après un saut en arrière.
-
-Curios sur NeoForge 1.21.1 (lu dans le code, non reproduit) et sur Minecraft 1.20.1, jars publiés de la 1.1.0 : des objets portés peuvent manquer dans un replay quand leurs emplacements viennent seulement d'un datapack du monde ou du serveur, car les définitions d'emplacements n'étaient pas enregistrées. Le correctif est sur `main`, confirmé par le self-test de production sur Forge 1.20.1 et NeoForge 1.21.1 avec des emplacements venant d'un datapack, et arrivera aux joueurs avec la prochaine version publiée. Les emplacements fournis par le jar d'un mod devraient fonctionner en 1.1.0 : c'est lu dans le code, pas testé.
 
 Limites connues : un bloc modifié dans le tick exact où un enregistrement démarre en cours de partie peut
 manquer ; en export, une vidéo WaterFrames peut avoir quelques images de retard ; les trains de Create dans un
