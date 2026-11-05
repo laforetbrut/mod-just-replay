@@ -574,7 +574,7 @@ public final class DropTheBeamCompat {
         if (mc.isSameThread()) {
             Playback playback = ReplayCompat.playback();
             if (playback != null) {
-                long target = CLOCK.at(replayTime(playback, mc.getTimer().getGameTimeDeltaPartialTick(false)));
+                long target = CLOCK.at(replayTime(playback, com.vyrriox.justreplay.client.Frames.partialTick()));
                 if (target != Long.MIN_VALUE) {
                     return target + Math.round((clientNanos - System.nanoTime()) * clockSpeed(playback, mc));
                 }

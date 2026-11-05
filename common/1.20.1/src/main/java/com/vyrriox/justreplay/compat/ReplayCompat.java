@@ -121,7 +121,7 @@ public final class ReplayCompat {
             return -1;
         }
         return com.vyrriox.justreplay.editor.CameraController.frameTime(session,
-                Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false));
+                com.vyrriox.justreplay.client.Frames.partialTick());
     }
 
     /**

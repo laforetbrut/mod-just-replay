@@ -244,7 +244,7 @@ public final class ActorAnimator {
         if (custom == null || session == null) {
             return;
         }
-        float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+        float partial = com.vyrriox.justreplay.client.Frames.partialTick();
         double ticks = (CameraController.frameTime(session, partial) - custom.start()) * custom.speed();
         EmoteLibrary.apply(model, EmoteLibrary.sample(custom.emote(), ticks, custom.clipFrom(), custom.clipTo()));
     }
@@ -262,7 +262,7 @@ public final class ActorAnimator {
         if (session == null) {
             return;
         }
-        float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+        float partial = com.vyrriox.justreplay.client.Frames.partialTick();
         double ticks = (CameraController.frameTime(session, partial) - custom.start()) * custom.speed();
         EmoteLibrary.applyWholeBody(stack, EmoteLibrary.sample(custom.emote(), ticks, custom.clipFrom(), custom.clipTo()));
     }
@@ -296,7 +296,7 @@ public final class ActorAnimator {
         if (dance == null || session == null) {
             return;
         }
-        float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+        float partial = com.vyrriox.justreplay.client.Frames.partialTick();
         double beats = dance.beats(CameraController.frameTime(session, partial));
         float p = (float) (beats - Math.floor(beats));
         float e = dance.energy();

@@ -10,7 +10,6 @@ import com.vyrriox.justreplay.gui.ui.Theme;
 import com.vyrriox.justreplay.record.Recorder;
 import com.vyrriox.justreplay.replay.Playback;
 import com.vyrriox.justreplay.replay.ReplaySession;
-import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -38,7 +37,7 @@ public final class ReplayHud {
     private ReplayHud() {
     }
 
-    public static void render(GuiGraphics g, DeltaTracker delta) {
+    public static void render(GuiGraphics g, float partialTick) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.options.hideGui || VideoExporter.isActive()) {
             return;

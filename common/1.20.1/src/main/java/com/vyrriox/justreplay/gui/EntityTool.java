@@ -14,7 +14,6 @@ import com.vyrriox.justreplay.gui.ui.Paint;
 import com.vyrriox.justreplay.gui.ui.Theme;
 import com.vyrriox.justreplay.replay.ReplaySession;
 import com.vyrriox.justreplay.replay.SpectateCamera;
-import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -108,7 +107,7 @@ public final class EntityTool {
             if (spot == null || !spot.valid()) {
                 return;
             }
-            float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+            float partial = com.vyrriox.justreplay.client.Frames.partialTick();
             Vec3 real = target.getPosition(partial);
             ReplayProject.EntityEdit edit = EntitiesPanel.ensureEdit(session, target);
             int tick = session.playback().cursor();
@@ -205,7 +204,7 @@ public final class EntityTool {
         double half = Math.max(0.2, e.getBbWidth() / 2.0);
         double height = e.getBbHeight();
         if (tool.mode == Mode.PICK) {
-            float partial = mc.getTimer().getGameTimeDeltaPartialTick(false);
+            float partial = com.vyrriox.justreplay.client.Frames.partialTick();
             Vec3 p = e.getPosition(partial);
             double[] o = EntityEdits.offset(e);
             if (o != null) {
@@ -225,7 +224,7 @@ public final class EntityTool {
     }
 
     /** Crosshair and the hint panel; a GUI layer kept by the clean HUD. */
-    public static void renderHud(GuiGraphics g, DeltaTracker delta) {
+    public static void renderHud(GuiGraphics g, float partialTick) {
         Minecraft mc = Minecraft.getInstance();
         EntityTool tool = active;
         if (tool == null || mc.screen != null || mc.options.hideGui) {

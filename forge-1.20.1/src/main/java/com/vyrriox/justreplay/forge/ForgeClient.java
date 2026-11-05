@@ -3,6 +3,7 @@ package com.vyrriox.justreplay.forge;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.vyrriox.justreplay.JustReplay;
+import com.vyrriox.justreplay.client.Frames;
 import com.vyrriox.justreplay.client.hook.ClientHooks;
 import com.vyrriox.justreplay.compat.ReplayCompat;
 import com.vyrriox.justreplay.editor.PathRenderer;
@@ -104,10 +105,10 @@ public final class ForgeClient {
         listen(game, ClientPlayerNetworkEvent.LoggingOut.class, event -> ClientHooks.onLoggingOut(event.getConnection()));
         // Before anything renders (mods read their clock while rendering): integration clocks move to this frame.
         game.addListener(EventPriority.HIGHEST, false, TickEvent.RenderTickEvent.Pre.class,
-                event -> ReplayCompat.Events.onRenderFrameFirst(event.getTimer().getGameTimeDeltaPartialTick(false)));
-        listen(game, TickEvent.RenderTickEvent.Pre.class, event -> onFramePre(event.getTimer().getGameTimeDeltaPartialTick(false)));
+                event -> ReplayCompat.Events.onRenderFrameFirst(Frames.partialTick()));
+        listen(game, TickEvent.RenderTickEvent.Pre.class, event -> onFramePre(Frames.partialTick()));
         listen(game, TickEvent.RenderTickEvent.Post.class, event -> {
-            ClientHooks.onFramePost(event.getTimer().getGameTimeDeltaPartialTick(false));
+            ClientHooks.onFramePost(Frames.partialTick());
             FxEngine.onFrameEnd();
         });
         listen(game, ComputeFovModifierEvent.class, event -> {
@@ -173,7 +174,7 @@ public final class ForgeClient {
      */
     private static void onRenderLevel(RenderLevelStageEvent event) {
         RenderLevelStageEvent.Stage stage = event.getStage();
-        float partialTick = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+        float partialTick = Frames.partialTick();
         boolean translucent = stage == RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS;
         Camera camera = event.getCamera();
         OverlayRenderer.onRenderLevel(translucent, stage == RenderLevelStageEvent.Stage.AFTER_PARTICLES, camera, partialTick);

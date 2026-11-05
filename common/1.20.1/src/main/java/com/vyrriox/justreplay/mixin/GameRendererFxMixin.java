@@ -1,7 +1,6 @@
 package com.vyrriox.justreplay.mixin;
 
 import com.vyrriox.justreplay.editor.fx.FxEngine;
-import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.renderer.GameRenderer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -19,7 +18,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class GameRendererFxMixin {
     @Inject(method = "render", require = 0,
             at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/pipeline/RenderTarget;bindWrite(Z)V", ordinal = 0))
-    private void justreplay$effects(DeltaTracker deltaTracker, boolean renderLevel, CallbackInfo ci) {
-        FxEngine.render(deltaTracker.getGameTimeDeltaPartialTick(false));
+    private void justreplay$effects(float partialTicks, long nanoTime, boolean renderLevel, CallbackInfo ci) {
+        FxEngine.render(com.vyrriox.justreplay.client.Frames.partialTick());
     }
 }

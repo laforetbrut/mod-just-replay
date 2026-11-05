@@ -51,7 +51,7 @@ public final class EntityEdits {
         if (s == null) {
             return 0.0;
         }
-        return CameraController.frameTime(s, Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false));
+        return CameraController.frameTime(s, com.vyrriox.justreplay.client.Frames.partialTick());
     }
 
     /**

@@ -25,7 +25,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Renders the camera path to a video. The game clock is driven frame by frame (see the delta tracker mixin),
+ * Renders the camera path to a video. The game clock is driven frame by frame (see the timer mixin),
  * so every frame is exact whatever the machine speed, and frames are piped to an external FFmpeg process.
  * <p>
  * An export runs in three phases: a pre-roll that plays up to one second of real ticks before the first frame

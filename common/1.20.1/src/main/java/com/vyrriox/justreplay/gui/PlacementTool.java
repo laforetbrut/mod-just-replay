@@ -12,7 +12,6 @@ import com.vyrriox.justreplay.gui.ui.Icon;
 import com.vyrriox.justreplay.gui.ui.Paint;
 import com.vyrriox.justreplay.gui.ui.Theme;
 import com.vyrriox.justreplay.replay.ReplaySession;
-import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -307,7 +306,7 @@ public final class PlacementTool {
     }
 
     /** Crosshair and the hint panel; a GUI layer kept by the clean HUD. */
-    public static void renderHud(GuiGraphics g, DeltaTracker delta) {
+    public static void renderHud(GuiGraphics g, float partialTick) {
         Minecraft mc = Minecraft.getInstance();
         PlacementTool tool = active;
         if (tool == null || mc.screen != null || mc.options.hideGui) {

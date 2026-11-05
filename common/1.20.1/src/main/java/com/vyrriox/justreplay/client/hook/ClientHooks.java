@@ -6,7 +6,6 @@ import com.vyrriox.justreplay.gui.EntityTool;
 import com.vyrriox.justreplay.gui.OverlayPlacementTool;
 import com.vyrriox.justreplay.gui.PlacementTool;
 import net.minecraft.client.KeyMapping;
-import net.minecraft.client.gui.LayeredDraw;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.sounds.SoundInstance;
@@ -31,7 +30,7 @@ public final class ClientHooks {
         JustReplayClient.registerKeys(registrar);
     }
 
-    public static void registerGuiLayers(BiConsumer<ResourceLocation, LayeredDraw.Layer> registrar) {
+    public static void registerGuiLayers(BiConsumer<ResourceLocation, HudLayer> registrar) {
         JustReplayClient.registerGuiLayers(registrar);
     }
 

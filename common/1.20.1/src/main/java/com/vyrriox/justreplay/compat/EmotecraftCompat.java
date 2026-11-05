@@ -469,7 +469,7 @@ public final class EmotecraftCompat {
             }
             Reflect r = reflect();
             Object anim = r.emoteData.invoke(animationPlayer);
-            float partial = net.minecraft.client.Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+            float partial = com.vyrriox.justreplay.client.Frames.partialTick();
             double time = clock.emoteTime(com.vyrriox.justreplay.editor.CameraController.frameTime(session, partial));
             int tick = (int) Math.floor(time);
             Class<?> data = anim.getClass();

@@ -441,8 +441,11 @@ public final class Playback {
         player.setDeltaMovement(Vec3.ZERO);
     }
 
-    /** Not wired yet: this version has no tick rate manager, the rate and the freeze come with the timer control. */
     private void applyTickRate(Minecraft mc) {
+        if (mc.level == null || mc.getConnection() == null) {
+            return;
+        }
+        TimeControl.apply(mc.level, TimeControl.DEFAULT_RATE * Math.min(1.0F, speed()), paused);
     }
 
     private void logOnce(Class<?> type, String message) {

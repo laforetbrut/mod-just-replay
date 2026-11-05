@@ -47,6 +47,14 @@ public final class SelfTest {
     private static int wait;
     private static int settle;
     private static int speedStart;
+    /** Pause and slow motion: an entity the freeze must hold, and what is read before and after. */
+    private static Entity heldEntity;
+    private static int heldEntityTicks;
+    private static long heldGameTime;
+    private static int heldPlayerTicks;
+    private static long heldBlockTicks;
+    private static long slowStartNanos;
+    private static int slowStartCursor;
     private static boolean ironsCastSent;
     private static int ironsPhase;
     private static Vec3 ironsCamera;
@@ -98,6 +106,7 @@ public final class SelfTest {
      * rendered, which can be one step older; the third step is the margin for a slow frame.
      */
     private static final double CLOCK_TOLERANCE = 3.0;
+    private static final int SLOW_TICKS = 20;
     /** A step that sits longer than this cannot finish, see {@link #stallLimit}. */
     private static final long STALL_MILLIS = 5 * 60 * 1000L;
     private static int watchedStep = -1;
@@ -150,6 +159,56 @@ public final class SelfTest {
         } else {
             log("clock {} {}: {} {}", mod, name, details, ok ? "OK" : "FAIL");
         }
+    }
+
+    private static void logTime(String name, String details, boolean ok) {
+        log("time {}: {} {}", name, details, ok ? "OK" : "FAIL");
+    }
+
+    /** The level has been paused for a while: it must be frozen and drawn on its last tick. */
+    private static void startFreezeCheck(Minecraft mc, LocalPlayer p) {
+        logTime("frozen when paused", "frozen " + com.vyrriox.justreplay.replay.TimeControl.isFrozen(), com.vyrriox.justreplay.replay.TimeControl.isFrozen());
+        float partial = Frames.partialTick();
+        logTime("partial tick when paused", "partial " + partial, partial == 1.0F);
+        float ms = com.vyrriox.justreplay.replay.TimeControl.millisPerTick();
+        logTime("client ticks at the normal rate when paused", ms + " ms", ms == com.vyrriox.justreplay.replay.TimeControl.DEFAULT_MS_PER_TICK);
+        heldEntity = null;
+        for (Entity entity : mc.level.entitiesForRendering()) {
+            if (com.vyrriox.justreplay.replay.TimeControl.isEntityFrozen(entity) && !entity.isPassenger()) {
+                heldEntity = entity;
+                heldEntityTicks = entity.tickCount;
+                break;
+            }
+        }
+        heldGameTime = mc.level.getGameTime();
+        heldPlayerTicks = p.tickCount;
+        heldBlockTicks = com.vyrriox.justreplay.replay.TimeControl.heldBlockEntityTicks();
+    }
+
+    private static void endFreezeCheck(Minecraft mc, LocalPlayer p) {
+        if (heldEntity == null) {
+            log("time entity held by the pause: no entity in the level, skipped");
+        } else {
+            logTime("entity held by the pause", heldEntity.getType() + " " + heldEntityTicks + " -> " + heldEntity.tickCount, heldEntity.tickCount == heldEntityTicks);
+        }
+        logTime("game time held by the pause", heldGameTime + " -> " + mc.level.getGameTime(), mc.level.getGameTime() == heldGameTime);
+        logTime("player ticks through the pause", heldPlayerTicks + " -> " + p.tickCount, p.tickCount > heldPlayerTicks);
+        long blockTicks = com.vyrriox.justreplay.replay.TimeControl.heldBlockEntityTicks() - heldBlockTicks;
+        if (blockTicks == 0) {
+            log("time block entities held by the pause: no ticking block entity in the level, skipped");
+        } else {
+            logTime("block entities held by the pause", blockTicks + " ticks held", true);
+        }
+    }
+
+    /** 20 client ticks at half speed last 2 seconds; a replay that ignores the rate takes 1. */
+    private static void endSlowCheck(ReplaySession s) {
+        long millis = (System.nanoTime() - slowStartNanos) / 1_000_000L;
+        float ms = com.vyrriox.justreplay.replay.TimeControl.millisPerTick();
+        logTime("slow motion x" + s.playback().speed() + " tick length", ms + " ms", ms == 100.0F);
+        logTime("slow motion x" + s.playback().speed() + " duration", SLOW_TICKS + " client ticks in " + millis + " ms", millis >= 1500L);
+        int played = s.playback().cursor() - slowStartCursor;
+        logTime("slow motion x" + s.playback().speed() + " playback", played + " recorded ticks", played >= SLOW_TICKS - 2 && played <= SLOW_TICKS + 2);
     }
 
     private static void checkClockHeld(double gecko, double geckoNow, double iris, double irisNow) {
@@ -499,6 +558,7 @@ public final class SelfTest {
                 ReplaySession s = ReplaySession.current();
                 log("mods 20 ticks later, still paused: {}", Mods.state(mc, s));
                 shot(mc, "1b-paused60");
+                startFreezeCheck(mc, p);
                 clockGecko = geckoClock();
                 clockIris = irisClock();
                 go(60, 40);
@@ -506,8 +566,19 @@ public final class SelfTest {
             case 60 -> {
                 // 40 more ticks paused: the clocks read while rendering must not have moved.
                 checkClockHeld(clockGecko, geckoClock(), clockIris, irisClock());
+                endFreezeCheck(mc, p);
                 ReplaySession s = ReplaySession.current();
                 s.playback().setPaused(false);
+                // Half speed (the index of x0.5 in Playback.SPEEDS).
+                s.playback().setSpeedIndex(2);
+                slowStartNanos = System.nanoTime();
+                slowStartCursor = s.playback().cursor();
+                go(62, SLOW_TICKS);
+            }
+            case 62 -> {
+                ReplaySession s = ReplaySession.current();
+                endSlowCheck(s);
+                s.playback().resetSpeed();
                 if (Mods.loaded("entityculling")) {
                     // The mod's toggle key, simulated: the next ticks must switch it off again.
                     com.vyrriox.justreplay.compat.EntityCullingCompat.setEnabled(true);
@@ -521,6 +592,8 @@ public final class SelfTest {
                 // single tick can be skipped (seen once in three runs). That window is the test's own doing:
                 // count from here, once the switch has been forced off again.
                 cullSkipped = Math.max(0, com.vyrriox.justreplay.compat.EntityCullingCompat.skippedEntityTicks());
+                float ms = com.vyrriox.justreplay.replay.TimeControl.millisPerTick();
+                logTime("normal speed restored", ms + " ms", ms == com.vyrriox.justreplay.replay.TimeControl.DEFAULT_MS_PER_TICK);
                 go(8, 27);
             }
             case 8 -> {
