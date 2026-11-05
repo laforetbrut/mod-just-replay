@@ -43,7 +43,8 @@ public final class EarlyMods {
         if (find("net.fabricmc.loader.api.FabricLoader", loader) != null) {
             return "fabric";
         }
-        return find("net.neo" + "forged.fml" + ".loading.FMLLoader", loader) != null ? "neoforge" : "forge";
+        // NeoForge 47.1 is a fork that kept the packages of Forge, so only the glue in this jar tells them apart.
+        return find("com.vyrriox.justreplay.neoforge.NeoForgePlatform", loader) != null ? "neoforge" : "forge";
     }
 
     private static boolean hasModFile(Object list, String modId) throws ReflectiveOperationException {
