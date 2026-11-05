@@ -110,7 +110,7 @@ public final class ImmersivePaintingsCompat {
 
     /** PNG bytes of the texture an image lives in, or null when it is not a loaded dynamic texture. */
     private static byte[] png(String key, Identifier location) throws Exception {
-        AbstractTexture texture = Minecraft.getInstance().getTextureManager().getTexture(location, null);
+        AbstractTexture texture = Minecraft.getInstance().getTextureManager().getTexture(location);
         if (!(texture instanceof DynamicTexture dynamic)) {
             return null;
         }
@@ -122,7 +122,15 @@ public final class ImmersivePaintingsCompat {
         if (known != null && known.pixels == pixels) {
             return known.png;
         }
-        byte[] bytes = pixels.asByteArray();
+        // NativeImage has no in-memory encoder on 26.1; the PNG goes through a short-lived temp file.
+        java.nio.file.Path tmp = java.nio.file.Files.createTempFile("justreplay-painting", ".png");
+        byte[] bytes;
+        try {
+            pixels.writeToFile(tmp);
+            bytes = java.nio.file.Files.readAllBytes(tmp);
+        } finally {
+            java.nio.file.Files.deleteIfExists(tmp);
+        }
         ENCODED.put(key, new Encoded(pixels, bytes));
         return bytes;
     }

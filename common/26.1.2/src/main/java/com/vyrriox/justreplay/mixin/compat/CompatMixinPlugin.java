@@ -23,9 +23,6 @@ public final class CompatMixinPlugin implements IMixinConfigPlugin {
 
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
-        if (mixinClassName.endsWith(".SectionBufferGuardMixin")) {
-            return !loaded("sodium") && !loaded("embeddium");
-        }
         if (mixinClassName.contains(".Morph")) {
             return CompatTargets.isActive("morph");
         }

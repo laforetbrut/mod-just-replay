@@ -29,7 +29,6 @@
     "PlayerAnimStackMixin",
     "SableLocalPoseMixin",
     "SableUdpPoseMixin",
-    "SectionBufferGuardMixin",
     "WaterFramesControlMixin",
     "WaterFramesDataMixin"
   ],

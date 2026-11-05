@@ -218,7 +218,7 @@ public final class SceneRecorder {
                     session.playback().setPaused(true);
                     wait = 60;
                 } else {
-                    net.minecraft.client.Screenshot.grab(mc.gameDirectory, "scene-" + t + ".png", mc.getMainRenderTarget(),
+                    net.minecraft.client.Screenshot.grab(mc.gameDirectory, "scene-" + t + ".png", mc.getMainRenderTarget(), 1,
                             c -> log("screenshot at tick {}", t));
                     wait = 10;
                 }
@@ -236,7 +236,7 @@ public final class SceneRecorder {
                     }
                     if (savedGuiScale >= 0) {
                         mc.options.guiScale().set(savedGuiScale);
-                        mc.resizeDisplay();
+                        mc.resizeGui();
                     }
                     mc.setScreen(null);
                     step = 11;
@@ -247,7 +247,7 @@ public final class SceneRecorder {
                     // GUI scale 2: at a large window the automatic scale makes the editor tiny in a picture.
                     savedGuiScale = mc.options.guiScale().get();
                     mc.options.guiScale().set(2);
-                    mc.resizeDisplay();
+                    mc.resizeGui();
                     savedMode = com.vyrriox.justreplay.config.JRConfig.EDITOR_MODE.get();
                     com.vyrriox.justreplay.config.JRConfig.EDITOR_MODE.set(
                             com.vyrriox.justreplay.config.JRConfig.EditorMode.valueOf(parts[1].trim()));
@@ -262,7 +262,7 @@ public final class SceneRecorder {
                     wait = editorIndex == 0 ? 80 : 30;
                 } else {
                     // The pointer rests over the world, away from every control, so no tooltip shows.
-                    org.lwjgl.glfw.GLFW.glfwSetCursorPos(mc.getWindow().getWindow(), mc.getWindow().getScreenWidth() * 0.72,
+                    org.lwjgl.glfw.GLFW.glfwSetCursorPos(mc.getWindow().handle(), mc.getWindow().getScreenWidth() * 0.72,
                             mc.getWindow().getScreenHeight() * 0.3);
                     String name = "scene-editor-" + parts[1].trim().toLowerCase(java.util.Locale.ROOT) + "-" + tab + ".png";
                     net.minecraft.client.Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), 1, c -> log("editor capture {}", name));

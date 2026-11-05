@@ -33,7 +33,6 @@
     "ActorBedMixin",
     "ActorSkinMixin",
     "GameRendererFxMixin",
-    "VertexBufferAccessor",
     "ClientLevelLocalEffectsMixin",
     "LocalPlayerSoundsMixin",
     "PlayerSkinLayersMixin",

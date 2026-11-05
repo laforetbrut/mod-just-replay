@@ -77,7 +77,7 @@ public final class SelfTest {
         if (!ENABLED || !ReplaySession.isRunning()) {
             return;
         }
-        String id = sound.getLocation().getPath();
+        String id = sound.getIdentifier().getPath();
         if (id.equals("block.note_block.bell")) {
             localBell++;
         } else if (id.equals("block.anvil.use")) {
@@ -198,6 +198,14 @@ public final class SelfTest {
         exportClockIris[1] = irisClock();
     }
 
+    /** The flat test world must not run its day cycle: the rule is set on the integrated server once joined. */
+    private static void stopDayCycle(Minecraft mc) {
+        net.minecraft.server.MinecraftServer server = mc.getSingleplayerServer();
+        if (server != null) {
+            server.execute(() -> server.getGameRules().set(GameRules.ADVANCE_TIME, false, server));
+        }
+    }
+
     private static void log(String message, Object... args) {
         JustReplay.LOGGER.info("SELFTEST " + message, args);
     }
@@ -208,7 +216,7 @@ public final class SelfTest {
                 && !(mc.screen instanceof net.minecraft.client.gui.screens.GenericMessageScreen)
                 && !(mc.screen instanceof net.minecraft.client.gui.screens.ProgressScreen)
                 && !(mc.screen instanceof net.minecraft.client.gui.screens.LevelLoadingScreen)
-                && !(mc.screen instanceof net.minecraft.client.gui.screens.ReceivingLevelScreen);
+                && !(mc.screen instanceof net.minecraft.client.gui.screens.LevelLoadingScreen);
     }
 
     private static void next(int delay) {
@@ -326,12 +334,12 @@ public final class SelfTest {
                             access.deleteLevel();
                         }
                     }
-                    GameRules rules = new GameRules();
-                    rules.getRule(GameRules.RULE_DAYLIGHT).set(false, null);
-                    LevelSettings settings = new LevelSettings(WORLD, GameType.CREATIVE, false, Difficulty.PEACEFUL, true, rules,
+                    // Game rules live in the world data now; the day cycle is stopped once the world is joined.
+                    LevelSettings settings = new LevelSettings(WORLD, GameType.CREATIVE,
+                            new LevelSettings.DifficultySettings(Difficulty.PEACEFUL, false, false), true,
                             WorldDataConfiguration.DEFAULT);
                     mc.createWorldOpenFlows().createFreshLevel(WORLD, settings, new WorldOptions(42L, false, false),
-                            access -> access.registryOrThrow(Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+                            access -> access.lookupOrThrow(Registries.WORLD_PRESET).getOrThrow(WorldPresets.FLAT).value()
                                     .createWorldDimensions(), mc.screen);
                     log("world requested");
                     next(20);
@@ -346,6 +354,7 @@ public final class SelfTest {
                     }
                     if (mc.screen == null) {
                         log("in world at {}", p.position());
+                        stopDayCycle(mc);
                         next(60);
                     }
                 }
@@ -1306,7 +1315,7 @@ public final class SelfTest {
             if (loaded("curios")) {
                 // A ring worn before the recording starts: it must reach the snapshot, the actor and every checkpoint.
                 net.minecraft.world.item.Item ring = net.minecraft.core.registries.BuiltInRegistries.ITEM
-                        .getTag(net.minecraft.tags.TagKey.create(net.minecraft.core.registries.Registries.ITEM,
+                        .get(net.minecraft.tags.TagKey.create(net.minecraft.core.registries.Registries.ITEM,
                                 net.minecraft.resources.Identifier.fromNamespaceAndPath("curios", "ring")))
                         .flatMap(tag -> tag.stream().findFirst()).map(net.minecraft.core.Holder::value).orElse(null);
                 if (ring == null) {
@@ -1384,7 +1393,7 @@ public final class SelfTest {
         private static net.minecraft.world.item.Item accessoryRing() {
             for (String namespace : new String[]{"accessories", "curios"}) {
                 net.minecraft.world.item.Item ring = net.minecraft.core.registries.BuiltInRegistries.ITEM
-                        .getTag(net.minecraft.tags.TagKey.create(net.minecraft.core.registries.Registries.ITEM,
+                        .get(net.minecraft.tags.TagKey.create(net.minecraft.core.registries.Registries.ITEM,
                                 net.minecraft.resources.Identifier.fromNamespaceAndPath(namespace, "ring")))
                         .flatMap(tag -> tag.stream().findFirst()).map(net.minecraft.core.Holder::value).orElse(null);
                 if (ring != null) {
@@ -1716,7 +1725,7 @@ public final class SelfTest {
             log("{}: no level", label);
             return;
         }
-        log("{}: dayTime={} rain={} thunder={} raining={} recorded[{}]", label, mc.level.getDayTime(), mc.level.getRainLevel(1.0F),
+        log("{}: dayTime={} rain={} thunder={} raining={} recorded[{}]", label, mc.level.getOverworldClockTime(), mc.level.getRainLevel(1.0F),
                 mc.level.getThunderLevel(1.0F), mc.level.isRaining(), com.vyrriox.justreplay.replay.WorldOverride.recorded());
     }
 

@@ -62,12 +62,12 @@ public interface RegistryIdsBackend {
         RegistryIdMap partial = new RegistryIdMap(tables);
         apply(partial);
         int raw = serializers
-                ? BuiltInRegistries.RECIPE_SERIALIZER.getId(RecipeSerializer.SHAPELESS_RECIPE)
+                ? BuiltInRegistries.RECIPE_SERIALIZER.getId(net.minecraft.world.item.crafting.ShapelessRecipe.SERIALIZER)
                 : BuiltInRegistries.ITEM.getId(Items.STICK);
         log.log("registry ids missing {} applied as recorded: id {} (the bug when -1)", dropped, raw);
         apply(RegistryIds.complete(partial));
         int id = serializers
-                ? BuiltInRegistries.RECIPE_SERIALIZER.getId(RecipeSerializer.SHAPELESS_RECIPE)
+                ? BuiltInRegistries.RECIPE_SERIALIZER.getId(net.minecraft.world.item.crafting.ShapelessRecipe.SERIALIZER)
                 : BuiltInRegistries.ITEM.getId(Items.STICK);
         log.log("registry ids missing {} in the recording: id after apply {} -> {}", dropped, id, id >= 0 ? "OK" : "FAIL");
     }
