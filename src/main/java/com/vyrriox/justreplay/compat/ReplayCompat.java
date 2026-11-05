@@ -42,6 +42,8 @@ public final class ReplayCompat {
     static final boolean CURIOS = isLoaded("curios");
     static final boolean ENTITY_CULLING = isLoaded("entityculling");
     static final boolean IRONS_SPELLS = isLoaded("irons_spellbooks");
+    static final boolean JADE = isLoaded("jade");
+    static final boolean IMMERSIVE_AIRCRAFT = isLoaded("immersive_aircraft");
     private static final Set<String> FAILED = Collections.synchronizedSet(new HashSet<>());
     private static double monotonicFrame = -1;
     private static double monotonicValue;
@@ -313,6 +315,9 @@ public final class ReplayCompat {
         if (IRONS_SPELLS && packet != null) {
             packet = IronsSpellsCompat.filterPlayback(packet);
         }
+        if (JADE && packet != null) {
+            packet = JadeCompat.filterPlayback(packet);
+        }
         return packet;
     }
 
@@ -329,7 +334,9 @@ public final class ReplayCompat {
                 || MORPH && MorphCompat.blockServerbound(packet)
                 || CUSTOM_NPCS && CustomNpcsCompat.blockServerbound(packet)
                 || EPIC_FIGHT && EpicFightCompat.blockServerbound(packet)
-                || IRONS_SPELLS && IronsSpellsCompat.blockServerbound(packet);
+                || IRONS_SPELLS && IronsSpellsCompat.blockServerbound(packet)
+                || JADE && JadeCompat.blockServerbound(packet)
+                || IMMERSIVE_AIRCRAFT && ImmersiveAircraftCompat.blockServerbound(packet);
     }
 
     // ---------------------------------------------------------------- recording hooks
@@ -446,6 +453,9 @@ public final class ReplayCompat {
         }
         if (IRONS_SPELLS) {
             IronsSpellsCompat.writeCurrent(entity, out);
+        }
+        if (IMMERSIVE_AIRCRAFT) {
+            ImmersiveAircraftCompat.writeCurrent(entity, out);
         }
     }
 

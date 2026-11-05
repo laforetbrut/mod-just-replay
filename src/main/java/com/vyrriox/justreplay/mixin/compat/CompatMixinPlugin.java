@@ -44,6 +44,9 @@ public final class CompatMixinPlugin implements IMixinConfigPlugin {
         if (mixinClassName.contains(".GeckoLib")) {
             return loaded("geckolib");
         }
+        if (mixinClassName.contains(".Jade")) {
+            return loaded("jade");
+        }
         if (mixinClassName.contains(".Iris")) {
             return loaded("iris");
         }
