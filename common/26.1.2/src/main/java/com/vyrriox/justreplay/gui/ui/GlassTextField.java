@@ -1,0 +1,107 @@
+package com.vyrriox.justreplay.gui.ui;
+
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.network.chat.Component;
+
+/**
+ * Text field on a recessed glass well with an accent ring when focused. The vanilla editing logic is kept: only
+ * the frame changes (the text keeps the bordered insets).
+ *
+ * @author vyrriox
+ */
+public class GlassTextField extends EditBox implements Tipped {
+    private final Anim.Value focus = new Anim.Value(0.0F, Theme.FAST);
+    private final Anim.Value hover = new Anim.Value(0.0F, Theme.FAST);
+    private Icon leading;
+    private int leadingWidth;
+    private Component tip;
+    private boolean digitsOnly;
+
+    public GlassTextField(Font font, int width, Component label) {
+        super(font, 0, 0, width, Theme.ROW + 2, label);
+        setTextColor(Theme.TEXT);
+        setTextColorUneditable(Theme.TEXT_MUTED);
+        com.vyrriox.justreplay.platform.ClientPlatform.get().disableTextShadow(this);
+    }
+
+    /** Draws an icon in a zone of {@code width} pixels on the left of the field (outside its click area). */
+    public GlassTextField leading(Icon icon, int width) {
+        this.leading = icon;
+        this.leadingWidth = width;
+        return this;
+    }
+
+    /** From now on the text stays made of digits: input holding anything else is refused as a whole. */
+    public GlassTextField digitsOnly() {
+        this.digitsOnly = true;
+        return this;
+    }
+
+    private boolean refuses(String text) {
+        return digitsOnly && !text.chars().allMatch(Character::isDigit);
+    }
+
+    @Override
+    public void setValue(String value) {
+        if (!refuses(value)) {
+            super.setValue(value);
+        }
+    }
+
+    @Override
+    public void insertText(String text) {
+        if (!refuses(text)) {
+            super.insertText(text);
+        }
+    }
+
+    public GlassTextField tip(Component tip) {
+        this.tip = tip;
+        return this;
+    }
+
+    @Override
+    public Component tooltip() {
+        return tip;
+    }
+
+    /** Fields are often sized after their value is set: show the text from its start once the width is known. */
+    @Override
+    public void setWidth(int width) {
+        super.setWidth(width);
+        moveCursorToStart(false);
+    }
+
+    /** The vanilla sprite frame is replaced by the glass one. */
+    @Override
+    public boolean isBordered() {
+        return false;
+    }
+
+    @Override
+    public int getInnerWidth() {
+        return width - 8;
+    }
+
+    @Override
+    public void extractWidgetRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+        if (!isVisible()) {
+            return;
+        }
+        float f = focus.to(isFocused() ? 1.0F : 0.0F);
+        float h = hover.to(isHovered() ? 1.0F : 0.0F);
+        int x = getX() - leadingWidth, y = getY(), w = width + leadingWidth;
+        if (f > 0.01F) {
+            Paint.shadow(g, x, y, w, height, Theme.RADIUS_M, 2, Theme.fade(0x405AB4FF, f));
+        }
+        Paint.rect(g, x, y, w, height, Theme.RADIUS_M, Theme.mix(Theme.FIELD, 0xB3080B10, f), Theme.mix(0x400A0D12, 0xA6080B10, f));
+        Paint.outline(g, x, y, w, height, Theme.RADIUS_M, Theme.mix(Theme.mix(0x33FFFFFF, 0x59FFFFFF, h), 0xE65AB4FF, f),
+                Theme.mix(Theme.mix(0x1AFFFFFF, 0x33FFFFFF, h), 0x995AB4FF, f));
+        if (leading != null) {
+            Paint.iconOnText(g, leading, x + (leadingWidth + 3 - 8) / 2.0F, y + (height - 8) / 2, 8, Theme.mix(Theme.TEXT_MUTED, Theme.ACCENT, f));
+        }
+        super.extractWidgetRenderState(g, mouseX, mouseY, partialTick);
+    }
+}
