@@ -28,7 +28,7 @@ import java.util.function.Consumer;
  *     emote already over at the seek target is dropped.</li>
  *     <li>Editor actors can play an emote by name (the EMOTE action).</li>
  * </ul>
- * Pause and speed are handled by the player animation library mixins (see {@code PlayerAnimStackMixin}). Everything is
+ * Pause and speed are handled by the player animation library mixins (not ported to this version). Everything is
  * reached by reflection: nothing here loads an Emotecraft class.
  *
  * @author vyrriox

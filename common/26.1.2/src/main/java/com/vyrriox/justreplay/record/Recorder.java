@@ -340,29 +340,15 @@ public final class Recorder {
     private static final java.util.Map<Integer, List<Packet<?>>> SPAWNS = new ConcurrentHashMap<>();
     private static volatile Connection spawnConnection;
 
-    /**
-     * Mod packets the server sends once per connection and then updates incrementally (Create's train network), in
-     * arrival order: snapshots and checkpoints replay them, since a stream starting later never sees them.
-     */
-    private static final List<Packet<?>> PERSISTENT = Collections.synchronizedList(new ArrayList<>());
-    private static final int MAX_PERSISTENT = 20000;
     private static final Set<String> FAILED_GLOBAL = ConcurrentHashMap.newKeySet();
 
     private static void trackSpawns(Connection connection, Packet<?> packet) {
         boolean newConnection = connection != spawnConnection;
         if (newConnection) {
             SPAWNS.clear();
-            PERSISTENT.clear();
             spawnConnection = connection;
         }
         com.vyrriox.justreplay.compat.ReplayCompat.onLivePacket(packet, newConnection);
-        if (com.vyrriox.justreplay.compat.CreateCompat.isPersistent(packet)) {
-            if (PERSISTENT.size() < MAX_PERSISTENT) {
-                PERSISTENT.add(packet);
-            } else if (PERSISTENT.size() == MAX_PERSISTENT && FAILED_GLOBAL.add("persistent")) {
-                JustReplay.LOGGER.warn("Too many train network packets on this connection; later snapshots may miss trains");
-            }
-        }
         if (packet instanceof ClientboundLoginPacket || packet instanceof net.minecraft.network.protocol.game.ClientboundRespawnPacket) {
             SPAWNS.clear();
         } else if (packet instanceof net.minecraft.network.protocol.game.ClientboundBundlePacket bundle) {
@@ -1441,13 +1427,6 @@ public final class Recorder {
     private void writeSnapshotTail(Minecraft mc, ClientPacketListener listener, Consumer<byte[]> sink) {
         ClientLevel level = mc.level;
         LocalPlayer player = mc.player;
-        List<Packet<?>> persistent;
-        synchronized (PERSISTENT) {
-            persistent = new ArrayList<>(PERSISTENT);
-        }
-        for (Packet<?> packet : persistent) {
-            write(listener, packet, sink);
-        }
         com.vyrriox.justreplay.compat.ReplayCompat.writeSnapshot(packet -> write(listener, packet, sink));
         writeMaps(level, listener, sink);
         write(listener, new ClientboundGameEventPacket(ClientboundGameEventPacket.LEVEL_CHUNKS_LOAD_START, 0.0F), sink);

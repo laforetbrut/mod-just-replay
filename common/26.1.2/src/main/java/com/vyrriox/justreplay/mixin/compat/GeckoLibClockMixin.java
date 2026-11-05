@@ -16,9 +16,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * @author vyrriox
  */
 @Pseudo
-@Mixin(targets = "software.bernie.geckolib.util.RenderUtil", remap = false)
+@Mixin(targets = "com.geckolib.util.ClientUtil", remap = false)
 public abstract class GeckoLibClockMixin {
-    @Inject(method = "getCurrentTick()D", at = @At("HEAD"), cancellable = true, require = 0, remap = false)
+    @Inject(method = "getCurrentTick(Ljava/lang/Float;)D", at = @At("HEAD"), cancellable = true, require = 0, remap = false)
     private static void justreplay$replayClock(CallbackInfoReturnable<Double> cir) {
         if (!Minecraft.getInstance().isSameThread()) {
             return;

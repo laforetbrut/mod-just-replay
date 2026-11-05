@@ -47,9 +47,6 @@ public final class SelfTest {
     private static int wait;
     private static int settle;
     private static int speedStart;
-    private static boolean ironsCastSent;
-    private static int ironsPhase;
-    private static Vec3 ironsCamera;
     private static Path replay;
     /** Start position of the recording, around which the modded test content is placed. */
     private static net.minecraft.core.BlockPos modsBase;
@@ -62,8 +59,6 @@ public final class SelfTest {
     private static com.vyrriox.justreplay.editor.ActorPlacement.Spot seatSpot;
     private static int fxStep;
     private static boolean curiosGiven;
-    private static volatile net.minecraft.world.item.Item accessoryGiven;
-    private static java.util.SequencedMap<?, ?> accessorySlots;
     private static boolean immersiveRegistered;
     private static int cullSkipped;
     /** Sounds the recording player made itself, heard again while the replay plays (see recordLocalEffect). */
@@ -121,9 +116,9 @@ public final class SelfTest {
     private SelfTest() {
     }
 
-    /** RenderUtil.getCurrentTick, NaN without GeckoLib. */
+    /** ClientUtil.getCurrentTick, NaN without GeckoLib. */
     private static double geckoClock() {
-        return readClock("software.bernie.geckolib.util.RenderUtil", "getCurrentTick", null);
+        return readClock("com.geckolib.util.ClientUtil", "getCurrentTick", null);
     }
 
     /** Iris' frameTimeCounter in seconds, NaN without Iris. Moves with or without a shader pack. */
@@ -366,26 +361,15 @@ public final class SelfTest {
                 }
             }
             case 2 -> {
-                if (Mods.loaded("irons_spellbooks") && !ironsCastSent) {
-                    // Under way before the recording: only the snapshot can carry it. Fortify casts for 60 ticks.
-                    ironsCastSent = true;
-                    p.connection.sendCommand("cast @s irons_spellbooks:fortify 1");
-                    wait = 10;
-                    return;
-                }
                 p.connection.sendCommand("summon minecraft:pig ~4 ~ ~2");
                 p.connection.sendCommand("summon minecraft:villager ~-3 ~ ~3");
                 p.connection.sendCommand("setblock ~2 ~ ~ minecraft:gold_block");
-                // Modded content when available: an animated GeckoLib mob and a spinning Create motor.
+                // Modded content when available: an animated GeckoLib mob.
                 p.connection.sendCommand("summon mowziesmobs:foliaath ~-4 ~ ~-3");
-                p.connection.sendCommand("setblock ~3 ~ ~-3 create:creative_motor[facing=up]");
-                p.connection.sendCommand("setblock ~3 ~1 ~-3 create:cogwheel");
                 // Furniture for the placement steps, out of the walking circle: stairs facing west, a bed facing south.
                 net.minecraft.core.BlockPos base = p.blockPosition();
                 modsBase = base;
                 Mods.prepare(mc);
-                Mods.seedExposure();
-                Mods.prepareAccessories(mc);
                 stairPos = base.offset(9, 0, 0);
                 bedPos = base.offset(9, 0, -3);
                 p.connection.sendCommand(String.format("setblock %d %d %d minecraft:oak_stairs[facing=west]", stairPos.getX(), stairPos.getY(), stairPos.getZ()));
@@ -444,12 +428,6 @@ public final class SelfTest {
                 if (t == 100) {
                     p.connection.sendCommand("setblock ~ ~3 ~ minecraft:diamond_block");
                 }
-                if (t == 50) {
-                    Mods.recordExposureCapture();
-                }
-                if (t == 120 && Mods.loaded("irons_spellbooks")) {
-                    p.connection.sendCommand("cast @s irons_spellbooks:fortify 1");
-                }
                 if (t % 40 == 0 && Recorder.capturing() != null) {
                     log("recording cost: {}", Recorder.capturing().lastCost());
                 }
@@ -498,7 +476,6 @@ public final class SelfTest {
                 logWorld(mc, s, "playing");
                 log("mods while playing: {}", Mods.state(mc, s));
                 Mods.checkCurios(mc, s, "at start");
-                Mods.checkAccessories(mc, s, "at start");
                 Mods.checkJadeAircraft(mc, "at start");
                 Mods.checkImmersivePaintings("at start");
                 Mods.checkCulling("during the replay", false);
@@ -549,7 +526,6 @@ public final class SelfTest {
                 shot(mc, "2-seek150");
                 clockGecko = geckoClock();
                 clockEntity = com.vyrriox.justreplay.compat.ReplayCompat.lastGeckoEntityFrameTime();
-                Mods.clearAccessorySlots();
                 s.playback().seek(20);
                 next(30);
             }
@@ -557,7 +533,6 @@ public final class SelfTest {
                 ReplaySession s = ReplaySession.current();
                 logWorld(mc, s, "after backward seek");
                 Mods.checkCurios(mc, s, "after backward seek");
-                Mods.checkAccessoriesAfterClear(mc, s);
                 Mods.checkJadeAircraft(mc, "after backward seek");
                 shot(mc, "3-seek20");
                 checkClockBackSeek(clockGecko, geckoClock(), clockEntity, com.vyrriox.justreplay.compat.ReplayCompat.lastGeckoEntityFrameTime());
@@ -570,24 +545,13 @@ public final class SelfTest {
             }
             case 10 -> {
                 ReplaySession s = ReplaySession.current();
-                if (ironsPhase == 0) {
-                    log("speed x{}: cursor advanced {} ticks in 10 client ticks", s.playback().speed(), s.playback().cursor() - speedStart);
-                    checkClockRise("speed", s.playback().cursor() - speedStart, clockStartStep, Math.max(1, s.playback().lastStep()),
-                            clockGecko, geckoClock(), clockIris, irisClock());
-                    s.playback().resetSpeed();
-                }
-                if (Mods.checkIrons(mc, s)) {
-                    wait = 5;
-                    return;
-                }
-                if (Mods.checkExposure(mc, s)) {
-                    wait = 5;
-                    return;
-                }
+                log("speed x{}: cursor advanced {} ticks in 10 client ticks", s.playback().speed(), s.playback().cursor() - speedStart);
+                checkClockRise("speed", s.playback().cursor() - speedStart, clockStartStep, Math.max(1, s.playback().lastStep()),
+                        clockGecko, geckoClock(), clockIris, irisClock());
+                s.playback().resetSpeed();
                 s.playback().seek(190);
                 s.playback().seek(130);
                 logWorld(mc, s, "after checkpoint seek to 130");
-                Mods.logDropTheBeam("after checkpoint seek to 130");
                 s.playback().seek(20);
                 s.jumpToRecorder(mc);
                 Vec3 c = p.position();
@@ -977,7 +941,6 @@ public final class SelfTest {
                 log("export audio clips mixed={} (expected 2), audio mux log={}", com.vyrriox.justreplay.export.ExportAudio.lastMixedClips(),
                         Files.exists(ReplayStorage.exportRoot().resolve("selftest.mp4.audio.log")));
                 log("mods after export: {}", Mods.state(mc, ReplaySession.current()));
-                Mods.logDropTheBeam("after export");
                 if (exportClockFirst < 0) {
                     log("clock export: no sample while the export ran FAIL");
                 } else {
@@ -1315,9 +1278,6 @@ public final class SelfTest {
 
         /** Makes the test video before the recording starts (FFmpeg takes a moment). */
         static void prepare(Minecraft mc) {
-            if (loaded("waterframes")) {
-                testVideo(mc);
-            }
             if (loaded("curios")) {
                 // A ring worn before the recording starts: it must reach the snapshot, the actor and every checkpoint.
                 net.minecraft.world.item.Item ring = net.minecraft.core.registries.BuiltInRegistries.ITEM
@@ -1371,72 +1331,6 @@ public final class SelfTest {
             }
             int worn = com.vyrriox.justreplay.compat.CuriosCompat.wornCount(s.findRecorder(mc));
             log("curios {}: worn stacks on the actor={} -> {}", label, worn, worn == 1 ? "OK" : "FAIL");
-        }
-
-        /** An accessory worn before the recording starts, put on by the integrated server; a logged skip when it cannot be. */
-        static void prepareAccessories(Minecraft mc) {
-            if (!loaded("accessories")) {
-                log("accessories: mod absent, skipped");
-                return;
-            }
-            net.minecraft.world.item.Item ring = accessoryRing();
-            net.minecraft.client.server.IntegratedServer server = mc.getSingleplayerServer();
-            if (ring == null || server == null) {
-                log("accessories: no ring item or no integrated server, skipped");
-                return;
-            }
-            java.util.UUID id = mc.player.getUUID();
-            server.execute(() -> {
-                net.minecraft.server.level.ServerPlayer player = server.getPlayerList().getPlayer(id);
-                if (player != null && com.vyrriox.justreplay.compat.AccessoriesCompat.equip(player, "ring", new net.minecraft.world.item.ItemStack(ring))) {
-                    accessoryGiven = ring;
-                } else {
-                    log("accessories: the player has no ring slot, skipped");
-                }
-            });
-        }
-
-        private static net.minecraft.world.item.Item accessoryRing() {
-            for (String namespace : new String[]{"accessories", "curios"}) {
-                net.minecraft.world.item.Item ring = net.minecraft.core.registries.BuiltInRegistries.ITEM
-                        .get(net.minecraft.tags.TagKey.create(net.minecraft.core.registries.Registries.ITEM,
-                                net.minecraft.resources.Identifier.fromNamespaceAndPath(namespace, "ring")))
-                        .flatMap(tag -> tag.stream().findFirst()).map(net.minecraft.core.Holder::value).orElse(null);
-                if (ring != null) {
-                    return ring;
-                }
-            }
-            return null;
-        }
-
-        /** The actor has its capability, the ring in its slot, and nothing moved to the invalid stacks. */
-        static void checkAccessories(Minecraft mc, ReplaySession s, String label) {
-            net.minecraft.world.item.Item ring = accessoryGiven;
-            if (!loaded("accessories") || ring == null) {
-                log("accessories {}: skipped", label);
-                return;
-            }
-            net.minecraft.world.entity.Entity actor = s.findRecorder(mc);
-            net.minecraft.world.item.ItemStack worn = com.vyrriox.justreplay.compat.AccessoriesCompat.worn(actor, "ring");
-            int invalid = com.vyrriox.justreplay.compat.AccessoriesCompat.invalidCount(actor);
-            log("accessories {}: ring on the actor={} invalid stacks={} -> {}", label, worn, invalid,
-                    worn != null && worn.is(ring) && invalid == 0 ? "OK" : "FAIL");
-        }
-
-        /** A game just started has no slot definitions: the seek that follows must bring them back from the recording. */
-        static void clearAccessorySlots() {
-            if (loaded("accessories") && accessoryGiven != null) {
-                accessorySlots = com.vyrriox.justreplay.compat.AccessoriesCompat.clearClientEntitySlots();
-            }
-        }
-
-        static void checkAccessoriesAfterClear(Minecraft mc, ReplaySession s) {
-            checkAccessories(mc, s, "after a seek with empty slot definitions");
-            if (accessorySlots != null) {
-                com.vyrriox.justreplay.compat.AccessoriesCompat.restoreClientEntitySlots(accessorySlots);
-                accessorySlots = null;
-            }
-            log("accessories mob holder: no mob with slots in the test scene, skipped");
         }
 
         /**
@@ -1513,74 +1407,16 @@ public final class SelfTest {
             if (base == null) {
                 return;
             }
-            if (loaded("waterframes")) {
-                Path video = testVideo(mc);
-                if (video != null) {
-                    // A looping 30 s test pattern with a running clock, muted.
-                    p.connection.sendCommand(String.format("setblock %d %d %d waterframes:frame[facing=south]{url:\"%s\",active:1b,loop:1b,"
-                                    + "max_x:3.0f,max_y:2.0f,volume:0,data_v:2s}", base.getX() - 2, base.getY() + 1, base.getZ() - 4,
-                            video.toAbsolutePath().toString().replace('\\', '/')));
-                }
-            }
             if (loaded("mekanism")) {
                 p.connection.sendCommand(String.format("setblock %d %d %d mekanism:metallurgic_infuser", base.getX() - 3, base.getY(), base.getZ() - 1));
             }
         }
 
-        /** A short test video made with FFmpeg, or null. */
-        static Path testVideo(Minecraft mc) {
-            Path video = mc.gameDirectory.toPath().resolve("justreplay").resolve("selftest-video.mp4");
-            if (Files.exists(video)) {
-                return video;
-            }
-            try {
-                Files.createDirectories(video.getParent());
-                Process process = new ProcessBuilder(com.vyrriox.justreplay.config.JRConfig.FFMPEG_PATH.get(), "-y", "-f", "lavfi",
-                        "-i", "testsrc=duration=30:size=320x180:rate=20", "-pix_fmt", "yuv420p", video.toString())
-                        .redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.DISCARD).start();
-                if (!process.waitFor(60, java.util.concurrent.TimeUnit.SECONDS)) {
-                    process.destroyForcibly();
-                }
-                return Files.exists(video) ? video : null;
-            } catch (Exception e) {
-                log("cannot make the test video: {}", e.toString());
-                return null;
-            }
-        }
-
-        /** Create's animation clock, or -1. */
-        static int createTicks() {
-            try {
-                return (int) Class.forName("net.createmod.catnip.animation.AnimationTickHolder").getMethod("getTicks").invoke(null);
-            } catch (Throwable t) {
-                return -1;
-            }
-        }
-
-        /** Drop the Beam's replay clock, voices, song starts and exported audio; nothing when it is absent. */
-        static void logDropTheBeam(String label) {
-            if (!loaded("dropthebeam")) {
-                return;
-            }
-            log("dropthebeam {}: clock samples={} mapped tick 20={} tick 100={} voices={} song starts={} last export={}", label,
-                    com.vyrriox.justreplay.compat.DropTheBeamCompat.clockSamples(),
-                    com.vyrriox.justreplay.compat.DropTheBeamCompat.mappedNanos(20),
-                    com.vyrriox.justreplay.compat.DropTheBeamCompat.mappedNanos(100),
-                    com.vyrriox.justreplay.compat.DropTheBeamCompat.voiceCount(),
-                    com.vyrriox.justreplay.compat.DropTheBeamCompat.songStartTicks().size(),
-                    com.vyrriox.justreplay.compat.DropTheBeamCompat.lastExport());
-        }
-
         /**
-         * ParCool actions and Better Combat attacks of the recording player written for its actor (counts since the
-         * game started); nothing when both mods are absent.
+         * Better Combat attacks of the recording player written for its actor (counts since the game started); nothing
+         * when the mod is absent.
          */
         static void logParkourCombat(String label) {
-            if (loaded("parcool")) {
-                log("parcool {}: local action changes={} starts={}", label,
-                        com.vyrriox.justreplay.compat.ParCoolCompat.localChanges(),
-                        com.vyrriox.justreplay.compat.ParCoolCompat.localStarts());
-            }
             if (loaded("bettercombat")) {
                 log("bettercombat {}: local attacks={} cancelled={}", label,
                         com.vyrriox.justreplay.compat.BetterCombatCompat.localAttacks(),
@@ -1588,136 +1424,10 @@ public final class SelfTest {
             }
         }
 
-        /**
-         * Iron's casts on the actor and nothing on the camera: a cast under way at the recording start, a second during
-         * it, then a seek back before the second. True while the check needs more ticks.
-         */
-        static boolean checkIrons(Minecraft mc, ReplaySession s) {
-            if (!loaded("irons_spellbooks")) {
-                if (ironsPhase == 0) {
-                    log("irons checks skipped: mod absent");
-                    ironsPhase = 4;
-                }
-                return false;
-            }
-            Entity actor = s.findRecorder(mc);
-            switch (ironsPhase) {
-                case 0 -> {
-                    log("irons recorded: local cast packets={} {}", com.vyrriox.justreplay.compat.IronsSpellsCompat.localCasts(),
-                            com.vyrriox.justreplay.compat.IronsSpellsCompat.localCasts() > 0 ? "OK" : "FAIL");
-                    s.playback().setPaused(true);
-                    s.playback().seek(5);
-                    ironsPhase = 1;
-                    return true;
-                }
-                case 1 -> {
-                    boolean casting = com.vyrriox.justreplay.compat.IronsSpellsCompat.isCasting(actor);
-                    log("irons tick 5: actor casting from the snapshot={} {}", casting, casting ? "OK" : "FAIL");
-                    ironsCamera = mc.player.position();
-                    s.playback().seek(130);
-                    ironsPhase = 2;
-                    return true;
-                }
-                case 2 -> {
-                    boolean casting = com.vyrriox.justreplay.compat.IronsSpellsCompat.isCasting(actor);
-                    boolean animating = com.vyrriox.justreplay.compat.IronsSpellsCompat.animating(actor);
-                    boolean camera = com.vyrriox.justreplay.compat.IronsSpellsCompat.clientCasting();
-                    double moved = mc.player.position().distanceTo(ironsCamera);
-                    log("irons tick 130: actor casting={} {}", casting, casting ? "OK" : "FAIL");
-                    log("irons tick 130: actor animation layer active={} {}", animating, animating ? "OK" : "FAIL");
-                    log("irons tick 130: camera casting={} {}", camera, camera ? "FAIL" : "OK");
-                    log("irons tick 130: camera moved {} {}", moved, moved < 0.01 ? "OK" : "FAIL");
-                    s.playback().seek(110);
-                    ironsPhase = 3;
-                    return true;
-                }
-                case 3 -> {
-                    boolean casting = com.vyrriox.justreplay.compat.IronsSpellsCompat.isCasting(actor);
-                    log("irons seek back to 110: actor casting={} {}", casting, casting ? "FAIL" : "OK");
-                    ironsPhase = 4;
-                    return false;
-                }
-                default -> {
-                    return false;
-                }
-            }
-        }
-
-        /** A photograph the client held before the recording, in the store before anything is recorded. */
-        static void seedExposure() throws Exception {
-            if (loaded("exposure")) {
-                com.vyrriox.justreplay.compat.ExposureCompat.selfTestSeed();
-            }
-        }
-
-        /** A capture start in the recording, at a tick the check crosses. */
-        static void recordExposureCapture() throws Exception {
-            if (loaded("exposure")) {
-                com.vyrriox.justreplay.record.Recorder.recordSideChannel(com.vyrriox.justreplay.compat.ExposureCompat.selfTestCapture());
-            }
-        }
-
-        /**
-         * Exposure in a replay: the photograph held before the recording comes back from the snapshot into an emptied
-         * store, a recorded capture start does nothing on the camera, requests never leave. True while it needs more ticks.
-         */
-        static boolean checkExposure(Minecraft mc, ReplaySession s) throws Exception {
-            if (!loaded("exposure")) {
-                if (exposurePhase == 0) {
-                    log("exposure checks skipped: mod absent");
-                    exposurePhase = 3;
-                }
-                return false;
-            }
-            switch (exposurePhase) {
-                case 0 -> {
-                    s.playback().setPaused(true);
-                    com.vyrriox.justreplay.compat.ExposureCompat.selfTestClear();
-                    s.playback().seek(5);
-                    exposurePhase = 1;
-                    return true;
-                }
-                case 1 -> {
-                    boolean held = com.vyrriox.justreplay.compat.ExposureCompat.selfTestHeld();
-                    log("exposure tick 5: photograph back from the snapshot with equal pixels={} {}", held, held ? "OK" : "FAIL");
-                    exposureCamera = mc.getCameraEntity() == null ? -1 : mc.getCameraEntity().getId();
-                    exposureHideGui = mc.options.hideGui;
-                    exposureDropped = com.vyrriox.justreplay.compat.ExposureCompat.droppedActions();
-                    s.playback().seek(70);
-                    exposurePhase = 2;
-                    return true;
-                }
-                case 2 -> {
-                    int dropped = com.vyrriox.justreplay.compat.ExposureCompat.droppedActions() - exposureDropped;
-                    int camera = mc.getCameraEntity() == null ? -1 : mc.getCameraEntity().getId();
-                    int blocked = com.vyrriox.justreplay.compat.ExposureCompat.selfTestRequest();
-                    log("exposure tick 70: recorded capture start dropped={} {}", dropped, dropped > 0 ? "OK" : "FAIL");
-                    log("exposure tick 70: camera entity same={} {}", camera == exposureCamera, camera == exposureCamera ? "OK" : "FAIL");
-                    log("exposure tick 70: hideGui same={} {}", mc.options.hideGui == exposureHideGui,
-                            mc.options.hideGui == exposureHideGui ? "OK" : "FAIL");
-                    log("exposure tick 70: request blocked={} {}", blocked, blocked > 0 ? "OK" : "FAIL");
-                    exposurePhase = 3;
-                    return false;
-                }
-                default -> {
-                    return false;
-                }
-            }
-        }
-
-        private static int exposurePhase;
-        private static int exposureCamera;
-        private static int exposureDropped;
-        private static boolean exposureHideGui;
 
         static String state(Minecraft mc, ReplaySession s) {
             Entity recorder = s.findRecorder(mc);
-            String state = "cursor=" + s.playback().cursor() + " createTicks=" + createTicks()
-                    + " recorderEmote=" + com.vyrriox.justreplay.compat.EmotecraftCompat.describe(recorder)
-                    + " waterframes=[" + com.vyrriox.justreplay.compat.WaterFramesCompat.describe() + "]";
-            if (loaded("parcool")) {
-                state += " recorderParcool=" + com.vyrriox.justreplay.compat.ParCoolCompat.describe(recorder);
-            }
+            String state = "cursor=" + s.playback().cursor() + " recorderEmote=" + com.vyrriox.justreplay.compat.EmotecraftCompat.describe(recorder);
             if (loaded("bettercombat")) {
                 state += " recorderAttack=" + com.vyrriox.justreplay.compat.BetterCombatCompat.describe(recorder)
                         + " replayedAttacks(all/actor)=" + com.vyrriox.justreplay.compat.BetterCombatCompat.replayed();

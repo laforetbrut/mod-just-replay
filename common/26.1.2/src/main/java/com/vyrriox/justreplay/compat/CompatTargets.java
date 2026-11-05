@@ -13,18 +13,10 @@ import java.util.Set;
  * @author vyrriox
  */
 public final class CompatTargets {
-    /** Key of the Player Animator mixins, whose library has a different mod id on each loader. */
-    public static final String PLAYER_ANIMATOR = "playeranimator";
-
     private static final Map<String, Set<String>> SUPPORTED = Map.of(
-            "neoforge", Set.of("accessories", "aeronautics", "armourers_workshop", "bettercombat", "bobby", "create", "curios",
-                    "customnpcs", "distanthorizons", "dropthebeam", "emotecraft", "entityculling", "epicfight", "exposure",
-                    "geckolib", "immersive_aircraft", "immersive_paintings", "irons_spellbooks", "iris", "jade", "morph",
-                    "parcool", "pehkui", PLAYER_ANIMATOR, "sable", "simulated", "waterframes"),
-            "fabric", Set.of("accessories", "armourers_workshop", "bettercombat", "bobby", "distanthorizons", "emotecraft",
-                    "entityculling", "exposure", "geckolib", "immersive_aircraft", "immersive_paintings", "iris", "jade",
-                    "pehkui", PLAYER_ANIMATOR, "sable", "waterframes"),
-            "forge", Set.of());
+            "neoforge", Set.of("entityculling", "geckolib", "iris", "jade"),
+            "fabric", Set.of("entityculling", "geckolib", "iris", "jade"),
+            "forge", Set.of("geckolib"));
 
     private CompatTargets() {
     }

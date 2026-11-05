@@ -18,7 +18,7 @@ import java.util.Set;
  *     stops its client tick while the clean HUD is on or the editor is open, which also stops the ray trace and the
  *     block and entity requests.</li>
  *     <li>The recorded "show overlay" packet would switch the viewer's own Jade off and save that to disk: dropped.
- *     So are its recorded data and ping answers, which belong to the live connection.</li>
+ *     So are its recorded data and handshake, which belong to the live connection.</li>
  *     <li>Jade's requests have no server to answer in a replay: blocked.</li>
  * </ul>
  * Packets are matched by class name: nothing here loads a Jade class when Jade is absent.
@@ -28,7 +28,7 @@ import java.util.Set;
 public final class JadeCompat {
     private static final String PACKAGE = "snownee.jade.network.";
     private static final Set<String> RECORDED_DROPPED = Set.of(PACKAGE + "ShowOverlayPacket", PACKAGE + "ReceiveDataPacket",
-            PACKAGE + "ServerPingPacket");
+            PACKAGE + "ServerHandshakePacket");
     private static final Set<String> REQUESTS = Set.of(PACKAGE + "RequestBlockPacket", PACKAGE + "RequestEntityPacket");
     private static Field rootElement;
     private static boolean fieldFailed;
@@ -60,9 +60,9 @@ public final class JadeCompat {
     /** The tooltip Jade holds now, or null when none (or Jade cannot be read). */
     public static Object currentTooltip() {
         try {
-            Class<?> type = Class.forName("snownee.jade.overlay.WailaTickHandler", false, JadeCompat.class.getClassLoader());
-            Object handler = type.getMethod("instance").invoke(null);
-            return type.getField("rootElement").get(handler);
+            Class<?> client = Class.forName("snownee.jade.JadeClient", false, JadeCompat.class.getClassLoader());
+            Object handler = client.getMethod("tickHandler").invoke(null);
+            return handler.getClass().getField("rootElement").get(handler);
         } catch (Throwable t) {
             return null;
         }
