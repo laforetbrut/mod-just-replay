@@ -310,6 +310,7 @@ public final class SelfTest {
                 net.minecraft.core.BlockPos base = p.blockPosition();
                 modsBase = base;
                 Mods.prepare(mc);
+                Mods.seedExposure();
                 stairPos = base.offset(9, 0, 0);
                 bedPos = base.offset(9, 0, -3);
                 p.connection.sendCommand(String.format("setblock %d %d %d minecraft:oak_stairs[facing=west]", stairPos.getX(), stairPos.getY(), stairPos.getZ()));
@@ -367,6 +368,9 @@ public final class SelfTest {
                 }
                 if (t == 100) {
                     p.connection.sendCommand("setblock ~ ~3 ~ minecraft:diamond_block");
+                }
+                if (t == 50) {
+                    Mods.recordExposureCapture();
                 }
                 if (t == 120 && Mods.loaded("irons_spellbooks")) {
                     p.connection.sendCommand("cast @s irons_spellbooks:fortify 1");
@@ -479,6 +483,10 @@ public final class SelfTest {
                     s.playback().resetSpeed();
                 }
                 if (Mods.checkIrons(mc, s)) {
+                    wait = 5;
+                    return;
+                }
+                if (Mods.checkExposure(mc, s)) {
                     wait = 5;
                     return;
                 }
@@ -1423,6 +1431,73 @@ public final class SelfTest {
                 }
             }
         }
+
+        /** A photograph the client held before the recording, in the store before anything is recorded. */
+        static void seedExposure() throws Exception {
+            if (loaded("exposure")) {
+                com.vyrriox.justreplay.compat.ExposureCompat.selfTestSeed();
+            }
+        }
+
+        /** A capture start in the recording, at a tick the check crosses. */
+        static void recordExposureCapture() throws Exception {
+            if (loaded("exposure")) {
+                com.vyrriox.justreplay.record.Recorder.recordSideChannel(com.vyrriox.justreplay.compat.ExposureCompat.selfTestCapture());
+            }
+        }
+
+        /**
+         * Exposure in a replay: the photograph held before the recording comes back from the snapshot into an emptied
+         * store, a recorded capture start does nothing on the camera, requests never leave. True while it needs more ticks.
+         */
+        static boolean checkExposure(Minecraft mc, ReplaySession s) throws Exception {
+            if (!loaded("exposure")) {
+                if (exposurePhase == 0) {
+                    log("exposure checks skipped: mod absent");
+                    exposurePhase = 3;
+                }
+                return false;
+            }
+            switch (exposurePhase) {
+                case 0 -> {
+                    s.playback().setPaused(true);
+                    com.vyrriox.justreplay.compat.ExposureCompat.selfTestClear();
+                    s.playback().seek(5);
+                    exposurePhase = 1;
+                    return true;
+                }
+                case 1 -> {
+                    boolean held = com.vyrriox.justreplay.compat.ExposureCompat.selfTestHeld();
+                    log("exposure tick 5: photograph back from the snapshot with equal pixels={} {}", held, held ? "OK" : "FAIL");
+                    exposureCamera = mc.getCameraEntity() == null ? -1 : mc.getCameraEntity().getId();
+                    exposureHideGui = mc.options.hideGui;
+                    exposureDropped = com.vyrriox.justreplay.compat.ExposureCompat.droppedActions();
+                    s.playback().seek(70);
+                    exposurePhase = 2;
+                    return true;
+                }
+                case 2 -> {
+                    int dropped = com.vyrriox.justreplay.compat.ExposureCompat.droppedActions() - exposureDropped;
+                    int camera = mc.getCameraEntity() == null ? -1 : mc.getCameraEntity().getId();
+                    int blocked = com.vyrriox.justreplay.compat.ExposureCompat.selfTestRequest();
+                    log("exposure tick 70: recorded capture start dropped={} {}", dropped, dropped > 0 ? "OK" : "FAIL");
+                    log("exposure tick 70: camera entity same={} {}", camera == exposureCamera, camera == exposureCamera ? "OK" : "FAIL");
+                    log("exposure tick 70: hideGui same={} {}", mc.options.hideGui == exposureHideGui,
+                            mc.options.hideGui == exposureHideGui ? "OK" : "FAIL");
+                    log("exposure tick 70: request blocked={} {}", blocked, blocked > 0 ? "OK" : "FAIL");
+                    exposurePhase = 3;
+                    return false;
+                }
+                default -> {
+                    return false;
+                }
+            }
+        }
+
+        private static int exposurePhase;
+        private static int exposureCamera;
+        private static int exposureDropped;
+        private static boolean exposureHideGui;
 
         static String state(Minecraft mc, ReplaySession s) {
             Entity recorder = s.findRecorder(mc);
