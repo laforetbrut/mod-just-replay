@@ -3,14 +3,14 @@
 # Just Replay
 
 Record, replay and edit your Minecraft sessions, with a cinematic editor and video export.
-Version 1.1.1, client side. Minecraft 1.20.1, 1.21.1 and 26.1.2 on NeoForge, Forge and Fabric. Author: vyrriox.
+Version 1.1.0, client side. Minecraft 1.20.1, 1.21.1 and 26.1.2 on NeoForge, Forge and Fabric. Author: vyrriox.
 License: Apache-2.0.
 
 ## English
 
 ### Supported targets
 
-Pick the jar of your Minecraft version and loader: `justreplay-<loader>-<minecraft version>-1.1.1.jar`. On Fabric,
+Pick the jar of your Minecraft version and loader: `justreplay-<loader>-<minecraft version>-1.1.0.jar`. On Fabric,
 Fabric API is needed. A recording opens only on the Minecraft version and the loader it was made on.
 
 | Target | Integrations enabled |
@@ -207,7 +207,7 @@ classes and APIs and include none of their code. Not affiliated with Mojang or M
 
 ### Cibles prises en charge
 
-Choisir le jar de sa version de Minecraft et de son loader : `justreplay-<loader>-<version de minecraft>-1.1.1.jar`.
+Choisir le jar de sa version de Minecraft et de son loader : `justreplay-<loader>-<version de minecraft>-1.1.0.jar`.
 Sur Fabric, Fabric API est nécessaire. Un enregistrement ne s'ouvre que sur la version de Minecraft et le loader où
 il a été fait.
 

@@ -1,15 +1,5 @@
 # Changelog
 
-## [1.1.1] - 2026-11-05
-
-### Fixed
-- **Curios**: worn items could be missing from a replay when their slots came only from a data pack of the world or the server, because the slot definitions were not recorded. Every snapshot and checkpoint now writes them before the entities. Confirmed on Forge 1.20.1 and NeoForge 1.21.1. On NeoForge 1.21.1 the problem was read in the code, not reproduced.
-- **Building from source**: NeoForge 1.20.1 failed to compile on some machines with `variable o is already defined`. The released jars were not affected.
-
-### Correctifs
-- **Curios** : des objets portés pouvaient manquer dans un replay quand leurs emplacements venaient seulement d'un datapack du monde ou du serveur, car les définitions d'emplacements n'étaient pas enregistrées. Chaque instantané et point de reprise les écrit maintenant avant les entités. Confirmé sur Forge 1.20.1 et NeoForge 1.21.1. Sur NeoForge 1.21.1, le problème a été lu dans le code, pas reproduit.
-- **Compilation depuis les sources** : NeoForge 1.20.1 ne compilait pas sur certaines machines (`variable o is already defined`). Les jars publiés n'étaient pas touchés.
-
 ## [1.1.0] - 2026-11-05
 
 ### Added
@@ -33,6 +23,8 @@
 - **Recorder log**: mod payloads that have no codec are counted in the log.
 
 ### Fixed
+- **Curios**: worn items could be missing from a replay when their slots came only from a data pack of the world or the server, because the slot definitions were not recorded. Every snapshot and checkpoint now writes them before the entities. Confirmed on Forge 1.20.1 and NeoForge 1.21.1.
+- **Building from source**: NeoForge 1.20.1 failed to compile on some machines with `variable o is already defined`.
 - **Replay closing right after opening**: a replay could close at once, now and then, with `Failed to decode packet`. Recorded registry ids were applied while packets of the replay host were still in flight. They are now applied once the host is silent and drained, and a channel fault is no longer taken for a recorded disconnect.
 - **Failed replay starts**: a replay that failed before login left the session stuck until a game restart, and an error during the start left the loading screen up for good. The game now returns to the previous screen with a message and cleans up.
 - **Damaged project.json**: an unreadable file was overwritten by an empty project at the next save. It is now kept aside as `project.json.bad-<time>` with a message, and null list entries are dropped on load.
@@ -69,6 +61,8 @@
 - **Journal de l'enregistreur** : les paquets de mods sans codec sont comptés dans le journal.
 
 ### Correctifs
+- **Curios** : des objets portés pouvaient manquer dans un replay quand leurs emplacements venaient seulement d'un datapack du monde ou du serveur, car les définitions d'emplacements n'étaient pas enregistrées. Chaque instantané et point de reprise les écrit maintenant avant les entités. Confirmé sur Forge 1.20.1 et NeoForge 1.21.1.
+- **Compilation depuis les sources** : NeoForge 1.20.1 ne compilait pas sur certaines machines (`variable o is already defined`).
 - **Replay fermé juste après l'ouverture** : un replay pouvait se fermer aussitôt, de temps en temps, avec `Failed to decode packet`. Les identifiants de registres enregistrés étaient appliqués alors que des paquets du serveur du replay circulaient encore. Ils sont maintenant appliqués une fois ce serveur silencieux et vidé, et une panne du canal n'est plus prise pour une déconnexion enregistrée.
 - **Démarrages de replay ratés** : un replay qui échouait avant la connexion bloquait la session jusqu'au redémarrage du jeu, et une erreur au démarrage laissait l'écran de chargement affiché pour de bon. Le jeu revient maintenant à l'écran précédent avec un message et nettoie.
 - **project.json abîmé** : un fichier illisible était écrasé par un projet vide à la sauvegarde suivante. Il est maintenant gardé de côté sous le nom `project.json.bad-<heure>` avec un message, et les entrées nulles des listes sont retirées au chargement.
