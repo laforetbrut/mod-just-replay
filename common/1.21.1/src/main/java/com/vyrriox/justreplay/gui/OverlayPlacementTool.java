@@ -14,6 +14,7 @@ import com.vyrriox.justreplay.gui.ui.Icon;
 import com.vyrriox.justreplay.gui.ui.Paint;
 import com.vyrriox.justreplay.gui.ui.Theme;
 import com.vyrriox.justreplay.replay.ReplaySession;
+import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -30,12 +31,6 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.client.event.InputEvent;
-import net.neoforged.neoforge.client.event.RenderFrameEvent;
-import net.neoforged.neoforge.client.event.RenderGuiEvent;
-import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
-import net.neoforged.neoforge.client.event.ScreenEvent;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.Locale;
@@ -243,8 +238,7 @@ public final class OverlayPlacementTool {
 
     // ---------------------------------------------------------------- events
 
-    @SubscribeEvent
-    public static void onRenderFrame(RenderFrameEvent.Pre event) {
+    public static void onRenderFrame() {
         if (active != null) {
             active.update();
         }
@@ -255,43 +249,41 @@ public final class OverlayPlacementTool {
         return active != null && mc.screen == null && mc.getOverlay() == null;
     }
 
-    @SubscribeEvent
-    public static void onScroll(InputEvent.MouseScrollingEvent event) {
+    public static boolean onScroll(double deltaX, double deltaY) {
         if (placing()) {
-            double wheel = event.getScrollDeltaY() != 0 ? event.getScrollDeltaY() : event.getScrollDeltaX();
+            double wheel = deltaY != 0 ? deltaY : deltaX;
             double step = Screen.hasShiftDown() ? 0.1 : 0.5;
             active.distance = Math.max(MIN_DISTANCE, Math.min(MAX_DISTANCE, active.distance + Math.signum(wheel) * step));
-            event.setCanceled(true);
+            return true;
         }
+        return false;
     }
 
-    @SubscribeEvent
-    public static void onMouse(InputEvent.MouseButton.Pre event) {
-        if (!placing() || event.getButton() > GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
-            return;
+    public static boolean onMouse(int button, int action) {
+        if (!placing() || button > GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
+            return false;
         }
-        event.setCanceled(true);
         // Ignore the click that started the tool, still held down when the editor closed.
-        if (event.getAction() == GLFW.GLFW_PRESS && Anim.now() - active.startedAt > 150 && event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+        if (action == GLFW.GLFW_PRESS && Anim.now() - active.startedAt > 150 && button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             active.confirm();
         }
+        return true;
     }
 
     /** Esc opens the pause menu when no screen is shown: while placing it cancels instead. */
-    @SubscribeEvent
-    public static void onScreenOpening(ScreenEvent.Opening event) {
-        if (active == null || event.getNewScreen() == active.editor) {
-            return;
+    public static boolean onScreenOpening(Screen newScreen) {
+        if (active == null || newScreen == active.editor) {
+            return false;
         }
         OverlayPlacementTool tool = active;
-        if (event.getNewScreen() instanceof PauseScreen) {
-            event.setCanceled(true);
+        if (newScreen instanceof PauseScreen) {
             Minecraft mc = Minecraft.getInstance();
             mc.tell(() -> {
                 // pauseGame() pauses the sounds right after asking for the menu.
                 mc.getSoundManager().resume();
                 tool.cancel();
             });
+            return true;
         } else {
             // Another screen takes over: drop the placement without changing anything.
             if (tool.isNew) {
@@ -302,16 +294,16 @@ public final class OverlayPlacementTool {
             OverlayRenderer.force(null);
             active = null;
         }
+        return false;
     }
 
-    @SubscribeEvent
-    public static void onRenderLevel(RenderLevelStageEvent event) {
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS || active == null || active.aim == null) {
+    public static void onRenderLevel(Camera camera) {
+        if (active == null || active.aim == null) {
             return;
         }
         Minecraft mc = Minecraft.getInstance();
         Aim aim = active.aim;
-        Vec3 cam = event.getCamera().getPosition();
+        Vec3 cam = camera.getPosition();
         PoseStack pose = new PoseStack();
         pose.translate(-cam.x, -cam.y, -cam.z);
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
@@ -335,14 +327,12 @@ public final class OverlayPlacementTool {
     }
 
     /** Crosshair and the hint panel, over the world. */
-    @SubscribeEvent
-    public static void onRenderGui(RenderGuiEvent.Post event) {
+    public static void onRenderGui(GuiGraphics g) {
         Minecraft mc = Minecraft.getInstance();
         OverlayPlacementTool tool = active;
         if (tool == null || mc.screen != null || mc.options.hideGui) {
             return;
         }
-        GuiGraphics g = event.getGuiGraphics();
         Font font = mc.font;
         int w = g.guiWidth();
         int h = g.guiHeight();

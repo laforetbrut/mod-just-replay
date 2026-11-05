@@ -17,9 +17,7 @@ import com.vyrriox.justreplay.export.VideoExporter;
 import com.vyrriox.justreplay.replay.ReplaySession;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.ShaderInstance;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.client.event.RegisterShadersEvent;
-import net.neoforged.neoforge.client.event.RenderFrameEvent;
+import net.minecraft.server.packs.resources.ResourceProvider;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
 
@@ -83,23 +81,24 @@ public final class FxEngine {
 
     // ---------------------------------------------------------------- shaders
 
-    public static final class ModEvents {
-        @SubscribeEvent
-        public static void onShaders(RegisterShadersEvent event) throws IOException {
-            event.registerShader(new ShaderInstance(event.getResourceProvider(), JustReplay.id("fx_grade"), DefaultVertexFormat.POSITION),
-                    s -> grade = s);
-            event.registerShader(new ShaderInstance(event.getResourceProvider(), JustReplay.id("fx_blur"), DefaultVertexFormat.POSITION),
-                    s -> blur = s);
-            event.registerShader(new ShaderInstance(event.getResourceProvider(), JustReplay.id("fx_transition"), DefaultVertexFormat.POSITION),
-                    s -> transition = s);
-        }
+    /** Registers the effect shaders; the loader glue passes its own registration and resource provider. */
+    public static void registerShaders(ResourceProvider provider, ShaderRegistrar registrar) throws IOException {
+        registrar.register(new ShaderInstance(provider, JustReplay.id("fx_grade"), DefaultVertexFormat.POSITION),
+                s -> grade = s);
+        registrar.register(new ShaderInstance(provider, JustReplay.id("fx_blur"), DefaultVertexFormat.POSITION),
+                s -> blur = s);
+        registrar.register(new ShaderInstance(provider, JustReplay.id("fx_transition"), DefaultVertexFormat.POSITION),
+                s -> transition = s);
     }
 
-    public static final class GameEvents {
-        @SubscribeEvent
-        public static void onFrameEnd(RenderFrameEvent.Post event) {
-            checkHook();
-        }
+    /** Loader neutral view of a shader registration. */
+    public interface ShaderRegistrar {
+        void register(ShaderInstance shader, java.util.function.Consumer<ShaderInstance> onLoaded);
+    }
+
+    /** End of a render frame. */
+    public static void onFrameEnd() {
+        checkHook();
     }
 
     /** True once the effect shaders are compiled. */

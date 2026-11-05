@@ -13,6 +13,7 @@ import com.vyrriox.justreplay.gui.ui.Paint;
 import com.vyrriox.justreplay.gui.ui.Theme;
 import com.vyrriox.justreplay.replay.ReplaySession;
 import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -27,11 +28,6 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.client.event.InputEvent;
-import net.neoforged.neoforge.client.event.RenderFrameEvent;
-import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
-import net.neoforged.neoforge.client.event.ScreenEvent;
 import org.lwjgl.glfw.GLFW;
 
 /**
@@ -192,8 +188,7 @@ public final class PlacementTool {
 
     // ---------------------------------------------------------------- events
 
-    @SubscribeEvent
-    public static void onRenderFrame(RenderFrameEvent.Pre event) {
+    public static void onRenderFrame() {
         if (active != null) {
             active.update();
         }
@@ -204,46 +199,44 @@ public final class PlacementTool {
         return active != null && mc.screen == null && mc.getOverlay() == null;
     }
 
-    @SubscribeEvent
-    public static void onScroll(InputEvent.MouseScrollingEvent event) {
+    public static boolean onScroll(double deltaX, double deltaY) {
         if (placing()) {
-            active.rotate(event.getScrollDeltaY() != 0 ? event.getScrollDeltaY() : event.getScrollDeltaX());
-            event.setCanceled(true);
+            active.rotate(deltaY != 0 ? deltaY : deltaX);
+            return true;
         }
+        return false;
     }
 
-    @SubscribeEvent
-    public static void onMouse(InputEvent.MouseButton.Pre event) {
-        if (!placing() || event.getButton() > GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
-            return;
+    public static boolean onMouse(int button, int action) {
+        if (!placing() || button > GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
+            return false;
         }
-        event.setCanceled(true);
         // Ignore the click that started the tool, still held down when the editor closed.
-        if (event.getAction() == GLFW.GLFW_PRESS && Anim.now() - active.startedAt > 150) {
-            if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+        if (action == GLFW.GLFW_PRESS && Anim.now() - active.startedAt > 150) {
+            if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
                 active.confirm();
-            } else if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
+            } else if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
                 // A quarter turn, for lining up with walls and furniture.
                 active.offset += 90.0F;
             }
         }
+        return true;
     }
 
     /** Esc opens the pause menu when no screen is shown: while placing it cancels instead. */
-    @SubscribeEvent
-    public static void onScreenOpening(ScreenEvent.Opening event) {
-        if (active == null || event.getNewScreen() == active.editor) {
-            return;
+    public static boolean onScreenOpening(Screen newScreen) {
+        if (active == null || newScreen == active.editor) {
+            return false;
         }
         PlacementTool tool = active;
-        if (event.getNewScreen() instanceof PauseScreen) {
-            event.setCanceled(true);
+        if (newScreen instanceof PauseScreen) {
             Minecraft mc = Minecraft.getInstance();
             mc.tell(() -> {
                 // pauseGame() pauses the sounds right after asking for the menu.
                 mc.getSoundManager().resume();
                 tool.cancel();
             });
+            return true;
         } else {
             // Another screen takes over (the editor key, a dialog): drop the placement without writing anything.
             tool.session.actors().clearPreview();
@@ -253,20 +246,19 @@ public final class PlacementTool {
             }
             active = null;
         }
+        return false;
     }
 
     // ---------------------------------------------------------------- render
 
-    @SubscribeEvent
-    public static void onRenderLevel(RenderLevelStageEvent event) {
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS || active == null || active.spot == null) {
+    public static void onRenderLevel(Camera camera, PoseStack pose) {
+        if (active == null || active.spot == null) {
             return;
         }
         Minecraft mc = Minecraft.getInstance();
         PlacementTool tool = active;
         ActorPlacement.Spot s = tool.spot;
-        Vec3 cam = event.getCamera().getPosition();
-        PoseStack pose = event.getPoseStack();
+        Vec3 cam = camera.getPosition();
         pose.pushPose();
         pose.translate(-cam.x, -cam.y, -cam.z);
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();

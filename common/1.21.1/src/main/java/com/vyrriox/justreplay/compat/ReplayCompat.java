@@ -6,10 +6,7 @@ import com.vyrriox.justreplay.replay.Playback;
 import com.vyrriox.justreplay.replay.ReplaySession;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.protocol.Packet;
-import net.neoforged.bus.api.EventPriority;
-import net.neoforged.bus.api.SubscribeEvent;
 import com.vyrriox.justreplay.platform.Platform;
-import net.neoforged.neoforge.client.event.RenderFrameEvent;
 
 import java.util.Collections;
 import java.util.HashSet;
@@ -665,21 +662,19 @@ public final class ReplayCompat {
         }
 
         /** Before anything renders (mods read their clock while rendering): integration clocks move to this frame. */
-        @SubscribeEvent(priority = EventPriority.HIGHEST)
-        public static void onRenderFrameFirst(RenderFrameEvent.Pre event) {
+        public static void onRenderFrameFirst(float partialTick) {
             if (!DROP_THE_BEAM) {
                 return;
             }
             try {
-                DropTheBeamCompat.onFrame(event.getPartialTick().getGameTimeDeltaPartialTick(false));
+                DropTheBeamCompat.onFrame(partialTick);
             } catch (Throwable t) {
                 warnOnce("dropthebeam.frame", "Drop the Beam clock sync failed", t);
             }
         }
 
         /** Exports render frames faster or slower than real time: in-world videos are moved to each frame's time. */
-        @SubscribeEvent
-        public static void onRenderFrame(RenderFrameEvent.Pre event) {
+        public static void onRenderFrame(float partialTick) {
             if (!WATERFRAMES || !VideoExporter.isActive()) {
                 return;
             }
@@ -688,7 +683,7 @@ public final class ReplayCompat {
                 return;
             }
             try {
-                WaterFramesCompat.syncFrame(playback, event.getPartialTick().getGameTimeDeltaPartialTick(false));
+                WaterFramesCompat.syncFrame(playback, partialTick);
             } catch (Throwable t) {
                 warnOnce("waterframes.frame", "WaterFrames export sync failed", t);
             }

@@ -22,10 +22,6 @@ import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.client.event.RenderFrameEvent;
-import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 
@@ -101,16 +97,17 @@ public final class OverlayRenderer {
 
     // ---------------------------------------------------------------- events
 
-    @SubscribeEvent
-    public static void onRenderFrame(RenderFrameEvent.Pre event) {
+    public static void onRenderFrame() {
         frame++;
     }
 
-    @SubscribeEvent
-    public static void onRenderLevel(RenderLevelStageEvent event) {
-        RenderLevelStageEvent.Stage stage = event.getStage();
-        boolean main = stage == RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS;
-        boolean fallback = stage == RenderLevelStageEvent.Stage.AFTER_PARTICLES && drawnFrame != frame;
+    /**
+     * @param afterTranslucent the level stage after the translucent blocks
+     * @param afterParticles   the level stage after the particles, the fallback when the first one never came
+     */
+    public static void onRenderLevel(boolean afterTranslucent, boolean afterParticles, Camera camera, float partialTick) {
+        boolean main = afterTranslucent;
+        boolean fallback = afterParticles && drawnFrame != frame;
         if (!main && !fallback) {
             return;
         }
@@ -121,11 +118,10 @@ public final class OverlayRenderer {
             lastDrawn = 0;
             return;
         }
-        render(mc, session, event.getCamera(), event.getPartialTick().getGameTimeDeltaPartialTick(false));
+        render(mc, session, camera, partialTick);
     }
 
-    @SubscribeEvent
-    public static void onTick(ClientTickEvent.Post event) {
+    public static void onTick() {
         if (ReplaySession.current() == null) {
             FOLLOWED.clear();
             WARNED.clear();

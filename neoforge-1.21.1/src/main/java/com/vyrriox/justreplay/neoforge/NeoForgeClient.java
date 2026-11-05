@@ -28,12 +28,17 @@ final class NeoForgeClient {
     private static final Class<?>[] SUBSCRIBERS = {
             NeoForgeClientEvents.GameEvents.class,
             NeoForgeClientEvents.ModEvents.class,
+            NeoForgeEditorEvents.GameEvents.class,
+            NeoForgeEditorEvents.ModEvents.class,
+    };
+
+    /** Classes whose static state used to be set up when their listeners were registered. */
+    private static final Class<?>[] PRELOADED = {
             ReplayCompat.Events.class,
             PathRenderer.class,
             SkinLibrary.class,
             AudioPlayer.class,
-            FxEngine.GameEvents.class,
-            FxEngine.ModEvents.class,
+            FxEngine.class,
             ModelRenderer.class,
             OverlayRenderer.class,
             EntityTool.class,
@@ -46,18 +51,25 @@ final class NeoForgeClient {
 
     static void init(IEventBus modBus, ModContainer container) {
         container.registerExtensionPoint(IConfigScreenFactory.class, (mod, parent) -> new com.vyrriox.justreplay.gui.JRConfigScreen(parent));
+        for (Class<?> type : PRELOADED) {
+            initialize(type);
+        }
         for (Class<?> subscriber : SUBSCRIBERS) {
             subscribe(subscriber, modBus);
         }
     }
 
-    /** Sends each listener to the bus its event belongs to and initializes the class, as an automatic subscriber does. */
-    private static void subscribe(Class<?> type, IEventBus modBus) {
+    private static void initialize(Class<?> type) {
         try {
             Class.forName(type.getName(), true, type.getClassLoader());
         } catch (ClassNotFoundException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    /** Sends each listener to the bus its event belongs to and initializes the class, as an automatic subscriber does. */
+    private static void subscribe(Class<?> type, IEventBus modBus) {
+        initialize(type);
         boolean mod = false;
         boolean game = false;
         for (Method method : type.getDeclaredMethods()) {

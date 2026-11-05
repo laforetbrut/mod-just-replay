@@ -15,6 +15,7 @@ import com.vyrriox.justreplay.gui.ui.Theme;
 import com.vyrriox.justreplay.replay.ReplaySession;
 import com.vyrriox.justreplay.replay.SpectateCamera;
 import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -27,11 +28,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.client.event.InputEvent;
-import net.neoforged.neoforge.client.event.RenderFrameEvent;
-import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
-import net.neoforged.neoforge.client.event.ScreenEvent;
 import org.lwjgl.glfw.GLFW;
 
 /**
@@ -131,8 +127,7 @@ public final class EntityTool {
 
     // ---------------------------------------------------------------- events
 
-    @SubscribeEvent
-    public static void onRenderFrame(RenderFrameEvent.Pre event) {
+    public static void onRenderFrame() {
         if (active != null) {
             active.update();
         }
@@ -143,40 +138,37 @@ public final class EntityTool {
         return active != null && mc.screen == null && mc.getOverlay() == null;
     }
 
-    @SubscribeEvent
-    public static void onScroll(InputEvent.MouseScrollingEvent event) {
+    public static boolean onScroll(double deltaX, double deltaY) {
         if (using() && active.mode == Mode.MOVE) {
-            double wheel = event.getScrollDeltaY() != 0 ? event.getScrollDeltaY() : event.getScrollDeltaX();
+            double wheel = deltaY != 0 ? deltaY : deltaX;
             active.turn += (float) Math.signum(wheel) * (Screen.hasShiftDown() ? FINE_STEP : STEP);
-            event.setCanceled(true);
+            return true;
         }
+        return false;
     }
 
-    @SubscribeEvent
-    public static void onMouse(InputEvent.MouseButton.Pre event) {
-        if (!using() || event.getButton() > GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
-            return;
+    public static boolean onMouse(int button, int action) {
+        if (!using() || button > GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
+            return false;
         }
-        event.setCanceled(true);
         // Ignore the click that started the tool, still held down when the editor closed.
-        if (event.getAction() == GLFW.GLFW_PRESS && Anim.now() - active.startedAt > 150) {
-            if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+        if (action == GLFW.GLFW_PRESS && Anim.now() - active.startedAt > 150) {
+            if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
                 active.confirm();
             } else if (active.mode == Mode.MOVE) {
                 active.turn += 90.0F;
             }
         }
+        return true;
     }
 
     /** Esc while using the tool cancels it instead of opening the pause menu; another screen drops it. */
-    @SubscribeEvent
-    public static void onScreenOpening(ScreenEvent.Opening event) {
-        if (active == null || event.getNewScreen() == active.editor) {
-            return;
+    public static boolean onScreenOpening(Screen newScreen) {
+        if (active == null || newScreen == active.editor) {
+            return false;
         }
         EntityTool tool = active;
-        if (event.getNewScreen() instanceof PauseScreen) {
-            event.setCanceled(true);
+        if (newScreen instanceof PauseScreen) {
             Minecraft mc = Minecraft.getInstance();
             mc.tell(() -> {
                 mc.getSoundManager().resume();
@@ -184,9 +176,11 @@ public final class EntityTool {
                     tool.finish();
                 }
             });
+            return true;
         } else {
             active = null;
         }
+        return false;
     }
 
     /** The editor key while using the tool goes back to the editor. */
@@ -196,16 +190,14 @@ public final class EntityTool {
         }
     }
 
-    @SubscribeEvent
-    public static void onRenderLevel(RenderLevelStageEvent event) {
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS || active == null || active.target == null) {
+    public static void onRenderLevel(Camera camera, PoseStack pose) {
+        if (active == null || active.target == null) {
             return;
         }
         Minecraft mc = Minecraft.getInstance();
         EntityTool tool = active;
         Entity e = tool.target;
-        Vec3 cam = event.getCamera().getPosition();
-        PoseStack pose = event.getPoseStack();
+        Vec3 cam = camera.getPosition();
         pose.pushPose();
         pose.translate(-cam.x, -cam.y, -cam.z);
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();

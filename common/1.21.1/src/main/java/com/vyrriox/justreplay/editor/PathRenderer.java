@@ -12,8 +12,6 @@ import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 
 import java.util.List;
 
@@ -37,11 +35,8 @@ public final class PathRenderer {
         return 0xFF000000 | COLORS[Math.floorMod(index, COLORS.length)];
     }
 
-    @SubscribeEvent
-    public static void onRenderLevel(RenderLevelStageEvent event) {
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
-            return;
-        }
+    /** Called at the level stage after the translucent blocks. */
+    public static void onRenderLevel(Camera view, PoseStack poseStack, float partialTick) {
         ReplaySession session = ReplaySession.current();
         Minecraft mc = Minecraft.getInstance();
         if (session == null || !ReplaySession.isRunning() || VideoExporter.isActive() || mc.options.hideGui
@@ -49,9 +44,7 @@ public final class PathRenderer {
             return;
         }
         ReplayProject project = session.project();
-        Camera view = event.getCamera();
         Vec3 cam = view.getPosition();
-        PoseStack poseStack = event.getPoseStack();
         poseStack.pushPose();
         poseStack.translate(-cam.x, -cam.y, -cam.z);
         PoseStack.Pose pose = poseStack.last();
@@ -59,7 +52,6 @@ public final class PathRenderer {
         VertexConsumer lines = buffers.getBuffer(RenderType.lines());
 
         ReplayProject.Camera selected = project.selected();
-        float partialTick = event.getPartialTick().getGameTimeDeltaPartialTick(false);
         double time = CameraController.frameTime(session, partialTick);
         List<ReplayProject.Camera> cameras = project.cameras;
         for (int i = 0; i < cameras.size(); i++) {

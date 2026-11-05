@@ -14,9 +14,6 @@ import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.client.event.RenderLivingEvent;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -55,36 +52,35 @@ public final class ModelRenderer {
         ACTORS.remove(entityId);
     }
 
-    @SubscribeEvent
-    public static void onRenderLiving(RenderLivingEvent.Pre<?, ?> event) {
-        LivingEntity entity = event.getEntity();
+    /** @return true when the entity must not be drawn by the game */
+    public static boolean onRenderLiving(LivingEntity entity, float partialTick, PoseStack poseStack,
+                                         MultiBufferSource bufferSource, int packedLight) {
         ReplayProject.ActorData actor = ACTORS.get(entity.getId());
         if (actor == null || entity.getId() > -1000) {
-            return;
+            return false;
         }
         // The armor stand itself is never drawn, model or not.
-        event.setCanceled(true);
         ReplaySession session = ReplaySession.current();
         if (session == null) {
-            return;
+            return true;
         }
         ModelLibrary.Loaded loaded = ModelLibrary.get(actor.model);
         if (loaded == null) {
-            return;
+            return true;
         }
         try {
-            render(loaded, actor, entity, session.playback().cursor(), event.getPartialTick(), event.getPoseStack(),
-                    event.getMultiBufferSource(), event.getPackedLight());
+            render(loaded, actor, entity, session.playback().cursor(), partialTick, poseStack,
+                    bufferSource, packedLight);
         } catch (Throwable t) {
             // A model that breaks while drawing is dropped rather than crashing every frame.
             JustReplay.LOGGER.warn("Blockbench model {} failed to render: {}", actor.model, t.toString());
             ModelLibrary.reload(actor.model);
             ACTORS.remove(entity.getId());
         }
+        return true;
     }
 
-    @SubscribeEvent
-    public static void onTick(ClientTickEvent.Post event) {
+    public static void onTick() {
         if (ReplaySession.current() == null && (!ACTORS.isEmpty() || !ModelLibrary.isEmpty())) {
             ACTORS.clear();
             ModelLibrary.releaseAll();

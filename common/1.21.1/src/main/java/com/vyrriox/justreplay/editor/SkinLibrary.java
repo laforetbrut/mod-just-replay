@@ -6,8 +6,6 @@ import com.vyrriox.justreplay.replay.ReplaySession;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.ResourceLocation;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -111,8 +109,7 @@ public final class SkinLibrary {
         FAILED.clear();
     }
 
-    @SubscribeEvent
-    public static void onTick(ClientTickEvent.Post event) {
+    public static void onTick() {
         if (ReplaySession.current() == null && (!isEmpty() || ActorManager.hasCustomSkins())) {
             releaseAll();
             ActorManager.clearCustomSkins();

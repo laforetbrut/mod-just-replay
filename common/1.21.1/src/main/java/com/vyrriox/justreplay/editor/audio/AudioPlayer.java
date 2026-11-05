@@ -9,9 +9,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.client.resources.sounds.SoundInstance;
 import net.minecraft.sounds.SoundSource;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.client.event.sound.PlaySoundEvent;
 
 import java.util.List;
 
@@ -45,8 +42,7 @@ public final class AudioPlayer {
     private AudioPlayer() {
     }
 
-    @SubscribeEvent
-    public static void onTick(ClientTickEvent.Post event) {
+    public static void onTick() {
         Minecraft mc = Minecraft.getInstance();
         try {
             tick(mc);
@@ -174,24 +170,24 @@ public final class AudioPlayer {
         return gain;
     }
 
-    @SubscribeEvent
-    public static void onPlaySound(PlaySoundEvent event) {
-        SoundInstance sound = event.getSound();
+    /** @return the sound to play: the same one, a scaled copy, or null to silence it */
+    public static SoundInstance onPlaySound(SoundInstance sound) {
         ReplaySession s = ReplaySession.current();
         if (sound == null || s == null || VideoExporter.isActive() || !ReplaySession.isRunning()) {
-            return; // exports apply these settings to their own mix
+            return sound; // exports apply these settings to their own mix
         }
         SoundSource source = sound.getSource();
         if (source == SoundSource.MASTER || source == SoundSource.MUSIC || source == SoundSource.VOICE) {
-            return;
+            return sound;
         }
         float gain = gameGain(s.project()) * SoundKinds.gain(s.project(), sound)
                 * com.vyrriox.justreplay.editor.EntityEdits.soundGain(sound);
         if (gain <= 0.001F) {
-            event.setSound(null);
+            return null;
         } else if (Math.abs(gain - 1.0F) > 0.001F && sound.getClass() == SimpleSoundInstance.class && source != SoundSource.RECORDS) {
             // Only plain one shot sounds: nobody keeps them to stop them later, so wrapping them is safe.
-            event.setSound(new ScaledSoundInstance(sound, gain));
+            return new ScaledSoundInstance(sound, gain);
         }
+        return sound;
     }
 }
