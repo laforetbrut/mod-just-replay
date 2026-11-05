@@ -274,6 +274,26 @@ public final class ReplaySession {
         if (loading) {
             return;
         }
+        ReplayMeta recorded = ReplayStorage.readMeta(dir);
+        VersionCheck.Result versionCheck = VersionCheck.check(recorded);
+        if (versionCheck == VersionCheck.Result.WRONG_VERSION) {
+            JustReplay.LOGGER.warn("Replay {} was recorded on Minecraft {}, running {}: not opened", dir,
+                    VersionCheck.recordedVersion(recorded), VersionCheck.runningVersion());
+            net.minecraft.client.gui.components.toasts.SystemToast.add(mc.getToasts(),
+                    net.minecraft.client.gui.components.toasts.SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+                    Component.translatable("justreplay.toast.wrong_version", VersionCheck.recordedVersion(recorded)),
+                    Component.literal(dir.getFileName().toString()));
+            return;
+        }
+        if (versionCheck == VersionCheck.Result.WRONG_LOADER) {
+            String recordedLoader = recorded.loader == null || recorded.loader.isEmpty() ? "neoforge" : recorded.loader;
+            JustReplay.LOGGER.warn("Replay {} was recorded on {}, running {}: some mod content may be missing", dir,
+                    recordedLoader, com.vyrriox.justreplay.platform.Platform.get().loaderName());
+            net.minecraft.client.gui.components.toasts.SystemToast.add(mc.getToasts(),
+                    net.minecraft.client.gui.components.toasts.SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+                    Component.translatable("justreplay.toast.wrong_loader", recordedLoader),
+                    Component.literal(dir.getFileName().toString()));
+        }
         loading = true;
         mc.forceSetScreen(new GenericMessageScreen(Component.translatable("justreplay.loading")));
         // Decompressing a long replay takes a while: do it off the render thread.

@@ -43,6 +43,8 @@
   "justreplay.toast.incomplete": "Replay saved incompletely",
   "justreplay.toast.registries_differ": "Data packs differ from the recording, some content may look wrong",
   "justreplay.toast.open_failed": "Cannot open this replay",
+  "justreplay.toast.wrong_version": "This replay was recorded on Minecraft %s",
+  "justreplay.toast.wrong_loader": "Recorded on %s, some mod content may be missing",
   "justreplay.toast.project_bad": "project.json was unreadable and was kept aside",
   "justreplay.toast.keyframe": "Camera keyframe added",
 

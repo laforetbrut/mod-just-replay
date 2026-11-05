@@ -693,6 +693,7 @@ public final class SelfTest {
             }
             case 12 -> {
                 checkRegistryCompletion(ReplaySession.current());
+                log("replay version check: {}", com.vyrriox.justreplay.replay.VersionCheck.selfTest() ? "OK" : "FAIL");
                 shot(mc, "5-editor");
                 // The simple editor on the same project.
                 com.vyrriox.justreplay.config.JRConfig.EDITOR_MODE.set(com.vyrriox.justreplay.config.JRConfig.EditorMode.SIMPLE);
