@@ -40,6 +40,9 @@ public final class ReplayCompat {
     static final boolean ARMOURERS_WORKSHOP = isLoaded("armourers_workshop");
     static final boolean EPIC_FIGHT = isLoaded("epicfight");
     private static final Set<String> FAILED = Collections.synchronizedSet(new HashSet<>());
+    private static double monotonicFrame = -1;
+    private static double monotonicValue;
+    private static double lastGeckoEntityFrameTime = -1;
 
     private ReplayCompat() {
     }
@@ -96,6 +99,59 @@ public final class ReplayCompat {
     public static int animationTicks() {
         Playback playback = playback();
         return playback == null ? -1 : playback.cursor() % 1728000;
+    }
+
+    /**
+     * Replay time of the frame being rendered, in ticks with its fraction: holds while paused, follows the speed and is
+     * exact per export frame. Goes back after a backward seek. -1 outside a replay.
+     */
+    public static double frameClockTicks() {
+        ReplaySession session = ReplaySession.current();
+        if (session == null || !ReplaySession.isRunning()) {
+            return -1;
+        }
+        return com.vyrriox.justreplay.editor.CameraController.frameTime(session,
+                Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false));
+    }
+
+    /**
+     * {@link #frameClockTicks()} for animation systems that hold when their clock goes back: it adds the rises of the
+     * frame clock and never decreases, a backward seek only stops counting. It starts at the wall clock, or above if an
+     * earlier replay ran faster, because animations started before the replay hold their start time. -1 outside a
+     * replay. Render thread only.
+     */
+    public static double monotonicAnimTicks() {
+        double now = frameClockTicks();
+        if (now < 0) {
+            monotonicFrame = -1;
+            return -1;
+        }
+        if (monotonicFrame < 0) {
+            monotonicValue = Math.max(monotonicValue, com.mojang.blaze3d.Blaze3D.getTime() * 20.0);
+            monotonicFrame = now;
+        } else if (now > monotonicFrame) {
+            monotonicValue += now - monotonicFrame;
+            monotonicFrame = now;
+        } else if (monotonicFrame - now > Math.max(2, playback().lastStep() + 1)) {
+            // A real backward seek. Smaller drops come from resuming a pause, which replays the last step's fraction.
+            monotonicFrame = now;
+        }
+        return monotonicValue;
+    }
+
+    /** Replaces the frame time of a GeckoLib entity during a replay, which otherwise follows its tick counter. */
+    public static double geckoEntityFrameTime(double original) {
+        double ticks = monotonicAnimTicks();
+        if (ticks < 0) {
+            return original;
+        }
+        lastGeckoEntityFrameTime = ticks;
+        return ticks;
+    }
+
+    /** The last frame time given to a GeckoLib entity, -1 if none was: no such entity rendered yet. */
+    public static double lastGeckoEntityFrameTime() {
+        return lastGeckoEntityFrameTime;
     }
 
     // ---------------------------------------------------------------- session hooks
@@ -179,6 +235,7 @@ public final class ReplayCompat {
 
     /** Called when the replay session closes. */
     public static void onReplayEnd() {
+        monotonicFrame = -1;
         if (WATERFRAMES) {
             WaterFramesCompat.clear();
         }
