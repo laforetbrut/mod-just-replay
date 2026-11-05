@@ -122,6 +122,17 @@ public final class NeoForgeClientPlatform implements ClientPlatform {
         };
     }
 
+    @Nullable
+    @Override
+    public net.minecraft.client.gui.navigation.ScreenRectangle guiScissor(net.minecraft.client.gui.GuiGraphicsExtractor graphics) {
+        return graphics.peekScissorStack();
+    }
+
+    @Override
+    public void submitGuiElement(net.minecraft.client.gui.GuiGraphicsExtractor graphics, net.minecraft.client.renderer.state.gui.GuiElementRenderState element) {
+        graphics.submitGuiElementRenderState(element);
+    }
+
     /** Mod payload ids the client can decode, read from NeoForge's payload registry. */
     private static final class PayloadIds {
         private static Set<Identifier> known;

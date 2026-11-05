@@ -59,6 +59,13 @@ public interface ClientPlatform {
     /** Draws the text of a field without a shadow; a loader without that option keeps the vanilla look. */
     void disableTextShadow(net.minecraft.client.gui.components.EditBox box);
 
+    /** The scissor area in force on this extractor, or null. */
+    @Nullable
+    net.minecraft.client.gui.navigation.ScreenRectangle guiScissor(net.minecraft.client.gui.GuiGraphicsExtractor graphics);
+
+    /** Adds a custom element to the GUI render state behind this extractor. */
+    void submitGuiElement(net.minecraft.client.gui.GuiGraphicsExtractor graphics, net.minecraft.client.renderer.state.gui.GuiElementRenderState element);
+
     /** Initialized on first use. */
     final class Holder {
         private static final ClientPlatform INSTANCE = LoaderGlue.create(ClientPlatform.class, "ClientPlatform");

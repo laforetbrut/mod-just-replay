@@ -86,7 +86,7 @@ public class JRConfigScreen extends GlassScreen {
             GlassTextField field = new GlassTextField(font, 0, label);
             field.setMaxLength(10);
             field.setValue(String.valueOf(draft.get(value)));
-            field.setFilter(text -> text.chars().allMatch(Character::isDigit));
+            field.digitsOnly();
             field.setResponder(text -> storeNumber(value, text));
             f.full(field.tip(tip));
         } else if (value instanceof ConfigFile.EnumValue<?> choice) {

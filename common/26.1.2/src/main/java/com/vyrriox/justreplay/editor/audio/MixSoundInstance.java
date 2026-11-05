@@ -48,6 +48,11 @@ final class MixSoundInstance extends AbstractSoundInstance implements TickableSo
         return CompletableFuture.completedFuture(stream);
     }
 
+    /** The same on Fabric, whose sound instances declare it under this name. */
+    public CompletableFuture<AudioStream> getAudioStream(SoundBufferLibrary soundBuffers, net.minecraft.resources.Identifier id, boolean looping) {
+        return CompletableFuture.completedFuture(stream);
+    }
+
     void setPitch(float pitch) {
         this.pitch = pitch;
     }

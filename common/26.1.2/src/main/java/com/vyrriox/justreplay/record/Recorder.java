@@ -1424,7 +1424,7 @@ public final class Recorder {
         net.minecraft.client.ClientClockManager clockManager = level.clockManager();
         level.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.WORLD_CLOCK).listElements().forEach(clock ->
                 clocks.put(clock, new net.minecraft.world.clock.ClockNetworkState(clockManager.getTotalTicks(clock),
-                        clockManager.getPartialTick(clock), ((com.vyrriox.justreplay.replay.ClockRates) clockManager).justreplay$rate(clock))));
+                        ((com.vyrriox.justreplay.replay.ClockRates) clockManager).justreplay$partialTick(clock), ((com.vyrriox.justreplay.replay.ClockRates) clockManager).justreplay$rate(clock))));
         write(listener, new ClientboundSetTimePacket(level.getGameTime(), clocks), sink);
         write(listener, new ClientboundInitializeBorderPacket(level.getWorldBorder()), sink);
         if (level.isRaining()) {

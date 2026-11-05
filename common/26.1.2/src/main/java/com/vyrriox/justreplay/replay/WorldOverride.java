@@ -131,7 +131,7 @@ public final class WorldOverride {
      */
     private static void setDayTime(ClientLevel lvl, long ticks) {
         lvl.dimensionType().defaultClock().ifPresent(clock -> {
-            float partial = lvl.clockManager().getPartialTick(clock);
+            float partial = ((ClockRates) lvl.clockManager()).justreplay$partialTick(clock);
             float rate = ((ClockRates) lvl.clockManager()).justreplay$rate(clock);
             lvl.clockManager().handleUpdates(lvl.getGameTime(),
                     java.util.Map.of(clock, new net.minecraft.world.clock.ClockNetworkState(ticks, partial, rate)));

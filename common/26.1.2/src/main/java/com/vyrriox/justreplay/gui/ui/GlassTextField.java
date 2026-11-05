@@ -17,6 +17,7 @@ public class GlassTextField extends EditBox implements Tipped {
     private Icon leading;
     private int leadingWidth;
     private Component tip;
+    private boolean digitsOnly;
 
     public GlassTextField(Font font, int width, Component label) {
         super(font, 0, 0, width, Theme.ROW + 2, label);
@@ -30,6 +31,30 @@ public class GlassTextField extends EditBox implements Tipped {
         this.leading = icon;
         this.leadingWidth = width;
         return this;
+    }
+
+    /** From now on the text stays made of digits: input holding anything else is refused as a whole. */
+    public GlassTextField digitsOnly() {
+        this.digitsOnly = true;
+        return this;
+    }
+
+    private boolean refuses(String text) {
+        return digitsOnly && !text.chars().allMatch(Character::isDigit);
+    }
+
+    @Override
+    public void setValue(String value) {
+        if (!refuses(value)) {
+            super.setValue(value);
+        }
+    }
+
+    @Override
+    public void insertText(String text) {
+        if (!refuses(text)) {
+            super.insertText(text);
+        }
     }
 
     public GlassTextField tip(Component tip) {

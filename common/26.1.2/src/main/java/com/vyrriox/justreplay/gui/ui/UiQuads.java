@@ -53,7 +53,7 @@ public final class UiQuads implements GuiElementRenderState {
      */
     public static UiQuads begin(GuiGraphicsExtractor g, Identifier texture, int quads) {
         AbstractTexture t = Minecraft.getInstance().getTextureManager().getTexture(texture);
-        return new UiQuads(new Matrix3x2f(g.pose()), TextureSetup.singleTexture(t.getTextureView(), t.getSampler()), g.peekScissorStack(), Math.max(1, quads));
+        return new UiQuads(new Matrix3x2f(g.pose()), TextureSetup.singleTexture(t.getTextureView(), t.getSampler()), com.vyrriox.justreplay.platform.ClientPlatform.get().guiScissor(g), Math.max(1, quads));
     }
 
     /** Appends one vertex; four vertices make a quad. */
@@ -84,7 +84,7 @@ public final class UiQuads implements GuiElementRenderState {
         ScreenRectangle raw = transformedBounds();
         // A null intersection means the batch is scissored away: the render state drops an element without bounds.
         bounds = scissor != null ? scissor.intersection(raw) : raw;
-        g.submitGuiElementRenderState(this);
+        com.vyrriox.justreplay.platform.ClientPlatform.get().submitGuiElement(g, this);
     }
 
     /** Whole GUI pixels around the four posed corners, rounded outwards after the pose (it may be fractional). */
