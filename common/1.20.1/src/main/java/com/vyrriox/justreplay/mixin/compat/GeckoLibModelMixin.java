@@ -26,14 +26,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class GeckoLibModelMixin {
     @Unique
     private static final String justreplay$HANDLE_ANIMATIONS =
-            "handleAnimations(Lsoftware/bernie/geckolib/animatable/GeoAnimatable;JLsoftware/bernie/geckolib/animation/AnimationState;F)V";
+            "handleAnimations(Lsoftware/bernie/geckolib/core/animatable/GeoAnimatable;JLsoftware/bernie/geckolib/core/animation/AnimationState;)V";
     @Unique
     private static Class<?> justreplay$replacedEntity;
     @Unique
     private static boolean justreplay$onEntity;
 
     @Inject(method = justreplay$HANDLE_ANIMATIONS, at = @At("HEAD"), require = 0, remap = false)
-    private void justreplay$readAnimatable(@Coerce Object animatable, long instanceId, @Coerce Object state, float partialTick, CallbackInfo ci) {
+    private void justreplay$readAnimatable(@Coerce Object animatable, long instanceId, @Coerce Object state, CallbackInfo ci) {
         justreplay$onEntity = animatable instanceof Entity || justreplay$isReplacedEntity(animatable);
     }
 

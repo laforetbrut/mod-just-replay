@@ -185,8 +185,6 @@ public final class Recorder {
     private final ItemStack[] lastEquipment = new ItemStack[SLOTS.length];
     private boolean lastSwinging;
     private int lastSwingTime;
-    private final com.vyrriox.justreplay.compat.EmotecraftCompat.LocalEmotes localEmotes =
-            new com.vyrriox.justreplay.compat.EmotecraftCompat.LocalEmotes();
 
     // Cost measurement: measured per second, logged once a minute at debug level through the logger only.
     private final LongAdder networkNanos = new LongAdder();
@@ -342,28 +340,11 @@ public final class Recorder {
     private static final java.util.Map<Integer, List<Packet<?>>> SPAWNS = new ConcurrentHashMap<>();
     private static volatile Connection spawnConnection;
 
-    /**
-     * Mod packets the server sends once per connection and then updates incrementally (Create's train network), in
-     * arrival order: snapshots and checkpoints replay them, since a stream starting later never sees them.
-     */
-    private static final List<Packet<?>> PERSISTENT = Collections.synchronizedList(new ArrayList<>());
-    private static final int MAX_PERSISTENT = 20000;
-    private static final Set<String> FAILED_GLOBAL = ConcurrentHashMap.newKeySet();
-
     private static void trackSpawns(Connection connection, Packet<?> packet) {
         boolean newConnection = connection != spawnConnection;
         if (newConnection) {
             SPAWNS.clear();
-            PERSISTENT.clear();
             spawnConnection = connection;
-        }
-        com.vyrriox.justreplay.compat.ReplayCompat.onLivePacket(packet, newConnection);
-        if (com.vyrriox.justreplay.compat.CreateCompat.isPersistent(packet)) {
-            if (PERSISTENT.size() < MAX_PERSISTENT) {
-                PERSISTENT.add(packet);
-            } else if (PERSISTENT.size() == MAX_PERSISTENT && FAILED_GLOBAL.add("persistent")) {
-                JustReplay.LOGGER.warn("Too many train network packets on this connection; later snapshots may miss trains");
-            }
         }
         if (packet instanceof ClientboundLoginPacket || packet instanceof net.minecraft.network.protocol.game.ClientboundRespawnPacket) {
             SPAWNS.clear();
@@ -419,9 +400,7 @@ public final class Recorder {
             });
         }
         try {
-            if (!com.vyrriox.justreplay.compat.ReplayCompat.skipRecording(packet)) {
-                c.encode(com.vyrriox.justreplay.compat.ReplayCompat.rewriteRecorded(packet, localUuid, actorUuid), sink);
-            }
+            c.encode(packet, sink);
         } catch (Throwable t) {
             logUnrecordable(packet, t);
         }
@@ -914,10 +893,6 @@ public final class Recorder {
                 // Each dimension visited: where its Distant Horizons LODs live, so the replay can show them.
                 com.vyrriox.justreplay.compat.ReplayCompat.describeLevel(described.meta, mc.level, false);
             }
-            Packet<?> sample = com.vyrriox.justreplay.compat.ReplayCompat.recordTick(tick);
-            if (sample != null) {
-                write(listener, sample);
-            }
             try {
                 long chunkStart = System.nanoTime();
                 tickChunks(mc, listener, player);
@@ -1151,7 +1126,7 @@ public final class Recorder {
         }
         write(listener, new ClientboundSetEquipmentPacket(player.getId(), equipment), sink);
         writeAttributes(listener, player, sink);
-        com.vyrriox.justreplay.compat.ReplayCompat.writePlayerState(player, actorUuid, packet -> write(listener, packet, sink));
+        com.vyrriox.justreplay.compat.ReplayCompat.writePlayerState(player, packet -> write(listener, packet, sink));
     }
 
     // ---------------------------------------------------------------- packet writing
@@ -1220,7 +1195,7 @@ public final class Recorder {
             actorAttributes = null;
             writeActorSpawn(listener, player, sink);
             // A form the server sent before this spawn (joining a world morphed) is never sent again.
-            com.vyrriox.justreplay.compat.ReplayCompat.writeActorForm(player, actorUuid, packet -> write(listener, packet));
+            com.vyrriox.justreplay.compat.ReplayCompat.writeActorForm(player, packet -> write(listener, packet));
         }
 
         Vec3 pos = player.position();
@@ -1269,9 +1244,6 @@ public final class Recorder {
         }
         lastSwinging = player.swinging;
         lastSwingTime = player.swingTime;
-
-        // The server never sends a player its own emotes: they are written as another client receives them.
-        localEmotes.poll(player, actorUuid, respawned, packet -> write(listener, packet));
     }
 
     /** Base values and modifiers of the entity's syncable attributes, as the server sends them on spawn. */
@@ -1425,14 +1397,6 @@ public final class Recorder {
     private void writeSnapshotTail(Minecraft mc, ClientPacketListener listener, Consumer<byte[]> sink) {
         ClientLevel level = mc.level;
         LocalPlayer player = mc.player;
-        List<Packet<?>> persistent;
-        synchronized (PERSISTENT) {
-            persistent = new ArrayList<>(PERSISTENT);
-        }
-        for (Packet<?> packet : persistent) {
-            write(listener, packet, sink);
-        }
-        com.vyrriox.justreplay.compat.ReplayCompat.writeSnapshot(packet -> write(listener, packet, sink));
         writeMaps(level, listener, sink);
         // Ends the terrain loading screen of the login, as the server's own one does.
         write(listener, new net.minecraft.network.protocol.game.ClientboundSetDefaultSpawnPositionPacket(level.getSharedSpawnPos(), level.getSharedSpawnAngle()), sink);
@@ -1454,14 +1418,12 @@ public final class Recorder {
         for (Entity vehicle : withPassengers) {
             write(listener, new ClientboundSetPassengersPacket(vehicle), sink);
         }
-        // Emotes and parkour actions in progress: their start packets lie before the snapshot.
+        // Mod state of the other players in progress (worn curios): the server sends it only on a change.
         for (net.minecraft.world.entity.player.Player other : level.players()) {
             if (other != player) {
-                com.vyrriox.justreplay.compat.ReplayCompat.writePlayerState(other, other.getUUID(), packet -> write(listener, packet, sink));
+                com.vyrriox.justreplay.compat.ReplayCompat.writePlayerState(other, packet -> write(listener, packet, sink));
             }
         }
-        com.vyrriox.justreplay.compat.ReplayCompat.writeEntityState(level.entitiesForRendering(), packet -> write(listener, packet, sink));
-        com.vyrriox.justreplay.compat.ReplayCompat.writeEntityStates(level, packet -> write(listener, packet, sink));
     }
 
     /** Map contents: the server only sends them when they change or on first sight, and a login forgets them. */

@@ -1,12 +1,16 @@
 package com.vyrriox.justreplay.compat;
 
 import com.vyrriox.justreplay.JustReplay;
+import com.vyrriox.justreplay.record.Payloads;
+import io.netty.buffer.Unpooled;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.common.util.LazyOptional;
+import net.minecraftforge.network.simple.SimpleChannel;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
@@ -18,12 +22,14 @@ import java.util.function.Consumer;
  * Curios slots (backpacks, rings, belts, capes) in snapshots and checkpoints. The Curios server sends the full slot
  * content of an entity only at login, when tracking starts and at a datapack sync: a recording started mid-session
  * (and a seek that rebuilds the entities) would show nobody's curios until the next change. The current content is
- * written as the server sends it ({@code curios:sync_curios}, keyed by entity id, so the recording player's actor,
- * which shares the id, gets it too). Everything is reached by reflection.
+ * written as the server sends it: a message of Curios' Forge channel, keyed by entity id, so the recording player's
+ * actor, which shares the id, gets it too. Everything is reached by reflection.
  *
  * @author vyrriox
  */
 public final class CuriosCompat {
+    /** The Forge channel Curios syncs its slots on (1.20.1). */
+    private static final ResourceLocation CHANNEL = new ResourceLocation("curios", "main");
     private static Reflect reflect;
     private static boolean reflectFailed;
 
@@ -31,7 +37,7 @@ public final class CuriosCompat {
     }
 
     private record Reflect(Method getInventory, Method getCurios, Method getStacks, Method getCosmeticStacks,
-                           Method getSlots, Method getStackInSlot, Constructor<?> payloadNew) {
+                           Method getSlots, Method getStackInSlot, SimpleChannel channel, Constructor<?> syncNew) {
     }
 
     private static Reflect reflect() {
@@ -44,11 +50,13 @@ public final class CuriosCompat {
             Class<?> inventory = Class.forName("top.theillusivec4.curios.api.type.capability.ICuriosItemHandler", false, loader);
             Class<?> handler = Class.forName("top.theillusivec4.curios.api.type.inventory.ICurioStacksHandler", false, loader);
             Class<?> stacks = Class.forName("top.theillusivec4.curios.api.type.inventory.IDynamicStackHandler", false, loader);
-            Class<?> payload = Class.forName("top.theillusivec4.curios.common.network.server.sync.SPacketSyncCurios", false, loader);
+            Class<?> network = Class.forName("top.theillusivec4.curios.common.network.NetworkHandler", false, loader);
+            Class<?> sync = Class.forName("top.theillusivec4.curios.common.network.server.sync.SPacketSyncCurios", false, loader);
             reflect = new Reflect(api.getMethod("getCuriosInventory", LivingEntity.class), inventory.getMethod("getCurios"),
                     handler.getMethod("getStacks"), handler.getMethod("getCosmeticStacks"),
                     stacks.getMethod("getSlots"), stacks.getMethod("getStackInSlot", int.class),
-                    payload.getConstructor(int.class, Map.class));
+                    (SimpleChannel) network.getField("INSTANCE").get(null),
+                    sync.getConstructor(int.class, Map.class));
             JustReplay.LOGGER.info("Curios detected: worn curios are recorded in snapshots and checkpoints");
         } catch (Throwable t) {
             reflectFailed = true;
@@ -60,7 +68,9 @@ public final class CuriosCompat {
 
     /** The slot handlers of an entity (slot type to handler), or null when it has no curios inventory. */
     private static Map<?, ?> curios(Reflect r, LivingEntity entity) throws ReflectiveOperationException {
-        Optional<?> inventory = (Optional<?>) r.getInventory.invoke(null, entity);
+        // Curios 5.x on 1.20.1 hands its inventory out in a Forge LazyOptional.
+        LazyOptional<?> lazy = (LazyOptional<?>) r.getInventory.invoke(null, entity);
+        Optional<?> inventory = lazy.resolve();
         return inventory.isPresent() ? (Map<?, ?>) r.getCurios.invoke(inventory.get()) : null;
     }
 
@@ -107,7 +117,10 @@ public final class CuriosCompat {
         try {
             Map<?, ?> curios = curios(r, living);
             if (curios != null && count(r, curios) > 0) {
-                out.accept(new ClientboundCustomPayloadPacket((CustomPacketPayload) r.payloadNew.newInstance(entity.getId(), curios)));
+                Object message = r.syncNew.newInstance(entity.getId(), curios);
+                FriendlyByteBuf bytes = new FriendlyByteBuf(Unpooled.buffer());
+                r.channel.encodeMessage(message, bytes);
+                out.accept(Payloads.make(CHANNEL, bytes));
             }
         } catch (Throwable t) {
             ReplayCompat.warnOnce("curios.snapshot", "Cannot record the Curios of " + entity, t);

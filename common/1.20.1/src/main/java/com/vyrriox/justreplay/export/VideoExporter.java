@@ -305,7 +305,6 @@ public final class VideoExporter {
         exporter.previousCursor = playback.cursor();
         exporter.previousSpeedIndex = playback.speedIndex();
         current = exporter;
-        com.vyrriox.justreplay.compat.ReplayCompat.onExportStart();
         exporter.writerThread.start();
         playback.resetSpeed();
         playback.setPaused(false);
@@ -424,8 +423,6 @@ public final class VideoExporter {
         frames++;
         Camera camera = mc.gameRenderer.getMainCamera();
         audio.onFrame(camera.getPosition().x, camera.getPosition().y, camera.getPosition().z, camera.getYRot());
-        com.vyrriox.justreplay.compat.ReplayCompat.onExportFrame(audio, frames - 1, fps, camera.getPosition().x, camera.getPosition().y,
-                camera.getPosition().z, camera.getYRot(), partialTick);
         Playback playback = session.playback();
         boolean reachedEnd = (long) (frames - 1) * 20 >= (long) (endTick - startTick) * fps;
         if (reachedEnd || playback.isPaused() && playback.cursor() >= playback.duration()) {
@@ -484,7 +481,6 @@ public final class VideoExporter {
         }
         finished = true;
         current = null;
-        com.vyrriox.justreplay.compat.ReplayCompat.onExportEnd();
         Minecraft mc = Minecraft.getInstance();
         try {
             ExportRenderSize.unlock();

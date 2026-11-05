@@ -1030,23 +1030,6 @@ public final class ActorAnimator {
         } else {
             CUSTOM_EMOTES.remove(entity.getId());
         }
-        if (entity instanceof Player) {
-            ReplayProject.ActorAction emote = activeState(actor.actions, cursor, ActionType.EMOTE);
-            if (emote != null && emote.param != null && !emote.param.isBlank()) {
-                double[] emoteSpeed = {1.0};
-                String emoteName = emoteName(emote.param, emoteSpeed);
-                double emoteTick = Math.max(0, emote.clipFrom) + (cursor - emote.tick) * emoteSpeed[0];
-                if (emote.clipTo >= 0 && emoteTick > emote.clipTo) {
-                    // Past the end of the clip: Emotecraft has no clip, so the emote stops there.
-                    com.vyrriox.justreplay.compat.EmotecraftCompat.stopActorEmote(entity);
-                } else {
-                    com.vyrriox.justreplay.compat.EmotecraftCompat.applyActorEmote(entity, emoteName, emote.tick,
-                            emote.clipFrom, emoteSpeed[0], cursor);
-                }
-            } else {
-                com.vyrriox.justreplay.compat.EmotecraftCompat.stopActorEmote(entity);
-            }
-        }
         if (now.sit && isHumanoid(entity)) {
             SITTING.add(entity.getId());
         } else {

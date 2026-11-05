@@ -57,8 +57,6 @@ public abstract class ConnectionMixin {
             if (packet instanceof ServerboundMovePlayerPacket || com.vyrriox.justreplay.compat.ReplayCompat.blockServerbound(packet)) {
                 ci.cancel();
             }
-        } else if (!ReplaySession.isReplayConnection(self)) {
-            com.vyrriox.justreplay.compat.ReplayCompat.onLiveServerbound(packet);
         }
     }
 

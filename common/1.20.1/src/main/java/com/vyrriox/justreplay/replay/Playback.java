@@ -192,7 +192,6 @@ public final class Playback {
                 }
             }
             if (!restored && backward) {
-                com.vyrriox.justreplay.compat.ReplayCompat.onWorldRebuild();
                 packets.rewind();
                 cursor = 0;
             }
@@ -231,7 +230,6 @@ public final class Playback {
         if (snapshot.isEmpty()) {
             return false;
         }
-        com.vyrriox.justreplay.compat.ReplayCompat.onWorldRebuild();
         for (RecordedPacket recorded : snapshot) {
             handle(mc, recorded);
         }
@@ -307,9 +305,6 @@ public final class Playback {
                 return;
             }
         }
-        if (com.vyrriox.justreplay.compat.ReplayCompat.consumeRecorded(packet, recorded.tick())) {
-            return;
-        }
         if (recorded.tick() < skippingTo && PacketFilter.isTransient(packet)) {
             // Sounds and effects of skipped time would all fire at once.
             return;
@@ -320,14 +315,6 @@ public final class Playback {
         packet = (Packet<? super ClientGamePacketListener>) com.vyrriox.justreplay.compat.ReplayCompat.filterPlayback(packet);
         if (packet == null) {
             return;
-        }
-        if (recorded.tick() < skippingTo) {
-            // Mod state with its own clock (emotes) starts late by the time skipped, or not at all once over.
-            packet = (Packet<? super ClientGamePacketListener>) com.vyrriox.justreplay.compat.ReplayCompat.adjustSkipped(packet,
-                    skippingTo - recorded.tick());
-            if (packet == null) {
-                return;
-            }
         }
         packet = chunks.filter(packet);
         if (packet == null) {

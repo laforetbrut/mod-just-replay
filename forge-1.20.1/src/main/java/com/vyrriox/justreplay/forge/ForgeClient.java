@@ -111,12 +111,6 @@ public final class ForgeClient {
         });
         listen(game, ClientPlayerNetworkEvent.LoggingIn.class, event -> ClientHooks.onLoggingIn(event.getConnection()));
         listen(game, ClientPlayerNetworkEvent.LoggingOut.class, event -> ClientHooks.onLoggingOut(event.getConnection()));
-        // Before anything renders (mods read their clock while rendering): integration clocks move to this frame.
-        game.addListener(EventPriority.HIGHEST, false, TickEvent.RenderTickEvent.class, event -> {
-            if (event.phase == TickEvent.Phase.START) {
-                ReplayCompat.Events.onRenderFrameFirst(Frames.partialTick());
-            }
-        });
         listen(game, TickEvent.RenderTickEvent.class, event -> {
             if (event.phase == TickEvent.Phase.START) {
                 onFramePre(Frames.partialTick());

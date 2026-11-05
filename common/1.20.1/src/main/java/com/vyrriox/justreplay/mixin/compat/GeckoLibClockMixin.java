@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * @author vyrriox
  */
 @Pseudo
-@Mixin(targets = "software.bernie.geckolib.util.RenderUtil", remap = false)
+@Mixin(targets = "software.bernie.geckolib.util.RenderUtils", remap = false)
 public abstract class GeckoLibClockMixin {
     @Inject(method = "getCurrentTick()D", at = @At("HEAD"), cancellable = true, require = 0, remap = false)
     private static void justreplay$replayClock(CallbackInfoReturnable<Double> cir) {
