@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.1.1] - 2026-11-05
+
+### Fixed
+- **Curios**: worn items could be missing from a replay when their slots came only from a data pack of the world or the server, because the slot definitions were not recorded. Every snapshot and checkpoint now writes them before the entities. Confirmed on Forge 1.20.1 and NeoForge 1.21.1. On NeoForge 1.21.1 the problem was read in the code, not reproduced.
+- **Building from source**: NeoForge 1.20.1 failed to compile on some machines with `variable o is already defined`. The released jars were not affected.
+
+### Correctifs
+- **Curios** : des objets portés pouvaient manquer dans un replay quand leurs emplacements venaient seulement d'un datapack du monde ou du serveur, car les définitions d'emplacements n'étaient pas enregistrées. Chaque instantané et point de reprise les écrit maintenant avant les entités. Confirmé sur Forge 1.20.1 et NeoForge 1.21.1. Sur NeoForge 1.21.1, le problème a été lu dans le code, pas reproduit.
+- **Compilation depuis les sources** : NeoForge 1.20.1 ne compilait pas sur certaines machines (`variable o is already defined`). Les jars publiés n'étaient pas touchés.
+
 ## [1.1.0] - 2026-11-05
 
 ### Added
