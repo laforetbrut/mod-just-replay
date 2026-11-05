@@ -1391,6 +1391,7 @@ public final class Recorder {
 
         write(listener, new ClientboundSetChunkCacheRadiusPacket(lastChunkRadius), sink);
         write(listener, new ClientboundSetChunkCacheCenterPacket(player.chunkPosition().x, player.chunkPosition().z), sink);
+        com.vyrriox.justreplay.compat.ReplayCompat.writeDefinitions(packet -> write(listener, packet, sink));
     }
 
     /** Snapshot packets that come after the chunks: end of the initial chunk load and every entity. */

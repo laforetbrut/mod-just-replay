@@ -252,6 +252,13 @@ public final class ReplayCompat {
         }
     }
 
+    /** Mod definitions the entity state depends on (snapshots and checkpoints), written before any entity. */
+    public static void writeDefinitions(java.util.function.Consumer<Packet<?>> out) {
+        if (CURIOS) {
+            CuriosCompat.writeDefinitions(out);
+        }
+    }
+
     /**
      * Mod animation state a player is in now (snapshots and checkpoints), written as another client receives it, for
      * the player in the replay.
