@@ -84,6 +84,15 @@ public final class SelfTest {
             }
         }
     }
+    /** Frame clocks of the mods: replay ticks one sample is allowed to be off, a frame may not be rendered yet. */
+    private static final double CLOCK_TOLERANCE = 3.0;
+    private static double clockGecko;
+    private static double clockIris;
+    private static double clockEntity;
+    private static int exportClockFirst = -1;
+    private static int exportClockLast;
+    private static final double[] exportClockGecko = new double[2];
+    private static final double[] exportClockIris = new double[2];
     private static int galleryIndex;
     private static String galleryName = "";
     /** Export settings and editor mode of the user, saved at the start and put back at the end of the test. */
@@ -93,6 +102,76 @@ public final class SelfTest {
     private static com.vyrriox.justreplay.config.JRConfig.EditorMode savedMode;
 
     private SelfTest() {
+    }
+
+    /** RenderUtil.getCurrentTick, NaN without GeckoLib. */
+    private static double geckoClock() {
+        return readClock("software.bernie.geckolib.util.RenderUtil", "getCurrentTick", null);
+    }
+
+    /** Iris' frameTimeCounter in seconds, NaN without Iris. Moves with or without a shader pack. */
+    private static double irisClock() {
+        try {
+            Object timer = Class.forName("net.irisshaders.iris.uniforms.SystemTimeUniforms").getField("TIMER").get(null);
+            return readClock("net.irisshaders.iris.uniforms.SystemTimeUniforms$Timer", "getFrameTimeCounter", timer);
+        } catch (ReflectiveOperationException | LinkageError e) {
+            return Double.NaN;
+        }
+    }
+
+    private static double readClock(String type, String method, Object target) {
+        try {
+            return ((Number) Class.forName(type).getMethod(method).invoke(target)).doubleValue();
+        } catch (ReflectiveOperationException | LinkageError e) {
+            return Double.NaN;
+        }
+    }
+
+    private static void logClock(String name, String mod, double value, String details, boolean ok) {
+        if (Double.isNaN(value)) {
+            log("clock {} {}: mod absent, skipped", mod, name);
+        } else {
+            log("clock {} {}: {} {}", mod, name, details, ok ? "OK" : "FAIL");
+        }
+    }
+
+    private static void checkClockHeld(double gecko, double geckoNow, double iris, double irisNow) {
+        logClock("paused 40 ticks", "geckolib", geckoNow, gecko + " -> " + geckoNow, gecko == geckoNow);
+        logClock("paused 40 ticks", "iris", irisNow, iris + " -> " + irisNow, iris == irisNow);
+    }
+
+    private static void checkClockBackSeek(double gecko, double geckoNow, double entity, double entityNow) {
+        // 30 ticks were played after the seek back, the first ones may still be lost to the world reload.
+        logClock("after seek back", "geckolib", geckoNow, gecko + " -> " + geckoNow, geckoNow - gecko >= 10);
+        if (Double.isNaN(geckoNow) || entity < 0 || entityNow < 0) {
+            log("clock geckolib entity after seek back: no entity rendered, skipped");
+        } else {
+            logClock("entity after seek back", "geckolib", entityNow, entity + " -> " + entityNow, entityNow - entity >= 10);
+        }
+    }
+
+    /** The clocks must rise with the replay cursor, whatever the speed and the render time. */
+    private static void checkClockRise(String name, int ticks, double gecko, double geckoNow, double iris, double irisNow) {
+        double geckoRise = geckoNow - gecko;
+        double irisRise = (irisNow - iris) * 20.0;
+        logClock(name, "geckolib", geckoNow, "rose " + geckoRise + " for " + ticks + " ticks", Math.abs(geckoRise - ticks) <= CLOCK_TOLERANCE);
+        logClock(name, "iris", irisNow, "rose " + irisRise + " for " + ticks + " ticks", Math.abs(irisRise - ticks) <= CLOCK_TOLERANCE);
+    }
+
+    /** First and last client tick of the export once its first frame passed. */
+    private static void sampleExportClocks() {
+        ReplaySession s = ReplaySession.current();
+        if (s == null || !VideoExporter.isActive() || s.playback().cursor() <= 20) {
+            return;
+        }
+        if (exportClockFirst < 0) {
+            exportClockFirst = s.playback().cursor();
+            exportClockGecko[0] = geckoClock();
+            exportClockIris[0] = irisClock();
+        }
+        exportClockLast = s.playback().cursor();
+        exportClockGecko[1] = geckoClock();
+        exportClockIris[1] = irisClock();
     }
 
     private static void log(String message, Object... args) {
@@ -327,15 +406,25 @@ public final class SelfTest {
                 ReplaySession s = ReplaySession.current();
                 log("mods 20 ticks later, still paused: {}", Mods.state(mc, s));
                 shot(mc, "1b-paused60");
+                clockGecko = geckoClock();
+                clockIris = irisClock();
+                go(60, 40);
+            }
+            case 60 -> {
+                // 40 more ticks paused: the clocks read while rendering must not have moved.
+                checkClockHeld(clockGecko, geckoClock(), clockIris, irisClock());
+                ReplaySession s = ReplaySession.current();
                 s.playback().setPaused(false);
                 s.playback().seek(150);
-                next(30);
+                go(8, 30);
             }
             case 8 -> {
                 ReplaySession s = ReplaySession.current();
                 logWorld(mc, s, "after forward seek");
                 log("mods after forward seek: {}", Mods.state(mc, s));
                 shot(mc, "2-seek150");
+                clockGecko = geckoClock();
+                clockEntity = com.vyrriox.justreplay.compat.ReplayCompat.lastGeckoEntityFrameTime();
                 s.playback().seek(20);
                 next(30);
             }
@@ -343,6 +432,9 @@ public final class SelfTest {
                 ReplaySession s = ReplaySession.current();
                 logWorld(mc, s, "after backward seek");
                 shot(mc, "3-seek20");
+                checkClockBackSeek(clockGecko, geckoClock(), clockEntity, com.vyrriox.justreplay.compat.ReplayCompat.lastGeckoEntityFrameTime());
+                clockGecko = geckoClock();
+                clockIris = irisClock();
                 speedStart = s.playback().cursor();
                 s.playback().changeSpeed(2);
                 next(10);
@@ -350,6 +442,7 @@ public final class SelfTest {
             case 10 -> {
                 ReplaySession s = ReplaySession.current();
                 log("speed x{}: cursor advanced {} ticks in 10 client ticks", s.playback().speed(), s.playback().cursor() - speedStart);
+                checkClockRise("speed", s.playback().cursor() - speedStart, clockGecko, geckoClock(), clockIris, irisClock());
                 s.playback().resetSpeed();
                 s.playback().seek(190);
                 s.playback().seek(130);
@@ -733,6 +826,7 @@ public final class SelfTest {
                 next(1);
             }
             case 14 -> {
+                sampleExportClocks();
                 if (!VideoExporter.isActive()) {
                     next(200);
                 }
@@ -744,6 +838,11 @@ public final class SelfTest {
                         Files.exists(ReplayStorage.exportRoot().resolve("selftest.mp4.audio.log")));
                 log("mods after export: {}", Mods.state(mc, ReplaySession.current()));
                 Mods.logDropTheBeam("after export");
+                if (exportClockFirst < 0) {
+                    log("clock export: no sample while the export ran FAIL");
+                } else {
+                    checkClockRise("export", exportClockLast - exportClockFirst, exportClockGecko[0], exportClockGecko[1], exportClockIris[0], exportClockIris[1]);
+                }
                 log("local effects heard in the replay: bell={} anvil={} footsteps={} of which the recording player's own={} -> {}", localBell,
                         localAnvil, replaySteps, recorderSteps, localBell > 0 && localAnvil > 0 && recorderSteps > 0 ? "OK" : "FAIL");
                 log("export frames showing overlays: {} ({} overlays in the project)",
