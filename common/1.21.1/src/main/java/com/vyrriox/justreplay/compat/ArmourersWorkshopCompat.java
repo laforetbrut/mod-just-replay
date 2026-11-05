@@ -103,7 +103,9 @@ public final class ArmourersWorkshopCompat {
             Class<?> dispatcherClass = Class.forName(PKG + "init.platform.NetworkManager$Dispatcher", false, cl);
             Class<?> distributor = Class.forName(PKG + "init.platform.NetworkManager$Distributor", false, cl);
             Class<?> buf = Class.forName(PKG + "api.network.IFriendlyByteBuf", false, cl);
-            Class<?> proxy = Class.forName(PKG + "compat.forge.AbstractForgeNetwork$Proxy", false, cl);
+            String proxyName = "fabric".equals(com.vyrriox.justreplay.platform.Platform.get().loaderName())
+                    ? "compat.fabric.core.AbstractFabricNetwork$Proxy" : "compat.forge.AbstractForgeNetwork$Proxy";
+            Class<?> proxy = Class.forName(PKG + proxyName, false, cl);
             Class<?> wardrobe = Class.forName(PKG + "core.capability.SkinWardrobe", false, cl);
             Class<?> wardrobePacket = Class.forName(PKG + "core.network.UpdateWardrobePacket", false, cl);
 

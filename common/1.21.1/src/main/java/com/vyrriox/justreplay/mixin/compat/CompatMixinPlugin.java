@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.mixin.compat;
 
+import com.vyrriox.justreplay.compat.CompatTargets;
 import com.vyrriox.justreplay.platform.EarlyMods;
 import org.objectweb.asm.tree.ClassNode;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
@@ -11,7 +12,7 @@ import java.util.Set;
 /**
  * Leaves out the optional mixins that cannot apply with some mods: the section draw guard targets the vanilla section
  * renderer, which Sodium and Embeddium replace. The Morph, Pehkui, Sable, Armourer's Workshop, Epic Fight, GeckoLib and Iris
- * mixins apply only with their mod.
+ * mixins apply only with their mod. A mixin of an integration that is off on this loader never applies.
  *
  * @author vyrriox
  */
@@ -26,28 +27,43 @@ public final class CompatMixinPlugin implements IMixinConfigPlugin {
             return !loaded("sodium") && !loaded("embeddium");
         }
         if (mixinClassName.contains(".Morph")) {
-            return loaded("morph");
+            return CompatTargets.isActive("morph");
         }
         if (mixinClassName.contains(".Pehkui")) {
-            return loaded("pehkui");
+            return CompatTargets.isActive("pehkui");
         }
         if (mixinClassName.contains(".Armourers")) {
-            return loaded("armourers_workshop");
+            return CompatTargets.isActive("armourers_workshop");
         }
         if (mixinClassName.contains(".Sable")) {
-            return loaded("sable");
+            return CompatTargets.isActive("sable");
         }
         if (mixinClassName.contains(".EpicFight")) {
-            return loaded("epicfight");
+            return CompatTargets.isActive("epicfight");
         }
         if (mixinClassName.contains(".GeckoLib")) {
-            return loaded("geckolib");
+            return CompatTargets.isActive("geckolib");
         }
         if (mixinClassName.contains(".Jade")) {
-            return loaded("jade");
+            return CompatTargets.isActive("jade");
         }
         if (mixinClassName.contains(".Iris")) {
-            return loaded("iris");
+            return CompatTargets.isActive("iris");
+        }
+        if (mixinClassName.contains(".Bobby")) {
+            return CompatTargets.isSupported("bobby");
+        }
+        if (mixinClassName.contains(".Catnip")) {
+            return CompatTargets.isSupported("create");
+        }
+        if (mixinClassName.contains(".DropTheBeam")) {
+            return CompatTargets.isSupported("dropthebeam");
+        }
+        if (mixinClassName.contains(".PlayerAnim")) {
+            return CompatTargets.isSupported(CompatTargets.PLAYER_ANIMATOR);
+        }
+        if (mixinClassName.contains(".WaterFrames")) {
+            return CompatTargets.isSupported("waterframes");
         }
         return true;
     }

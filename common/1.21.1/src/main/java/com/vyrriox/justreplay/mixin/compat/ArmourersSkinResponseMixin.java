@@ -17,7 +17,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Pseudo
 @Mixin(targets = "moe.plushie.armourers_workshop.core.network.ResponseSkinPacket", remap = false)
 public abstract class ArmourersSkinResponseMixin {
-    @Inject(method = "accept(Lmoe/plushie/armourers_workshop/api/network/IClientPacketHandler;Lnet/minecraft/world/entity/player/Player;)V",
+    @Inject(method = "accept",
             at = @At("HEAD"), require = 0, remap = false)
     private void justreplay$fillReplayCache(CallbackInfo ci) {
         ArmourersWorkshopCompat.onSkinResponse(this);

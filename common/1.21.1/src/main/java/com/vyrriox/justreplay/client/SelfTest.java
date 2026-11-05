@@ -1293,7 +1293,9 @@ public final class SelfTest {
         }
 
         static boolean loaded(String modId) {
-            return com.vyrriox.justreplay.platform.Platform.get().isModLoaded(modId);
+            // Mekanism is only a test scene, not an integration.
+            return com.vyrriox.justreplay.platform.Platform.get().isModLoaded(modId)
+                    && ("mekanism".equals(modId) || com.vyrriox.justreplay.compat.CompatTargets.isSupported(modId));
         }
 
         /** Makes the test video before the recording starts (FFmpeg takes a moment). */

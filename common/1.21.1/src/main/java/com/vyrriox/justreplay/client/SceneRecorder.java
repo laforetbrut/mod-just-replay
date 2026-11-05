@@ -191,7 +191,7 @@ public final class SceneRecorder {
             }
             case 2 -> {
                 com.vyrriox.justreplay.replay.ReplaySession session = com.vyrriox.justreplay.replay.ReplaySession.current();
-                if (com.vyrriox.justreplay.platform.Platform.get().isModLoaded("dropthebeam")) {
+                if (com.vyrriox.justreplay.compat.CompatTargets.isActive("dropthebeam")) {
                     for (var start : com.vyrriox.justreplay.compat.DropTheBeamCompat.songStartTicks()) {
                         log("song start {} \"{}\" at tick {} loop {}", start.turntable().pos(), start.title(), start.tick(), start.loop());
                     }

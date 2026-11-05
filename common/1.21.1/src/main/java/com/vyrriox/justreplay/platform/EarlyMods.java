@@ -37,6 +37,15 @@ public final class EarlyMods {
         return false;
     }
 
+    /** {@code neoforge}, {@code forge} or {@code fabric}, read from the loader classes present. */
+    public static String loaderName() {
+        ClassLoader loader = EarlyMods.class.getClassLoader();
+        if (find("net.fabricmc.loader.api.FabricLoader", loader) != null) {
+            return "fabric";
+        }
+        return find("net.neo" + "forged.fml" + ".loading.FMLLoader", loader) != null ? "neoforge" : "forge";
+    }
+
     private static boolean hasModFile(Object list, String modId) throws ReflectiveOperationException {
         if (list == null) {
             return false;

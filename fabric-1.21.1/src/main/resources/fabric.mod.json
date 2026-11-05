@@ -13,6 +13,9 @@
   "entrypoints": {
     "client": [
       "com.vyrriox.justreplay.fabric.JustReplayFabric"
+    ],
+    "voicechat": [
+      "com.vyrriox.justreplay.voice.plugin.JustReplayVoicechatPlugin"
     ]
   },
   "mixins": [

@@ -37,7 +37,7 @@ public abstract class PehkuiPacketWriteMixin {
     @Final
     public Map<ResourceLocation, CompoundTag> syncedScales;
 
-    @Inject(method = "write(Lnet/minecraft/network/FriendlyByteBuf;)V", at = @At("HEAD"), cancellable = true, require = 0, remap = false)
+    @Inject(method = "write", at = @At("HEAD"), cancellable = true, require = 0, remap = false)
     private void justreplay$writeReceived(FriendlyByteBuf buf, CallbackInfo ci) {
         if (!scales.isEmpty() || syncedScales.isEmpty()) {
             return;

@@ -52,7 +52,14 @@ public final class ReplayCompat {
 
     private static boolean isLoaded(String modId) {
         try {
-            return Platform.get().isModLoaded(modId);
+            if (!Platform.get().isModLoaded(modId)) {
+                return false;
+            }
+            if (!CompatTargets.isSupported(modId)) {
+                JustReplay.LOGGER.info("{} is installed but its integration is not supported on this target", modId);
+                return false;
+            }
+            return true;
         } catch (Throwable t) {
             return false;
         }
