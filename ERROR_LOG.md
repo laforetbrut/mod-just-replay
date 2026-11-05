@@ -98,3 +98,17 @@
 **Root cause:** a `while read` loop skipped the last line of a list with no trailing newline.
 **Fix:** copied the jar.
 **Prevention:** check the number of copied files against the list.
+
+## [2026-11-05 18:30] — fabric-1.20.1 does not compile against common/1.20.1
+**Context:** first build of the Fabric 1.20.1 project (Loom 1.17.21, Fabric API 0.92.12+1.20.1) on the shared common code.
+**Error:** `common/1.20.1/.../compat/CuriosCompat.java:12: error: package net.minecraftforge.common.util does not exist`, and the same for `net.minecraftforge.network.simple`, because `CuriosCompat` is written against Forge's `LazyOptional` and `SimpleChannel`.
+**Root cause:** `CuriosCompat` sits in common, which must be loader-free. It compiles only where Forge is on the classpath. `ReplayCompat` and `SelfTest` in common call it, gated by `isLoaded("curios")`, which is always false on Fabric.
+**Fix:** the Fabric project excludes that one file from the common source set with a source filter and adds a stand-in `compat/CuriosCompat` with the same two methods as no-ops. Curios has no Fabric build for 1.20.1, so the stand-in matches the behaviour. Common is unchanged; moving the class into the Forge glue is the proper fix and is still to do.
+**Prevention:** a file in common that imports `net.minecraftforge` or `net.neoforged` is a bug. Run the Fabric compile on every common change, as rule R2 says.
+
+## [2026-11-05 18:35] — Loom fails to set up Minecraft when a common srcDir is a FileTree
+**Context:** excluding `CuriosCompat` from the common source set in `fabric-1.20.1/build.gradle`.
+**Error:** `Failed to setup Minecraft, org.gradle.api.InvalidUserDataException: Source directory '...\common\1.20.1\src\main\java\...\Frames.java' is not a directory.`
+**Root cause:** `sourceSets.main.java.srcDir(fileTree(dir) { exclude ... })` hands Loom the individual files of the tree, not the directory.
+**Fix:** add the directory with `srcDir(new File(commonDir, 'java'))` and drop the one file with `sourceSets.main.java.filter.exclude { ... }`, matching the file by name and by its common path.
+**Prevention:** for a Loom project, add a source root as a directory and filter it with the set's filter, never with a file tree.
