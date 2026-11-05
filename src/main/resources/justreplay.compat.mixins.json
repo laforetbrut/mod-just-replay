@@ -19,6 +19,7 @@
     "GeckoLibClockMixin",
     "GeckoLibModelMixin",
     "IrisTimerMixin",
+    "JadeTickMixin",
     "LevelRendererClockMixin",
     "MorphInfoTickMixin",
     "MorphRenderMixin",

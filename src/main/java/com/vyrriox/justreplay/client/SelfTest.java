@@ -425,6 +425,7 @@ public final class SelfTest {
                 log("mods while playing: {}", Mods.state(mc, s));
                 Mods.checkCurios(mc, s, "at start");
                 Mods.checkAccessories(mc, s, "at start");
+                Mods.checkJadeAircraft(mc, "at start");
                 Mods.checkCulling("during the replay", false);
                 cullSkipped = Math.max(0, com.vyrriox.justreplay.compat.EntityCullingCompat.skippedEntityTicks());
                 shot(mc, "1-playing");
@@ -473,6 +474,7 @@ public final class SelfTest {
                 logWorld(mc, s, "after backward seek");
                 Mods.checkCurios(mc, s, "after backward seek");
                 Mods.checkAccessoriesAfterClear(mc, s);
+                Mods.checkJadeAircraft(mc, "after backward seek");
                 shot(mc, "3-seek20");
                 checkClockBackSeek(clockGecko, geckoClock(), clockEntity, com.vyrriox.justreplay.compat.ReplayCompat.lastGeckoEntityFrameTime());
                 clockGecko = geckoClock();
@@ -1345,6 +1347,51 @@ public final class SelfTest {
                 accessorySlots = null;
             }
             log("accessories mob holder: no mob with slots in the test scene, skipped");
+        /**
+         * Jade: with the clean HUD on, its tooltip must be gone during the replay, and its recorded "show overlay" packet
+         * must be dropped. Immersive Aircraft: every aircraft that has equipment keeps it (at least one filled slot);
+         * checked on the aircraft in view, none in view is a skip. Each part is skipped with a log line when its mod is absent.
+         */
+        static void checkJadeAircraft(Minecraft mc, String label) {
+            if (!loaded("jade")) {
+                log("jade {}: skipped, mod absent", label);
+            } else if (!com.vyrriox.justreplay.config.JRConfig.CLEAN_HUD.get()) {
+                log("jade {}: skipped, clean HUD is off", label);
+            } else {
+                boolean hidden = com.vyrriox.justreplay.compat.JadeCompat.currentTooltip() == null;
+                boolean dropped = false;
+                try {
+                    Class<?> show = Class.forName("snownee.jade.network.ShowOverlayPacket");
+                    Object payload = show.getConstructor(boolean.class).newInstance(false);
+                    dropped = com.vyrriox.justreplay.compat.ReplayCompat.filterPlayback(
+                            new net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket(
+                                    (net.minecraft.network.protocol.common.custom.CustomPacketPayload) payload)) == null;
+                } catch (Throwable t) {
+                    log("jade {}: cannot build the packet: {}", label, t.toString());
+                }
+                log("jade {}: tooltip hidden={} show-overlay packet dropped={} -> {}", label, hidden, dropped,
+                        hidden && dropped ? "OK" : "FAIL");
+            }
+            if (!loaded("immersive_aircraft")) {
+                log("aircraft {}: skipped, mod absent", label);
+            } else if (mc.level == null) {
+                log("aircraft {}: skipped, no level", label);
+            } else {
+                int aircraft = 0;
+                int equipped = 0;
+                for (net.minecraft.world.entity.Entity e : mc.level.entitiesForRendering()) {
+                    int filled = com.vyrriox.justreplay.compat.ImmersiveAircraftCompat.filledSlots(e);
+                    if (filled >= 0) {
+                        aircraft++;
+                        equipped += filled > 0 ? 1 : 0;
+                    }
+                }
+                if (aircraft == 0) {
+                    log("aircraft {}: skipped, no aircraft in view", label);
+                } else {
+                    log("aircraft {}: aircraft={} with equipment={} -> {}", label, aircraft, equipped, equipped > 0 ? "OK" : "FAIL");
+                }
+            }
         }
 
         /** Entity Culling's switch against the expected value; skipped when the mod is absent. */
