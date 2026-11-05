@@ -10,11 +10,12 @@ ReplayMod or Flashback was used.
 The distributed jar contains only the code and assets of Just Replay. It bundles no
 third-party library. The following software is used without being redistributed:
 
-- Minecraft and NeoForge: the platform the mod runs on.
+- Minecraft, NeoForge, Forge, Fabric Loader and Fabric API: the platforms the mod runs on.
 - FFmpeg (LGPL/GPL): an external program installed by the user, started as a separate
   process for video export. It is not linked to or shipped with the mod.
 - Simple Voice Chat API (All Rights Reserved, Max Henkel): used at compile time only to
   build the optional voice chat integration; nothing of it is included in the jar.
 - Optional integrations through public classes and APIs at runtime, nothing included:
   Distant Horizons, Emotecraft and playerAnimator, WaterFrames and WaterMedia, Create,
-  Bobby, Iris, Sodium.
+  Bobby, Iris, Sodium, GeckoLib, Curios, Iron's Spells 'n Spellbooks, Entity Culling, Exposure,
+  Accessories, Jade, Immersive Paintings, Immersive Aircraft.

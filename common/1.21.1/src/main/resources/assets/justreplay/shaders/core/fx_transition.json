@@ -1,0 +1,16 @@
+{
+    "vertex": "justreplay:fx_screen",
+    "fragment": "justreplay:fx_transition",
+    "samplers": [
+        { "name": "DiffuseSampler" },
+        { "name": "PrevSampler" }
+    ],
+    "uniforms": [
+        { "name": "OutSize", "type": "float", "count": 2, "values": [ 1.0, 1.0 ] },
+        { "name": "Type", "type": "int", "count": 1, "values": [ 0 ] },
+        { "name": "Progress", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "Direction", "type": "float", "count": 2, "values": [ -1.0, 0.0 ] },
+        { "name": "FadeColor", "type": "float", "count": 3, "values": [ 0.0, 0.0, 0.0 ] },
+        { "name": "FadeAmount", "type": "float", "count": 1, "values": [ 0.0 ] }
+    ]
+}

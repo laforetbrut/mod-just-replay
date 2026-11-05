@@ -84,3 +84,66 @@
 **Root cause:** Armourer's Workshop has one SkinLoader for the whole JVM. The integrated server prepares it with its own sessions, so in singleplayer a db: skin is read straight from the world's skin database and no RequestSkinPacket or ResponseSkinPacket ever crosses the connection. 1.0.9 recorded skins only from those packets and from the loader cache at snapshot time. The replay world is another integrated world with an empty skin database, and its loader looks db: skins up there, never over the network, so the request mixin never fired.
 **Fix:** record every skin at the loader (SkinLoader$Entry.accept mixin), add every worn skin at snapshots (loaded from the world database in singleplayer), and during a replay serve lookups from the recording at SkinLoader.resume before any source is tried. Snapshot skin count logged, missing worn skins warned.
 **Prevention:** for any mod with a cache shared between client and integrated server, check how the client gets its data in singleplayer before assuming it comes over the network.
+
+## [2026-11-05 14:40] — Replay closed right after opening, intermittently (decode error from the host)
+**Context:** self test with GeckoLib, Curios, Iron's Spellbooks, Iris and others, opening the buffer clip.
+**Error:** `Failed to decode packet 'clientbound/minecraft:update_advancements'`, caused by `IllegalArgumentException: No value with id 1568`, then `bundle_delimiter ... was larger than I expected`, then a disconnect. The next run of the same test passed.
+**Root cause:** `ReplaySession.clientTick` applied the recorded registry ids on the render thread while the replay host's integrated server could still have packets in flight. `RegistryManager.applySnapshot` empties and refills each registry, so a packet decoded on the Netty thread in that window fails.
+**Fix:** at STARTING the host is silenced, the server thread and both channels are drained without blocking the render thread, and only then are the ids applied (40 tick fallback with a warning).
+**Prevention:** never change shared static registries while a connection is live; drain it first. A self test that passes once proves nothing about a race, so run it several times.
+
+## [2026-11-05 14:50] — Self test launched with Iris but without Sodium
+**Context:** building a mod folder for the compat self test from a dependency list.
+**Error:** `ClassNotFoundException: net.caffeinemc.mods.sodium.api.vertex.serializer.VertexSerializer`, exit value 1.
+**Root cause:** a `while read` loop skipped the last line of a list with no trailing newline.
+**Fix:** copied the jar.
+**Prevention:** check the number of copied files against the list.
+
+## [2026-11-05 18:30] — fabric-1.20.1 does not compile against common/1.20.1
+**Context:** first build of the Fabric 1.20.1 project (Loom 1.17.21, Fabric API 0.92.12+1.20.1) on the shared common code.
+**Error:** `common/1.20.1/.../compat/CuriosCompat.java:12: error: package net.minecraftforge.common.util does not exist`, and the same for `net.minecraftforge.network.simple`, because `CuriosCompat` is written against Forge's `LazyOptional` and `SimpleChannel`.
+**Root cause:** `CuriosCompat` sits in common, which must be loader-free. It compiles only where Forge is on the classpath. `ReplayCompat` and `SelfTest` in common call it, gated by `isLoaded("curios")`, which is always false on Fabric.
+**Fix:** the Fabric project excludes that one file from the common source set with a source filter and adds a stand-in `compat/CuriosCompat` with the same two methods as no-ops. Curios has no Fabric build for 1.20.1, so the stand-in matches the behaviour. Common is unchanged; moving the class into the Forge glue is the proper fix and is still to do.
+**Prevention:** a file in common that imports `net.minecraftforge` or `net.neoforged` is a bug. Run the Fabric compile on every common change, as rule R2 says.
+
+## [2026-11-05 18:35] — Loom fails to set up Minecraft when a common srcDir is a FileTree
+**Context:** excluding `CuriosCompat` from the common source set in `fabric-1.20.1/build.gradle`.
+**Error:** `Failed to setup Minecraft, org.gradle.api.InvalidUserDataException: Source directory '...\common\1.20.1\src\main\java\...\Frames.java' is not a directory.`
+**Root cause:** `sourceSets.main.java.srcDir(fileTree(dir) { exclude ... })` hands Loom the individual files of the tree, not the directory.
+**Fix:** add the directory with `srcDir(new File(commonDir, 'java'))` and drop the one file with `sourceSets.main.java.filter.exclude { ... }`, matching the file by name and by its common path.
+**Prevention:** for a Loom project, add a source root as a directory and filter it with the set's filter, never with a file tree.
+
+## [2026-11-05 19:10] — Forge 1.20.1 jar built without its refmap after a build cache hit
+**Context:** `gradlew clean build` of `forge-1.20.1` to prepare a production run.
+**Error:** `justreplay.refmap.json` absent from the reobfuscated jar while the mixin configs still name it; the log shows `:compileJava FROM-CACHE`.
+**Root cause:** MixinGradle writes the refmap outside the declared outputs of `compileJava`, so a cache hit restores the classes only. Dev runs do not read the jar and hide it.
+**Fix:** `outputs.cacheIf { false }` on `compileJava` in `forge-1.20.1/build.gradle`.
+**Prevention:** after a build of a mixin jar meant for release or a production run, read the refmap in the jar and check it holds SRG names.
+
+## [2026-11-05 19:55] — Replays on 1.20.1 end after about 32 seconds
+**Context:** first self test replays on the 1.20.1 targets.
+**Error:** every replay closed about 32 seconds in, with a keep alive timeout on the replay host.
+**Root cause:** the client ignores everything the replay host sends, keep alive packets included, and 1.20.1 also times out the singleplayer owner (later versions do not). The host kicked the camera player, which stopped the host and ended the replay.
+**Fix:** new `HostKeepAliveMixin` in `common/1.20.1`: the keep alive challenge is never due on the replay host, as later versions do for the owner.
+**Prevention:** on a backport, keep the self test replay running longer than every server side timeout, and read what the older version does for the singleplayer owner.
+
+## [2026-11-05 19:56] — Mixin descriptors valid on one version fail only at class load
+**Context:** porting the shared mixins to 1.20.1 and 26.1.2, where method signatures of the game and of other mods differ.
+**Error:** the project compiled; the wrong target or descriptor only showed when the target class loaded, in a launched game.
+**Root cause:** the compiler does not check `@Inject` targets written as strings, and `require = 0` mixins fail silently, so a descriptor copied from 1.21.1 stays valid Java.
+**Fix:** a one-off local checker compared every mixin target with the real jar of each target, and the mixins were aligned (`515c186`, `40084e3`). The checker is not committed.
+**Prevention:** verify every mixin target against the real jar of the target before launching. A compile says nothing about them, and a dev run does not exercise a refmap.
+
+## [2026-11-05 19:57] — getLoadingModList is an instance method on FML 11
+**Context:** `EarlyMods` in `common/26.1.2`, which reads the mod list while mixins are selected, carried from 1.21.1.
+**Error:** the reflective `FMLLoader.getLoadingModList` call with a null target fails on the 26.1.2 NeoForge loader, because it is no longer static. Exact message not kept.
+**Root cause:** FML 11 turned `getLoadingModList` into an instance method. Reflection hides that from the compiler.
+**Fix:** read the list through `LoadingModList.get()` on NeoForge, and `LoadingModList.getModFileById` on Forge (`40084e3`).
+**Prevention:** reflection on a loader API is re-read against the loader jar on every target, as for mixins; it never fails at compile time.
+
+## [2026-11-05 19:58] — Mixed sound silent on Fabric, unseen by any self test
+**Context:** reading the audio of the Fabric 1.21.1 and 1.20.1 production jars.
+**Error:** no error and no failed check: `MixSoundInstance` and `ScaledSoundInstance` simply made no sound on Fabric.
+**Root cause:** Fabric API's sound API calls `getAudioStream` on a sound instance, and these classes only overrode the vanilla stream method. The self test checks states and clocks, not what comes out of the speakers.
+**Fix:** both classes declare `getAudioStream`, with the wrapped instance's own method reached by reflection where it exists (`c9b335f`, `bf5e032`).
+**Prevention:** a custom `SoundInstance` must be read against Fabric API's sound API on every Fabric target. A passing self test proves nothing about audible output: listen, or add a check on the stream actually requested.

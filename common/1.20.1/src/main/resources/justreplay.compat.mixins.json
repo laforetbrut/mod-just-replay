@@ -1,0 +1,23 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "refmap": "justreplay.refmap.json",
+  "package": "com.vyrriox.justreplay.mixin.compat",
+  "compatibilityLevel": "JAVA_17",
+  "plugin": "com.vyrriox.justreplay.mixin.compat.CompatMixinPlugin",
+  "client": [
+    "BobbyMixin",
+    "GeckoLibClockMixin",
+    "GeckoLibModelMixin",
+    "IrisTimerMixin",
+    "JadeTickMixin",
+    "LevelRendererClockMixin",
+    "PlayerAnimStackMixin",
+    "SectionBufferGuardMixin",
+    "WaterFramesControlMixin",
+    "WaterFramesDataMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}

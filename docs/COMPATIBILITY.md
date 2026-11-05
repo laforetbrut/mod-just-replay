@@ -2,7 +2,36 @@
 
 ## English
 
-Reference pack: **Arcadia V2** (444 mods, NeoForge 1.21.1). Just Replay must record, play back, edit and
+Just Replay 1.1.0 runs on nine targets: Minecraft 1.20.1, 1.21.1 and 26.1.2 on NeoForge, Forge and Fabric.
+
+### Status per target
+
+Words used here. **Run** means the self test exercised it and its checks passed. **Loaded** means the mod was in the
+self test and gave no error, but its behaviour was not exercised. **Read** means the integration was only read
+against the mod's build and is enabled in `CompatTargets.java`, nothing was run. "Production" means the real jar in
+an offline client outside a development environment, with no launcher.
+
+The self test passes with 0 failures on all nine targets, in a development client and with the production jar.
+
+| Target | Mods in the self test | Enabled but only read |
+|---|---|---|
+| NeoForge 1.21.1 | Development run: GeckoLib, Mowzie's Mobs, Curios, Iron's Spellbooks, Iris, Sodium, Entity Culling, Exposure, Accessories, Jade, Immersive Paintings: run. Immersive Aircraft: loaded (no aircraft in the scene). Accessories on mobs not exercised. | Older integrations keep the status in the table below. |
+| Fabric 1.21.1 | Production: GeckoLib, Entity Culling, Iris, Sodium, Jade, Exposure, Accessories, Immersive Paintings: run. Immersive Aircraft: loaded. | Armourer's Workshop, Better Combat, Bobby, Distant Horizons, Emotecraft, Pehkui, Player Animator, Sable, WaterFrames |
+| Forge 1.21.1 | Production: GeckoLib, Entity Culling: run. | None |
+| NeoForge 1.20.1 | No third-party mod. | Curios, GeckoLib, Jade |
+| Forge 1.20.1 | Production: GeckoLib, Jade, Entity Culling: run. Curios: loaded (no ring item, check skipped). | None |
+| Fabric 1.20.1 | No third-party mod. | Entity Culling, GeckoLib, Jade |
+| NeoForge 26.1.2 | Production: GeckoLib, Iris, Sodium, Jade, Entity Culling: run. | None |
+| Fabric 26.1.2 | Production: GeckoLib, Iris, Sodium, Jade, Entity Culling: run. | None |
+| Forge 26.1.2 | Production: GeckoLib: run. | None |
+
+On 1.20.1 and 26.1.2 the other integrations are removed: they would need rewriting and could not be tested there.
+
+Not checked on any target: the look of real shader packs, real multiplayer recording on the new targets, and a real
+launcher (CurseForge, Modrinth App, Prism). Everything ran on Windows, on one machine and GPU; macOS is untested. A
+screenshot was read for Fabric 1.21.1, Forge 1.21.1, NeoForge 26.1.2 and Forge 1.20.1 and looked right.
+
+Reference pack for the NeoForge 1.21.1 target: **Arcadia V2** (444 mods). Just Replay must record, play back, edit and
 export with every mod of this pack installed. Most mods work for free because recording captures every
 clientbound packet, custom payloads included. The mods below need dedicated work, ordered by risk.
 
@@ -27,6 +56,16 @@ Every integration is optional: it is reached by reflection or by optional mixins
 | **Create** (Flywheel, Ponder) | Create's animation clock (`AnimationTickHolder`) and the level renderer clock read by Flywheel's shaders are set to the replay cursor: kinetic visuals stop with the replay, follow its speed and show the same angles after a seek and in exports. The train network packets (track graphs, edge groups, trains, roll calls), sent once per connection, are kept and written again in every snapshot and checkpoint. Contraptions keep their original spawn packets through the existing spawn cache; block entity data travels in chunk packets. | Clock tested in the Arcadia pack (the counter equals the cursor, stays still while paused). Trains and moving contraptions untested. |
 | **Mekanism** | Machines are block entities synced by update packets and chunk data: no dedicated code. | Machine placed in the self test, no error in the log; visuals not inspected. |
 | **Distant Horizons** | The distant terrain (LODs) of the recorded world shows in replays and exports. While recording, the DH level folder of each visited dimension (`IDhApiLevelWrapper.getDhSaveFolder()`, holding `DistantHorizons.sqlite`: `saves/<world>/data`, `saves/<world>/DIM-1/data`... in singleplayer, `Distant_Horizons_server_data/<server>/<dimension>` on a server) is written to `meta.json` (`distantHorizons`, relative to the game folder). When the replay opens, those databases are copied once to `justreplay/dh-session` (DH never opens the originals), and a save structure override (`IDhApiSaveStructure`, only for folders inside the replay world) points the replay world's levels at the copies. The DH world is set read only when its first level loads, before DH opens the database, so neither the void host chunks nor the replayed chunks change the LODs; distant generation is turned off with an API override. The copies are deleted once the replay world has closed. Without a copy (option `playback.distantHorizonsLods` off, recording made before this, missing database, database above `distantHorizonsMaxCopyMb`) LOD rendering is turned off for the replay as before. | Previous version (LODs off) tested with DH 3.3.3. LODs in replays: compiled against DH's public API names, not yet tested in game. |
+| **GeckoLib** | GeckoLib's render clock and the tick its models read follow the replay: animated mobs, block entities, items, armor and textures hold while paused, follow the speed and advance by the exact frame time in an export. The clock never goes back after a seek, since a clock going back holds animations at 0. | Run by the self test on the targets above. On 26.1.2 it is GeckoLib 5. |
+| **Curios** | A full sync is sent only when an entity starts being tracked, and later changes are slot deltas. Snapshots and checkpoints therefore write the worn items of every entity, so a recording started mid-session and seeks show them. | Run on NeoForge 1.21.1. Loaded with its check skipped on Forge 1.20.1. Read on NeoForge 1.20.1. |
+| **Iron's Spellbooks** | The recording player's cast packets are written for its actor, and snapshots and checkpoints carry cast state. Packets aimed at the receiving client's own player (mana, cooldowns, cast state, motion) are dropped, as are serverbound ones. | Run on NeoForge 1.21.1 only. |
+| **Iris** | The frame time and frame counter seconds of shader packs are set from the replay clock: paused with the replay, at its speed, and the same at a given tick in every export. | Clock run by the self test. No human has looked at the result with real shader packs. |
+| **Entity Culling** | The mod's global switch is saved, forced off during a replay (again every tick, so its key cannot bring it back) and restored at the end, since its culling thread uses wall clock time and would make exports differ. Replays with many entities can run slower. | Run on NeoForge, Fabric and Forge 1.21.1, Forge 1.20.1, NeoForge and Fabric 26.1.2. Read on Fabric 1.20.1. |
+| **Exposure** | Photographs the client holds are written in snapshots and checkpoints. Recorded capture, export and shader packets, which would act on the viewer's game and disk, are dropped; requests to the replay host are blocked. | Run on NeoForge and Fabric 1.21.1. |
+| **Accessories** | Slot definitions and worn accessories are written in snapshots and checkpoints, wrapped as the mod's own channel messages. Without the definitions, a fresh game would put every accessory in its invalid list. | Run on NeoForge and Fabric 1.21.1 on the player. Accessories on mobs not exercised. Beta mod. |
+| **Jade** | With the clean HUD on, the tooltip is not computed during a replay and its requests never reach the replay host. A recorded packet that would rewrite the viewer's Jade settings is dropped. | Run on NeoForge and Fabric 1.21.1, Forge 1.20.1, NeoForge and Fabric 26.1.2. Read on NeoForge and Fabric 1.20.1. |
+| **Immersive Paintings** | The painting list and the images in use are written in snapshots and checkpoints, as the payloads the server would send. Deletions are removed from recorded lists, so a replay never deletes the viewer's cache file. | Run on NeoForge and Fabric 1.21.1. |
+| **Immersive Aircraft** | An aircraft asks the server for its equipment once. Snapshots and checkpoints write its slots, and its requests to the replay host are blocked. | Loaded with no error on NeoForge and Fabric 1.21.1. No aircraft in the scene: its behaviour was not exercised. |
 | **Bobby** | Bobby reports itself disabled while a replay runs (no cached chunks, nothing saved). | Unchanged. |
 | **Drop the Beam** | Lights, beams, moving heads, haze and particles follow the level game time and need nothing. Everything that follows a song (music, light desk cues, video screens, sound reactive signals) follows the server clock as `ServerClock` estimates it. **Clock:** the recorded `clock_pong` packets plus a clock sample the recorder writes every 2 s (a pong carrying a marker, with the server instant the recording client estimated) map each recorded tick to the server instant; they are read ahead in the background when a replay opens and while playing. During a replay `ServerClock` answers with that mapping at the frame's replay time (cursor and partial tick): it stops with the replay, follows its speed and jumps with seeks. Recorded pongs never reach Drop the Beam; its pings and requests are not sent to the replay host; its "pause with the single-player game" logic is off during a replay. **Recording:** the latest music state, mix and layers per turntable, song offers and analyses, shows per desk, features and libraries are kept per connection and written into every snapshot and checkpoint, so a recording started mid-session plays the music already running. **Live audio:** fed silence while the replay is paused, away from x1 (songs are rendered at their natural pitch) or its game sounds are muted; its volume follows the project's game volume and ducking. **Export:** its audio thread renders nothing during an export; every voice is rendered offline for each frame with the clock pinned to that frame, attenuated (linear to its range, jukebox volume) and panned relative to the camera, then mixed as a game sound (game volume, mute, ducking). **Song starts:** `DropTheBeamCompat.songStartTicks()` gives the replay tick (with decimals) where each song is heard from its start, and each repeat of a song looping on its own; they are logged as `Drop the Beam: turntable ... starts "title" at replay tick ...`. | Compiled against Drop the Beam 0.1.0 sources, not yet tested in game. |
 
@@ -75,6 +114,22 @@ Every integration is optional: it is reached by reflection or by optional mixins
   dimension's database once (time and disk writes grow with its size; `distantHorizonsMaxCopyMb` caps it). The
   instant replay buffer notes only the dimension the player is in when the clip is saved. LODs load from the copy
   in the background: the first seconds of an export may show them popping in (raise `export.warmupFrames`).
+
+### Known limits of the targets
+
+- All Fabric: the clean HUD cannot hide other mods' HUD callbacks on 1.20.1 and 1.21.1. No key modifiers. No settings
+  button without Mod Menu.
+- Forge 1.21.1 and 26.1.2: the text shadow toggle has no effect, since Forge's text field has no such option.
+- 1.20.1: pause and slow motion are rebuilt without a vanilla tick rate manager (they passed the self test). Ogg audio
+  files over 2 channels are refused. The editor timeline has no horizontal wheel scroll. Screens show dirt instead of
+  the panorama.
+- 26.1.2: the section buffer guard is removed, the spawn chunk radius rule is dropped, and GeckoLib spawn animations
+  likely do not play in replays.
+- A recording opens only on the Minecraft version and the loader it was made on.
+- GeckoLib: animations triggered before a recording start or a seek target are not restored, and looping idle phases
+  can differ after a backward seek.
+- Iris and Entity Culling: exports with shader packs still need a look by a person. Entity Culling off can slow down
+  replays with many entities.
 
 ### Tier 1: rendering pipeline (blocking for playback and export)
 
@@ -134,7 +189,38 @@ in the exported HUD.
 
 ## Français
 
-Pack de référence : **Arcadia V2** (444 mods, NeoForge 1.21.1). Just Replay doit enregistrer, relire,
+Just Replay 1.1.0 tourne sur neuf cibles : Minecraft 1.20.1, 1.21.1 et 26.1.2 sur NeoForge, Forge et Fabric.
+
+### État par cible
+
+Vocabulaire. **Testé** veut dire que le test automatique l'a exécuté et que ses vérifications passent. **Chargé** veut
+dire que le mod était dans le test sans erreur, mais que son comportement n'a pas été exercé. **Lu** veut dire que
+l'intégration a seulement été lue d'après le build du mod et qu'elle est active dans `CompatTargets.java` : rien n'a
+été exécuté. « Production » désigne le vrai jar dans un client hors ligne, hors environnement de développement et sans
+launcher.
+
+Le test automatique passe avec 0 échec sur les neuf cibles, en client de développement et avec le jar de production.
+
+| Cible | Mods dans le test automatique | Actives mais seulement lues |
+|---|---|---|
+| NeoForge 1.21.1 | Développement : GeckoLib, Mowzie's Mobs, Curios, Iron's Spellbooks, Iris, Sodium, Entity Culling, Exposure, Accessories, Jade, Immersive Paintings : testés. Immersive Aircraft : chargé (aucun appareil dans la scène). Accessories sur les mobs non exercé. | Les anciennes intégrations gardent l'état écrit plus bas. |
+| Fabric 1.21.1 | Production : GeckoLib, Entity Culling, Iris, Sodium, Jade, Exposure, Accessories, Immersive Paintings : testés. Immersive Aircraft : chargé. | Armourer's Workshop, Better Combat, Bobby, Distant Horizons, Emotecraft, Pehkui, Player Animator, Sable, WaterFrames |
+| Forge 1.21.1 | Production : GeckoLib, Entity Culling : testés. | Aucune |
+| NeoForge 1.20.1 | Aucun mod tiers. | Curios, GeckoLib, Jade |
+| Forge 1.20.1 | Production : GeckoLib, Jade, Entity Culling : testés. Curios : chargé (pas d'anneau, vérification sautée). | Aucune |
+| Fabric 1.20.1 | Aucun mod tiers. | Entity Culling, GeckoLib, Jade |
+| NeoForge 26.1.2 | Production : GeckoLib, Iris, Sodium, Jade, Entity Culling : testés. | Aucune |
+| Fabric 26.1.2 | Production : GeckoLib, Iris, Sodium, Jade, Entity Culling : testés. | Aucune |
+| Forge 26.1.2 | Production : GeckoLib : testé. | Aucune |
+
+En 1.20.1 et 26.1.2, les autres intégrations sont retirées : il faudrait les réécrire et elles n'étaient pas testables.
+
+Vérifié sur aucune cible : le rendu de vrais shader packs, un vrai enregistrement multijoueur sur les nouvelles cibles,
+un vrai launcher (CurseForge, Modrinth App, Prism). Tout a tourné sous Windows, sur une seule machine et une seule carte
+graphique ; macOS n'est pas testé. Une capture a été lue pour Fabric 1.21.1, Forge 1.21.1, NeoForge 26.1.2 et Forge
+1.20.1 et semblait correcte.
+
+Pack de référence pour la cible NeoForge 1.21.1 : **Arcadia V2** (444 mods). Just Replay doit enregistrer, relire,
 éditer et exporter avec tous les mods de ce pack installés. La plupart des mods fonctionnent sans travail
 spécifique, car l'enregistrement capture tous les paquets reçus par le client, y compris les paquets
 personnalisés. Les mods ci-dessus demandent un traitement dédié, classés par niveau de risque :
@@ -303,6 +389,27 @@ fait rien quand le mod est absent. Le code se trouve dans `com.vyrriox.justrepla
   corde connue du client, après les sous-niveaux pour que les blocs porteurs existent.
   Lignes du journal au démarrage : `Sable detected: ...`, `Simulated detected: ...`. Compilé (par réflexion) pour Sable 2.0.6 et Create
   Aeronautics 1.3.2, pas encore testé en jeu.
+
+- **GeckoLib** : l'horloge de rendu de GeckoLib et le tick lu par ses modèles suivent le replay : mobs, blocs, objets, armures et textures animés se figent en pause, suivent la vitesse et avancent du temps exact de l'image en export. Testé par le test automatique sur les cibles du tableau ; en 26.1.2 c'est GeckoLib 5.
+- **Curios** : les instantanés et points de reprise écrivent les objets portés de chaque entité. Testé sur NeoForge 1.21.1 ; chargé avec sa vérification sautée sur Forge 1.20.1 ; seulement lu sur NeoForge 1.20.1.
+- **Iron's Spellbooks** : les paquets de sorts du joueur enregistré sont écrits pour son acteur, et les instantanés et points de reprise gardent l'état d'incantation. Les paquets visant le joueur du client qui les reçoit (mana, recharges, poussées) et ceux vers le serveur sont bloqués. Testé sur NeoForge 1.21.1 seulement.
+- **Iris** : le temps des shader packs vient de l'horloge du replay, figé en pause, à sa vitesse et identique à un tick donné dans chaque export. Horloge testée ; personne n'a regardé le résultat avec de vrais shader packs.
+- **Entity Culling** : l'interrupteur global du mod est sauvé, forcé à l'arrêt pendant un replay (à chaque tick, sa touche ne peut donc pas le remettre) et rétabli à la fin. Un replay avec beaucoup d'entités peut être plus lent. Testé sur NeoForge, Fabric et Forge 1.21.1, Forge 1.20.1, NeoForge et Fabric 26.1.2 ; seulement lu sur Fabric 1.20.1.
+- **Exposure** : les photos que le client détient sont écrites dans les instantanés et points de reprise. Les paquets enregistrés de capture, d'export et de shader sont ignorés, les demandes au serveur du replay bloquées. Testé sur NeoForge et Fabric 1.21.1.
+- **Accessories** : les définitions d'emplacements et les accessoires portés sont écrits dans les instantanés et points de reprise. Testé sur NeoForge et Fabric 1.21.1 sur le joueur ; accessoires sur les mobs non exercés. Mod en bêta.
+- **Jade** : avec le HUD propre, l'infobulle n'est pas calculée pendant un replay et ses demandes n'atteignent pas le serveur du replay. Un paquet enregistré qui réécrirait les réglages Jade est ignoré. Testé sur NeoForge et Fabric 1.21.1, Forge 1.20.1, NeoForge et Fabric 26.1.2 ; seulement lu sur NeoForge et Fabric 1.20.1.
+- **Immersive Paintings** : la liste des tableaux et les images utilisées sont écrites dans les instantanés et points de reprise ; les suppressions sont retirées des listes enregistrées, un replay n'efface donc jamais le cache de celui qui regarde. Testé sur NeoForge et Fabric 1.21.1.
+- **Immersive Aircraft** : les instantanés et points de reprise écrivent l'équipement d'un appareil, et ses demandes au serveur du replay sont bloquées. Chargé sans erreur sur NeoForge et Fabric 1.21.1 ; aucun appareil dans la scène, son comportement n'a pas été exercé.
+
+Limites connues des cibles : sur tout Fabric, le HUD propre ne peut pas masquer les HUD des autres mods en 1.20.1 et
+1.21.1, pas de modificateurs de touches, pas de bouton de réglages sans Mod Menu. Sur Forge 1.21.1 et 26.1.2,
+l'option d'ombre du texte n'a pas d'effet. En 1.20.1, la pause et le ralenti sont reconstruits sans gestionnaire de
+tick rate vanilla (ils passent le test), les fichiers Ogg de plus de 2 canaux sont refusés, la timeline de l'éditeur n'a
+pas de défilement horizontal à la molette, et les écrans montrent de la terre au lieu du panorama. En 26.1.2, la garde
+du tampon de sections est retirée, la règle du rayon de chunks d'apparition est abandonnée, et les animations
+d'apparition de GeckoLib ne se jouent probablement pas dans les replays. Un enregistrement ne s'ouvre que sur la version
+de Minecraft et le loader où il a été fait. Les animations GeckoLib déclenchées avant le début d'un enregistrement ou
+la cible d'un saut ne sont pas restaurées, et la phase des boucles peut différer après un saut en arrière.
 
 Limites connues : un bloc modifié dans le tick exact où un enregistrement démarre en cours de partie peut
 manquer ; en export, une vidéo WaterFrames peut avoir quelques images de retard ; les trains de Create dans un

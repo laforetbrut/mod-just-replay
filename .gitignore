@@ -29,6 +29,15 @@ TEST_PROCEDURE_*.html
 
 # Page images: recording folder, script caches, generated pictures (hosted in Team-Arcadia/images)
 run-*/
+
+# Jars gathered by tools/collect_jars.sh
+jars/
 __pycache__/
 images/*
 !images/tools/
+
+# Local run folders of the loader projects
+*/run-compat/
+
+# Scratch folders of port tasks
+_temp/

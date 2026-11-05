@@ -3,9 +3,31 @@
 # Just Replay
 
 Record, replay and edit your Minecraft sessions, with a cinematic editor and video export.
-NeoForge 1.21.1, client side. Author: vyrriox. License: Apache-2.0.
+Version 1.1.0, client side. Minecraft 1.20.1, 1.21.1 and 26.1.2 on NeoForge, Forge and Fabric. Author: vyrriox.
+License: Apache-2.0.
 
 ## English
+
+### Supported targets
+
+Pick the jar of your Minecraft version and loader: `justreplay-<loader>-<minecraft version>-1.1.0.jar`. On Fabric,
+Fabric API is needed. A recording opens only on the Minecraft version and the loader it was made on.
+
+| Target | Integrations enabled |
+|---|---|
+| NeoForge 1.21.1 | Accessories, Armourer's Workshop, Better Combat, Bobby, Create, Create Aeronautics, Curios, Custom NPCs, Distant Horizons, Drop the Beam, Emotecraft, Entity Culling, Epic Fight, Exposure, GeckoLib, Immersive Aircraft, Immersive Paintings, Iris, Iron's Spellbooks, Jade, Morph, ParCool, Pehkui, Player Animator, Sable, Simulated, WaterFrames |
+| Fabric 1.21.1 | Accessories, Armourer's Workshop, Better Combat, Bobby, Distant Horizons, Emotecraft, Entity Culling, Exposure, GeckoLib, Immersive Aircraft, Immersive Paintings, Iris, Jade, Pehkui, Player Animator, Sable, WaterFrames |
+| Forge 1.21.1 | Entity Culling, GeckoLib |
+| NeoForge 1.20.1 | Curios, GeckoLib, Jade |
+| Forge 1.20.1 | Curios, Entity Culling, GeckoLib, Jade |
+| Fabric 1.20.1 | Entity Culling, GeckoLib, Jade |
+| NeoForge 26.1.2 | Entity Culling, GeckoLib, Iris, Jade |
+| Fabric 26.1.2 | Entity Culling, GeckoLib, Iris, Jade |
+| Forge 26.1.2 | GeckoLib |
+
+The list comes from `CompatTargets.java` of each `common/<minecraft version>/`. An enabled integration is not
+always a tested one: [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) says what was run, what was only read, and the
+known limits of each target.
 
 ### Features
 
@@ -14,7 +36,8 @@ NeoForge 1.21.1, client side. Author: vyrriox. License: Apache-2.0.
   or enable auto recording in the config. The recording player is saved too (position, look, pose,
   equipment, swings, scale and other attributes).
 - **Playback**: free spectator camera, play and pause, speed from x0.1 to x8, seek forward and backward,
-  jump to the recording player's point of view. Pause and speed go through the vanilla tick rate, so every
+  jump to the recording player's point of view. Pause and speed go through the vanilla tick rate (rebuilt by the
+  mod on 1.20.1), so every
   entity and modded renderer follows the replay clock.
 - **Editor** (key **G**): timeline with markers, camera keyframes and actor keyframes, drag keyframes to
   retime them, smooth Catmull-Rom camera path with roll and field of view.
@@ -104,23 +127,28 @@ NeoForge 1.21.1, client side. Author: vyrriox. License: Apache-2.0.
 - Audio files (OGG, WAV): `.minecraft/justreplay/audio/`
 - LUT images (PNG, 1024x32 strip or 512x512 grid): `.minecraft/justreplay/luts/`
 - Overlay images (PNG, JPG): `.minecraft/justreplay/images/`
+- Settings: `.minecraft/config/justreplay-client.json` (imported once from the old `justreplay-client.toml`, which stays on disk; a hand edit needs a game restart)
 
 Video export needs [FFmpeg](https://ffmpeg.org/download.html). Set its path in the export screen if it is
 not on the `PATH`.
 
 ### Building
 
+There is no root build: each target is its own Gradle project with its own wrapper. From a target folder:
+
 ```bash
-./gradlew build
+cd neoforge-1.21.1
+./gradlew build --no-build-cache
 ```
 
-The jar is written to `build/libs/`. `./gradlew runClient -Pselftest` runs an automated record, replay,
-edit and export test in a development client.
+The jar is written to `build/libs/`. `./gradlew runClient -Pselftest`, from a target folder, runs an automated
+record, replay, edit and export test in a development client. Toolchains, the production self test and the branch
+model are in [docs/BUILDING.md](docs/BUILDING.md); how to take part is in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### Scene jobs
 
 A development client can run a job file unattended, for tools that make footage of a mod: several
-recordings, replays, screenshots and exports in one launch, then the game quits.
+recordings, replays, screenshots and exports in one launch, then the game quits. Run it from a target folder.
 
 ```bash
 ./gradlew runClient -Pjob=/absolute/path/to/job.json
@@ -172,10 +200,32 @@ step n/m: <reason>` and the game quits; a full run logs `SCENE job finished`. Th
 
 Apache License 2.0, see `LICENSE` and `NOTICE`. The jar bundles no third-party code. FFmpeg is an external
 program you install yourself; Just Replay only starts it for video export. Optional integrations (Simple
-Voice Chat, Distant Horizons, Emotecraft, ParCool, Better Combat, Morph, Pehkui, Custom NPCs, Armourer's Workshop, Epic Fight, WaterFrames, Create, Sable, Create Aeronautics, Drop the Beam, Bobby, Iris) work through those mods'
+Voice Chat, Distant Horizons, Emotecraft, ParCool, Better Combat, Morph, Pehkui, Custom NPCs, Armourer's Workshop, Epic Fight, WaterFrames, Create, Sable, Create Aeronautics, Drop the Beam, Bobby, Iris, GeckoLib, Curios, Iron's Spellbooks, Entity Culling, Exposure, Accessories, Jade, Immersive Paintings, Immersive Aircraft) work through those mods'
 classes and APIs and include none of their code. Not affiliated with Mojang or Microsoft.
 
 ## Français
+
+### Cibles prises en charge
+
+Choisir le jar de sa version de Minecraft et de son loader : `justreplay-<loader>-<version de minecraft>-1.1.0.jar`.
+Sur Fabric, Fabric API est nécessaire. Un enregistrement ne s'ouvre que sur la version de Minecraft et le loader où
+il a été fait.
+
+| Cible | Intégrations actives |
+|---|---|
+| NeoForge 1.21.1 | Accessories, Armourer's Workshop, Better Combat, Bobby, Create, Create Aeronautics, Curios, Custom NPCs, Distant Horizons, Drop the Beam, Emotecraft, Entity Culling, Epic Fight, Exposure, GeckoLib, Immersive Aircraft, Immersive Paintings, Iris, Iron's Spellbooks, Jade, Morph, ParCool, Pehkui, Player Animator, Sable, Simulated, WaterFrames |
+| Fabric 1.21.1 | Accessories, Armourer's Workshop, Better Combat, Bobby, Distant Horizons, Emotecraft, Entity Culling, Exposure, GeckoLib, Immersive Aircraft, Immersive Paintings, Iris, Jade, Pehkui, Player Animator, Sable, WaterFrames |
+| Forge 1.21.1 | Entity Culling, GeckoLib |
+| NeoForge 1.20.1 | Curios, GeckoLib, Jade |
+| Forge 1.20.1 | Curios, Entity Culling, GeckoLib, Jade |
+| Fabric 1.20.1 | Entity Culling, GeckoLib, Jade |
+| NeoForge 26.1.2 | Entity Culling, GeckoLib, Iris, Jade |
+| Fabric 26.1.2 | Entity Culling, GeckoLib, Iris, Jade |
+| Forge 26.1.2 | GeckoLib |
+
+La liste vient de `CompatTargets.java` de chaque `common/<version de minecraft>/`. Une intégration active n'est pas
+toujours testée : [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) dit ce qui a été exécuté, ce qui a seulement été
+lu, et les limites connues de chaque cible.
 
 ### Fonctionnalités
 
@@ -185,7 +235,7 @@ classes and APIs and include none of their code. Not affiliated with Mojang or M
   sauvegardé (position, regard, posture, équipement, coups, taille et autres attributs).
 - **Lecture** : caméra libre en spectateur, lecture et pause, vitesse de x0,1 à x8, saut en avant et en
   arrière, retour au point de vue du joueur enregistré. La pause et la vitesse passent par le tick rate
-  vanilla, donc toutes les entités et les rendus des mods suivent l'horloge du replay.
+  vanilla (reconstruit par le mod en 1.20.1), donc toutes les entités et les rendus des mods suivent l'horloge du replay.
 - **Éditeur** (touche **G**) : timeline avec marqueurs, keyframes de caméra et d'acteurs, keyframes
   déplaçables à la souris, chemin de caméra lissé (Catmull-Rom) avec roulis et champ de vision.
 - **Outils de timeline** : insérer ou retirer du temps à la tête de lecture pour décaler tout le montage qui
@@ -274,23 +324,31 @@ Voir le tableau de la section anglaise. Toutes les touches se changent dans Opti
 - Fichiers audio (OGG, WAV) : `.minecraft/justreplay/audio/`
 - Images LUT (PNG, bande 1024x32 ou grille 512x512) : `.minecraft/justreplay/luts/`
 - Images des overlays (PNG, JPG) : `.minecraft/justreplay/images/`
+- Réglages : `.minecraft/config/justreplay-client.json` (importés une fois depuis l'ancien `justreplay-client.toml`, qui reste sur le disque ; une modification à la main demande de redémarrer le jeu)
 
 L'export vidéo demande [FFmpeg](https://ffmpeg.org/download.html). Indiquer son chemin dans l'écran
 d'export s'il n'est pas dans le `PATH`.
 
 ### Compilation
 
+Il n'y a pas de build à la racine : chaque cible est un projet Gradle avec son propre wrapper. Depuis le dossier
+d'une cible :
+
 ```bash
-./gradlew build
+cd neoforge-1.21.1
+./gradlew build --no-build-cache
 ```
 
-Le jar est créé dans `build/libs/`. `./gradlew runClient -Pselftest` lance un test automatique complet
-(enregistrement, lecture, édition, export) dans un client de développement.
+Le jar est créé dans `build/libs/`. `./gradlew runClient -Pselftest`, depuis le dossier d'une cible, lance un test
+automatique complet (enregistrement, lecture, édition, export) dans un client de développement. Les outils, le test
+en production et le modèle de branches sont dans [docs/BUILDING.md](docs/BUILDING.md) ; pour participer, voir
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### Tâches de scène
 
 Un client de développement peut dérouler seul un fichier de tâche, pour les outils qui filment un mod :
-plusieurs enregistrements, replays, captures et exports en un seul lancement, puis le jeu se ferme.
+plusieurs enregistrements, replays, captures et exports en un seul lancement, puis le jeu se ferme. À lancer depuis
+le dossier d'une cible.
 
 ```bash
 ./gradlew runClient -Pjob=/chemin/absolu/vers/job.json
@@ -331,5 +389,5 @@ Chaque étape est écrite dans le log avec le préfixe `SCENE`, pour qu'un outil
 
 Licence Apache 2.0, voir `LICENSE` et `NOTICE`. Le jar n'embarque aucun code tiers. FFmpeg est un programme
 externe que tu installes toi-même ; Just Replay ne fait que le lancer pour l'export vidéo. Les intégrations
-optionnelles (Simple Voice Chat, Distant Horizons, Emotecraft, ParCool, Better Combat, Morph, Pehkui, Custom NPCs, Armourer's Workshop, Epic Fight, WaterFrames, Create, Sable, Create Aeronautics, Drop the Beam, Bobby, Iris) passent par les
+optionnelles (Simple Voice Chat, Distant Horizons, Emotecraft, ParCool, Better Combat, Morph, Pehkui, Custom NPCs, Armourer's Workshop, Epic Fight, WaterFrames, Create, Sable, Create Aeronautics, Drop the Beam, Bobby, Iris, GeckoLib, Curios, Iron's Spellbooks, Entity Culling, Exposure, Accessories, Jade, Immersive Paintings, Immersive Aircraft) passent par les
 classes et API de ces mods et n'incluent aucun de leur code. Projet non affilié à Mojang ou Microsoft.
