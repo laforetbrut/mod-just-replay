@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Copies the mod jar of every target into jars/<mod version>/ at the repository root (a local
-# folder, not in git): jars/2.0.0/, jars/2.0.1/... so the jars of earlier versions are kept.
+# folder, not in git): jars/1.1.0/, jars/1.1.1/... so the jars of earlier versions are kept.
 # Run it after building: "./gradlew build" in each target folder, or pass --build to build them all
 # first.
 #
@@ -17,7 +17,7 @@ for dir in */; do
     fi
     if [ "${1:-}" = "--build" ]; then
         echo "== building $target"
-        (cd "$target" && ./gradlew build --console=plain -q)
+        (cd "$target" && ./gradlew build --no-build-cache --console=plain -q)
     fi
     # The version of this target decides the folder, and which jar of build/libs is the current one.
     version=$(sed -n 's/^mod_version=//p' "$target/gradle.properties" | tr -d '\r' | head -n 1)

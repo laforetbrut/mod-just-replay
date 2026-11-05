@@ -119,3 +119,31 @@
 **Root cause:** MixinGradle writes the refmap outside the declared outputs of `compileJava`, so a cache hit restores the classes only. Dev runs do not read the jar and hide it.
 **Fix:** `outputs.cacheIf { false }` on `compileJava` in `forge-1.20.1/build.gradle`.
 **Prevention:** after a build of a mixin jar meant for release or a production run, read the refmap in the jar and check it holds SRG names.
+
+## [2026-11-05 19:55] — Replays on 1.20.1 end after about 32 seconds
+**Context:** first self test replays on the 1.20.1 targets.
+**Error:** every replay closed about 32 seconds in, with a keep alive timeout on the replay host.
+**Root cause:** the client ignores everything the replay host sends, keep alive packets included, and 1.20.1 also times out the singleplayer owner (later versions do not). The host kicked the camera player, which stopped the host and ended the replay.
+**Fix:** new `HostKeepAliveMixin` in `common/1.20.1`: the keep alive challenge is never due on the replay host, as later versions do for the owner.
+**Prevention:** on a backport, keep the self test replay running longer than every server side timeout, and read what the older version does for the singleplayer owner.
+
+## [2026-11-05 19:56] — Mixin descriptors valid on one version fail only at class load
+**Context:** porting the shared mixins to 1.20.1 and 26.1.2, where method signatures of the game and of other mods differ.
+**Error:** the project compiled; the wrong target or descriptor only showed when the target class loaded, in a launched game.
+**Root cause:** the compiler does not check `@Inject` targets written as strings, and `require = 0` mixins fail silently, so a descriptor copied from 1.21.1 stays valid Java.
+**Fix:** a one-off local checker compared every mixin target with the real jar of each target, and the mixins were aligned (`515c186`, `40084e3`). The checker is not committed.
+**Prevention:** verify every mixin target against the real jar of the target before launching. A compile says nothing about them, and a dev run does not exercise a refmap.
+
+## [2026-11-05 19:57] — getLoadingModList is an instance method on FML 11
+**Context:** `EarlyMods` in `common/26.1.2`, which reads the mod list while mixins are selected, carried from 1.21.1.
+**Error:** the reflective `FMLLoader.getLoadingModList` call with a null target fails on the 26.1.2 NeoForge loader, because it is no longer static. Exact message not kept.
+**Root cause:** FML 11 turned `getLoadingModList` into an instance method. Reflection hides that from the compiler.
+**Fix:** read the list through `LoadingModList.get()` on NeoForge, and `LoadingModList.getModFileById` on Forge (`40084e3`).
+**Prevention:** reflection on a loader API is re-read against the loader jar on every target, as for mixins; it never fails at compile time.
+
+## [2026-11-05 19:58] — Mixed sound silent on Fabric, unseen by any self test
+**Context:** reading the audio of the Fabric 1.21.1 and 1.20.1 production jars.
+**Error:** no error and no failed check: `MixSoundInstance` and `ScaledSoundInstance` simply made no sound on Fabric.
+**Root cause:** Fabric API's sound API calls `getAudioStream` on a sound instance, and these classes only overrode the vanilla stream method. The self test checks states and clocks, not what comes out of the speakers.
+**Fix:** both classes declare `getAudioStream`, with the wrapped instance's own method reached by reflection where it exists (`c9b335f`, `bf5e032`).
+**Prevention:** a custom `SoundInstance` must be read against Fabric API's sound API on every Fabric target. A passing self test proves nothing about audible output: listen, or add a check on the stream actually requested.

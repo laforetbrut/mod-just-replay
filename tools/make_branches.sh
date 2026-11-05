@@ -23,7 +23,7 @@ fi
 
 MAIN=$(git rev-parse --verify refs/heads/main)
 # Shared files copied to every branch when they exist on main.
-SHARED=(LICENSE README.md CHANGELOG.md CONTRIBUTING.md SECURITY.md CODE_OF_CONDUCT.md .gitignore .gitattributes .github docs)
+SHARED=(LICENSE NOTICE README.md CHANGELOG.md CONTRIBUTING.md SECURITY.md CODE_OF_CONDUCT.md .gitignore .gitattributes .github docs)
 
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT

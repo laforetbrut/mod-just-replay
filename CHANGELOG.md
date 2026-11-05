@@ -1,5 +1,81 @@
 # Changelog
 
+## [1.1.0]
+
+### Added
+- **Nine targets**: Just Replay now runs on Minecraft 1.20.1, 1.21.1 and 26.1.2, each on NeoForge, Forge and Fabric. The available integrations differ per target: see the table in `README.md` and the status in `docs/COMPATIBILITY.md`.
+- **GeckoLib**: animated mobs, block entities, items and armor follow the replay clock. They hold while paused, follow the speed, and move by the exact time of each frame in an export. Animations triggered before a recording start or a seek target are not restored.
+- **Curios**: worn items are written in snapshots and checkpoints, so they show in a recording started mid-session and after a seek.
+- **Iron's Spellbooks**: the recording player's casts play on its actor, its cast state is kept in snapshots, and what only concerns the recording player (mana, cooldowns, cast bar, motion) no longer lands on the replay camera.
+- **Iris**: shader time follows the replay clock, so water and wind stop on pause and a given tick gets the same shader time in every export. The result with real shader packs has not been looked at yet.
+- **Entity Culling**: switched off while a replay is open and restored afterwards, so entities no longer pop in late in the free camera or differently in each export. Replays with many entities can run slower.
+- **Exposure**: photographs are written in snapshots and checkpoints, so photos loaded before the recording show. A recorded capture, export or shader packet no longer acts on the viewer's game.
+- **Accessories**: slot definitions and worn accessories are written in snapshots and checkpoints, also for a replay opened in a fresh game.
+- **Jade**: the tooltip is hidden by the clean HUD and its requests stay out of the replay host. A recorded packet can no longer change the viewer's Jade settings.
+- **Immersive Paintings**: the painting list and the images in use are written in snapshots and checkpoints, so custom paintings show after a game restart. A recorded deletion can no longer delete the viewer's own cached file.
+- **Immersive Aircraft**: weapons, banners and dyed sails of an aircraft already in view at the start, or rebuilt by a seek, are written in snapshots and checkpoints. The self test loaded this mod with no aircraft in the scene, so this behaviour has not been run.
+
+### Changed
+- **Settings file**: settings move from `config/justreplay-client.toml` to `config/justreplay-client.json`. The old values are imported once and the old file stays on disk. A hand edit of the file needs a game restart. There is a new settings screen.
+- **Jar name**: jars are now named `justreplay-<loader>-<minecraft version>-<version>.jar`, for example `justreplay-fabric-1.21.1-1.1.0.jar`.
+- **Recordings per version**: a recording opens only on the Minecraft version and the loader it was made on. Another one is refused with a message instead of failing while playing.
+- **Repository layout**: `main` holds `common/<minecraft version>/` and one Gradle project per target. There is no root build any more. `docs/BUILDING.md` and `CONTRIBUTING.md` are new.
+- **Recorder log**: mod payloads that have no codec are counted in the log.
+
+### Fixed
+- **Replay closing right after opening**: a replay could close at once, now and then, with `Failed to decode packet`. Recorded registry ids were applied while packets of the replay host were still in flight. They are now applied once the host is silent and drained, and a channel fault is no longer taken for a recorded disconnect.
+- **Failed replay starts**: a replay that failed before login left the session stuck until a game restart, and an error during the start left the loading screen up for good. The game now returns to the previous screen with a message and cleans up.
+- **Damaged project.json**: an unreadable file was overwritten by an empty project at the next save. It is now kept aside as `project.json.bad-<time>` with a message, and null list entries are dropped on load.
+- **Checkpoints**: under 40 fps a checkpoint could take minutes, since it built about one chunk every 2 seconds. It now defers once and then keeps progressing on slow frames. Chunks the player leaves while flying are built just before the client unloads them, which removes the holes they left.
+- **Snapshots and seeks**: snapshots use the current chunk radius instead of the one at login, clear entity state that went back to default, and include maps. A backward seek clears tab list entries of later players, a recorded dimension change places the camera again instead of leaving it at the world origin, and differences in synced registries are reported at opening.
+- **Disk failures**: a failing disk stopped a recording silently and the toast still said saved. It now stops the recording with a message, and a stop that did not finish reports the recording as incomplete. Failed saves no longer leave a partial clip, a clip being written is not listed, and file handles and native memory are released on time.
+- **Mod packets in bundles**: one sub packet that fails to encode no longer loses the rest of its bundle, and the failure is logged under that sub packet.
+- **Undo**: undo could get stuck and redo be wiped when the restored state was normalized, walk and run actions moved their destination on undo, and one drag of a world slider could fill the whole history. Selecting a camera is no longer an undo step.
+- **Shortcuts**: editor shortcuts no longer fire while typing in a text field, where digits inserted cuts and Delete removed keyframes.
+- **Editor details**: a follow camera keeps its mob or model actor after a respawn, the "Whole replay" hide button hides a visible entity, scaled-up actors no longer vanish at the screen edge, ripple edits keep fades inside the clip and drop hide ranges that were removed, and a cut placed past a manual end moves that end.
+- **Export sound**: project clips were 50 ms ahead of the picture. Looping sounds now repeat, stopped sounds stop, records and loops started before the capture are kept, voices wait for their track to load, and the track is mixed in blocks so a long export does not hold it all in memory.
+- **Export endings**: an internal error on the finisher thread left an export without a result, a hung FFmpeg was never killed, a failed or cancelled export kept its partial file and took the name, and an audio failure was reported as a plain success. Each case now ends properly, and an export without sound says so.
+- **Mixed sound on Fabric**: speed-scaled and mixed sounds were silent on Fabric because its sound API calls a method these sound classes did not declare.
+- **Replay stopping on 1.20.1**: the replay host timed the camera player out about 32 seconds into any replay on this new target, which ended the replay.
+
+### Ajouts
+- **Neuf cibles** : Just Replay tourne maintenant sur Minecraft 1.20.1, 1.21.1 et 26.1.2, chacun sur NeoForge, Forge et Fabric. Les intégrations disponibles varient selon la cible : voir le tableau du `README.md` et l'état dans `docs/COMPATIBILITY.md`.
+- **GeckoLib** : les mobs, blocs, objets et armures animés suivent l'horloge du replay. Ils se figent en pause, suivent la vitesse et avancent du temps exact de chaque image en export. Les animations déclenchées avant le début d'un enregistrement ou la cible d'un saut ne sont pas restaurées.
+- **Curios** : les objets portés sont écrits dans les instantanés et points de reprise, ils s'affichent donc dans un enregistrement démarré en cours de partie et après un saut.
+- **Iron's Spellbooks** : les sorts du joueur enregistré se jouent sur son acteur, son état d'incantation est gardé dans les instantanés, et ce qui ne concerne que lui (mana, temps de recharge, barre d'incantation, poussées) n'arrive plus sur la caméra du replay.
+- **Iris** : le temps des shaders suit l'horloge du replay, l'eau et le vent s'arrêtent donc en pause et un même tick a le même temps de shader dans chaque export. Le résultat avec de vrais shader packs n'a pas encore été regardé.
+- **Entity Culling** : coupé pendant un replay puis rétabli, les entités n'apparaissent donc plus en retard en caméra libre ni différemment à chaque export. Un replay avec beaucoup d'entités peut être plus lent.
+- **Exposure** : les photos sont écrites dans les instantanés et points de reprise, celles chargées avant l'enregistrement s'affichent donc. Une capture, un export ou un paquet de shader enregistré n'agit plus sur le jeu de celui qui regarde.
+- **Accessories** : les définitions d'emplacements et les accessoires portés sont écrits dans les instantanés et points de reprise, aussi pour un replay ouvert dans une partie neuve.
+- **Jade** : l'infobulle est masquée par le HUD propre et ses demandes ne vont plus au serveur du replay. Un paquet enregistré ne peut plus changer les réglages Jade de celui qui regarde.
+- **Immersive Paintings** : la liste des tableaux et les images utilisées sont écrites dans les instantanés et points de reprise, les tableaux personnalisés s'affichent donc après un redémarrage du jeu. Une suppression enregistrée ne peut plus effacer le fichier en cache de celui qui regarde.
+- **Immersive Aircraft** : les armes, bannières et voiles teintes d'un appareil déjà visible au début, ou reconstruit par un saut, sont écrites dans les instantanés et points de reprise. Le test automatique a chargé ce mod sans appareil dans la scène : ce comportement n'a donc pas été exécuté.
+
+### Modifications
+- **Fichier de réglages** : les réglages passent de `config/justreplay-client.toml` à `config/justreplay-client.json`. Les anciennes valeurs sont importées une fois et l'ancien fichier reste sur le disque. Modifier le fichier à la main demande de redémarrer le jeu. Il y a un nouvel écran de réglages.
+- **Nom du jar** : les jars s'appellent maintenant `justreplay-<loader>-<version de minecraft>-<version>.jar`, par exemple `justreplay-fabric-1.21.1-1.1.0.jar`.
+- **Enregistrements par version** : un enregistrement ne s'ouvre que sur la version de Minecraft et le loader où il a été fait. Un autre est refusé avec un message au lieu d'échouer pendant la lecture.
+- **Organisation du dépôt** : `main` contient `common/<version de minecraft>/` et un projet Gradle par cible. Il n'y a plus de build à la racine. `docs/BUILDING.md` et `CONTRIBUTING.md` sont nouveaux.
+- **Journal de l'enregistreur** : les paquets de mods sans codec sont comptés dans le journal.
+
+### Correctifs
+- **Replay fermé juste après l'ouverture** : un replay pouvait se fermer aussitôt, de temps en temps, avec `Failed to decode packet`. Les identifiants de registres enregistrés étaient appliqués alors que des paquets du serveur du replay circulaient encore. Ils sont maintenant appliqués une fois ce serveur silencieux et vidé, et une panne du canal n'est plus prise pour une déconnexion enregistrée.
+- **Démarrages de replay ratés** : un replay qui échouait avant la connexion bloquait la session jusqu'au redémarrage du jeu, et une erreur au démarrage laissait l'écran de chargement affiché pour de bon. Le jeu revient maintenant à l'écran précédent avec un message et nettoie.
+- **project.json abîmé** : un fichier illisible était écrasé par un projet vide à la sauvegarde suivante. Il est maintenant gardé de côté sous le nom `project.json.bad-<heure>` avec un message, et les entrées nulles des listes sont retirées au chargement.
+- **Points de reprise** : sous 40 images par seconde, un point de reprise pouvait prendre plusieurs minutes, à environ un chunk toutes les 2 secondes. Il n'attend plus qu'une fois puis continue d'avancer sur les images lentes. Les chunks que le joueur quitte en volant sont construits juste avant que le client les décharge, ce qui retire les trous qu'ils laissaient.
+- **Instantanés et sauts** : les instantanés utilisent le rayon de chunks actuel et non celui de la connexion, effacent l'état d'entité revenu à sa valeur par défaut et contiennent les cartes. Un saut en arrière retire de la liste des joueurs ceux arrivés plus tard, un changement de dimension enregistré replace la caméra au lieu de la laisser à l'origine du monde, et les différences de registres synchronisés sont signalées à l'ouverture.
+- **Pannes de disque** : un disque en panne arrêtait un enregistrement sans rien dire et le message annonçait quand même la sauvegarde. L'enregistrement s'arrête maintenant avec un message, et un arrêt inachevé signale l'enregistrement comme incomplet. Les sauvegardes ratées ne laissent plus de clip partiel, un clip en cours d'écriture n'y apparaît pas, et les fichiers et la mémoire native sont libérés à temps.
+- **Paquets de mods dans les groupes** : un sous-paquet impossible à encoder ne fait plus perdre le reste de son groupe, et l'échec est noté au nom de ce sous-paquet.
+- **Annulation** : l'annulation pouvait rester bloquée et le rétablissement s'effacer quand l'état restauré était normalisé, les actions de marche et de course déplaçaient leur destination à l'annulation, et un seul glissement d'un curseur du monde pouvait remplir tout l'historique. Sélectionner une caméra n'est plus une étape d'annulation.
+- **Raccourcis** : les raccourcis de l'éditeur ne se déclenchent plus pendant la saisie dans un champ de texte, où les chiffres inséraient des coupes et Suppr retirait des keyframes.
+- **Détails de l'éditeur** : une caméra de suivi garde son acteur mob ou modèle après une réapparition, le bouton de masquage "Whole replay" masque une entité visible, les acteurs agrandis ne disparaissent plus au bord de l'écran, les éditions de temps gardent les fondus dans le clip et retirent les plages de masquage supprimées, et une coupe placée après une fin manuelle déplace cette fin.
+- **Son des exports** : les clips du projet avaient 50 ms d'avance sur l'image. Les sons en boucle se répètent maintenant, les sons arrêtés s'arrêtent, les disques et boucles démarrés avant la capture sont gardés, les voix attendent le chargement de leur piste, et la piste est mixée par blocs pour qu'un long export ne la garde pas entière en mémoire.
+- **Fins d'export** : une erreur interne sur le fil de fin laissait un export sans résultat, un FFmpeg bloqué n'était jamais arrêté, un export raté ou annulé gardait son fichier partiel et prenait le nom, et un échec audio était annoncé comme un simple succès. Chaque cas se termine maintenant proprement, et un export sans son le dit.
+- **Son mixé sur Fabric** : les sons à vitesse modifiée et mixés étaient muets sur Fabric, car son API de son appelle une méthode que ces classes ne déclaraient pas.
+- **Arrêt du replay en 1.20.1** : le serveur du replay déconnectait le joueur caméra environ 32 secondes après le début de tout replay sur cette nouvelle cible, ce qui terminait le replay.
+
+---
+
 ## English
 
 ### [Unreleased]
