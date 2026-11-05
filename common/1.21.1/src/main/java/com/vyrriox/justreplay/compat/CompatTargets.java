@@ -24,7 +24,7 @@ public final class CompatTargets {
             "fabric", Set.of("accessories", "armourers_workshop", "bettercombat", "bobby", "distanthorizons", "emotecraft",
                     "entityculling", "exposure", "geckolib", "immersive_aircraft", "immersive_paintings", "iris", "jade",
                     "pehkui", PLAYER_ANIMATOR, "sable", "waterframes"),
-            "forge", Set.of());
+            "forge", Set.of("entityculling", "geckolib"));
 
     private CompatTargets() {
     }
