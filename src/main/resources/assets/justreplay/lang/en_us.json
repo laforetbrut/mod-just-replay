@@ -39,6 +39,8 @@
   "justreplay.toast.started": "Recording started",
   "justreplay.toast.saved": "Replay saved",
   "justreplay.toast.failed": "Cannot start recording",
+  "justreplay.toast.disk_failed": "Recording stopped: the disk write failed. The replay is incomplete",
+  "justreplay.toast.incomplete": "Replay saved incompletely",
   "justreplay.toast.open_failed": "Cannot open this replay",
   "justreplay.toast.keyframe": "Camera keyframe added",
 

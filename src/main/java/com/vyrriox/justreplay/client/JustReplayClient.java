@@ -105,7 +105,7 @@ public final class JustReplayClient {
             }
             Path saved = Recorder.endCapture();
             if (saved != null) {
-                toast("justreplay.toast.saved", saved.getFileName().toString());
+                toast(Recorder.lastStopIncomplete() ? "justreplay.toast.incomplete" : "justreplay.toast.saved", saved.getFileName().toString());
             }
         }
 
@@ -292,7 +292,7 @@ public final class JustReplayClient {
         if (Recorder.isRecording()) {
             Path saved = Recorder.stop();
             if (saved != null) {
-                toast("justreplay.toast.saved", saved.getFileName().toString());
+                toast(Recorder.lastStopIncomplete() ? "justreplay.toast.incomplete" : "justreplay.toast.saved", saved.getFileName().toString());
             }
         } else if (Recorder.startManual()) {
             toast("justreplay.toast.started", "");
@@ -309,13 +309,14 @@ public final class JustReplayClient {
             case "justreplay.toast.cut" -> Icon.CUT;
             case "justreplay.export.cancelled" -> Icon.FILM;
             case "justreplay.editor.cam.not_path" -> Icon.CAMERA;
-            case "justreplay.toast.failed" -> Icon.CLOSE;
+            case "justreplay.toast.failed", "justreplay.toast.disk_failed", "justreplay.toast.incomplete" -> Icon.CLOSE;
             default -> Icon.CHECK;
         };
         int accent = switch (key) {
             case "justreplay.toast.started" -> Theme.RECORD;
             case "justreplay.toast.saved" -> Theme.SUCCESS;
-            case "justreplay.toast.failed", "justreplay.editor.cam.not_path" -> Theme.WARNING;
+            case "justreplay.toast.failed", "justreplay.toast.disk_failed", "justreplay.toast.incomplete",
+                 "justreplay.editor.cam.not_path" -> Theme.WARNING;
             default -> Theme.ACCENT;
         };
         GlassToast.show(icon, accent, Component.translatable(key), detail.isEmpty() ? null : Component.literal(detail));
@@ -381,11 +382,15 @@ public final class JustReplayClient {
         while (JRKeys.RECORD_NEXT.consumeClick()) {
             toggleTimedRecording();
         }
+        if (Recorder.recordingFailed()) {
+            Path failed = Recorder.stop();
+            toast("justreplay.toast.disk_failed", failed == null ? "" : failed.getFileName().toString());
+        }
         Recorder recorder = Recorder.active();
         if (recorder != null && recorder.timedRecordingFinished()) {
             Path saved = Recorder.stop();
             if (saved != null) {
-                toast("justreplay.toast.next_done", saved.getFileName().toString());
+                toast(Recorder.lastStopIncomplete() ? "justreplay.toast.incomplete" : "justreplay.toast.next_done", saved.getFileName().toString());
             }
         }
         ReplaySession session = ReplaySession.current();

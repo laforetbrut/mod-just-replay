@@ -61,7 +61,7 @@ public final class ReplayStorage {
         List<Entry> result = new ArrayList<>();
         try (Stream<Path> dirs = Files.list(root())) {
             dirs.filter(Files::isDirectory).forEach(dir -> {
-                if (!Files.exists(dir.resolve(STREAM))) {
+                if (dir.getFileName().toString().endsWith(".tmp") || !Files.exists(dir.resolve(STREAM))) {
                     return;
                 }
                 long size = 0;
@@ -149,11 +149,21 @@ public final class ReplayStorage {
     private static void writeJson(Path file, Object value) {
         try {
             Files.createDirectories(file.getParent());
-            Path tmp = file.resolveSibling(file.getFileName() + ".tmp");
-            try (Writer writer = Files.newBufferedWriter(tmp, StandardCharsets.UTF_8)) {
-                GSON.toJson(value, writer);
+            // A name of its own per write: the writer thread and the client thread may both write the same file.
+            Path tmp = file.resolveSibling(file.getFileName() + "." + Long.toHexString(System.nanoTime())
+                    + "-" + Thread.currentThread().getId() + ".tmp");
+            try {
+                try (Writer writer = Files.newBufferedWriter(tmp, StandardCharsets.UTF_8)) {
+                    GSON.toJson(value, writer);
+                }
+                try {
+                    Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+                } catch (java.nio.file.AtomicMoveNotSupportedException e) {
+                    Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING);
+                }
+            } finally {
+                Files.deleteIfExists(tmp);
             }
-            Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
             JustReplay.LOGGER.error("Cannot write {}", file, e);
         }
