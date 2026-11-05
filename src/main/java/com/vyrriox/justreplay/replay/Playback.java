@@ -186,6 +186,7 @@ public final class Playback {
                 }
             }
             if (!restored && backward) {
+                com.vyrriox.justreplay.compat.ReplayCompat.onWorldRebuild();
                 packets.rewind();
                 cursor = 0;
             }
@@ -224,6 +225,7 @@ public final class Playback {
         if (snapshot.isEmpty()) {
             return false;
         }
+        com.vyrriox.justreplay.compat.ReplayCompat.onWorldRebuild();
         for (RecordedPacket recorded : snapshot) {
             handle(mc, recorded);
         }
