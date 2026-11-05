@@ -58,6 +58,8 @@ public final class SelfTest {
     private static ReplayProject.ActorData placed;
     private static com.vyrriox.justreplay.editor.ActorPlacement.Spot seatSpot;
     private static int fxStep;
+    private static boolean curiosGiven;
+    private static int cullSkipped;
     /** Sounds the recording player made itself, heard again while the replay plays (see recordLocalEffect). */
     private static int localBell;
     private static int localAnvil;
@@ -386,6 +388,7 @@ public final class SelfTest {
             }
             case 4 -> {
                 if (atMenu(mc)) {
+                    Mods.checkCulling("before the replay", true);
                     ReplaySession.open(replay, mc.screen);
                     log("replay opening");
                     next(40);
@@ -400,6 +403,9 @@ public final class SelfTest {
                 ReplaySession s = ReplaySession.current();
                 logWorld(mc, s, "playing");
                 log("mods while playing: {}", Mods.state(mc, s));
+                Mods.checkCurios(mc, s, "at start");
+                Mods.checkCulling("during the replay", false);
+                cullSkipped = Math.max(0, com.vyrriox.justreplay.compat.EntityCullingCompat.skippedEntityTicks());
                 shot(mc, "1-playing");
                 // Mod clocks after a seek into the emote, then while paused: nothing may move.
                 s.playback().seek(60);
@@ -420,6 +426,10 @@ public final class SelfTest {
                 checkClockHeld(clockGecko, geckoClock(), clockIris, irisClock());
                 ReplaySession s = ReplaySession.current();
                 s.playback().setPaused(false);
+                if (Mods.loaded("entityculling")) {
+                    // The mod's toggle key, simulated: the next ticks must switch it off again.
+                    com.vyrriox.justreplay.compat.EntityCullingCompat.setEnabled(true);
+                }
                 s.playback().seek(150);
                 go(8, 30);
             }
@@ -427,6 +437,9 @@ public final class SelfTest {
                 ReplaySession s = ReplaySession.current();
                 logWorld(mc, s, "after forward seek");
                 log("mods after forward seek: {}", Mods.state(mc, s));
+                Mods.checkCurios(mc, s, "after forward seek");
+                Mods.checkCulling("after a toggle key press", false);
+                Mods.checkCullingEntities(mc);
                 shot(mc, "2-seek150");
                 clockGecko = geckoClock();
                 clockEntity = com.vyrriox.justreplay.compat.ReplayCompat.lastGeckoEntityFrameTime();
@@ -436,6 +449,7 @@ public final class SelfTest {
             case 9 -> {
                 ReplaySession s = ReplaySession.current();
                 logWorld(mc, s, "after backward seek");
+                Mods.checkCurios(mc, s, "after backward seek");
                 shot(mc, "3-seek20");
                 checkClockBackSeek(clockGecko, geckoClock(), clockEntity, com.vyrriox.justreplay.compat.ReplayCompat.lastGeckoEntityFrameTime());
                 clockGecko = geckoClock();
@@ -858,6 +872,7 @@ public final class SelfTest {
             }
             case 16 -> {
                 if (atMenu(mc)) {
+                    Mods.checkCulling("after leaving the replay", true);
                     if (clip == null) {
                         step = 19;
                         return;
@@ -1206,6 +1221,53 @@ public final class SelfTest {
             if (loaded("waterframes")) {
                 testVideo(mc);
             }
+            if (loaded("curios")) {
+                // A ring worn before the recording starts: it must reach the snapshot, the actor and every checkpoint.
+                net.minecraft.world.item.Item ring = net.minecraft.core.registries.BuiltInRegistries.ITEM
+                        .getTag(net.minecraft.tags.TagKey.create(net.minecraft.core.registries.Registries.ITEM,
+                                net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("curios", "ring")))
+                        .flatMap(tag -> tag.stream().findFirst()).map(net.minecraft.core.Holder::value).orElse(null);
+                if (ring == null) {
+                    log("curios: no ring item in the pack, check skipped");
+                } else {
+                    curiosGiven = true;
+                    mc.player.connection.sendCommand("curios add ring @s 1");
+                    mc.player.connection.sendCommand("curios replace ring 0 @s with "
+                            + net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(ring));
+                }
+            }
+        }
+
+        /** Curios worn by the recording player's actor in the replay, expected 1; skipped when Curios or the ring is absent. */
+        static void checkCurios(Minecraft mc, ReplaySession s, String label) {
+            if (!loaded("curios") || !curiosGiven) {
+                log("curios {}: skipped", label);
+                return;
+            }
+            int worn = com.vyrriox.justreplay.compat.CuriosCompat.wornCount(s.findRecorder(mc));
+            log("curios {}: worn stacks on the actor={} -> {}", label, worn, worn == 1 ? "OK" : "FAIL");
+        }
+
+        /** Entity Culling's switch against the expected value; skipped when the mod is absent. */
+        static void checkCulling(String label, boolean expected) {
+            if (!loaded("entityculling")) {
+                log("entityculling {}: skipped", label);
+                return;
+            }
+            Boolean now = com.vyrriox.justreplay.compat.EntityCullingCompat.isEnabled();
+            log("entityculling {}: enabled={} expected={} -> {}", label, now, expected, now != null && now == expected ? "OK" : "FAIL");
+        }
+
+        /** No entity of the replay world culled, and no entity tick skipped since the replay started. */
+        static void checkCullingEntities(Minecraft mc) {
+            if (!loaded("entityculling") || mc.level == null) {
+                log("entityculling entities: skipped");
+                return;
+            }
+            int culled = com.vyrriox.justreplay.compat.EntityCullingCompat.culledCount(mc.level.entitiesForRendering());
+            int skipped = com.vyrriox.justreplay.compat.EntityCullingCompat.skippedEntityTicks();
+            log("entityculling entities: culled={} skipped entity ticks since start={} -> {}", culled, skipped - cullSkipped,
+                    culled == 0 && skipped == cullSkipped ? "OK" : "FAIL");
         }
 
         /** Places the modded test content around the start position, once the recording runs. */

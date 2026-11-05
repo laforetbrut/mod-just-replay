@@ -39,6 +39,8 @@ public final class ReplayCompat {
     static final boolean CUSTOM_NPCS = isLoaded("customnpcs");
     static final boolean ARMOURERS_WORKSHOP = isLoaded("armourers_workshop");
     static final boolean EPIC_FIGHT = isLoaded("epicfight");
+    static final boolean CURIOS = isLoaded("curios");
+    static final boolean ENTITY_CULLING = isLoaded("entityculling");
     private static final Set<String> FAILED = Collections.synchronizedSet(new HashSet<>());
     private static double monotonicFrame = -1;
     private static double monotonicValue;
@@ -189,6 +191,9 @@ public final class ReplayCompat {
         if (BETTER_COMBAT) {
             BetterCombatCompat.onReplayStart();
         }
+        if (ENTITY_CULLING) {
+            EntityCullingCompat.onReplayStart();
+        }
         if (DROP_THE_BEAM) {
             ReplaySession session = ReplaySession.current();
             DropTheBeamCompat.onReplayStart(session != null ? session.dir() : null);
@@ -231,11 +236,17 @@ public final class ReplayCompat {
         if (EPIC_FIGHT) {
             EpicFightCompat.applyPending();
         }
+        if (ENTITY_CULLING) {
+            EntityCullingCompat.tick();
+        }
     }
 
     /** Called when the replay session closes. */
     public static void onReplayEnd() {
         monotonicFrame = -1;
+        if (ENTITY_CULLING) {
+            EntityCullingCompat.onReplayEnd();
+        }
         if (WATERFRAMES) {
             WaterFramesCompat.clear();
         }
@@ -384,6 +395,9 @@ public final class ReplayCompat {
             // Keyed by entity id, which the actor shares with the recording player.
             EpicFightCompat.writeCurrent(player, out);
         }
+        if (CURIOS) {
+            CuriosCompat.writeCurrent(player, out);
+        }
     }
 
     /** Mod state of the non-player entities of a snapshot or checkpoint, written after they spawn (Pehkui scales). */
@@ -398,6 +412,9 @@ public final class ReplayCompat {
     public static void writeEntityState(net.minecraft.world.entity.Entity entity, java.util.function.Consumer<Packet<?>> out) {
         if (ARMOURERS_WORKSHOP) {
             ArmourersWorkshopCompat.writeCurrent(entity, out);
+        }
+        if (CURIOS) {
+            CuriosCompat.writeCurrent(entity, out);
         }
     }
 
@@ -418,6 +435,9 @@ public final class ReplayCompat {
         }
         if (EPIC_FIGHT) {
             EpicFightCompat.writeCurrent(player, out);
+        }
+        if (CURIOS) {
+            CuriosCompat.writeCurrent(player, out);
         }
     }
 
