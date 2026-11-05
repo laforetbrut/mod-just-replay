@@ -4,13 +4,14 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.vyrriox.justreplay.JustReplay;
 import com.vyrriox.justreplay.export.VideoExporter;
+import com.vyrriox.justreplay.gui.LineBoxes;
 import com.vyrriox.justreplay.replay.ReplaySession;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.List;
@@ -49,7 +50,7 @@ public final class PathRenderer {
         poseStack.translate(-cam.x, -cam.y, -cam.z);
         PoseStack.Pose pose = poseStack.last();
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
-        VertexConsumer lines = buffers.getBuffer(RenderType.lines());
+        VertexConsumer lines = buffers.getBuffer(RenderTypes.lines());
 
         ReplayProject.Camera selected = project.selected();
         double time = CameraController.frameTime(session, partialTick);
@@ -67,7 +68,7 @@ public final class PathRenderer {
                 }
             }
         }
-        buffers.endBatch(RenderType.lines());
+        buffers.endBatch(RenderTypes.lines());
 
         // Names above the gizmos and at the start of each path.
         Font font = mc.font;
@@ -92,7 +93,7 @@ public final class PathRenderer {
             String label = (i + 1) + " " + camera.name;
             int color = camera == selected ? 0xFFFFFFFF : (0xFF000000 | (cameraColor(i) & 0xFFFFFF));
             font.drawInBatch(label, -font.width(label) / 2.0F, 0, color, false, poseStack.last().pose(), buffers,
-                    Font.DisplayMode.SEE_THROUGH, 0x55000000, LightTexture.FULL_BRIGHT);
+                    Font.DisplayMode.SEE_THROUGH, 0x55000000, LightCoordsUtil.FULL_BRIGHT);
             poseStack.popPose();
         }
         buffers.endBatch();
@@ -180,8 +181,9 @@ public final class PathRenderer {
         nx /= len;
         ny /= len;
         nz /= len;
-        c.addVertex(pose, (float) x1, (float) y1, (float) z1).setColor(r, g, b, 1.0F).setNormal(pose, nx, ny, nz);
-        c.addVertex(pose, (float) x2, (float) y2, (float) z2).setColor(r, g, b, 1.0F).setNormal(pose, nx, ny, nz);
+        float width = LineBoxes.width();
+        c.addVertex(pose, (float) x1, (float) y1, (float) z1).setColor(r, g, b, 1.0F).setNormal(pose, nx, ny, nz).setLineWidth(width);
+        c.addVertex(pose, (float) x2, (float) y2, (float) z2).setColor(r, g, b, 1.0F).setNormal(pose, nx, ny, nz).setLineWidth(width);
     }
 
     private static void box(VertexConsumer c, PoseStack.Pose pose, double x, double y, double z, double s, float r, float g, float b) {

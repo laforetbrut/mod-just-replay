@@ -15,6 +15,8 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RenderFrameEvent;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
+import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 
 import java.io.IOException;
@@ -73,18 +75,27 @@ public final class NeoForgeEditorEvents {
         // ------------------------------------------------------------ level
 
         /**
-         * The 1.21.1 hook drew the editor overlays, the camera path and the placement tools inside the level stages with
-         * immediate mode buffers. 26.1 renders the level from extracted render state, so those draws are not ported yet.
+         * The level stages run inside the main frame graph pass with the view matrix on the model view stack, and
+         * vanilla draws its gizmos through the same immediate buffers at this point.
          */
         @SubscribeEvent
-        public static void onRenderLevel(RenderLevelStageEvent.AfterTranslucentFeatures event) {
-            if (!LEVEL_DRAW_LOGGED) {
-                LEVEL_DRAW_LOGGED = true;
-                com.vyrriox.justreplay.JustReplay.LOGGER.warn("Level overlays (camera path, placement tools, image overlays) are not ported to 26.1 yet");
-            }
+        public static void onRenderLevel(RenderLevelStageEvent.AfterTranslucentBlocks event) {
+            Minecraft mc = Minecraft.getInstance();
+            Camera camera = mc.gameRenderer.getMainCamera();
+            float partialTick = mc.getDeltaTracker().getGameTimeDeltaPartialTick(false);
+            OverlayRenderer.onRenderLevel(true, false, camera, partialTick);
+            PathRenderer.onRenderLevel(camera, event.getPoseStack(), partialTick);
+            EntityTool.onRenderLevel(camera, event.getPoseStack());
+            OverlayPlacementTool.onRenderLevel(camera);
+            PlacementTool.onRenderLevel(camera, event.getPoseStack());
         }
 
-        private static boolean LEVEL_DRAW_LOGGED;
+        /** Fallback of the overlays when a chunk renderer skipped the stage above. */
+        @SubscribeEvent
+        public static void onRenderLevelLate(RenderLevelStageEvent.AfterTranslucentParticles event) {
+            Minecraft mc = Minecraft.getInstance();
+            OverlayRenderer.onRenderLevel(false, true, mc.gameRenderer.getMainCamera(), mc.getDeltaTracker().getGameTimeDeltaPartialTick(false));
+        }
 
         @SubscribeEvent
         public static void onRenderGui(RenderGuiEvent.Post event) {

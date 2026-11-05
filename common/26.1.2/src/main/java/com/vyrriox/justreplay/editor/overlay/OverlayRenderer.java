@@ -7,16 +7,18 @@ import com.vyrriox.justreplay.JustReplay;
 import com.vyrriox.justreplay.editor.CameraController;
 import com.vyrriox.justreplay.editor.ReplayProject;
 import com.vyrriox.justreplay.export.VideoExporter;
+import com.vyrriox.justreplay.gui.LineBoxes;
 import com.vyrriox.justreplay.replay.ReplaySession;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.Identifier;
+import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
@@ -343,7 +345,7 @@ public final class OverlayRenderer {
                 poseStack.pushPose();
                 poseStack.translate(0, 0, -PLATE_DEPTH);
                 poseStack.scale(s, -s, s);
-                RenderType type = through ? RenderType.textBackgroundSeeThrough() : RenderType.textBackground();
+                RenderType type = through ? RenderTypes.textBackgroundSeeThrough() : RenderTypes.textBackground();
                 float radius = Math.min(pad + 2.0F, Math.min(textW / 2.0F + pad, textH / 2.0F + pad));
                 plate(buffers.getBuffer(type), poseStack.last().pose(), -textW / 2.0F - pad, top - pad, textW / 2.0F + pad,
                         top + textH + pad, radius, a, o.plateColor);
@@ -357,7 +359,7 @@ public final class OverlayRenderer {
             return half;
         }
         Font.DisplayMode mode = through ? Font.DisplayMode.SEE_THROUGH : Font.DisplayMode.POLYGON_OFFSET;
-        int light = LightTexture.FULL_BRIGHT;
+        int light = LightCoordsUtil.FULL_BRIGHT;
         if (o.outline || o.shadow) {
             poseStack.pushPose();
             poseStack.translate(0, 0, -DECO_DEPTH);
@@ -427,7 +429,7 @@ public final class OverlayRenderer {
         VertexConsumer vc = buffers.getBuffer(type);
         Matrix4f m = poseStack.last().pose();
         int color = (a << 24) | (o.tint & 0xFFFFFF);
-        int light = LightTexture.FULL_BRIGHT;
+        int light = LightCoordsUtil.FULL_BRIGHT;
         float x0 = -w / 2, x1 = w / 2, y0 = -h / 2, y1 = h / 2;
         // Counter-clockwise seen from the front: top left, bottom left, bottom right, top right.
         vc.addVertex(m, x0, y1, 0).setColor(color).setUv(0, 0).setLight(light);
@@ -475,7 +477,7 @@ public final class OverlayRenderer {
         int top = alpha << 24 | mixWhite(rgb, 0.12F);
         int bottom = alpha << 24 | (rgb & 0xFFFFFF);
         int center = alpha << 24 | mixWhite(rgb, 0.06F);
-        int light = LightTexture.FULL_BRIGHT;
+        int light = LightCoordsUtil.FULL_BRIGHT;
         int n = outline.size();
         for (int i = 0; i < n; i++) {
             float[] a = outline.get(i);
@@ -515,7 +517,8 @@ public final class OverlayRenderer {
 
     /** Selection frame around an overlay, in its plane. */
     private static void frame(PoseStack poseStack, MultiBufferSource.BufferSource buffers, float hw, float hh) {
-        VertexConsumer lines = buffers.getBuffer(RenderType.lines());
+        VertexConsumer lines = buffers.getBuffer(RenderTypes.lines());
+        float width = LineBoxes.width();
         PoseStack.Pose pose = poseStack.last();
         float m = 0.04F;
         float[][] corners = {{-hw - m, hh + m}, {hw + m, hh + m}, {hw + m, -hh - m}, {-hw - m, -hh - m}};
@@ -527,9 +530,9 @@ public final class OverlayRenderer {
             if (len < 1.0E-6F) {
                 continue;
             }
-            lines.addVertex(pose, a[0], a[1], 0).setColor(1.0F, 0.84F, 0.31F, 1.0F).setNormal(pose, nx / len, ny / len, 0);
-            lines.addVertex(pose, b[0], b[1], 0).setColor(1.0F, 0.84F, 0.31F, 1.0F).setNormal(pose, nx / len, ny / len, 0);
+            lines.addVertex(pose, a[0], a[1], 0).setColor(1.0F, 0.84F, 0.31F, 1.0F).setNormal(pose, nx / len, ny / len, 0).setLineWidth(width);
+            lines.addVertex(pose, b[0], b[1], 0).setColor(1.0F, 0.84F, 0.31F, 1.0F).setNormal(pose, nx / len, ny / len, 0).setLineWidth(width);
         }
-        buffers.endBatch(RenderType.lines());
+        buffers.endBatch(RenderTypes.lines());
     }
 }

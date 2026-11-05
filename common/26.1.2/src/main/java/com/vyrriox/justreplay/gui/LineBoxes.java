@@ -12,7 +12,10 @@ import net.minecraft.world.phys.AABB;
  */
 public final class LineBoxes {
     /** Width of the placement tool lines, the thin line these tools drew before 26.1. */
-    public static final float WIDTH = 1.0F;
+    /** Width vanilla gives its own world lines at the current window size; these lines scaled with the window before 26.1 too. */
+    public static float width() {
+        return net.minecraft.client.Minecraft.getInstance().gameRenderer.getGameRenderState().windowRenderState.appropriateLineWidth;
+    }
 
     private LineBoxes() {
     }
@@ -50,7 +53,8 @@ public final class LineBoxes {
         nx /= len;
         ny /= len;
         nz /= len;
-        c.addVertex(p, x0, y0, z0).setColor(r, g, bl, a).setNormal(p, nx, ny, nz).setLineWidth(WIDTH);
-        c.addVertex(p, x1, y1, z1).setColor(r, g, bl, a).setNormal(p, nx, ny, nz).setLineWidth(WIDTH);
+        float width = width();
+        c.addVertex(p, x0, y0, z0).setColor(r, g, bl, a).setNormal(p, nx, ny, nz).setLineWidth(width);
+        c.addVertex(p, x1, y1, z1).setColor(r, g, bl, a).setNormal(p, nx, ny, nz).setLineWidth(width);
     }
 }
