@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.1.0]
+## [1.1.0] - 2026-11-05
 
 ### Added
 - **Nine targets**: Just Replay now runs on Minecraft 1.20.1, 1.21.1 and 26.1.2, each on NeoForge, Forge and Fabric. The available integrations differ per target: see the table in `README.md` and the status in `docs/COMPATIBILITY.md`.
@@ -18,7 +18,7 @@
 ### Changed
 - **Settings file**: settings move from `config/justreplay-client.toml` to `config/justreplay-client.json`. The old values are imported once and the old file stays on disk. A hand edit of the file needs a game restart. There is a new settings screen.
 - **Jar name**: jars are now named `justreplay-<loader>-<minecraft version>-<version>.jar`, for example `justreplay-fabric-1.21.1-1.1.0.jar`.
-- **Recordings per version**: a recording opens only on the Minecraft version and the loader it was made on. Another one is refused with a message instead of failing while playing.
+- **Recordings per version**: a recording opens only on the Minecraft version it was made on. Another version is refused with a message instead of failing while playing. A recording from another loader opens with a warning, since some mod content may be missing.
 - **Repository layout**: `main` holds `common/<minecraft version>/` and one Gradle project per target. There is no root build any more. `docs/BUILDING.md` and `CONTRIBUTING.md` are new.
 - **Recorder log**: mod payloads that have no codec are counted in the log.
 
@@ -54,7 +54,7 @@
 ### Modifications
 - **Fichier de réglages** : les réglages passent de `config/justreplay-client.toml` à `config/justreplay-client.json`. Les anciennes valeurs sont importées une fois et l'ancien fichier reste sur le disque. Modifier le fichier à la main demande de redémarrer le jeu. Il y a un nouvel écran de réglages.
 - **Nom du jar** : les jars s'appellent maintenant `justreplay-<loader>-<version de minecraft>-<version>.jar`, par exemple `justreplay-fabric-1.21.1-1.1.0.jar`.
-- **Enregistrements par version** : un enregistrement ne s'ouvre que sur la version de Minecraft et le loader où il a été fait. Un autre est refusé avec un message au lieu d'échouer pendant la lecture.
+- **Enregistrements par version** : un enregistrement ne s'ouvre que sur la version de Minecraft où il a été fait. Une autre version est refusée avec un message au lieu d'échouer pendant la lecture. Un enregistrement d'un autre loader s'ouvre avec un avertissement, car le contenu de certains mods peut manquer.
 - **Organisation du dépôt** : `main` contient `common/<version de minecraft>/` et un projet Gradle par cible. Il n'y a plus de build à la racine. `docs/BUILDING.md` et `CONTRIBUTING.md` sont nouveaux.
 - **Journal de l'enregistreur** : les paquets de mods sans codec sont comptés dans le journal.
 
