@@ -240,7 +240,7 @@ public final class CameraRig {
     /** The followed entity, looked up again when the world replaced it (seeks, dimension changes). */
     private static Entity find(ReplayProject.Camera camera, Follow follow) {
         Minecraft mc = Minecraft.getInstance();
-        return findEntity(camera.target, follow);
+        return findAim(camera.target, follow);
     }
 
     private static Entity findEntity(String target, Follow follow) {

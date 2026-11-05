@@ -304,7 +304,6 @@ public final class ActorManager {
                     CUSTOM_SKINS.remove(entity.getId());
                 }
             }
-            fillMoveTargets(mc, actor);
             animate(actor, entity, cursor, paused);
             if (actor.id.equals(previewId)) {
                 showPreview();
@@ -548,19 +547,17 @@ public final class ActorManager {
         animator.apply(actor, session.project(), entity, cursor, paused);
     }
 
-    /** A WALK_TO / RUN_TO added without a destination walks to where the camera stood when it was added. */
-    private void fillMoveTargets(Minecraft mc, ReplayProject.ActorData actor) {
-        if (mc.player == null) {
-            return;
+    /**
+     * The destination for a WALK_TO / RUN_TO added without one: where the camera stands now. Returns the param
+     * unchanged for any other action or when a destination is already set.
+     */
+    public static String moveTargetOrDefault(ActionType type, String param) {
+        Minecraft mc = Minecraft.getInstance();
+        if ((type == ActionType.WALK_TO || type == ActionType.RUN_TO) && ActorAnimator.parseVector(param) == null && mc.player != null) {
+            return String.format(java.util.Locale.ROOT, "%.2f %.2f %.2f",
+                    mc.player.getX(), ActorAnimator.groundY(mc.player.getX(), mc.player.getY(), mc.player.getZ()), mc.player.getZ());
         }
-        for (ReplayProject.ActorAction action : actor.actions) {
-            ActionType type = action.actionType();
-            if ((type == ActionType.WALK_TO || type == ActionType.RUN_TO) && ActorAnimator.parseVector(action.param) == null) {
-                action.param = String.format(java.util.Locale.ROOT, "%.2f %.2f %.2f",
-                        mc.player.getX(), ActorAnimator.groundY(mc.player.getX(), mc.player.getY(), mc.player.getZ()), mc.player.getZ());
-                session.saveProject();
-            }
-        }
+        return param;
     }
 
     /** Removes every spawned actor; they are spawned again from the project on the next tick. */

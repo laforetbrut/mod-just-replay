@@ -1250,6 +1250,7 @@ public class EditorScreen extends GlassScreen {
             List<String> animations = ModelLibrary.animations(selectedActor.model);
             param = animations.isEmpty() ? "" : animations.get(0) + "|once";
         }
+        param = com.vyrriox.justreplay.editor.ActorManager.moveTargetOrDefault(actionType, param);
         ReplayProject.ActorAction action = new ReplayProject.ActorAction(session.playback().cursor(), actionType, 0, param);
         selectedActor.actions.add(action);
         selectedActor.sort();
@@ -1697,7 +1698,7 @@ public class EditorScreen extends GlassScreen {
             helpOpen = false;
             return true;
         }
-        if (hasPopup()) {
+        if (hasPopup() || typingInField()) {
             return super.keyPressed(keyCode, scanCode, modifiers);
         }
         if (hasControlDown() && (keyCode == GLFW.GLFW_KEY_Z || keyCode == GLFW.GLFW_KEY_Y)) {
@@ -1760,9 +1761,13 @@ public class EditorScreen extends GlassScreen {
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
+    private boolean typingInField() {
+        return getFocused() instanceof net.minecraft.client.gui.components.EditBox box && box.isFocused();
+    }
+
     @Override
     public boolean charTyped(char c, int modifiers) {
-        if (c == '?' && !hasPopup()) {
+        if (c == '?' && !hasPopup() && !typingInField()) {
             toggleHelp();
             return true;
         }
