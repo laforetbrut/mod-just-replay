@@ -1378,6 +1378,8 @@ public final class SelfTest {
                 accessorySlots = null;
             }
             log("accessories mob holder: no mob with slots in the test scene, skipped");
+        }
+
         /**
          * Jade: with the clean HUD on, its tooltip must be gone during the replay, and its recorded "show overlay" packet
          * must be dropped. Immersive Aircraft: every aircraft that has equipment keeps it (at least one filled slot);
