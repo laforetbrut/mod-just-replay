@@ -25,6 +25,7 @@
     "IntegratedServerMixin",
     "PlayerInfoAccessor",
     "HostChunkMapMixin",
+    "HostKeepAliveMixin",
     "BossHealthOverlayAccessor",
     "PlayerTabOverlayAccessor",
     "WindowMixin",

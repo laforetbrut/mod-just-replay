@@ -328,7 +328,9 @@ final class FabricRegistryIds implements RegistryIdsBackend {
         }
         int last = local.lastIntKey();
         T moved = registry.get(local.get(last));
-        boolean ok = holes == 0 && iterated == last + 3 && registry.byId(last) != null && registry.byId(last + 2) != null
+        // Iterating reads MappedRegistry.holdersInOrder on this version, a list a remap does not rebuild: every local
+        // entry once, without the placeholders in the id table, so the count stays the local one.
+        boolean ok = holes == 0 && iterated == local.size() && registry.byId(last) != null && registry.byId(last + 2) != null
                 && registry.getId(moved) == last + 1;
         log.log("registry ids {} {}: holes {}, iterated {}, last entry at {} (was {}) -> {}", step, registry.key().location(),
                 holes, iterated, registry.getId(moved), last, ok ? "OK" : "FAIL");
