@@ -1,0 +1,39 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "com.vyrriox.justreplay.mixin.compat",
+  "compatibilityLevel": "JAVA_21",
+  "plugin": "com.vyrriox.justreplay.mixin.compat.CompatMixinPlugin",
+  "client": [
+    "ArmourersSendMixin",
+    "ArmourersSkinEntryMixin",
+    "ArmourersSkinLoaderMixin",
+    "ArmourersSkinResponseMixin",
+    "BobbyMixin",
+    "CatnipAnimationTickHolderMixin",
+    "DropTheBeamAudioMixin",
+    "DropTheBeamClockMixin",
+    "DropTheBeamPauseMixin",
+    "EpicFightAnimatorTickMixin",
+    "EpicFightPoseMixin",
+    "GeckoLibClockMixin",
+    "GeckoLibModelMixin",
+    "IrisTimerMixin",
+    "JadeTickMixin",
+    "LevelRendererClockMixin",
+    "MorphInfoTickMixin",
+    "MorphRenderMixin",
+    "PehkuiPacketWriteMixin",
+    "PehkuiScaleTickMixin",
+    "PlayerAnimKeyframeMixin",
+    "PlayerAnimStackMixin",
+    "SableLocalPoseMixin",
+    "SableUdpPoseMixin",
+    "SectionBufferGuardMixin",
+    "WaterFramesControlMixin",
+    "WaterFramesDataMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}
