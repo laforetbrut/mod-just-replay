@@ -34,6 +34,10 @@ minecraft {
             workingDir = layout.projectDirectory.dir('run')
             systemProperty 'forge.logging.markers', 'REGISTRIES'
             systemProperty 'forge.logging.console.level', 'info'
+            // Dev runs load classes from folders, so the MixinConfigs entry of the jar manifest is not read here.
+            args '--mixin.config', "${mod_id}.mixins.json",
+                    '--mixin.config', "${mod_id}.compat.mixins.json",
+                    '--mixin.config', "${mod_id}.forge.mixins.json"
         }
 
         // The standard client run is also the self test run: -Pselftest adds the same settings as on NeoForge.
@@ -129,7 +133,7 @@ tasks.named('jar', Jar).configure {
                 'Implementation-Version': mod_version,
                 'Implementation-Vendor' : mod_authors,
                 // Forge loads mixin configs listed here; there is no [[mixins]] table in mods.toml.
-                'MixinConfigs'          : "${mod_id}.mixins.json,${mod_id}.compat.mixins.json"
+                'MixinConfigs'          : "${mod_id}.mixins.json,${mod_id}.compat.mixins.json,${mod_id}.forge.mixins.json"
         ])
     }
 }

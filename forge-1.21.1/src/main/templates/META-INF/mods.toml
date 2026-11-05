@@ -9,6 +9,8 @@ displayName="${mod_name}"
 logoFile="justreplay_logo.png"
 authors="${mod_authors}"
 description='''${mod_description}'''
+# Client only: a server without the mod is fine.
+displayTest="IGNORE_ALL_VERSION"
 
 [[dependencies.${mod_id}]]
     modId="forge"

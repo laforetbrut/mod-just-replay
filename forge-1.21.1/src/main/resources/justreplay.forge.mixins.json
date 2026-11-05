@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.vyrriox.justreplay.forge.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "ForgeLayeredDrawMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
