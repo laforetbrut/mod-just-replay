@@ -198,6 +198,12 @@ public final class SelfTest {
         exportClockIris[1] = irisClock();
     }
 
+    /** The game returns null without a bed to lie in: logged as up, so the log reads the same on every version. */
+    private static net.minecraft.core.Direction bedOrientation(net.minecraft.world.entity.LivingEntity entity) {
+        net.minecraft.core.Direction direction = entity.getBedOrientation();
+        return direction == null ? net.minecraft.core.Direction.UP : direction;
+    }
+
     /** The flat test world must not run its day cycle: the rule is set on the integrated server once joined. */
     private static void stopDayCycle(Minecraft mc) {
         net.minecraft.server.MinecraftServer server = mc.getSingleplayerServer();
@@ -776,12 +782,12 @@ public final class SelfTest {
                     }
                     if (a == placed || "Notch".equals(a.name) || "jeb_".equals(a.name)) {
                         log("placed actor {} -> {}", a.name, e == null ? "missing" : e.getPose() + " @ " + e.position() + " yaw " + e.getYRot()
-                                + (e instanceof net.minecraft.world.entity.LivingEntity l ? " body " + l.yBodyRot + " bed " + l.getBedOrientation() : ""));
+                                + (e instanceof net.minecraft.world.entity.LivingEntity l ? " body " + l.yBodyRot + " bed " + bedOrientation(l) : ""));
                     }
                 }
                 for (Entity e : mc.level.entitiesForRendering()) {
                     if (e instanceof net.minecraft.world.entity.LivingEntity l && l.getPose() == net.minecraft.world.entity.Pose.SLEEPING) {
-                        log("sleeper {} body {} bed {} @ {}", e.getClass().getSimpleName(), l.yBodyRot, l.getBedOrientation(), e.position());
+                        log("sleeper {} body {} bed {} @ {}", e.getClass().getSimpleName(), l.yBodyRot, bedOrientation(l), e.position());
                     }
                 }
                 shot(mc, "8-seat-bed");
