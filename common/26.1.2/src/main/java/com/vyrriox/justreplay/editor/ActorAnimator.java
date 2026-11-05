@@ -429,7 +429,7 @@ public final class ActorAnimator {
             rightArm.y += drop;
             leftArm.y += drop;
         }
-        model.hat.loadPose(model.head.storePose());
+        // The hat, the sleeves and the trousers are children of their part here: they follow it.
         Gesture gesture = GESTURES.get(entity.getId());
         if (gesture != null) {
             applyGestureArms(gesture, entity.tickCount + partial, model.head, rightArm, leftArm);
@@ -868,6 +868,8 @@ public final class ActorAnimator {
 
     private static boolean isFlyer(Entity entity) {
         return entity instanceof net.minecraft.world.entity.animal.FlyingAnimal
+                || entity instanceof net.minecraft.world.entity.monster.Ghast
+                || entity instanceof net.minecraft.world.entity.monster.Phantom
                 || entity instanceof net.minecraft.world.entity.ambient.Bat
                 || entity instanceof net.minecraft.world.entity.monster.Vex
                 || entity instanceof net.minecraft.world.entity.monster.Blaze

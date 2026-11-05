@@ -51,6 +51,8 @@
     "ClientLevelTickMixin",
     "EntityRideTickMixin",
     "EntityRendererNameTagMixin",
+    "EntityRenderStateMixin",
+    "EntityRendererStateLinkMixin",
     "LivingEntityRendererHooksMixin"
   ],
   "injectors": {

@@ -674,7 +674,7 @@ public final class EmoteLibrary {
             if (!Double.isNaN(v[4])) part.y = Mth.lerp(w, part.y, REST[b][1] + (float) v[4]);
             if (!Double.isNaN(v[5])) part.z = Mth.lerp(w, part.z, REST[b][2] + (float) v[5]);
         }
-        model.hat.loadPose(model.head.storePose());
+        // The hat, the sleeves and the trousers are children of their part here: they follow it.
     }
 
     /**

@@ -8,9 +8,10 @@ import com.vyrriox.justreplay.editor.ActionType;
 import com.vyrriox.justreplay.editor.ActorAnimator;
 import com.vyrriox.justreplay.editor.ReplayProject;
 import com.vyrriox.justreplay.replay.ReplaySession;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
+import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
@@ -52,9 +53,14 @@ public final class ModelRenderer {
         ACTORS.remove(entityId);
     }
 
+    /** True for an entity that carries a Blockbench model. */
+    public static boolean isModelActor(int entityId) {
+        return entityId <= -1000 && ACTORS.containsKey(entityId);
+    }
+
     /** @return true when the entity must not be drawn by the game */
-    public static boolean onRenderLiving(LivingEntity entity, float partialTick, PoseStack poseStack,
-                                         MultiBufferSource bufferSource, int packedLight) {
+    public static boolean onRenderLiving(LivingEntity entity, LivingEntityRenderState state, float partialTick,
+                                         PoseStack poseStack, SubmitNodeCollector collector) {
         ReplayProject.ActorData actor = ACTORS.get(entity.getId());
         if (actor == null || entity.getId() > -1000) {
             return false;
@@ -69,15 +75,18 @@ public final class ModelRenderer {
             return true;
         }
         try {
-            render(loaded, actor, entity, session.playback().cursor(), partialTick, poseStack,
-                    bufferSource, packedLight);
+            render(loaded, actor, entity, state, session.playback().cursor(), partialTick, poseStack, collector);
         } catch (Throwable t) {
-            // A model that breaks while drawing is dropped rather than crashing every frame.
-            JustReplay.LOGGER.warn("Blockbench model {} failed to render: {}", actor.model, t.toString());
-            ModelLibrary.reload(actor.model);
-            ACTORS.remove(entity.getId());
+            drop(actor, entity.getId(), t);
         }
         return true;
+    }
+
+    /** A model that breaks while drawing is dropped rather than crashing every frame. */
+    private static void drop(ReplayProject.ActorData actor, int entityId, Throwable t) {
+        JustReplay.LOGGER.warn("Blockbench model {} failed to render: {}", actor.model, t.toString());
+        ModelLibrary.reload(actor.model);
+        ACTORS.remove(entityId);
     }
 
     public static void onTick() {
@@ -112,14 +121,16 @@ public final class ModelRenderer {
         return local < 0 ? null : new Playing(animation, local);
     }
 
-    private static void render(ModelLibrary.Loaded loaded, ReplayProject.ActorData actor, LivingEntity entity, int cursor, float partialTick,
-                               PoseStack poseStack, MultiBufferSource buffers, int light) {
+    private static void render(ModelLibrary.Loaded loaded, ReplayProject.ActorData actor, LivingEntity entity, LivingEntityRenderState state,
+                               int cursor, float partialTick, PoseStack poseStack, SubmitNodeCollector collector) {
         BbModel model = loaded.model();
         Playing playing = playing(model, actor, cursor, partialTick);
         float bodyYaw = Mth.rotLerp(partialTick, entity.yBodyRotO, entity.yBodyRot);
         float headYaw = Mth.wrapDegrees(Mth.rotLerp(partialTick, entity.yHeadRotO, entity.yHeadRot) - bodyYaw);
         float pitch = Mth.lerp(partialTick, entity.xRotO, entity.getXRot());
-        int overlay = LivingEntityRenderer.getOverlayCoords(entity, 0.0F);
+        int overlay = LivingEntityRenderer.getOverlayCoords(state, 0.0F);
+        int light = state.lightCoords;
+        int entityId = entity.getId();
 
         poseStack.pushPose();
         poseStack.mulPose(Axis.YP.rotationDegrees(180.0F - bodyYaw));
@@ -129,19 +140,25 @@ public final class ModelRenderer {
         }
         float scale = actor.modelScale / 16.0F;
         poseStack.scale(scale, scale, scale);
-        Context ctx = new Context(model, playing, headYaw, pitch, overlay, light);
-        for (int texture = 0; texture < loaded.textures().length; texture++) {
-            Identifier location = loaded.textures()[texture];
-            ctx.texture = texture;
-            ctx.consumer = null;
-            ctx.buffers = buffers;
-            ctx.location = location;
-            for (BbModel.Cube cube : model.looseCubes) {
-                cube(ctx, cube, poseStack);
-            }
-            for (BbModel.Bone bone : model.roots) {
-                bone(ctx, bone, poseStack, 0);
-            }
+        for (int index = 0; index < loaded.textures().length; index++) {
+            Identifier location = loaded.textures()[index];
+            int texture = index;
+            // The geometry is written later in the frame, with the pose captured here.
+            collector.submitCustomGeometry(poseStack, RenderTypes.entityCutout(location), (pose, consumer) -> {
+                try {
+                    PoseStack stack = new PoseStack();
+                    stack.last().set(pose);
+                    Context ctx = new Context(model, playing, headYaw, pitch, overlay, light, texture, consumer);
+                    for (BbModel.Cube cube : model.looseCubes) {
+                        cube(ctx, cube, stack);
+                    }
+                    for (BbModel.Bone bone : model.roots) {
+                        bone(ctx, bone, stack, 0);
+                    }
+                } catch (Throwable t) {
+                    drop(actor, entityId, t);
+                }
+            });
         }
         poseStack.popPose();
     }
@@ -151,25 +168,18 @@ public final class ModelRenderer {
         final Playing playing;
         final float headYaw, pitch;
         final int overlay, light;
-        int texture;
-        Identifier location;
-        MultiBufferSource buffers;
-        VertexConsumer consumer;
+        final int texture;
+        final VertexConsumer consumer;
 
-        Context(BbModel model, Playing playing, float headYaw, float pitch, int overlay, int light) {
+        Context(BbModel model, Playing playing, float headYaw, float pitch, int overlay, int light, int texture, VertexConsumer consumer) {
             this.model = model;
             this.playing = playing;
             this.headYaw = headYaw;
             this.pitch = pitch;
             this.overlay = overlay;
             this.light = light;
-        }
-
-        VertexConsumer consumer() {
-            if (consumer == null) {
-                consumer = buffers.getBuffer(RenderType.entityCutoutNoCull(location));
-            }
-            return consumer;
+            this.texture = texture;
+            this.consumer = consumer;
         }
     }
 
@@ -262,7 +272,7 @@ public final class ModelRenderer {
             poseStack.translate(-cube.origin[0], -cube.origin[1], -cube.origin[2]);
         }
         PoseStack.Pose pose = poseStack.last();
-        VertexConsumer consumer = ctx.consumer();
+        VertexConsumer consumer = ctx.consumer;
         BbModel.Texture texture = ctx.texture < ctx.model.textures.size() ? ctx.model.textures.get(ctx.texture) : null;
         float uvW = texture == null || texture.uvWidth <= 0 ? 16 : texture.uvWidth;
         float uvH = texture == null || texture.uvHeight <= 0 ? 16 : texture.uvHeight;

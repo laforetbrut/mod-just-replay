@@ -329,7 +329,7 @@ public final class ActorManager {
             net.minecraft.world.entity.decoration.ArmorStand stand = new net.minecraft.world.entity.decoration.ArmorStand(EntityType.ARMOR_STAND, level);
             stand.setInvisible(true);
             stand.setNoBasePlate(true);
-            // 26.1 has no noCulling flag on entities: the stand is culled like any invisible entity.
+            // Entities have no noCulling flag here: EntityEditRenderMixin skips the frustum test of model actors.
             entity = stand;
         } else {
             Optional<EntityType<?>> type = EntityType.byString(actor.type);

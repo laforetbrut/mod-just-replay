@@ -2,8 +2,8 @@ package com.vyrriox.justreplay.mixin;
 
 import com.vyrriox.justreplay.editor.ActorManager;
 import com.vyrriox.justreplay.editor.EntityEdits;
+import net.minecraft.world.entity.Avatar;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.player.PlayerModelPart;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -17,7 +17,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  *
  * @author vyrriox
  */
-@Mixin(Player.class)
+@Mixin(Avatar.class)
 public abstract class PlayerSkinLayersMixin {
     @Inject(method = "isModelPartShown", at = @At("HEAD"), cancellable = true)
     private void justreplay$skinLayers(PlayerModelPart part, CallbackInfoReturnable<Boolean> cir) {

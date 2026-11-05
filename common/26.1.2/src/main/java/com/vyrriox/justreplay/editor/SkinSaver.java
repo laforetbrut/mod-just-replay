@@ -1,7 +1,11 @@
 package com.vyrriox.justreplay.editor;
 
+import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.systems.CommandEncoder;
+import com.mojang.blaze3d.systems.GpuDevice;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.textures.GpuTexture;
 import com.vyrriox.justreplay.JustReplay;
 import net.minecraft.util.Util;
 import net.minecraft.client.Minecraft;
@@ -9,7 +13,6 @@ import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
-import org.lwjgl.opengl.GL11;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -28,26 +31,33 @@ public final class SkinSaver {
     }
 
     /**
-     * Saves the skin shown by this entity. Render thread only; the file is written on the IO pool and the callback
-     * runs back on the render thread with the new file name, or null on failure.
+     * Saves the skin shown by this entity. Render thread only; the pixels arrive when the GPU has copied them, the
+     * file is written on the IO pool and the callback runs back on the render thread with the new file name, or null
+     * on failure.
      */
     public static void saveCurrent(Entity entity, String label, Consumer<String> done) {
         if (!(entity instanceof AbstractClientPlayer player)) {
             done.accept(null);
             return;
         }
-        NativeImage image;
         try {
-            image = download(player.getSkin().texture());
+            if (download(player.getSkin().body().texturePath(), pixels -> {
+                if (pixels == null) {
+                    JustReplay.LOGGER.warn("Cannot read the skin of {}", label);
+                    done.accept(null);
+                } else {
+                    write(pixels, label, done);
+                }
+            })) {
+                return;
+            }
         } catch (Throwable t) {
             JustReplay.LOGGER.warn("Cannot read the skin of {}: {}", label, t.toString());
-            image = null;
         }
-        if (image == null) {
-            done.accept(null);
-            return;
-        }
-        NativeImage pixels = image;
+        done.accept(null);
+    }
+
+    private static void write(NativeImage pixels, String label, Consumer<String> done) {
         Minecraft mc = Minecraft.getInstance();
         Util.ioPool().execute(() -> {
             String written = null;
@@ -66,22 +76,48 @@ public final class SkinSaver {
         });
     }
 
-    /** Reads a loaded texture back from the GPU; null when it is not loaded or has no sensible size. */
-    private static NativeImage download(Identifier location) {
+    /**
+     * Reads a loaded texture back from the GPU. The result gets the pixels on the render thread once the copy is
+     * done, or null when that failed; false, with no result to come, when it is not loaded or has no sensible size.
+     */
+    private static boolean download(Identifier location, Consumer<NativeImage> result) {
         RenderSystem.assertOnRenderThread();
-        AbstractTexture texture = Minecraft.getInstance().getTextureManager().getTexture(location);
+        AbstractTexture loaded = Minecraft.getInstance().getTextureManager().getTexture(location);
+        GpuTexture texture = loaded == null ? null : loaded.getTexture();
         if (texture == null) {
-            return null;
+            return false;
         }
-        RenderSystem.bindTexture(texture.getId());
-        int width = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_WIDTH);
-        int height = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_HEIGHT);
+        int width = texture.getWidth(0);
+        int height = texture.getHeight(0);
         if (width <= 0 || height <= 0 || width > 4096 || height > 4096) {
-            return null;
+            return false;
         }
-        NativeImage image = new NativeImage(width, height, false);
-        image.downloadTexture(0, false);
-        return image;
+        int pixelSize = texture.getFormat().pixelSize();
+        GpuDevice device = RenderSystem.getDevice();
+        GpuBuffer buffer = device.createBuffer(() -> "Skin readback", GpuBuffer.USAGE_COPY_DST | GpuBuffer.USAGE_MAP_READ,
+                (long) width * height * pixelSize);
+        CommandEncoder encoder = device.createCommandEncoder();
+        encoder.copyTextureToBuffer(texture, buffer, 0L, () -> {
+            NativeImage image = null;
+            try (GpuBuffer.MappedView read = encoder.mapBuffer(buffer, true, false)) {
+                image = new NativeImage(width, height, false);
+                for (int y = 0; y < height; y++) {
+                    for (int x = 0; x < width; x++) {
+                        image.setPixelABGR(x, y, read.data().getInt((x + y * width) * pixelSize));
+                    }
+                }
+            } catch (Throwable t) {
+                JustReplay.LOGGER.warn("Cannot map the skin readback: {}", t.toString());
+                if (image != null) {
+                    image.close();
+                    image = null;
+                }
+            } finally {
+                buffer.close();
+            }
+            result.accept(image);
+        }, 0);
+        return true;
     }
 
     /** A file name from the label and a number that does not exist yet. */
