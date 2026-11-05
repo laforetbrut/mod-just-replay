@@ -116,6 +116,15 @@ public final class Playback {
         speedIndex = 3;
     }
 
+    /** Position of the current speed in {@link #SPEEDS}. */
+    public int speedIndex() {
+        return speedIndex;
+    }
+
+    public void setSpeedIndex(int index) {
+        speedIndex = Math.max(0, Math.min(SPEEDS.length - 1, index));
+    }
+
     /** Builds the codec from the replay connection and plays the first tick. */
     public void start(ClientPacketListener listener) {
         codec = PacketCodec.of(listener);
