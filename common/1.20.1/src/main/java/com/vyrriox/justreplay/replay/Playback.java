@@ -12,9 +12,6 @@ import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundLoginPacket;
 import net.minecraft.network.protocol.game.ClientboundRespawnPacket;
-import net.minecraft.network.protocol.game.ClientboundTickingStatePacket;
-import net.minecraft.network.protocol.game.CommonPlayerSpawnInfo;
-import net.minecraft.world.TickRateManager;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.scores.Objective;
@@ -246,7 +243,7 @@ public final class Playback {
     /** What a new connection starts without and a login packet does not clear: scoreboard, boss bars, tab list text. */
     private static void resetConnectionState(Minecraft mc, ClientPacketListener listener) {
         try {
-            Scoreboard scoreboard = listener.scoreboard();
+            Scoreboard scoreboard = listener.getLevel().getScoreboard();
             for (Objective objective : List.copyOf(scoreboard.getObjectives())) {
                 scoreboard.removeObjective(objective);
             }
@@ -400,11 +397,9 @@ public final class Playback {
     }
 
     private static ClientboundLoginPacket rewriteLogin(ClientboundLoginPacket login, int chunkRadius) {
-        CommonPlayerSpawnInfo s = login.commonPlayerSpawnInfo();
-        CommonPlayerSpawnInfo spawn = new CommonPlayerSpawnInfo(s.dimensionType(), s.dimension(), s.seed(), GameType.SPECTATOR,
-                s.previousGameType(), s.isDebug(), s.isFlat(), s.lastDeathLocation(), s.portalCooldown());
-        return new ClientboundLoginPacket(CAMERA_ENTITY_ID, login.hardcore(), login.levels(), login.maxPlayers(), chunkRadius,
-                login.simulationDistance(), false, false, login.doLimitedCrafting(), spawn, false);
+        return new ClientboundLoginPacket(CAMERA_ENTITY_ID, login.hardcore(), GameType.SPECTATOR, login.previousGameType(), login.levels(),
+                login.registryHolder(), login.dimensionType(), login.dimension(), login.seed(), login.maxPlayers(), chunkRadius,
+                login.simulationDistance(), false, false, login.isDebug(), login.isFlat(), login.lastDeathLocation(), login.portalCooldown());
     }
 
     /** Keeps the local player a free flying spectator, whatever the recorded packets did. */
@@ -446,19 +441,8 @@ public final class Playback {
         player.setDeltaMovement(Vec3.ZERO);
     }
 
+    /** Not wired yet: this version has no tick rate manager, the rate and the freeze come with the timer control. */
     private void applyTickRate(Minecraft mc) {
-        if (mc.level == null || mc.getConnection() == null) {
-            return;
-        }
-        TickRateManager manager = mc.level.tickRateManager();
-        float rate = 20.0F * Math.min(1.0F, speed());
-        if (manager.tickrate() != rate || manager.isFrozen() != paused) {
-            try {
-                new ClientboundTickingStatePacket(rate, paused).handle(mc.getConnection());
-            } catch (Throwable t) {
-                logOnce(ClientboundTickingStatePacket.class, "Cannot apply tick rate: " + t);
-            }
-        }
     }
 
     private void logOnce(Class<?> type, String message) {

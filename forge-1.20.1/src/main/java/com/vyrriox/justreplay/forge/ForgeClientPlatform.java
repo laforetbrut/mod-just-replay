@@ -8,15 +8,12 @@ import com.vyrriox.justreplay.platform.ClientPlatform;
 import com.vyrriox.justreplay.forge.mixin.NetworkRegistryInvoker;
 import com.vyrriox.justreplay.platform.KeyScope;
 import com.vyrriox.justreplay.replay.ReplaySession;
-import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
@@ -26,7 +23,6 @@ import net.minecraftforge.common.ForgeHooks;
 import net.minecraftforge.entity.IEntityAdditionalSpawnData;
 
 import javax.annotation.Nullable;
-import java.util.function.Function;
 
 /**
  * {@link ClientPlatform} on Forge. Created by name.
@@ -35,7 +31,6 @@ import java.util.function.Function;
  */
 public final class ForgeClientPlatform implements ClientPlatform {
     /** Vanilla buffers depend on the registry access alone, so every connection shares this token. */
-    private static final Object CONNECTION_TOKEN = new Object();
     /** Forge's play channel and the index it registers its menu message under. */
     private static final ResourceLocation PLAY_CHANNEL = new ResourceLocation("fml", "play");
     private static final int OPEN_CONTAINER = 1;
@@ -58,16 +53,6 @@ public final class ForgeClientPlatform implements ClientPlatform {
     @Override
     public void openConfigScreen(Screen parent) {
         Minecraft.getInstance().setScreen(new JRConfigScreen(parent));
-    }
-
-    @Override
-    public Function<ByteBuf, RegistryFriendlyByteBuf> bufDecorator(ClientPacketListener listener) {
-        return RegistryFriendlyByteBuf.decorator(listener.registryAccess());
-    }
-
-    @Override
-    public Object connectionToken(ClientPacketListener listener) {
-        return CONNECTION_TOKEN;
     }
 
     /** The test Forge's own dispatch makes: a payload of a channel nobody registered only logs a warning. */

@@ -146,7 +146,10 @@ final class SceneJob {
                 }
                 log("opening world {}", r.world());
                 worldError = null;
-                mc.createWorldOpenFlows().openWorld(r.world(), () -> worldError = "the world could not be opened");
+                mc.createWorldOpenFlows().loadLevel(mc.screen, r.world());
+                if (mc.screen instanceof net.minecraft.client.gui.screens.DatapackLoadFailureScreen) {
+                    worldError = "the world could not be opened";
+                }
                 phase = 1;
             }
             case 1 -> {

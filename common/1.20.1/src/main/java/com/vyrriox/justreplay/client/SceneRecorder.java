@@ -83,7 +83,7 @@ public final class SceneRecorder {
             case 0 -> {
                 if (mc.level == null && mc.getOverlay() == null && mc.screen instanceof net.minecraft.client.gui.screens.TitleScreen) {
                     log("opening {}", WORLD);
-                    mc.createWorldOpenFlows().openWorld(WORLD, () -> log("the world could not be opened"));
+                    mc.createWorldOpenFlows().loadLevel(mc.screen, WORLD);
                     step = 1;
                 }
             }

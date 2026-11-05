@@ -4,30 +4,28 @@ import com.vyrriox.justreplay.platform.ClientPlatform;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import net.minecraft.client.multiplayer.ClientPacketListener;
-import net.minecraft.core.RegistryAccess;
-import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.Connection;
+import net.minecraft.network.ConnectionProtocol;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBundlePacket;
-import net.minecraft.network.protocol.game.GameProtocols;
 
 import java.util.function.Consumer;
 
 /**
- * Encodes and decodes clientbound play packets with the same codec the network stack uses, including the
- * custom payloads of every installed mod.
+ * Encodes and decodes clientbound play packets the way the network stack does: the packet id of the play protocol
+ * followed by the packet's own bytes. Custom payloads are raw bytes here, so nothing depends on the registries of the
+ * connection, which a login replaces.
  *
  * @author vyrriox
  */
 public final class PacketCodec {
-    private final StreamCodec<ByteBuf, Packet<? super ClientGamePacketListener>> codec;
-    private final RegistryAccess registryAccess;
-    private final Object connectionToken;
+    private final Connection connection;
 
     private PacketCodec(ClientPacketListener listener) {
-        this.registryAccess = listener.registryAccess();
-        this.connectionToken = ClientPlatform.get().connectionToken(listener);
-        this.codec = GameProtocols.CLIENTBOUND_TEMPLATE.bind(ClientPlatform.get().bufDecorator(listener)).codec();
+        this.connection = listener.getConnection();
     }
 
     public static PacketCodec of(ClientPacketListener listener) {
@@ -35,11 +33,7 @@ public final class PacketCodec {
     }
 
     public boolean matches(ClientPacketListener listener) {
-        return listener.registryAccess() == registryAccess && ClientPlatform.get().connectionToken(listener) == connectionToken;
-    }
-
-    public RegistryAccess registryAccess() {
-        return registryAccess;
+        return listener.getConnection() == connection;
     }
 
     /** Called with a bundle's sub packet and the error when that sub packet cannot be encoded; set by the recorder. */
@@ -50,7 +44,6 @@ public final class PacketCodec {
     }
 
     /** Encodes a packet, splitting bundles into their sub packets. */
-    @SuppressWarnings("unchecked")
     public void encode(Packet<?> packet, Consumer<byte[]> sink) {
         if (packet instanceof ClientboundBundlePacket bundle) {
             for (Packet<? super ClientGamePacketListener> sub : bundle.subPackets()) {
@@ -72,7 +65,13 @@ public final class PacketCodec {
         byte[] bytes;
         try {
             buf.clear();
-            codec.encode(buf, (Packet<? super ClientGamePacketListener>) packet);
+            int id = ConnectionProtocol.PLAY.getPacketId(PacketFlow.CLIENTBOUND, packet);
+            if (id < 0) {
+                throw new IllegalArgumentException("Not a clientbound play packet: " + packet.getClass().getName());
+            }
+            FriendlyByteBuf out = new FriendlyByteBuf(buf);
+            out.writeVarInt(id);
+            packet.write(out);
             bytes = new byte[buf.readableBytes()];
             buf.readBytes(bytes);
         } finally {
@@ -142,10 +141,16 @@ public final class PacketCodec {
         }
     }
 
+    @SuppressWarnings("unchecked")
     public Packet<? super ClientGamePacketListener> decode(byte[] data) {
-        ByteBuf buf = Unpooled.wrappedBuffer(data);
+        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.wrappedBuffer(data));
         try {
-            return codec.decode(buf);
+            int id = buf.readVarInt();
+            Packet<?> packet = ConnectionProtocol.PLAY.createPacket(PacketFlow.CLIENTBOUND, id, buf);
+            if (packet == null) {
+                throw new IllegalArgumentException("Unknown clientbound play packet id " + id);
+            }
+            return (Packet<? super ClientGamePacketListener>) packet;
         } finally {
             buf.release();
         }

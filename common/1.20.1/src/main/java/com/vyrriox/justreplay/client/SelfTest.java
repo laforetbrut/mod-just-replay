@@ -332,7 +332,7 @@ public final class SelfTest {
                             WorldDataConfiguration.DEFAULT);
                     mc.createWorldOpenFlows().createFreshLevel(WORLD, settings, new WorldOptions(42L, false, false),
                             access -> access.registryOrThrow(Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
-                                    .createWorldDimensions(), mc.screen);
+                                    .createWorldDimensions());
                     log("world requested");
                     next(20);
                 }

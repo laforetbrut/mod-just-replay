@@ -2,17 +2,13 @@ package com.vyrriox.justreplay.platform;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import com.vyrriox.justreplay.format.RegistryIdsBackend;
-import io.netty.buffer.ByteBuf;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.multiplayer.ClientPacketListener;
-import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 
 import javax.annotation.Nullable;
-import java.util.function.Function;
 
 /**
  * What the mod needs from the loader on the physical client only. Never touch this class on a dedicated server.
@@ -26,12 +22,6 @@ public interface ClientPlatform {
 
     /** Opens the settings screen of the mod, going back to {@code parent} when it closes. */
     void openConfigScreen(Screen parent);
-
-    /** Wraps a buffer the way the network stack of this connection does, for the codecs of its packets. */
-    Function<ByteBuf, RegistryFriendlyByteBuf> bufDecorator(ClientPacketListener listener);
-
-    /** What, beside the registry access, makes {@link #bufDecorator} differ between connections. Compared by identity. */
-    Object connectionToken(ClientPacketListener listener);
 
     /** False when a recorded mod payload cannot be decoded here: its mod is absent or does not receive it on the client. */
     boolean canDecodePayload(ResourceLocation id);

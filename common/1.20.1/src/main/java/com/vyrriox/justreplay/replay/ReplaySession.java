@@ -353,12 +353,11 @@ public final class ReplaySession {
         rules.getRule(GameRules.RULE_DAYLIGHT).set(false, null);
         rules.getRule(GameRules.RULE_WEATHER_CYCLE).set(false, null);
         rules.getRule(GameRules.RULE_DOMOBSPAWNING).set(false, null);
-        rules.getRule(GameRules.RULE_SPAWN_CHUNK_RADIUS).set(0, null);
         LevelSettings settings = new LevelSettings(WORLD_NAME, GameType.SPECTATOR, false, Difficulty.PEACEFUL, true, rules,
                 WorldDataConfiguration.DEFAULT);
         try {
             mc.createWorldOpenFlows().createFreshLevel(WORLD_NAME, settings, new WorldOptions(0L, false, false),
-                    ReplaySession::voidDimensions, parent);
+                    ReplaySession::voidDimensions);
             if (mc.getSingleplayerServer() == null) {
                 // World creation failed and returned to the menu: forget the session so the next open works.
                 current = null;
@@ -452,14 +451,6 @@ public final class ReplaySession {
             // Recorded ids must be in place before the codec decodes anything.
             boolean ids = com.vyrriox.justreplay.format.RegistryIds.apply(s.dir);
             JustReplay.LOGGER.info("Registry ids from the recording: {}", ids ? "applied" : "none (older replay)");
-            List<String> differing = com.vyrriox.justreplay.format.SyncedRegistries.differing(s.dir, mc.getConnection().registryAccess());
-            if (!differing.isEmpty()) {
-                String names = String.join(", ", differing.subList(0, Math.min(3, differing.size())));
-                net.minecraft.client.gui.components.toasts.SystemToast.add(mc.getToasts(),
-                        net.minecraft.client.gui.components.toasts.SystemToast.SystemToastIds.PERIODIC_NOTIFICATION,
-                        Component.translatable("justreplay.toast.registries_differ"),
-                        differing.size() > 3 ? Component.literal(names + " +" + (differing.size() - 3)) : Component.literal(names));
-            }
             s.playback.start(mc.getConnection());
             JustReplay.LOGGER.info("Replay playback started: {} ticks", s.playback.duration());
         }

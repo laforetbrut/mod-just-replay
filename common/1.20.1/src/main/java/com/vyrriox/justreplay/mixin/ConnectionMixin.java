@@ -35,9 +35,9 @@ public abstract class ConnectionMixin {
     }
 
     /** The camera's movement is never sent to the replay host, so its server player never loads chunks. */
-    @Inject(method = "send(Lnet/minecraft/network/protocol/Packet;Lnet/minecraft/network/PacketSendListener;Z)V",
+    @Inject(method = "send(Lnet/minecraft/network/protocol/Packet;Lnet/minecraft/network/PacketSendListener;)V",
             at = @At("HEAD"), cancellable = true)
-    private void justreplay$onSend(Packet<?> packet, PacketSendListener listener, boolean flush, CallbackInfo ci) {
+    private void justreplay$onSend(Packet<?> packet, PacketSendListener listener, CallbackInfo ci) {
         if (packet instanceof net.minecraft.network.protocol.game.ClientboundUpdateRecipesPacket && ReplaySession.current() != null
                 && ((Connection) (Object) this).getSending() == PacketFlow.CLIENTBOUND) {
             // The replay world's own server has nothing to say about recipes (the recording carries its own), and a
@@ -48,7 +48,7 @@ public abstract class ConnectionMixin {
         Connection self = (Connection) (Object) this;
         if (self.getSending() != PacketFlow.SERVERBOUND) {
             // Cancelled before it is encoded: the registry ids are about to change under the host, see ReplaySession.
-            if (ReplaySession.isHostSilenced() && !(packet instanceof net.minecraft.network.protocol.common.ClientboundDisconnectPacket)) {
+            if (ReplaySession.isHostSilenced() && !(packet instanceof net.minecraft.network.protocol.game.ClientboundDisconnectPacket)) {
                 ci.cancel();
             }
             return;
@@ -66,13 +66,13 @@ public abstract class ConnectionMixin {
      * Mod handlers may disconnect on a payload they reject; during playback that would end the replay. Only on the
      * render thread, where recorded packets are handled: a fault of the channel itself is not caused by one of them.
      */
-    @Inject(method = "disconnect(Lnet/minecraft/network/DisconnectionDetails;)V", at = @At("HEAD"), cancellable = true)
-    private void justreplay$onDisconnect(net.minecraft.network.DisconnectionDetails details, CallbackInfo ci) {
+    @Inject(method = "disconnect(Lnet/minecraft/network/chat/Component;)V", at = @At("HEAD"), cancellable = true)
+    private void justreplay$onDisconnect(net.minecraft.network.chat.Component reason, CallbackInfo ci) {
         Connection self = (Connection) (Object) this;
         if (com.vyrriox.justreplay.replay.Playback.isDispatching() && net.minecraft.client.Minecraft.getInstance().isSameThread()
                 && ReplaySession.isReplayConnection(self)) {
             com.vyrriox.justreplay.JustReplay.LOGGER.warn("A recorded packet asked to disconnect the replay ({}), ignored",
-                    details.reason().getString());
+                    reason.getString());
             ci.cancel();
         }
     }

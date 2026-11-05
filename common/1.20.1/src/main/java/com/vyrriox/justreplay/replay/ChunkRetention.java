@@ -16,7 +16,7 @@ import net.minecraft.network.protocol.game.ClientboundSetChunkCacheCenterPacket;
 import net.minecraft.network.protocol.game.ClientboundSetChunkCacheRadiusPacket;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.level.chunk.status.ChunkStatus;
+import net.minecraft.world.level.chunk.ChunkStatus;
 
 /**
  * Keeps chunks loaded during playback instead of unloading them when the recording player walked away: recorded
@@ -113,7 +113,7 @@ final class ChunkRetention {
             }
             it.remove();
             if (level.getChunkSource().getChunk(x, z, ChunkStatus.FULL, false) != null) {
-                new ClientboundForgetLevelChunkPacket(new ChunkPos(x, z)).handle(listener);
+                new ClientboundForgetLevelChunkPacket(x, z).handle(listener);
                 evicted++;
             }
         }

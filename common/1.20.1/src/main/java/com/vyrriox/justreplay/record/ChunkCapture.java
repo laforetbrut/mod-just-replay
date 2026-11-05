@@ -9,7 +9,7 @@ import net.minecraft.network.protocol.game.ClientboundLoginPacket;
 import net.minecraft.network.protocol.game.ClientboundRespawnPacket;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.LevelChunk;
-import net.minecraft.world.level.chunk.status.ChunkStatus;
+import net.minecraft.world.level.chunk.ChunkStatus;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -121,7 +121,7 @@ final class ChunkCapture {
         if (packet instanceof ClientboundLevelChunkWithLightPacket chunk) {
             events.add(new Event(Event.SENT, ChunkPos.asLong(chunk.getX(), chunk.getZ())));
         } else if (packet instanceof ClientboundForgetLevelChunkPacket forget) {
-            events.add(new Event(Event.FORGOTTEN, forget.pos().toLong()));
+            events.add(new Event(Event.FORGOTTEN, ChunkPos.asLong(forget.getX(), forget.getZ())));
         } else if (packet instanceof ClientboundLoginPacket || packet instanceof ClientboundRespawnPacket) {
             events.add(new Event(Event.RESET, 0L));
         }

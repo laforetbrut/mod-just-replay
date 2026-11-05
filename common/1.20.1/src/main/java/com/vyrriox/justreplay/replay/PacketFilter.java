@@ -2,19 +2,7 @@ package com.vyrriox.justreplay.replay;
 
 import com.vyrriox.justreplay.record.Payloads;
 import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.protocol.common.ClientboundCustomReportDetailsPacket;
-import net.minecraft.network.protocol.common.ClientboundDisconnectPacket;
-import net.minecraft.network.protocol.common.ClientboundKeepAlivePacket;
-import net.minecraft.network.protocol.common.ClientboundPingPacket;
-import net.minecraft.network.protocol.common.ClientboundResourcePackPopPacket;
-import net.minecraft.network.protocol.common.ClientboundResourcePackPushPacket;
-import net.minecraft.network.protocol.common.ClientboundServerLinksPacket;
-import net.minecraft.network.protocol.common.ClientboundStoreCookiePacket;
-import net.minecraft.network.protocol.common.ClientboundTransferPacket;
-import net.minecraft.network.protocol.cookie.ClientboundCookieRequestPacket;
 import net.minecraft.network.protocol.game.ClientboundBlockChangedAckPacket;
-import net.minecraft.network.protocol.game.ClientboundChunkBatchFinishedPacket;
-import net.minecraft.network.protocol.game.ClientboundChunkBatchStartPacket;
 import net.minecraft.network.protocol.game.ClientboundCommandSuggestionsPacket;
 import net.minecraft.network.protocol.game.ClientboundCommandsPacket;
 import net.minecraft.network.protocol.game.ClientboundContainerClosePacket;
@@ -23,13 +11,16 @@ import net.minecraft.network.protocol.game.ClientboundContainerSetDataPacket;
 import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
 import net.minecraft.network.protocol.game.ClientboundCooldownPacket;
 import net.minecraft.network.protocol.game.ClientboundCustomChatCompletionsPacket;
+import net.minecraft.network.protocol.game.ClientboundDisconnectPacket;
 import net.minecraft.network.protocol.game.ClientboundGameEventPacket;
 import net.minecraft.network.protocol.game.ClientboundHorseScreenOpenPacket;
+import net.minecraft.network.protocol.game.ClientboundKeepAlivePacket;
 import net.minecraft.network.protocol.game.ClientboundMerchantOffersPacket;
 import net.minecraft.network.protocol.game.ClientboundMoveVehiclePacket;
 import net.minecraft.network.protocol.game.ClientboundOpenBookPacket;
 import net.minecraft.network.protocol.game.ClientboundOpenScreenPacket;
 import net.minecraft.network.protocol.game.ClientboundOpenSignEditorPacket;
+import net.minecraft.network.protocol.game.ClientboundPingPacket;
 import net.minecraft.network.protocol.game.ClientboundPlaceGhostRecipePacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerAbilitiesPacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerCombatEndPacket;
@@ -38,13 +29,11 @@ import net.minecraft.network.protocol.game.ClientboundPlayerCombatKillPacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerLookAtPacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
 import net.minecraft.network.protocol.game.ClientboundRecipePacket;
+import net.minecraft.network.protocol.game.ClientboundResourcePackPacket;
 import net.minecraft.network.protocol.game.ClientboundSetCameraPacket;
 import net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket;
 import net.minecraft.network.protocol.game.ClientboundSetExperiencePacket;
 import net.minecraft.network.protocol.game.ClientboundSetHealthPacket;
-import net.minecraft.network.protocol.game.ClientboundStartConfigurationPacket;
-import net.minecraft.network.protocol.game.ClientboundTickingStatePacket;
-import net.minecraft.network.protocol.game.ClientboundTickingStepPacket;
 import net.minecraft.network.protocol.game.ClientboundUpdateRecipesPacket;
 
 import java.util.Set;
@@ -60,14 +49,7 @@ public final class PacketFilter {
             ClientboundKeepAlivePacket.class,
             ClientboundPingPacket.class,
             ClientboundDisconnectPacket.class,
-            ClientboundTransferPacket.class,
-            ClientboundStoreCookiePacket.class,
-            ClientboundCookieRequestPacket.class,
-            ClientboundResourcePackPushPacket.class,
-            ClientboundResourcePackPopPacket.class,
-            ClientboundServerLinksPacket.class,
-            ClientboundCustomReportDetailsPacket.class,
-            ClientboundStartConfigurationPacket.class,
+            ClientboundResourcePackPacket.class,
             ClientboundPlayerPositionPacket.class,
             ClientboundPlayerLookAtPacket.class,
             ClientboundMoveVehiclePacket.class,
@@ -96,10 +78,6 @@ public final class PacketFilter {
             ClientboundCommandSuggestionsPacket.class,
             ClientboundCustomChatCompletionsPacket.class,
             ClientboundBlockChangedAckPacket.class,
-            ClientboundChunkBatchStartPacket.class,
-            ClientboundChunkBatchFinishedPacket.class,
-            ClientboundTickingStatePacket.class,
-            ClientboundTickingStepPacket.class,
             net.minecraft.network.protocol.game.ClientboundDeleteChatPacket.class
     );
 
@@ -153,8 +131,7 @@ public final class PacketFilter {
             return type == ClientboundGameEventPacket.CHANGE_GAME_MODE
                     || type == ClientboundGameEventPacket.WIN_GAME
                     || type == ClientboundGameEventPacket.DEMO_EVENT
-                    || type == ClientboundGameEventPacket.IMMEDIATE_RESPAWN
-                    || type == ClientboundGameEventPacket.LIMITED_CRAFTING;
+                    || type == ClientboundGameEventPacket.IMMEDIATE_RESPAWN;
         }
         return false;
     }
