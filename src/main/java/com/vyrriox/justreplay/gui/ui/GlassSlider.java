@@ -23,6 +23,8 @@ public class GlassSlider extends AbstractSliderButton {
     private final DoubleConsumer onChange;
     private final Anim.Value hover = new Anim.Value(0.0F, Theme.FAST);
     private final Anim.Value shown;
+    private Runnable onCommit;
+    private boolean dragging;
 
     public GlassSlider(int width, double min, double max, double step, double initial, DoubleFunction<Component> format,
                        DoubleConsumer onChange) {
@@ -46,9 +48,35 @@ public class GlassSlider extends AbstractSliderButton {
         setMessage(format.apply(actual()));
     }
 
+    /** Called once when a change is final: on mouse release, or at once for a keyboard step. */
+    public GlassSlider onCommit(Runnable onCommit) {
+        this.onCommit = onCommit;
+        return this;
+    }
+
     @Override
     protected void applyValue() {
         onChange.accept(actual());
+        if (!dragging && onCommit != null) {
+            onCommit.run();
+        }
+    }
+
+    @Override
+    public void onClick(double mouseX, double mouseY) {
+        dragging = true;
+        super.onClick(mouseX, mouseY);
+    }
+
+    @Override
+    public void onRelease(double mouseX, double mouseY) {
+        super.onRelease(mouseX, mouseY);
+        if (dragging) {
+            dragging = false;
+            if (onCommit != null) {
+                onCommit.run();
+            }
+        }
     }
 
     @Override

@@ -38,6 +38,11 @@ public abstract class EntityEditRenderMixin {
             cir.setReturnValue(false);
             return;
         }
+        if (com.vyrriox.justreplay.editor.ActorManager.renderScale(entity) > 1.001F) {
+            // A scaled-up actor is drawn well outside its own box: skip the frustum test.
+            cir.setReturnValue(true);
+            return;
+        }
         com.vyrriox.justreplay.editor.ReplayProject.EntityEdit edit = EntityEdits.editOf(entity);
         if (edit == null) {
             return;

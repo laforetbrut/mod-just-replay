@@ -267,6 +267,7 @@ final class EntitiesPanel {
             if (e.hideFrom > e.hideTo) e.hideFrom = 0;
         })).tip(tc("justreplay.entities.hide_until.tip")), 1, 3);
         f.put(new GlassButton(tc("justreplay.entities.hide_all"), b -> change(e -> {
+            e.hidden = true;
             e.hideFrom = 0;
             e.hideTo = -1;
         })).tip(tc("justreplay.entities.hide_all.tip")), 2, 3);

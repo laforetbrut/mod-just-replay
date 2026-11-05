@@ -162,7 +162,10 @@ public final class ReplaySession {
     public void saveProject() {
         project.sort();
         String json = ReplayStorage.GSON.toJson(project);
-        if (!json.equals(lastState)) {
+        if (lastState != null && !json.equals(lastState) && stripSelection(json).equals(stripSelection(lastState))) {
+            // Only the selected camera moved: not an edit, keep the history and remember the selection.
+            lastState = json;
+        } else if (!json.equals(lastState)) {
             // Every change goes through here, so the undo history needs no hook in each editor control.
             if (lastState != null) {
                 undo.push(lastState);
@@ -174,6 +177,13 @@ public final class ReplaySession {
             lastState = json;
         }
         ReplayStorage.writeProject(dir, project);
+    }
+
+    private static final java.util.regex.Pattern SELECTION =
+            java.util.regex.Pattern.compile("\"selectedCamera\"\\s*:\\s*(\"(?:[^\"\\\\]|\\\\.)*\"|null),?");
+
+    private static String stripSelection(String json) {
+        return SELECTION.matcher(json).replaceAll("");
     }
 
     // ---------------------------------------------------------------- undo / redo
@@ -226,7 +236,9 @@ public final class ReplaySession {
             }
         }
         actors.clearAll();
-        lastState = json;
+        // The live project is the normalized form, so compare against that, not the raw restored text.
+        project.sort();
+        lastState = ReplayStorage.GSON.toJson(project);
         ReplayStorage.writeProject(dir, project);
     }
 

@@ -79,6 +79,13 @@ public final class TimeShift {
         for (ReplayProject.EntityEdit edit : p.entityEdits) {
             s.points(edit.offsets, k -> k.tick, (k, t) -> k.tick = t);
             s.points(edit.skinChanges, c -> c.tick, (c, t) -> c.tick = t);
+            if (s.remove && edit.hidden && edit.hideTo >= 0 && edit.hideFrom >= s.at && edit.hideTo < s.at + s.n) {
+                // The whole hidden range was removed: nothing is left to hide.
+                edit.hidden = false;
+                edit.hideFrom = 0;
+                edit.hideTo = -1;
+                continue;
+            }
             edit.hideFrom = s.clamp(edit.hideFrom);
             if (edit.hideTo >= 0) {
                 edit.hideTo = Math.max(edit.hideFrom, s.clamp(edit.hideTo));
@@ -144,6 +151,7 @@ public final class TimeShift {
                     c.out = c.in + keep * c.speed();
                 }
             }
+            c.clampFades();
         }
     }
 

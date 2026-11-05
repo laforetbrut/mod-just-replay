@@ -68,7 +68,7 @@ final class WorldPanel {
 
         f.header(tc("justreplay.world.time"), Icon.CLOCK);
         f.full(slider(0, WorldSettings.DAY - 100, 100, w.timeOverridden() ? currentTime() : WorldOverride.recordedDay() % WorldSettings.DAY,
-                v -> Component.translatable("justreplay.world.time.value", clock(v)), v -> editTime((float) v)));
+                v -> Component.translatable("justreplay.world.time.value", clock(v)), v -> applyTime((float) v)).onCommit(this::save));
         for (int i = 0; i < PRESETS.length; i++) {
             int t = PRESETS[i];
             f.put(new GlassButton(tc("justreplay.world.preset." + PRESET_KEYS[i]), b -> {
@@ -115,6 +115,12 @@ final class WorldPanel {
 
     /** Sets the time as the user does: the keyframe at the play head when the time is animated, else the fixed time. */
     private void editTime(float value) {
+        applyTime(value);
+        save();
+    }
+
+    /** Same as editTime without saving, for a slider that saves once on release. */
+    private void applyTime(float value) {
         WorldSettings w = world();
         w.timeMode = WorldSettings.TIME_FIXED;
         float v = WorldSettings.wrap(value);
@@ -123,7 +129,6 @@ final class WorldPanel {
         } else {
             WorldSettings.setKey(w.timeKeys, cursor(), v);
         }
-        save();
     }
 
     private void strength(Form f, String name, List<Key> keys, java.util.function.Supplier<Float> fixed, java.util.function.Consumer<Float> setFixed) {
@@ -134,8 +139,7 @@ final class WorldPanel {
             } else {
                 WorldSettings.setKey(keys, cursor(), (float) v);
             }
-            save();
-        }));
+        }).onCommit(this::save));
         keyRow(f, name, keys, () -> keys.isEmpty() ? fixed.get()
                 : ("rain".equals(name) ? world().rainAt(cursor()) : world().thunderAt(cursor())), null);
     }

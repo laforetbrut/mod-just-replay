@@ -545,7 +545,7 @@ public class ActorScreen extends GlassScreen {
     private void addAction() {
         int tick = parseStart();
         ReplayProject.ActorAction action = new ReplayProject.ActorAction(tick, actionType, parseDuration(tick),
-                param.getValue().trim());
+                com.vyrriox.justreplay.editor.ActorManager.moveTargetOrDefault(actionType, param.getValue().trim()));
         applyClip(action);
         actions.add(action);
         actions.sort(java.util.Comparator.comparingInt(a -> a.tick));

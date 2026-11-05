@@ -400,8 +400,15 @@ public final class CameraPanel {
         session.saveProject();
     }
 
-    private static void setTarget(ReplayProject.Camera camera, Entity target) {
+    private void setTarget(ReplayProject.Camera camera, Entity target) {
         camera.target = target.getUUID().toString();
+        // An actor is stored by its id: its entity gets a new UUID at every spawn.
+        for (ReplayProject.ActorData actor : project().actors) {
+            if (session.actors().entityOf(actor) == target) {
+                camera.target = com.vyrriox.justreplay.editor.CameraRig.ACTOR_PREFIX + actor.id;
+                break;
+            }
+        }
         camera.targetName = target.getName().getString();
     }
 

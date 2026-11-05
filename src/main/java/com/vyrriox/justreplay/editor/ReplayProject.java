@@ -701,7 +701,8 @@ public final class ReplayProject {
             return -1;
         }
         int last = cuts.get(cuts.size() - 1).tick;
-        int end = cutsEnd >= 0 ? cutsEnd : duration;
+        // A cut placed past a manual end moves the end with it, instead of getting a single tick.
+        int end = cutsEnd >= 0 && cutsEnd > last ? cutsEnd : duration;
         return Math.max(end, last + 1);
     }
 
