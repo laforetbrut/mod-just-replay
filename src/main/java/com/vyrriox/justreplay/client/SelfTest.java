@@ -513,7 +513,15 @@ public final class SelfTest {
                     com.vyrriox.justreplay.compat.EntityCullingCompat.setEnabled(true);
                 }
                 s.playback().seek(150);
-                go(8, 30);
+                go(61, 3);
+            }
+            case 61 -> {
+                // Entity Culling's tickEntity mixin skips an entity only while its switch is on. The simulated key
+                // press above leaves it on until the replay's own end-of-tick sync, so entities ticked in that
+                // single tick can be skipped (seen once in three runs). That window is the test's own doing:
+                // count from here, once the switch has been forced off again.
+                cullSkipped = Math.max(0, com.vyrriox.justreplay.compat.EntityCullingCompat.skippedEntityTicks());
+                go(8, 27);
             }
             case 8 -> {
                 ReplaySession s = ReplaySession.current();
