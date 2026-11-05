@@ -35,3 +35,6 @@ images/*
 
 # Local run folders of the loader projects
 */run-compat/
+
+# Scratch folders of port tasks
+_temp/

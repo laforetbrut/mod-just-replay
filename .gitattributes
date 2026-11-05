@@ -1,0 +1,4 @@
+# Scripts must keep LF line endings on every platform
+*.sh text eol=lf
+gradlew text eol=lf
+*.bat text eol=crlf
