@@ -9,7 +9,8 @@
     "GameRendererHooksMixin",
     "AbstractClientPlayerFovMixin",
     "CameraRollMixin",
-    "GuiCleanHudMixin"
+    "GuiCleanHudMixin",
+    "MappedRegistryAccessor"
   ],
   "injectors": {
     "defaultRequire": 1
