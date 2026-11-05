@@ -2,9 +2,9 @@ package com.vyrriox.justreplay.forge;
 
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.vyrriox.justreplay.JustReplay;
 import com.vyrriox.justreplay.client.Frames;
 import com.vyrriox.justreplay.client.hook.ClientHooks;
+import com.vyrriox.justreplay.client.hook.HudLayer;
 import com.vyrriox.justreplay.compat.ReplayCompat;
 import com.vyrriox.justreplay.editor.PathRenderer;
 import com.vyrriox.justreplay.editor.SkinLibrary;
@@ -17,8 +17,7 @@ import com.vyrriox.justreplay.gui.JRConfigScreen;
 import com.vyrriox.justreplay.gui.OverlayPlacementTool;
 import com.vyrriox.justreplay.gui.PlacementTool;
 import net.minecraft.client.Camera;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.LayeredDraw;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.client.ConfigScreenHandler;
@@ -26,20 +25,25 @@ import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.client.event.ComputeFovModifierEvent;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 import net.minecraftforge.client.event.RegisterShadersEvent;
+import net.minecraftforge.client.event.RenderGuiEvent;
+import net.minecraftforge.client.event.RenderGuiOverlayEvent;
 import net.minecraftforge.client.event.RenderHighlightEvent;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
 import net.minecraftforge.client.event.ScreenEvent;
 import net.minecraftforge.client.event.ViewportEvent;
-import net.minecraftforge.client.gui.overlay.ForgeLayeredDraw;
+import net.minecraftforge.client.gui.overlay.VanillaGuiOverlay;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.Event;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -64,29 +68,28 @@ public final class ForgeClient {
             PlacementTool.class,
     };
 
-    private static final ResourceLocation PLACEMENT_GUI = JustReplay.id("placement_gui");
+    /** Same step as Minecraft's later layered HUD: a layer draws above whatever came before it in depth. */
+    private static final float LAYER_DEPTH = 200.0F;
 
-    /** Layers kept by the clean HUD setting. */
-    private static final Set<ResourceLocation> REPLAY_LAYERS = Set.of(
-            ForgeLayeredDraw.CHAT_OVERLAY,
-            ForgeLayeredDraw.TITLE_OVERLAY,
-            ForgeLayeredDraw.SUBTITLE_OVERLAY,
-            ForgeLayeredDraw.BOSS_OVERLAY,
-            ForgeLayeredDraw.SCOREBOARD,
-            ForgeLayeredDraw.TAB_LIST,
-            ForgeLayeredDraw.HOTBAR_MESSAGE,
-            ForgeLayeredDraw.DEBUG_OVERLAY,
-            JustReplay.id("hud"),
-            JustReplay.id("placement"),
-            JustReplay.id("entity_tool"),
-            PLACEMENT_GUI);
+    /** Overlays kept by the clean HUD setting. */
+    private static final Set<ResourceLocation> REPLAY_OVERLAYS = Set.of(
+            VanillaGuiOverlay.CHAT_PANEL.id(),
+            VanillaGuiOverlay.TITLE_TEXT.id(),
+            VanillaGuiOverlay.SUBTITLES.id(),
+            VanillaGuiOverlay.BOSS_EVENT_PROGRESS.id(),
+            VanillaGuiOverlay.SCOREBOARD.id(),
+            VanillaGuiOverlay.PLAYER_LIST.id(),
+            VanillaGuiOverlay.RECORD_OVERLAY.id(),
+            VanillaGuiOverlay.DEBUG_TEXT.id());
+
+    private static final List<HudLayer> TOP_LAYERS = new ArrayList<>();
 
     private ForgeClient() {
     }
 
     static void init(FMLJavaModLoadingContext context) {
-        context.getContainer().registerExtensionPoint(ConfigScreenHandler.ConfigScreenFactory.class,
-                () -> new ConfigScreenHandler.ConfigScreenFactory(JRConfigScreen::new));
+        ModLoadingContext.get().registerExtensionPoint(ConfigScreenHandler.ConfigScreenFactory.class,
+                () -> new ConfigScreenHandler.ConfigScreenFactory((minecraft, parent) -> new JRConfigScreen(parent)));
         for (Class<?> type : PRELOADED) {
             try {
                 Class.forName(type.getName(), true, type.getClassLoader());
@@ -99,17 +102,28 @@ public final class ForgeClient {
         listen(modBus, RegisterShadersEvent.class, ForgeClient::onShaders);
 
         IEventBus game = MinecraftForge.EVENT_BUS;
-        listen(game, TickEvent.ClientTickEvent.Pre.class, event -> ClientHooks.onClientTickPre());
-        listen(game, TickEvent.ClientTickEvent.Post.class, event -> onTickPost());
+        listen(game, TickEvent.ClientTickEvent.class, event -> {
+            if (event.phase == TickEvent.Phase.START) {
+                ClientHooks.onClientTickPre();
+            } else {
+                onTickPost();
+            }
+        });
         listen(game, ClientPlayerNetworkEvent.LoggingIn.class, event -> ClientHooks.onLoggingIn(event.getConnection()));
         listen(game, ClientPlayerNetworkEvent.LoggingOut.class, event -> ClientHooks.onLoggingOut(event.getConnection()));
         // Before anything renders (mods read their clock while rendering): integration clocks move to this frame.
-        game.addListener(EventPriority.HIGHEST, false, TickEvent.RenderTickEvent.Pre.class,
-                event -> ReplayCompat.Events.onRenderFrameFirst(Frames.partialTick()));
-        listen(game, TickEvent.RenderTickEvent.Pre.class, event -> onFramePre(Frames.partialTick()));
-        listen(game, TickEvent.RenderTickEvent.Post.class, event -> {
-            ClientHooks.onFramePost(Frames.partialTick());
-            FxEngine.onFrameEnd();
+        game.addListener(EventPriority.HIGHEST, false, TickEvent.RenderTickEvent.class, event -> {
+            if (event.phase == TickEvent.Phase.START) {
+                ReplayCompat.Events.onRenderFrameFirst(Frames.partialTick());
+            }
+        });
+        listen(game, TickEvent.RenderTickEvent.class, event -> {
+            if (event.phase == TickEvent.Phase.START) {
+                onFramePre(Frames.partialTick());
+            } else {
+                ClientHooks.onFramePost(Frames.partialTick());
+                FxEngine.onFrameEnd();
+            }
         });
         listen(game, ComputeFovModifierEvent.class, event -> {
             if (ClientHooks.locksFovModifier()) {
@@ -135,6 +149,9 @@ public final class ForgeClient {
         });
         listen(game, ScreenEvent.Init.Post.class, event -> ClientHooks.onScreenInit(event.getScreen(), event::addListener));
         listen(game, RenderLevelStageEvent.class, ForgeClient::onRenderLevel);
+        listen(game, RenderGuiOverlayEvent.Pre.class, ForgeClient::onGuiOverlay);
+        // After every overlay of every mod, so our layers stay above all others whatever the load order.
+        game.addListener(EventPriority.LOWEST, false, RenderGuiEvent.Post.class, ForgeClient::onGuiEnd);
     }
 
     /** Registers a listener with its event class given explicitly, so no generic type lookup is needed. */
@@ -169,38 +186,48 @@ public final class ForgeClient {
     }
 
     /**
-     * The event's own partial tick is the realtime delta of the frame, not a partial tick. The model view stack already
-     * holds the camera at these stages, so the tools draw from an empty pose stack as they do on the other loaders.
+     * The event's own partial tick is the realtime delta of the frame, not a partial tick. On this Minecraft version the
+     * model view stack does not hold the camera at these stages, the event's pose does, so every tool draws from it.
      */
     private static void onRenderLevel(RenderLevelStageEvent event) {
         RenderLevelStageEvent.Stage stage = event.getStage();
-        float partialTick = Frames.partialTick();
         boolean translucent = stage == RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS;
+        boolean particles = stage == RenderLevelStageEvent.Stage.AFTER_PARTICLES;
+        if (!translucent && !particles) {
+            return;
+        }
+        float partialTick = Frames.partialTick();
         Camera camera = event.getCamera();
-        OverlayRenderer.onRenderLevel(translucent, stage == RenderLevelStageEvent.Stage.AFTER_PARTICLES, camera, partialTick);
+        PoseStack view = event.getPoseStack();
+        OverlayRenderer.onRenderLevel(translucent, particles, camera, view, partialTick);
         if (translucent) {
-            PoseStack pose = new PoseStack();
-            PathRenderer.onRenderLevel(camera, pose, partialTick);
-            EntityTool.onRenderLevel(camera, pose);
-            OverlayPlacementTool.onRenderLevel(camera);
-            PlacementTool.onRenderLevel(camera, pose);
+            PathRenderer.onRenderLevel(camera, view, partialTick);
+            EntityTool.onRenderLevel(camera, view);
+            OverlayPlacementTool.onRenderLevel(camera, view);
+            PlacementTool.onRenderLevel(camera, view);
         }
     }
 
-    /** Adds our layers above all others; called once the other mods have added theirs. */
-    public static void addTopLayers(ForgeLayeredDraw root) {
-        ClientHooks.registerGuiLayers(root::add);
-        root.add(PLACEMENT_GUI, (graphics, delta) -> OverlayPlacementTool.onRenderGui(graphics));
+    /** Makes an overlay of any mod obey the clean HUD setting and the chat setting of the editor. */
+    private static void onGuiOverlay(RenderGuiOverlayEvent.Pre event) {
+        ResourceLocation name = event.getOverlay().id();
+        if (ClientHooks.hidesGuiLayer(REPLAY_OVERLAYS.contains(name), name.equals(VanillaGuiOverlay.CHAT_PANEL.id()))) {
+            event.setCanceled(true);
+        }
     }
 
-    /** Makes a layer of any mod obey the clean HUD setting and the chat setting of the editor. */
-    public static LayeredDraw.Layer cleanHud(ResourceLocation name, LayeredDraw.Layer layer) {
-        boolean replayLayer = REPLAY_LAYERS.contains(name);
-        boolean chatLayer = name.equals(ForgeLayeredDraw.CHAT_OVERLAY);
-        return (graphics, delta) -> {
-            if (!ClientHooks.hidesGuiLayer(replayLayer, chatLayer)) {
-                layer.render(graphics, delta);
-            }
-        };
+    /** Our layers are not overlays, so the clean HUD check above never hides them. */
+    private static void onGuiEnd(RenderGuiEvent.Post event) {
+        if (TOP_LAYERS.isEmpty()) {
+            ClientHooks.registerGuiLayers((name, layer) -> TOP_LAYERS.add(layer));
+            TOP_LAYERS.add((graphics, partialTick) -> OverlayPlacementTool.onRenderGui(graphics));
+        }
+        GuiGraphics graphics = event.getGuiGraphics();
+        graphics.pose().pushPose();
+        for (HudLayer layer : TOP_LAYERS) {
+            graphics.pose().translate(0.0F, 0.0F, LAYER_DEPTH);
+            layer.render(graphics, event.getPartialTick());
+        }
+        graphics.pose().popPose();
     }
 }

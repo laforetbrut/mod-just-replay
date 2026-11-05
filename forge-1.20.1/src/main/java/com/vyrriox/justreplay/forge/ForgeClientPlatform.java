@@ -19,8 +19,8 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 import net.minecraftforge.client.settings.IKeyConflictContext;
 import net.minecraftforge.client.settings.KeyConflictContext;
-import net.minecraftforge.common.ForgeHooks;
 import net.minecraftforge.entity.IEntityAdditionalSpawnData;
+import net.minecraftforge.network.NetworkHooks;
 
 import javax.annotation.Nullable;
 
@@ -84,7 +84,7 @@ public final class ForgeClientPlatform implements ClientPlatform {
         } finally {
             probe.release();
         }
-        return ForgeHooks.getEntitySpawnPacket(entity);
+        return NetworkHooks.getEntitySpawningPacket(entity);
     }
 
     /**

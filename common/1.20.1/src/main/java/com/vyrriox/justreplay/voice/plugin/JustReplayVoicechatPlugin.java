@@ -39,7 +39,7 @@ public final class JustReplayVoicechatPlugin implements VoicechatPlugin {
     @Override
     public void registerEvents(EventRegistration registration) {
         registration.registerEvent(ClientReceiveSoundEvent.EntitySound.class, event ->
-                VoiceRecorder.onVoice(VoiceTrack.ENTITY, event.getEntityId(), Double.NaN, Double.NaN, Double.NaN,
+                VoiceRecorder.onVoice(VoiceTrack.ENTITY, event.getId(), Double.NaN, Double.NaN, Double.NaN,
                         event.getDistance(), event.getRawAudio()));
         registration.registerEvent(ClientReceiveSoundEvent.LocationalSound.class, event -> {
             Position position = event.getPosition();

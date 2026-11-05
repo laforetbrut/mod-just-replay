@@ -12,9 +12,9 @@ import net.minecraftforge.fml.loading.FMLEnvironment;
  */
 @Mod(JustReplay.MOD_ID)
 public final class JustReplayForge {
-    public JustReplayForge(FMLJavaModLoadingContext context) {
+    public JustReplayForge() {
         if (FMLEnvironment.dist.isClient()) {
-            ForgeClient.init(context);
+            ForgeClient.init(FMLJavaModLoadingContext.get());
         }
     }
 }

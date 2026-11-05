@@ -102,7 +102,7 @@ public final class OverlayRenderer {
      * @param afterTranslucent the level stage after the translucent blocks
      * @param afterParticles   the level stage after the particles, the fallback when the first one never came
      */
-    public static void onRenderLevel(boolean afterTranslucent, boolean afterParticles, Camera camera, float partialTick) {
+    public static void onRenderLevel(boolean afterTranslucent, boolean afterParticles, Camera camera, PoseStack view, float partialTick) {
         boolean main = afterTranslucent;
         boolean fallback = afterParticles && drawnFrame != frame;
         if (!main && !fallback) {
@@ -115,7 +115,7 @@ public final class OverlayRenderer {
             lastDrawn = 0;
             return;
         }
-        render(mc, session, camera, partialTick);
+        render(mc, session, camera, view, partialTick);
     }
 
     public static void onTick() {
@@ -248,7 +248,7 @@ public final class OverlayRenderer {
     private record Pending(Overlay overlay, Vec3 at, double distance, float alpha) {
     }
 
-    private static void render(Minecraft mc, ReplaySession session, Camera camera, float partialTick) {
+    private static void render(Minecraft mc, ReplaySession session, Camera camera, PoseStack view, float partialTick) {
         double time = CameraController.frameTime(session, partialTick);
         Vec3 cam = camera.getPosition();
         List<Pending> list = new ArrayList<>();
@@ -282,6 +282,8 @@ public final class OverlayRenderer {
         list.sort((a, b) -> Double.compare(b.distance(), a.distance()));
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
         PoseStack poseStack = new PoseStack();
+        poseStack.last().pose().set(view.last().pose());
+        poseStack.last().normal().set(view.last().normal());
         String highlightId = VideoExporter.isActive() || mc.options.hideGui ? null : highlighted.get();
         for (Pending p : list) {
             Overlay o = p.overlay();

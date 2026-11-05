@@ -71,7 +71,7 @@ public final class SelfTest {
     private static int fxStep;
     private static boolean curiosGiven;
     private static volatile net.minecraft.world.item.Item accessoryGiven;
-    private static java.util.SequencedMap<?, ?> accessorySlots;
+    private static java.util.Map<?, ?> accessorySlots;
     private static boolean immersiveRegistered;
     private static int cullSkipped;
     /** Sounds the recording player made itself, heard again while the replay plays (see recordLocalEffect). */

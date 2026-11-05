@@ -297,7 +297,7 @@ public final class OverlayPlacementTool {
         return false;
     }
 
-    public static void onRenderLevel(Camera camera) {
+    public static void onRenderLevel(Camera camera, PoseStack view) {
         if (active == null || active.aim == null) {
             return;
         }
@@ -305,6 +305,8 @@ public final class OverlayPlacementTool {
         Aim aim = active.aim;
         Vec3 cam = camera.getPosition();
         PoseStack pose = new PoseStack();
+        pose.last().pose().set(view.last().pose());
+        pose.last().normal().set(view.last().normal());
         pose.translate(-cam.x, -cam.y, -cam.z);
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
         VertexConsumer lines = buffers.getBuffer(RenderType.lines());

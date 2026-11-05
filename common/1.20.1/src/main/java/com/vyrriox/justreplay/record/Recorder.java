@@ -1176,32 +1176,35 @@ public final class Recorder {
 
     /**
      * True when the entity data changed since the last call. Values are compared by reference first: the data only
-     * replaces a value when it differs, so an idle player costs one array walk and no allocation.
+     * replaces a value when it differs, so an idle player costs one walk of the items.
      */
     private boolean entityDataChanged(SynchedEntityData data) {
-        SynchedEntityData.DataItem<?>[] items;
+        java.util.Collection<SynchedEntityData.DataItem<?>> items;
         try {
-            items = ((SynchedEntityDataAccessor) data).justreplay$getItemsById();
+            items = ((SynchedEntityDataAccessor) data).justreplay$getItemsById().values();
         } catch (Throwable t) {
             return true;
         }
         Object[] last = lastDataValues;
-        if (last == null || last.length != items.length) {
-            last = lastDataValues = new Object[items.length];
-            for (int i = 0; i < items.length; i++) {
-                last[i] = items[i] == null ? null : items[i].getValue();
+        if (last == null || last.length != items.size()) {
+            last = lastDataValues = new Object[items.size()];
+            int i = 0;
+            for (SynchedEntityData.DataItem<?> item : items) {
+                last[i++] = item.getValue();
             }
             return true;
         }
         boolean changed = false;
-        for (int i = 0; i < items.length; i++) {
-            Object value = items[i] == null ? null : items[i].getValue();
+        int i = 0;
+        for (SynchedEntityData.DataItem<?> item : items) {
+            Object value = item.getValue();
             if (value != last[i]) {
                 if (!Objects.equals(value, last[i])) {
                     changed = true;
                 }
                 last[i] = value;
             }
+            i++;
         }
         return changed;
     }
@@ -1589,7 +1592,7 @@ public final class Recorder {
     private static List<SynchedEntityData.DataValue<?>> allDataValues(SynchedEntityData data) {
         try {
             List<SynchedEntityData.DataValue<?>> values = new ArrayList<>();
-            for (SynchedEntityData.DataItem<?> item : ((SynchedEntityDataAccessor) data).justreplay$getItemsById()) {
+            for (SynchedEntityData.DataItem<?> item : ((SynchedEntityDataAccessor) data).justreplay$getItemsById().values()) {
                 if (item != null) {
                     values.add(item.value());
                 }

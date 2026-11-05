@@ -26,8 +26,6 @@ public abstract class MinecraftHooksMixin {
     public ClientLevel level;
     @Shadow
     public LocalPlayer player;
-    @Shadow
-    private boolean clientLevelTeardownInProgress;
 
     /**
      * At the head because vanilla closes the current screen before it works out the new one. Going back to the game
@@ -36,7 +34,7 @@ public abstract class MinecraftHooksMixin {
     @Inject(method = "setScreen", at = @At("HEAD"), cancellable = true)
     private void justreplay$setScreen(Screen screen, CallbackInfo ci) {
         Screen opening = screen;
-        if (opening == null && !this.clientLevelTeardownInProgress) {
+        if (opening == null) {
             if (this.level == null) {
                 opening = new TitleScreen();
             } else if (this.player.isDeadOrDying() && this.player.shouldShowDeathScreen()) {
