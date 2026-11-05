@@ -132,4 +132,33 @@ final class ScaledSoundInstance implements SoundInstance {
             return null;
         }
     }
+
+    /** The same on Fabric, whose sound instances declare it under this name. */
+    public CompletableFuture<AudioStream> getAudioStream(SoundBufferLibrary soundBuffers, ResourceLocation id, boolean looping) {
+        if (FABRIC_GET_STREAM != null) {
+            try {
+                @SuppressWarnings("unchecked")
+                CompletableFuture<AudioStream> stream = (CompletableFuture<AudioStream>) FABRIC_GET_STREAM.invoke(wrapped, soundBuffers, id, looping);
+                return stream;
+            } catch (java.lang.reflect.InvocationTargetException e) {
+                if (e.getCause() instanceof RuntimeException runtime) {
+                    throw runtime;
+                }
+                throw new IllegalStateException(e.getCause());
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+        return soundBuffers.getStream(id, looping);
+    }
+
+    private static final java.lang.reflect.Method FABRIC_GET_STREAM = findFabricGetStream();
+
+    private static java.lang.reflect.Method findFabricGetStream() {
+        try {
+            return SoundInstance.class.getMethod("getAudioStream", SoundBufferLibrary.class, ResourceLocation.class, boolean.class);
+        } catch (NoSuchMethodException e) {
+            return null;
+        }
+    }
 }

@@ -51,6 +51,11 @@ final class VoiceSoundInstance extends AbstractSoundInstance implements Tickable
         return CompletableFuture.completedFuture(stream);
     }
 
+    /** The same on Fabric, whose sound instances declare it under this name. */
+    public CompletableFuture<AudioStream> getAudioStream(SoundBufferLibrary soundBuffers, ResourceLocation id, boolean looping) {
+        return CompletableFuture.completedFuture(stream);
+    }
+
     void moveTo(double x, double y, double z) {
         if (!relative) {
             this.x = x;
