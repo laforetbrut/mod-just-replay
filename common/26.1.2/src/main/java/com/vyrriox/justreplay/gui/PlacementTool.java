@@ -19,9 +19,8 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.AABB;
@@ -262,14 +261,14 @@ public final class PlacementTool {
         pose.pushPose();
         pose.translate(-cam.x, -cam.y, -cam.z);
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
-        VertexConsumer lines = buffers.getBuffer(RenderType.lines());
+        VertexConsumer lines = buffers.getBuffer(RenderTypes.lines());
         float r = s.valid() ? 0.35F : 1.0F;
         float g = s.valid() ? 0.71F : 0.42F;
         float b = s.valid() ? 1.0F : 0.42F;
         if (s.block() != null && mc.level != null) {
             VoxelShape shape = mc.level.getBlockState(s.block()).getShape(mc.level, s.block());
             if (!shape.isEmpty()) {
-                LevelRenderer.renderLineBox(pose, lines, shape.bounds().move(s.block()).inflate(0.004), 1.0F, 0.84F, 0.31F, 1.0F);
+                LineBoxes.box(pose, lines, shape.bounds().move(s.block()).inflate(0.004), 1.0F, 0.84F, 0.31F, 1.0F);
             }
         }
         Entity entity = tool.session.actors().entityOf(tool.actor);
@@ -280,7 +279,7 @@ public final class PlacementTool {
         } else if (s.pose() == ActorAnimator.PreviewPose.SIT) {
             height = Math.max(0.5, height - 0.6);
         }
-        LevelRenderer.renderLineBox(pose, lines, new AABB(s.x() - half, s.y(), s.z() - half, s.x() + half, s.y() + height, s.z() + half),
+        LineBoxes.box(pose, lines, new AABB(s.x() - half, s.y(), s.z() - half, s.x() + half, s.y() + height, s.z() + half),
                 r, g, b, 1.0F);
         // Facing arrow on the ground.
         Vec3 dir = Vec3.directionFromRotation(0.0F, s.yaw());
@@ -292,18 +291,12 @@ public final class PlacementTool {
         line(lines, last, base, tip, r, g, b);
         line(lines, last, tip, back.add(side), r, g, b);
         line(lines, last, tip, back.subtract(side), r, g, b);
-        buffers.endBatch(RenderType.lines());
+        buffers.endBatch(RenderTypes.lines());
         pose.popPose();
     }
 
     private static void line(VertexConsumer c, PoseStack.Pose pose, Vec3 a, Vec3 b, float r, float g, float bl) {
-        Vec3 n = b.subtract(a);
-        if (n.lengthSqr() < 1.0E-8) {
-            return;
-        }
-        n = n.normalize();
-        c.addVertex(pose, (float) a.x, (float) a.y, (float) a.z).setColor(r, g, bl, 1.0F).setNormal(pose, (float) n.x, (float) n.y, (float) n.z);
-        c.addVertex(pose, (float) b.x, (float) b.y, (float) b.z).setColor(r, g, bl, 1.0F).setNormal(pose, (float) n.x, (float) n.y, (float) n.z);
+        LineBoxes.edge(c, pose, (float) a.x, (float) a.y, (float) a.z, (float) b.x, (float) b.y, (float) b.z, r, g, bl, 1.0F);
     }
 
     /** Crosshair and the hint panel; a GUI layer kept by the clean HUD. */

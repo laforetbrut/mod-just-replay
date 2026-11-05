@@ -20,9 +20,8 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -307,23 +306,23 @@ public final class OverlayPlacementTool {
         PoseStack pose = new PoseStack();
         pose.translate(-cam.x, -cam.y, -cam.z);
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
-        VertexConsumer lines = buffers.getBuffer(RenderType.lines());
+        VertexConsumer lines = buffers.getBuffer(RenderTypes.lines());
         switch (aim.kind()) {
-            case ENTITY -> LevelRenderer.renderLineBox(pose, lines, aim.entity().getBoundingBox().inflate(0.05), 1.0F, 0.84F, 0.31F, 1.0F);
+            case ENTITY -> LineBoxes.box(pose, lines, aim.entity().getBoundingBox().inflate(0.05), 1.0F, 0.84F, 0.31F, 1.0F);
             case BLOCK -> {
                 if (mc.level != null) {
                     var shape = mc.level.getBlockState(aim.block()).getShape(mc.level, aim.block());
                     AABB box = shape.isEmpty() ? new AABB(aim.block()) : shape.bounds().move(aim.block());
-                    LevelRenderer.renderLineBox(pose, lines, box.inflate(0.004), 0.35F, 0.71F, 1.0F, 1.0F);
+                    LineBoxes.box(pose, lines, box.inflate(0.004), 0.35F, 0.71F, 1.0F, 1.0F);
                 }
             }
             default -> {
                 Vec3 p = aim.point();
                 double s = 0.15;
-                LevelRenderer.renderLineBox(pose, lines, new AABB(p.x - s, p.y - s, p.z - s, p.x + s, p.y + s, p.z + s), 0.36F, 0.89F, 0.61F, 1.0F);
+                LineBoxes.box(pose, lines, new AABB(p.x - s, p.y - s, p.z - s, p.x + s, p.y + s, p.z + s), 0.36F, 0.89F, 0.61F, 1.0F);
             }
         }
-        buffers.endBatch(RenderType.lines());
+        buffers.endBatch(RenderTypes.lines());
     }
 
     /** Crosshair and the hint panel, over the world. */

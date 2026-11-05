@@ -21,9 +21,8 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.AABB;
@@ -201,7 +200,7 @@ public final class EntityTool {
         pose.pushPose();
         pose.translate(-cam.x, -cam.y, -cam.z);
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
-        VertexConsumer lines = buffers.getBuffer(RenderType.lines());
+        VertexConsumer lines = buffers.getBuffer(RenderTypes.lines());
         double half = Math.max(0.2, e.getBbWidth() / 2.0);
         double height = e.getBbHeight();
         if (tool.mode == Mode.PICK) {
@@ -211,16 +210,16 @@ public final class EntityTool {
             if (o != null) {
                 p = p.add(o[0], o[1], o[2]);
             }
-            LevelRenderer.renderLineBox(pose, lines, new AABB(p.x - half, p.y, p.z - half, p.x + half, p.y + height, p.z + half),
+            LineBoxes.box(pose, lines, new AABB(p.x - half, p.y, p.z - half, p.x + half, p.y + height, p.z + half),
                     1.0F, 0.84F, 0.31F, 1.0F);
         } else if (tool.spot != null) {
             ActorPlacement.Spot s = tool.spot;
             float g = s.valid() ? 0.71F : 0.42F;
             float b = s.valid() ? 1.0F : 0.42F;
-            LevelRenderer.renderLineBox(pose, lines, new AABB(s.x() - half, s.y(), s.z() - half, s.x() + half, s.y() + height, s.z() + half),
+            LineBoxes.box(pose, lines, new AABB(s.x() - half, s.y(), s.z() - half, s.x() + half, s.y() + height, s.z() + half),
                     s.valid() ? 0.35F : 1.0F, g, b, 1.0F);
         }
-        buffers.endBatch(RenderType.lines());
+        buffers.endBatch(RenderTypes.lines());
         pose.popPose();
     }
 
