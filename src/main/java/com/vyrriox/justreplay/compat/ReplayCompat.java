@@ -41,6 +41,7 @@ public final class ReplayCompat {
     static final boolean EPIC_FIGHT = isLoaded("epicfight");
     static final boolean CURIOS = isLoaded("curios");
     static final boolean ENTITY_CULLING = isLoaded("entityculling");
+    static final boolean IRONS_SPELLS = isLoaded("irons_spellbooks");
     private static final Set<String> FAILED = Collections.synchronizedSet(new HashSet<>());
     private static double monotonicFrame = -1;
     private static double monotonicValue;
@@ -198,6 +199,9 @@ public final class ReplayCompat {
             ReplaySession session = ReplaySession.current();
             DropTheBeamCompat.onReplayStart(session != null ? session.dir() : null);
         }
+        if (IRONS_SPELLS) {
+            IronsSpellsCompat.clearState();
+        }
     }
 
     /** Called every client tick, replay or not. */
@@ -262,6 +266,16 @@ public final class ReplayCompat {
         if (EPIC_FIGHT) {
             EpicFightCompat.onReplayEnd();
         }
+        if (IRONS_SPELLS) {
+            IronsSpellsCompat.clearState();
+        }
+    }
+
+    /** A seek is about to rebuild the replay world from a checkpoint or from the start of the stream. */
+    public static void onWorldRebuild() {
+        if (IRONS_SPELLS) {
+            IronsSpellsCompat.clearState();
+        }
     }
 
     /**
@@ -296,6 +310,9 @@ public final class ReplayCompat {
         if (EPIC_FIGHT && packet != null) {
             packet = EpicFightCompat.filterPlayback(packet);
         }
+        if (IRONS_SPELLS && packet != null) {
+            packet = IronsSpellsCompat.filterPlayback(packet);
+        }
         return packet;
     }
 
@@ -311,7 +328,8 @@ public final class ReplayCompat {
                 || BETTER_COMBAT && BetterCombatCompat.blockServerbound(packet)
                 || MORPH && MorphCompat.blockServerbound(packet)
                 || CUSTOM_NPCS && CustomNpcsCompat.blockServerbound(packet)
-                || EPIC_FIGHT && EpicFightCompat.blockServerbound(packet);
+                || EPIC_FIGHT && EpicFightCompat.blockServerbound(packet)
+                || IRONS_SPELLS && IronsSpellsCompat.blockServerbound(packet);
     }
 
     // ---------------------------------------------------------------- recording hooks
@@ -369,6 +387,13 @@ public final class ReplayCompat {
                 warnOnce("morph.rewrite", "Cannot record the local player's Morph forms for its actor", t);
             }
         }
+        if (IRONS_SPELLS) {
+            try {
+                packet = IronsSpellsCompat.rewriteRecorded(packet, localUuid, actorUuid);
+            } catch (Throwable t) {
+                warnOnce("irons.rewrite", "Cannot record the local player's Iron's Spellbooks casts for its actor", t);
+            }
+        }
         return packet;
     }
 
@@ -398,6 +423,9 @@ public final class ReplayCompat {
         if (CURIOS) {
             CuriosCompat.writeCurrent(player, out);
         }
+        if (IRONS_SPELLS) {
+            IronsSpellsCompat.writeCurrent(player, out);
+        }
     }
 
     /** Mod state of the non-player entities of a snapshot or checkpoint, written after they spawn (Pehkui scales). */
@@ -415,6 +443,9 @@ public final class ReplayCompat {
         }
         if (CURIOS) {
             CuriosCompat.writeCurrent(entity, out);
+        }
+        if (IRONS_SPELLS) {
+            IronsSpellsCompat.writeCurrent(entity, out);
         }
     }
 
@@ -438,6 +469,9 @@ public final class ReplayCompat {
         }
         if (CURIOS) {
             CuriosCompat.writeCurrent(player, out);
+        }
+        if (IRONS_SPELLS) {
+            IronsSpellsCompat.writeCurrent(player, out);
         }
     }
 
@@ -560,6 +594,9 @@ public final class ReplayCompat {
         }
         if (EPIC_FIGHT && late > 0 && packet != null) {
             packet = EpicFightCompat.adjustSkipped(packet, late);
+        }
+        if (IRONS_SPELLS && late > 0 && packet != null) {
+            packet = IronsSpellsCompat.adjustSkipped(packet, late);
         }
         return packet;
     }

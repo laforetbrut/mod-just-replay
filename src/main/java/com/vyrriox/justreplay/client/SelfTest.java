@@ -47,6 +47,9 @@ public final class SelfTest {
     private static int wait;
     private static int settle;
     private static int speedStart;
+    private static boolean ironsCastSent;
+    private static int ironsPhase;
+    private static Vec3 ironsCamera;
     private static Path replay;
     /** Start position of the recording, around which the modded test content is placed. */
     private static net.minecraft.core.BlockPos modsBase;
@@ -289,6 +292,13 @@ public final class SelfTest {
                 }
             }
             case 2 -> {
+                if (Mods.loaded("irons_spellbooks") && !ironsCastSent) {
+                    // Under way before the recording: only the snapshot can carry it. Fortify casts for 60 ticks.
+                    ironsCastSent = true;
+                    p.connection.sendCommand("cast @s irons_spellbooks:fortify 1");
+                    wait = 10;
+                    return;
+                }
                 p.connection.sendCommand("summon minecraft:pig ~4 ~ ~2");
                 p.connection.sendCommand("summon minecraft:villager ~-3 ~ ~3");
                 p.connection.sendCommand("setblock ~2 ~ ~ minecraft:gold_block");
@@ -357,6 +367,9 @@ public final class SelfTest {
                 }
                 if (t == 100) {
                     p.connection.sendCommand("setblock ~ ~3 ~ minecraft:diamond_block");
+                }
+                if (t == 120 && Mods.loaded("irons_spellbooks")) {
+                    p.connection.sendCommand("cast @s irons_spellbooks:fortify 1");
                 }
                 if (t % 40 == 0 && Recorder.capturing() != null) {
                     log("recording cost: {}", Recorder.capturing().lastCost());
@@ -460,9 +473,15 @@ public final class SelfTest {
             }
             case 10 -> {
                 ReplaySession s = ReplaySession.current();
-                log("speed x{}: cursor advanced {} ticks in 10 client ticks", s.playback().speed(), s.playback().cursor() - speedStart);
-                checkClockRise("speed", s.playback().cursor() - speedStart, clockGecko, geckoClock(), clockIris, irisClock());
-                s.playback().resetSpeed();
+                if (ironsPhase == 0) {
+                    log("speed x{}: cursor advanced {} ticks in 10 client ticks", s.playback().speed(), s.playback().cursor() - speedStart);
+                    checkClockRise("speed", s.playback().cursor() - speedStart, clockGecko, geckoClock(), clockIris, irisClock());
+                    s.playback().resetSpeed();
+                }
+                if (Mods.checkIrons(mc, s)) {
+                    wait = 5;
+                    return;
+                }
                 s.playback().seek(190);
                 s.playback().seek(130);
                 logWorld(mc, s, "after checkpoint seek to 130");
@@ -1347,6 +1366,61 @@ public final class SelfTest {
                 log("bettercombat {}: local attacks={} cancelled={}", label,
                         com.vyrriox.justreplay.compat.BetterCombatCompat.localAttacks(),
                         com.vyrriox.justreplay.compat.BetterCombatCompat.localStops());
+            }
+        }
+
+        /**
+         * Iron's casts on the actor and nothing on the camera: a cast under way at the recording start, a second during
+         * it, then a seek back before the second. True while the check needs more ticks.
+         */
+        static boolean checkIrons(Minecraft mc, ReplaySession s) {
+            if (!loaded("irons_spellbooks")) {
+                if (ironsPhase == 0) {
+                    log("irons checks skipped: mod absent");
+                    ironsPhase = 4;
+                }
+                return false;
+            }
+            Entity actor = s.findRecorder(mc);
+            switch (ironsPhase) {
+                case 0 -> {
+                    log("irons recorded: local cast packets={} {}", com.vyrriox.justreplay.compat.IronsSpellsCompat.localCasts(),
+                            com.vyrriox.justreplay.compat.IronsSpellsCompat.localCasts() > 0 ? "OK" : "FAIL");
+                    s.playback().setPaused(true);
+                    s.playback().seek(5);
+                    ironsPhase = 1;
+                    return true;
+                }
+                case 1 -> {
+                    boolean casting = com.vyrriox.justreplay.compat.IronsSpellsCompat.isCasting(actor);
+                    log("irons tick 5: actor casting from the snapshot={} {}", casting, casting ? "OK" : "FAIL");
+                    ironsCamera = mc.player.position();
+                    s.playback().seek(130);
+                    ironsPhase = 2;
+                    return true;
+                }
+                case 2 -> {
+                    boolean casting = com.vyrriox.justreplay.compat.IronsSpellsCompat.isCasting(actor);
+                    boolean animating = com.vyrriox.justreplay.compat.IronsSpellsCompat.animating(actor);
+                    boolean camera = com.vyrriox.justreplay.compat.IronsSpellsCompat.clientCasting();
+                    double moved = mc.player.position().distanceTo(ironsCamera);
+                    log("irons tick 130: actor casting={} {}", casting, casting ? "OK" : "FAIL");
+                    log("irons tick 130: actor animation layer active={} {}", animating, animating ? "OK" : "FAIL");
+                    log("irons tick 130: camera casting={} {}", camera, camera ? "FAIL" : "OK");
+                    log("irons tick 130: camera moved {} {}", moved, moved < 0.01 ? "OK" : "FAIL");
+                    s.playback().seek(110);
+                    ironsPhase = 3;
+                    return true;
+                }
+                case 3 -> {
+                    boolean casting = com.vyrriox.justreplay.compat.IronsSpellsCompat.isCasting(actor);
+                    log("irons seek back to 110: actor casting={} {}", casting, casting ? "FAIL" : "OK");
+                    ironsPhase = 4;
+                    return false;
+                }
+                default -> {
+                    return false;
+                }
             }
         }
 
