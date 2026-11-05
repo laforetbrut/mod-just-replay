@@ -1,19 +1,15 @@
 package com.vyrriox.justreplay.gui.ui;
 
 import com.mojang.blaze3d.platform.NativeImage;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.VertexFormat;
 import com.vyrriox.justreplay.JustReplay;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.FormattedCharSequence;
-import org.joml.Matrix4f;
 
 import java.util.List;
 
@@ -21,8 +17,9 @@ import java.util.List;
  * Low level drawing of the glass interface: anti-aliased rounded rectangles, outlines, soft shadows and icons.
  *
  * <p>Shapes are drawn in real framebuffer pixels whatever the GUI scale: each corner radius gets a small texture
- * generated once (a rounded square with analytic anti-aliasing), drawn as a nine-slice in a single draw call with
- * the colour (and an optional vertical gradient) carried by the vertices.
+ * generated once (a rounded square with analytic anti-aliasing), drawn as a nine-slice in a single GUI element with
+ * the colour (and an optional vertical gradient) carried by the vertices. Elements are painted in submission order
+ * wherever their bounds overlap, so the layering of the panels comes from the order of the calls.
  *
  * @author vyrriox
  */
@@ -166,8 +163,7 @@ public final class Paint {
         float u0 = col * p / (float) atlas.width(), v0 = row * p / (float) atlas.height();
         float u1 = (col + 1) * p / (float) atlas.width(), v1 = (row + 1) * p / (float) atlas.height();
         float inv = (float) (1.0 / s);
-        prepare(atlas.location());
-        UiQuads b = UiQuads.begin(g, PREP);
+        UiQuads b = UiQuads.begin(g, atlas.location(), 1);
         float ax = x0 * inv, ay = y0 * inv, bx = (x0 + p) * inv, by = (y0 + p) * inv;
         b.v(ax, ay, u0, v0, color);
         b.v(ax, by, u0, v1, color);
@@ -253,12 +249,6 @@ public final class Paint {
 
     // ---------------------------------------------------------------- textures
 
-    private static Identifier PREP;
-
-    private static void prepare(Identifier texture) {
-        PREP = texture;
-    }
-
     /**
      * Nine-slice of a shape texture of size 2c+1: the corners map 1:1 to real pixels, the edges and the centre
      * stretch the middle texel row and column.
@@ -287,8 +277,7 @@ public final class Paint {
         for (int i = 0; i < 4; i++) {
             ROW_COLORS[i] = top == bottom ? top : Theme.mix(top, bottom, (YS[i] - y0) / height);
         }
-        prepare(texture);
-        UiQuads b = UiQuads.begin(g, PREP);
+        UiQuads b = UiQuads.begin(g, texture, 9);
         for (int j = 0; j < 3; j++) {
             if (YS[j + 1] <= YS[j]) {
                 continue;
@@ -344,7 +333,7 @@ public final class Paint {
                 image.setPixelABGR(i, j, alpha << 24 | 0xFFFFFF);
             }
         }
-        DynamicTexture texture = new com.vyrriox.justreplay.gui.ui.JrTexture("justreplay", image, true);
+        DynamicTexture texture = new JrTexture("justreplay", image, true);
         Identifier location = JustReplay.id("ui/shape_" + kind + "_" + c + "_" + r + "_" + param);
         Minecraft.getInstance().getTextureManager().register(location, texture);
         SHAPES.put(key, location);

@@ -2049,8 +2049,6 @@ public class EditorScreen extends GlassScreen {
      */
     private void renderHelp(GuiGraphicsExtractor g) {
         float a = Anim.easeOutCubic(Anim.progress(helpAt, 200));
-        g.pose().pushMatrix();
-        g.pose().translate(0, 0);
         g.fill(0, 0, width, height, Theme.fade(0x8C05080C, a));
         int split = 0;
         for (int i = 1; i < help.size(); i++) {
@@ -2100,7 +2098,6 @@ public class EditorScreen extends GlassScreen {
             Paint.rect(g, bx + boxW - 5, trackY, 2, trackH, 1, 0x1AFFFFFF);
             Paint.rect(g, bx + boxW - 5, ty, 2, thumb, 1, 0x80FFFFFF);
         }
-        g.pose().popMatrix();
     }
 
     /** Width of the key column of a help column. */

@@ -64,7 +64,7 @@ public final class Icons {
                 }
             }
         }
-        DynamicTexture texture = new com.vyrriox.justreplay.gui.ui.JrTexture("justreplay", image, true);
+        DynamicTexture texture = new JrTexture("justreplay", image, true);
         Identifier location = JustReplay.id("ui/icons_" + px);
         Minecraft.getInstance().getTextureManager().register(location, texture);
         return new Atlas(location, w, h);

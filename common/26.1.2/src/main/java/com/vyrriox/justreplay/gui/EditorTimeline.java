@@ -572,11 +572,8 @@ final class EditorTimeline {
             String time = Timeline.formatTicks(ghostTick);
             int tw = font.width(time) + 8;
             int bx = Math.max(x - LABELS, Math.min(x + w - tw, gx - tw / 2));
-            g.pose().pushMatrix();
-            g.pose().translate(0, 0);
             Paint.rect(g, bx, top - 13, tw, 11, Theme.RADIUS_S, 0xF25AB4FF, 0xF22F86E0);
             g.text(font, time, bx + 4, top - 11, Theme.TEXT_ON_ACCENT, false);
-            g.pose().popMatrix();
         }
     }
 }

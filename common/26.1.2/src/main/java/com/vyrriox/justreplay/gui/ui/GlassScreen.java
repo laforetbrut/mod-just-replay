@@ -112,12 +112,15 @@ public abstract class GlassScreen extends Screen {
         return Anim.easeOutCubic(Anim.progress(openedAt, 220));
     }
 
+    /**
+     * Screen extracts the background on its own stratum just before this call. Extracting it again here would ask for a
+     * second blur in the frame, which the GUI render state refuses with an exception.
+     */
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         boolean blocked = popup != null;
         int mx = blocked ? -10000 : mouseX;
         int my = blocked ? -10000 : mouseY;
-        extractBackground(g, mouseX, mouseY, partialTick);
         renderPanels(g, mx, my, partialTick);
         for (ScrollArea area : areas) {
             area.render(g, mx, my, partialTick);
@@ -128,10 +131,7 @@ public abstract class GlassScreen extends Screen {
         deferredTip = null;
         renderOverlay(g, mx, my, partialTick);
         if (popup != null) {
-            g.pose().pushMatrix();
-            g.pose().translate(0, 0);
             popup.render(g, font, mouseX, mouseY);
-            g.pose().popMatrix();
         } else if (tooltipsEnabled()) {
             // Tooltips go last: every widget, overlay and popup is already drawn under them.
             if (!renderTooltip(g, mouseX, mouseY) && deferredTip != null) {
