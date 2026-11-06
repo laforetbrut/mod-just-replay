@@ -163,3 +163,24 @@
 **Prevention:** a mod's per-entity sync can depend on definitions from server data. Test an integration with data only the recorded world has, not only with data shipped in a mod jar.
 **Follow-up:** the next run gave `worn stacks on the actor=0 -> FAIL`. This one was the test: the recording held no live Curios message besides the definitions, checkpoint 60 held no worn stack and the saved player had an empty `Curios` list, so the ring was never worn. The test player joins before its datapack exists, and `CurioInventoryWrapper.readTag` returns on an empty list, so Curios' reload never gives handlers to a player who had none, while `curios add` and `curios replace` still report success. The test now rebuilds the handlers on the server and reloads again, waits for the slot on the client, and logs the worn count during the recording. A player joining with the datapack present is not affected, and the definitions fix stays needed.
 **1.21.1:** Curios 9.5.1 has the same gate (`Curios.registerCaps` returns no capability while `CuriosApi.getEntitySlots` is empty, and `CuriosClientPackets` drops `SPacketSyncCurios` without one), so the definitions and the test datapack were ported there. Until then the 1.21.1 run only passed with a ring slot from Iron's Spellbooks, which the replay host also loads.
+
+## [2026-11-06 12:17] — CurseForge upload rejects an empty relations list with HTTP 400 errorCode 1002
+**Context:** Sending the 1.1.0 jars to CurseForge through its upload API; jars without any mod dependency sent relations.projects as an empty list
+**Error:** HTTP 400 errorCode 1002: Error in field metadata: Array item count 0 is less than minimum count of 1. Path relations.projects
+**Root cause:** The CurseForge upload API requires at least one item in relations.projects when the relations field is present, so an empty list is refused while a missing field is accepted
+**Fix:** Left the relations field out of the metadata for jars with no dependency; the failed file had not been created, so the upload resumed without a duplicate
+**Prevention:** Send relations to CurseForge only when it holds a project, and make upload scripts skip what is already sent so a rerun resumes safely
+
+## [2026-11-06 12:17] — Upload sheet older than the reissued jars, wrong hashes and changelog entries missing
+**Context:** Preparing the 1.1.0 upload to the mod sites from build/mod-release/1.1.0 after the jars and notes had been replaced on the GitHub release by later fixes
+**Error:** 6 of 9 jars in build/mod-release/1.1.0 differed from jars/1.1.0 and the GitHub release, and changelog.md lacked the Curios slot definitions and Building from source entries in both languages
+**Root cause:** The fixes went out under 1.1.0 through tools/collect_jars.sh and a manual asset replacement, which do not refresh the sheet that mod-release wrote at the first publication
+**Fix:** Uploaded jars/1.1.0 after proving each jar identical to the GitHub release, with the changelog text read from the current CHANGELOG.md section, and checked Modrinth by sha512 afterwards
+**Prevention:** Before any upload, compare each jar with the GitHub release and every entry of the current CHANGELOG section with the text to send; never trust a sheet older than the last commit
+
+## [2026-11-06 12:17] — Upload sheet tags a client-only mod Client and Server on Forge and NeoForge
+**Context:** Reading the mod-release upload sheet for the 1.1.0 Forge and NeoForge jars before sending them to CurseForge
+**Error:** Sheet environment Client, Server while README, Fabric metadata, the Modrinth project and every earlier CurseForge file say client only
+**Root cause:** The sheet derives the environment from the side key of the dependency blocks in mods.toml, which says where a dependency applies and not where the mod runs
+**Fix:** Tagged the nine CurseForge files with Client only, as on every earlier file of the project
+**Prevention:** Check the environment tag against the previous file on the site and the README; never take it from a mods.toml dependency side
