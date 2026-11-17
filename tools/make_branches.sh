@@ -7,7 +7,8 @@
 # src/main, so it builds on its own with ./gradlew build.
 #
 # The branches are never edited by hand: change main, then run this script from the repository
-# root. An existing branch gets a new commit on top of its history (no force push needed); a branch
+# root. BASE_BRANCH names another source branch (develop, for instance); main by default.
+# An existing branch gets a new commit on top of its history (no force push needed); a branch
 # whose content did not change is left alone.
 #
 # Author: vyrriox
@@ -21,7 +22,8 @@ if [ -n "$(git status --porcelain)" ]; then
     exit 1
 fi
 
-MAIN=$(git rev-parse --verify refs/heads/main)
+BASE=${BASE_BRANCH:-main}
+MAIN=$(git rev-parse --verify "refs/heads/$BASE")
 # Shared files copied to every branch when they exist on main.
 SHARED=(LICENSE NOTICE README.md CHANGELOG.md CONTRIBUTING.md SECURITY.md CODE_OF_CONDUCT.md .gitignore .gitattributes .github docs)
 
@@ -71,7 +73,7 @@ for target in $(git ls-tree -d --name-only "$MAIN"); do
         continue
     fi
     if [ -n "$old" ]; then
-        commit=$(git commit-tree "$tree" -p "$old" -p "$MAIN" -m "chore: update $target project from main")
+        commit=$(git commit-tree "$tree" -p "$old" -p "$MAIN" -m "chore: update $target project from $BASE")
     else
         commit=$(git commit-tree "$tree" -p "$MAIN" -m "chore: isolate $target project at repository root")
     fi
