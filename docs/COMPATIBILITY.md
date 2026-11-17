@@ -2,7 +2,7 @@
 
 ## English
 
-Just Replay 1.1.1 runs on nine targets: Minecraft 1.20.1, 1.21.1 and 26.1.2 on NeoForge, Forge and Fabric.
+Just Replay 1.1.2 runs on nine targets: Minecraft 1.20.1, 1.21.1 and 26.1.2 on NeoForge, Forge and Fabric.
 
 ### Status per target
 
@@ -190,7 +190,7 @@ in the exported HUD.
 
 ## Français
 
-Just Replay 1.1.1 tourne sur neuf cibles : Minecraft 1.20.1, 1.21.1 et 26.1.2 sur NeoForge, Forge et Fabric.
+Just Replay 1.1.2 tourne sur neuf cibles : Minecraft 1.20.1, 1.21.1 et 26.1.2 sur NeoForge, Forge et Fabric.
 
 ### État par cible
 
