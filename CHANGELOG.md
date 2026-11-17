@@ -5,8 +5,14 @@
 ### Added
 - **Immersive Vehicles** on Forge 1.20.1: vehicles now show up in replays there too, like on NeoForge 1.21.1, even the ones already parked when the recording starts.
 
+### Changed
+- **Branches**: pull requests go to `develop`, and `main` is the latest release again, moved forward at each version. `tools/make_branches.sh` warns when `main` is left behind.
+
 ### Ajouts
 - **Immersive Vehicles** sur Forge 1.20.1 : les véhicules s'affichent maintenant aussi dans les replays, comme sur NeoForge 1.21.1, même ceux déjà garés au début de l'enregistrement.
+
+### Modifications
+- **Branches** : les pull requests visent `develop`, et `main` redevient la dernière version publiée, avancée à chaque version. `tools/make_branches.sh` prévient quand `main` reste en arrière.
 
 ---
 
