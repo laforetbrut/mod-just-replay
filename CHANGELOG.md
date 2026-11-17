@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.1.1] - 2026-11-17
+
+### Added
+- **Immersive Vehicles** (NeoForge 1.21.1): vehicles now show in replays. The mod draws them through an invisible entity that follows the local player, which in a replay followed the recording player or nobody: the replay now has its own, that follows the camera. Vehicles and Immersive Vehicles blocks already in view when a recording starts, or rebuilt by a seek, get their data from snapshots and checkpoints. Recordings made before this version show the vehicles that came into view during the recording; those already there at its start need a new recording.
+
+### Ajouts
+- **Immersive Vehicles** (NeoForge 1.21.1) : les véhicules s'affichent enfin dans les replays. Le mod les dessine par une entité invisible qui suit le joueur local, et qui en replay suivait le joueur enregistré ou personne : le replay a maintenant la sienne, qui suit la caméra. Les véhicules et blocs d'Immersive Vehicles déjà visibles au début d'un enregistrement, ou reconstruits par un saut, reçoivent leurs données des instantanés et points de reprise. Les enregistrements faits avant cette version montrent les véhicules apparus pendant l'enregistrement ; ceux déjà là au début demandent un nouvel enregistrement.
+
+---
+
 ## [1.1.0] - 2026-11-05
 
 ### Added
