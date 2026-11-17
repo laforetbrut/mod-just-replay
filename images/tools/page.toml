@@ -30,8 +30,8 @@ donate = "https://buy.stripe.com/3cI3co6X97Vy4IK50QfIs00"
 partners = { url = "https://www.arcadia-echoes-of-power.fr/partenariat", icon = "globe" }
 
 [badges]
-minecraft = ["1.21.1"]
-loaders = ["NeoForge"]
+minecraft = ["1.20.1", "1.21.1", "26.1.2"]
+loaders = ["NeoForge", "Forge", "Fabric"]
 side = "Client only"
 
 [intro]
