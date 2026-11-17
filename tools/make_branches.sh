@@ -7,7 +7,8 @@
 # src/main, so it builds on its own with ./gradlew build.
 #
 # The branches are never edited by hand: change main, then run this script from the repository
-# root. BASE_BRANCH names another source branch (develop, for instance); main by default.
+# root. BASE_BRANCH names another source branch (develop, for instance); main by default. The
+# script then warns when main is behind that branch, since main is the released code.
 # An existing branch gets a new commit on top of its history (no force push needed); a branch
 # whose content did not change is left alone.
 #
@@ -80,3 +81,9 @@ for target in $(git ls-tree -d --name-only "$MAIN"); do
     git update-ref "refs/heads/$target" "$commit"
     echo "$target: $(git rev-parse --short "$commit")"
 done
+
+# main is the released code: the target branches should never get ahead of it.
+if [ "$BASE" != main ] && git rev-parse -q --verify refs/heads/main >/dev/null \
+        && ! git merge-base --is-ancestor "$MAIN" refs/heads/main; then
+    echo "warning: main is behind $BASE: merge $BASE into main (a fast-forward) so main holds the released code." >&2
+fi
