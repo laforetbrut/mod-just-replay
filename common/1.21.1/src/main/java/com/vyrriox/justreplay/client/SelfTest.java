@@ -1322,10 +1322,6 @@ public final class SelfTest {
                     && ("mekanism".equals(modId) || com.vyrriox.justreplay.compat.CompatTargets.isSupported(modId));
         }
 
-        /**
-         * An equipped biplane, out of the walking circle, summoned early enough that the client holds its equipment when
-         * the recording starts: the recording's snapshot has to write it. Slot 1 is the biplane's weapon slot.
-         */
         /** Immersive Vehicles: places a car of its official content pack at an offset from the player. */
         static void placeVehicle(Minecraft mc, LocalPlayer p, int dx, int dz) {
             if (!loaded("mts")) {
@@ -1402,6 +1398,10 @@ public final class SelfTest {
             }
         }
 
+        /**
+         * An equipped biplane, out of the walking circle, summoned early enough that the client holds its equipment when
+         * the recording starts: the recording's snapshot has to write it. Slot 1 is the biplane's weapon slot.
+         */
         static void summonAircraft(LocalPlayer p) {
             if (loaded("immersive_aircraft")) {
                 p.connection.sendCommand("summon immersive_aircraft:biplane ~-9 ~ ~6 "

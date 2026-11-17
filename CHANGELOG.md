@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- **Immersive Vehicles** on Forge 1.20.1: vehicles now show up in replays there too, like on NeoForge 1.21.1, even the ones already parked when the recording starts.
+
+### Ajouts
+- **Immersive Vehicles** sur Forge 1.20.1 : les véhicules s'affichent maintenant aussi dans les replays, comme sur NeoForge 1.21.1, même ceux déjà garés au début de l'enregistrement.
+
+---
+
 ## [1.1.1] - 2026-11-17
 
 ### Added

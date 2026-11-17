@@ -198,3 +198,10 @@
 **Root cause:** IV draws every vehicle through BuilderEntityRenderForwarder, which renders only when it follows Minecraft.player; in a replay it follows the recording player or nobody. Vehicles already loaded before the recording also never get their handshake answer
 **Fix:** ImmersiveVehiclesCompat: own client-side forwarder that follows the camera player, handshake answers written in snapshots and checkpoints, serverbound mts:main blocked
 **Prevention:** for a mod with its own render or sync entity, check who it follows and what it asks the server once, and cover it in the self test
+
+## [2026-11-17 17:24] — Immersive Vehicles packs and released jars in a Forge 1.20.1 dev run
+**Context:** self test of the Immersive Vehicles support on forge-1.20.1, the mod and its Official Content Pack loaded as remapped dev dependencies (-PdevMods)
+**Error:** SELFTEST vehicles: no car item of the official content pack, then vehicles=0 -> FAIL and JsonSyntaxException: Unknown item 'mts:mtsofficialpack.screws'
+**Root cause:** Immersive Vehicles reads its content packs only from the jars of the game's mods folder; a pack on the run classpath loads its assets but registers no item. A released 1.20.1 jar (SRG names) cannot go in mods/ of a dev run either
+**Fix:** the mod goes through -PdevMods=run-iv/devmods (fg.deobf), the content pack (no game class) in run-iv/mods
+**Prevention:** for a mod with content packs, put the packs where the mod scans for them and check the pack items exist before the test scene
