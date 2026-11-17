@@ -1,0 +1,146 @@
+plugins {
+    id 'java-library'
+    id 'idea'
+    id 'net.minecraftforge.gradle' version '7.0.40'
+}
+
+version = mod_version
+group = mod_group_id
+
+base {
+    archivesName = "${mod_id}-forge-${minecraft_version}"
+}
+
+// Minecraft 1.21.1 ships Java 21 to players.
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+// Loader-independent code for this Minecraft version lives in ../common on the main branch.
+// On the per-target branches it is merged into src/main, so this block does nothing there.
+def commonDir = file("../common/${minecraft_version}/src/main")
+if (commonDir.isDirectory()) {
+    sourceSets.main.java.srcDir(new File(commonDir, 'java'))
+    sourceSets.main.resources.srcDir(new File(commonDir, 'resources'))
+}
+
+sourceSets.main.resources {
+    exclude('**/*.bbmodel.license')
+}
+
+minecraft {
+    mappings channel: 'official', version: minecraft_version
+
+    runs {
+        configureEach {
+            workingDir = layout.projectDirectory.dir('run')
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+            systemProperty 'forge.logging.console.level', 'info'
+            // Dev runs load classes from folders, so the MixinConfigs entry of the jar manifest is not read here.
+            args '--mixin.config', "${mod_id}.mixins.json",
+                    '--mixin.config', "${mod_id}.compat.mixins.json",
+                    '--mixin.config', "${mod_id}.forge.mixins.json"
+        }
+
+        // The standard client run is also the self test run: -Pselftest adds the same settings as on NeoForge.
+        register('client') {
+            if (project.hasProperty('gameDir')) {
+                workingDir = file(project.property('gameDir'))
+            }
+            if (project.hasProperty('selftest')) {
+                systemProperty 'justreplay.selftest', 'true'
+                jvmArgs '-Xmx8G'
+                systemProperty 'justreplay.checkpointTicks', '60'
+            }
+            // Unattended recording of a world for test footage, see SceneRecorder.
+            if (project.hasProperty('scene') || project.hasProperty('sceneReplay') || project.hasProperty('job')) {
+                // Job file: several records, replays, screenshots and exports in one launch, see SceneJob.
+                systemProperty 'justreplay.job', project.findProperty('job') ?: ''
+                systemProperty 'justreplay.scene', project.findProperty('scene') ?: ''
+                systemProperty 'justreplay.sceneReplay', project.findProperty('sceneReplay') ?: ''
+                systemProperty 'justreplay.sceneExport', project.findProperty('sceneExport') ?: ''
+                systemProperty 'justreplay.sceneShots', project.findProperty('sceneShots') ?: ''
+                systemProperty 'justreplay.sceneEditor', project.findProperty('sceneEditor') ?: ''
+                systemProperty 'justreplay.sceneCommands', project.findProperty('sceneCommands') ?: ''
+                systemProperty 'justreplay.sceneSeconds', project.findProperty('sceneSeconds') ?: '60'
+                systemProperty 'justreplay.sceneDelay', project.findProperty('sceneDelay') ?: '5'
+                args '--width', '1600', '--height', '900'
+                jvmArgs '-Xmx8G'
+            }
+        }
+
+        register('server') {
+            args '--nogui'
+        }
+    }
+}
+
+repositories {
+    minecraft.mavenizer(it)
+    maven fg.forgeMaven
+    maven fg.minecraftLibsMaven
+    mavenCentral()
+    maven {
+        name = 'Max Henkel'
+        url = 'https://maven.maxhenkel.de/repository/public'
+        content { includeGroup 'de.maxhenkel.voicechat' }
+    }
+}
+
+dependencies {
+    implementation minecraft.dependency("net.minecraftforge:forge:${minecraft_version}-${forge_version}")
+
+    // Simple Voice Chat API (the version bundled with voicechat 1.21.1-2.6.22); optional at runtime.
+    compileOnly 'de.maxhenkel.voicechat:voicechat-api:2.6.20'
+}
+
+var generateModMetadata = tasks.register('generateModMetadata', ProcessResources) {
+    var replaceProperties = [
+            minecraft_version      : minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            forge_version          : forge_version,
+            forge_version_range    : forge_version_range,
+            loader_version_range   : loader_version_range,
+            mod_id                 : mod_id,
+            mod_name               : mod_name,
+            mod_license            : mod_license,
+            mod_version            : mod_version,
+            mod_authors            : mod_authors,
+            mod_description        : mod_description,
+    ]
+    inputs.properties replaceProperties
+    expand replaceProperties
+    from 'src/main/templates'
+    into 'build/generated/sources/modMetadata'
+}
+sourceSets.main.resources.srcDir generateModMetadata
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+// The license file sits at the repository root on main and at the project root on a target branch.
+def licenseFile = commonDir.isDirectory() ? file('../LICENSE') : file('LICENSE')
+def licenseName = "LICENSE_${mod_id}"
+tasks.named('jar', Jar).configure {
+    from(licenseFile) {
+        rename { licenseName }
+    }
+    manifest {
+        attributes([
+                'Specification-Title'   : mod_id,
+                'Specification-Vendor'  : mod_authors,
+                'Specification-Version' : '1',
+                'Implementation-Title'  : mod_name,
+                'Implementation-Version': mod_version,
+                'Implementation-Vendor' : mod_authors,
+                // Forge loads mixin configs listed here; there is no [[mixins]] table in mods.toml.
+                'MixinConfigs'          : "${mod_id}.mixins.json,${mod_id}.compat.mixins.json,${mod_id}.forge.mixins.json"
+        ])
+    }
+}
+
+idea {
+    module {
+        downloadSources = true
+        downloadJavadoc = true
+    }
+}

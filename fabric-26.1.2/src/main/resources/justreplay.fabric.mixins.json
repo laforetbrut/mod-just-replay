@@ -1,0 +1,17 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.vyrriox.justreplay.fabric.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "KeyMappingClickAccessor",
+    "KeyMappingReplayMixin",
+    "GameRendererHooksMixin",
+    "AbstractClientPlayerFovMixin",
+    "CameraMixin",
+    "MappedRegistryAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

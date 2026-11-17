@@ -1,0 +1,16 @@
+package com.vyrriox.justreplay.gui.ui;
+
+/**
+ * Icons of the interface, drawn procedurally by {@link Icons}.
+ *
+ * @author vyrriox
+ */
+public enum Icon {
+    PLAY, PAUSE, SKIP_START, SKIP_END, REWIND, FORWARD, CAMERA, CUT,
+    KEY, TRASH, EYE, EYE_OFF, PLUS, MINUS, GEAR, FILM,
+    FOLDER, SPEAKER, SPEAKER_OFF, FLAG, PERSON, HELP, SAVE, CHECK,
+    CLOSE, CHEVRON_LEFT, CHEVRON_RIGHT, CHEVRON_DOWN, CHEVRON_UP, SEARCH, EDIT, COPY,
+    TARGET, PATH, EXPORT, CLOCK, SORT, RECORD, SIDEBAR, CUBE,
+    PIN, FIT, ROTATE, ANGLE, STOP, BOLT, END, PUZZLE,
+    SCENE, DOT, ARROW_UP, ARROW_DOWN, KEYBOARD, MOUSE
+}

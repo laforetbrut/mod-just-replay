@@ -98,3 +98,89 @@
 **Root cause:** a `while read` loop skipped the last line of a list with no trailing newline.
 **Fix:** copied the jar.
 **Prevention:** check the number of copied files against the list.
+
+## [2026-11-05 18:30] — fabric-1.20.1 does not compile against common/1.20.1
+**Context:** first build of the Fabric 1.20.1 project (Loom 1.17.21, Fabric API 0.92.12+1.20.1) on the shared common code.
+**Error:** `common/1.20.1/.../compat/CuriosCompat.java:12: error: package net.minecraftforge.common.util does not exist`, and the same for `net.minecraftforge.network.simple`, because `CuriosCompat` is written against Forge's `LazyOptional` and `SimpleChannel`.
+**Root cause:** `CuriosCompat` sits in common, which must be loader-free. It compiles only where Forge is on the classpath. `ReplayCompat` and `SelfTest` in common call it, gated by `isLoaded("curios")`, which is always false on Fabric.
+**Fix:** the Fabric project excludes that one file from the common source set with a source filter and adds a stand-in `compat/CuriosCompat` with the same two methods as no-ops. Curios has no Fabric build for 1.20.1, so the stand-in matches the behaviour. Common is unchanged; moving the class into the Forge glue is the proper fix and is still to do.
+**Prevention:** a file in common that imports `net.minecraftforge` or `net.neoforged` is a bug. Run the Fabric compile on every common change, as rule R2 says.
+
+## [2026-11-05 18:35] — Loom fails to set up Minecraft when a common srcDir is a FileTree
+**Context:** excluding `CuriosCompat` from the common source set in `fabric-1.20.1/build.gradle`.
+**Error:** `Failed to setup Minecraft, org.gradle.api.InvalidUserDataException: Source directory '...\common\1.20.1\src\main\java\...\Frames.java' is not a directory.`
+**Root cause:** `sourceSets.main.java.srcDir(fileTree(dir) { exclude ... })` hands Loom the individual files of the tree, not the directory.
+**Fix:** add the directory with `srcDir(new File(commonDir, 'java'))` and drop the one file with `sourceSets.main.java.filter.exclude { ... }`, matching the file by name and by its common path.
+**Prevention:** for a Loom project, add a source root as a directory and filter it with the set's filter, never with a file tree.
+
+## [2026-11-05 19:10] — Forge 1.20.1 jar built without its refmap after a build cache hit
+**Context:** `gradlew clean build` of `forge-1.20.1` to prepare a production run.
+**Error:** `justreplay.refmap.json` absent from the reobfuscated jar while the mixin configs still name it; the log shows `:compileJava FROM-CACHE`.
+**Root cause:** MixinGradle writes the refmap outside the declared outputs of `compileJava`, so a cache hit restores the classes only. Dev runs do not read the jar and hide it.
+**Fix:** `outputs.cacheIf { false }` on `compileJava` in `forge-1.20.1/build.gradle`.
+**Prevention:** after a build of a mixin jar meant for release or a production run, read the refmap in the jar and check it holds SRG names.
+
+## [2026-11-05 19:55] — Replays on 1.20.1 end after about 32 seconds
+**Context:** first self test replays on the 1.20.1 targets.
+**Error:** every replay closed about 32 seconds in, with a keep alive timeout on the replay host.
+**Root cause:** the client ignores everything the replay host sends, keep alive packets included, and 1.20.1 also times out the singleplayer owner (later versions do not). The host kicked the camera player, which stopped the host and ended the replay.
+**Fix:** new `HostKeepAliveMixin` in `common/1.20.1`: the keep alive challenge is never due on the replay host, as later versions do for the owner.
+**Prevention:** on a backport, keep the self test replay running longer than every server side timeout, and read what the older version does for the singleplayer owner.
+
+## [2026-11-05 19:56] — Mixin descriptors valid on one version fail only at class load
+**Context:** porting the shared mixins to 1.20.1 and 26.1.2, where method signatures of the game and of other mods differ.
+**Error:** the project compiled; the wrong target or descriptor only showed when the target class loaded, in a launched game.
+**Root cause:** the compiler does not check `@Inject` targets written as strings, and `require = 0` mixins fail silently, so a descriptor copied from 1.21.1 stays valid Java.
+**Fix:** a one-off local checker compared every mixin target with the real jar of each target, and the mixins were aligned (`515c186`, `40084e3`). The checker is not committed.
+**Prevention:** verify every mixin target against the real jar of the target before launching. A compile says nothing about them, and a dev run does not exercise a refmap.
+
+## [2026-11-05 19:57] — getLoadingModList is an instance method on FML 11
+**Context:** `EarlyMods` in `common/26.1.2`, which reads the mod list while mixins are selected, carried from 1.21.1.
+**Error:** the reflective `FMLLoader.getLoadingModList` call with a null target fails on the 26.1.2 NeoForge loader, because it is no longer static. Exact message not kept.
+**Root cause:** FML 11 turned `getLoadingModList` into an instance method. Reflection hides that from the compiler.
+**Fix:** read the list through `LoadingModList.get()` on NeoForge, and `LoadingModList.getModFileById` on Forge (`40084e3`).
+**Prevention:** reflection on a loader API is re-read against the loader jar on every target, as for mixins; it never fails at compile time.
+
+## [2026-11-05 19:58] — Mixed sound silent on Fabric, unseen by any self test
+**Context:** reading the audio of the Fabric 1.21.1 and 1.20.1 production jars.
+**Error:** no error and no failed check: `MixSoundInstance` and `ScaledSoundInstance` simply made no sound on Fabric.
+**Root cause:** Fabric API's sound API calls `getAudioStream` on a sound instance, and these classes only overrode the vanilla stream method. The self test checks states and clocks, not what comes out of the speakers.
+**Fix:** both classes declare `getAudioStream`, with the wrapped instance's own method reached by reflection where it exists (`c9b335f`, `bf5e032`).
+**Prevention:** a custom `SoundInstance` must be read against Fabric API's sound API on every Fabric target. A passing self test proves nothing about audible output: listen, or add a check on the stream actually requested.
+
+## [2026-11-05 20:40] — NeoForge 1.20.1 compiled locally but not on CI after the 1.1.0 tag
+**Context:** the build workflow started by the v1.1.0 tag; the eight other targets passed, and the released jar was built and tested locally.
+**Error:** `ActorPlacement.java:81: error: variable o is already defined`, on an anonymous subclass of `ClipContext`.
+**Root cause:** javac builds a synthetic constructor for an anonymous class and names its parameters from the superclass; here those names clashed with the ones in the patched Minecraft classes on the CI machine. The exact difference with the local machine was not established.
+**Fix:** a named `NoEntityClip` class with an explicit constructor. The tag was not moved, and the behaviour is the same.
+**Prevention:** run the CI matrix on the release commit before tagging, through a pull request or a manual workflow run.
+
+## [2026-11-05 21:30] - Curios worn items dropped in a replay when a datapack supplies the slots (1.20.1)
+**Context:** production self test on Forge 1.20.1 with Curios 5.14.1 and the test ring datapack.
+**Error:** `SELFTEST curios at start: worn stacks on the actor=-1 -> FAIL`, with no warning logged.
+**Root cause:** `CurioInventoryCapability$Provider.getCapability` returns empty while the client's `CuriosEntityManager.CLIENT` lists no slot for the entity type. That map comes from the data of the server played on; the replay host lacks a world or server datapack, and the recording did not carry the definitions, so every Curios sync message was dropped.
+**Fix:** snapshots and checkpoints write an `SPacketSyncData` built from the client's definitions, before the entities.
+**Prevention:** a mod's per-entity sync can depend on definitions from server data. Test an integration with data only the recorded world has, not only with data shipped in a mod jar.
+**Follow-up:** the next run gave `worn stacks on the actor=0 -> FAIL`. This one was the test: the recording held no live Curios message besides the definitions, checkpoint 60 held no worn stack and the saved player had an empty `Curios` list, so the ring was never worn. The test player joins before its datapack exists, and `CurioInventoryWrapper.readTag` returns on an empty list, so Curios' reload never gives handlers to a player who had none, while `curios add` and `curios replace` still report success. The test now rebuilds the handlers on the server and reloads again, waits for the slot on the client, and logs the worn count during the recording. A player joining with the datapack present is not affected, and the definitions fix stays needed.
+**1.21.1:** Curios 9.5.1 has the same gate (`Curios.registerCaps` returns no capability while `CuriosApi.getEntitySlots` is empty, and `CuriosClientPackets` drops `SPacketSyncCurios` without one), so the definitions and the test datapack were ported there. Until then the 1.21.1 run only passed with a ring slot from Iron's Spellbooks, which the replay host also loads.
+
+## [2026-11-06 12:17] — CurseForge upload rejects an empty relations list with HTTP 400 errorCode 1002
+**Context:** Sending the 1.1.0 jars to CurseForge through its upload API; jars without any mod dependency sent relations.projects as an empty list
+**Error:** HTTP 400 errorCode 1002: Error in field metadata: Array item count 0 is less than minimum count of 1. Path relations.projects
+**Root cause:** The CurseForge upload API requires at least one item in relations.projects when the relations field is present, so an empty list is refused while a missing field is accepted
+**Fix:** Left the relations field out of the metadata for jars with no dependency; the failed file had not been created, so the upload resumed without a duplicate
+**Prevention:** Send relations to CurseForge only when it holds a project, and make upload scripts skip what is already sent so a rerun resumes safely
+
+## [2026-11-06 12:17] — Upload sheet older than the reissued jars, wrong hashes and changelog entries missing
+**Context:** Preparing the 1.1.0 upload to the mod sites from build/mod-release/1.1.0 after the jars and notes had been replaced on the GitHub release by later fixes
+**Error:** 6 of 9 jars in build/mod-release/1.1.0 differed from jars/1.1.0 and the GitHub release, and changelog.md lacked the Curios slot definitions and Building from source entries in both languages
+**Root cause:** The fixes went out under 1.1.0 through tools/collect_jars.sh and a manual asset replacement, which do not refresh the sheet that mod-release wrote at the first publication
+**Fix:** Uploaded jars/1.1.0 after proving each jar identical to the GitHub release, with the changelog text read from the current CHANGELOG.md section, and checked Modrinth by sha512 afterwards
+**Prevention:** Before any upload, compare each jar with the GitHub release and every entry of the current CHANGELOG section with the text to send; never trust a sheet older than the last commit
+
+## [2026-11-06 12:17] — Upload sheet tags a client-only mod Client and Server on Forge and NeoForge
+**Context:** Reading the mod-release upload sheet for the 1.1.0 Forge and NeoForge jars before sending them to CurseForge
+**Error:** Sheet environment Client, Server while README, Fabric metadata, the Modrinth project and every earlier CurseForge file say client only
+**Root cause:** The sheet derives the environment from the side key of the dependency blocks in mods.toml, which says where a dependency applies and not where the mod runs
+**Fix:** Tagged the nine CurseForge files with Client only, as on every earlier file of the project
+**Prevention:** Check the environment tag against the previous file on the site and the README; never take it from a mods.toml dependency side

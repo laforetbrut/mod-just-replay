@@ -1,0 +1,166 @@
+plugins {
+    id 'java-library'
+    id 'idea'
+    id 'net.neoforged.moddev.legacyforge' version '2.0.147'
+}
+
+version = mod_version
+group = mod_group_id
+
+base {
+    archivesName = "${mod_id}-neoforge-${minecraft_version}"
+}
+
+// Minecraft 1.20.1 ships Java 17 to players.
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+// Loader-independent code for this Minecraft version lives in ../common on the main branch.
+// On the per-target branches it is merged into src/main, so this block does nothing there.
+def commonDir = file("../common/${minecraft_version}/src/main")
+if (commonDir.isDirectory()) {
+    sourceSets.main.java.srcDir(new File(commonDir, 'java'))
+    sourceSets.main.resources.srcDir(new File(commonDir, 'resources'))
+}
+
+sourceSets.main.resources {
+    exclude('**/*.bbmodel.license')
+}
+
+legacyForge {
+    // NeoForge for Minecraft 1.20.1 is the 47.1 fork of Forge (net.neoforged:forge), built here
+    // with the legacy plugin of ModDevGradle.
+    enable {
+        neoForgeVersion = "${project.minecraft_version}-${project.neo_version}"
+    }
+
+    parchment {
+        mappingsVersion = project.parchment_mappings_version
+        minecraftVersion = project.parchment_minecraft_version
+    }
+
+    runs {
+        // The standard client run is also the self test run: -Pselftest adds the same settings as on the other targets.
+        client {
+            client()
+            if (project.hasProperty('gameDir')) {
+                gameDirectory = file(project.property('gameDir'))
+            }
+            if (project.hasProperty('selftest')) {
+                systemProperty 'justreplay.selftest', 'true'
+                jvmArgument '-Xmx8G'
+                systemProperty 'justreplay.checkpointTicks', '60'
+            }
+            // Unattended recording of a world for test footage, see SceneRecorder.
+            if (project.hasProperty('scene') || project.hasProperty('sceneReplay') || project.hasProperty('job')) {
+                // Job file: several records, replays, screenshots and exports in one launch, see SceneJob.
+                systemProperty 'justreplay.job', (project.findProperty('job') ?: '').toString()
+                systemProperty 'justreplay.scene', (project.findProperty('scene') ?: '').toString()
+                systemProperty 'justreplay.sceneReplay', (project.findProperty('sceneReplay') ?: '').toString()
+                systemProperty 'justreplay.sceneExport', (project.findProperty('sceneExport') ?: '').toString()
+                systemProperty 'justreplay.sceneShots', (project.findProperty('sceneShots') ?: '').toString()
+                systemProperty 'justreplay.sceneEditor', (project.findProperty('sceneEditor') ?: '').toString()
+                systemProperty 'justreplay.sceneCommands', (project.findProperty('sceneCommands') ?: '').toString()
+                systemProperty 'justreplay.sceneSeconds', (project.findProperty('sceneSeconds') ?: '60').toString()
+                systemProperty 'justreplay.sceneDelay', (project.findProperty('sceneDelay') ?: '5').toString()
+                programArguments.addAll '--width', '1600', '--height', '900'
+                jvmArgument '-Xmx8G'
+            }
+        }
+        server {
+            server()
+            programArgument '--nogui'
+        }
+        configureEach {
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+            logLevel = org.slf4j.event.Level.INFO
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+// The annotation processor writes the refmap that maps Mojang/Parchment names in the mixins to SRG names.
+// The config entries reach the dev runs, which load classes from folders and do not read the jar manifest.
+mixin {
+    add sourceSets.main, 'justreplay.refmap.json'
+    config "${mod_id}.mixins.json"
+    config "${mod_id}.compat.mixins.json"
+    config "${mod_id}.neoforge.mixins.json"
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        name = 'Max Henkel'
+        url = 'https://maven.maxhenkel.de/repository/public'
+        content { includeGroup 'de.maxhenkel.voicechat' }
+    }
+}
+
+dependencies {
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+
+    // Simple Voice Chat API; optional at runtime. The 1.20.1 build of the mod ships API 2.5.x.
+    compileOnly 'de.maxhenkel.voicechat:voicechat-api:2.5.0'
+}
+
+var generateModMetadata = tasks.register('generateModMetadata', ProcessResources) {
+    var replaceProperties = [
+            minecraft_version      : minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            neo_version            : neo_version,
+            neo_version_range      : neo_version_range,
+            loader_version_range   : loader_version_range,
+            mod_id                 : mod_id,
+            mod_name               : mod_name,
+            mod_license            : mod_license,
+            mod_version            : mod_version,
+            mod_authors            : mod_authors,
+            mod_description        : mod_description,
+    ]
+    inputs.properties replaceProperties
+    expand replaceProperties
+    from 'src/main/templates'
+    into 'build/generated/sources/modMetadata'
+}
+sourceSets.main.resources.srcDir generateModMetadata
+legacyForge.ideSyncTask generateModMetadata
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 17
+}
+
+// The license file sits at the repository root on main and at the project root on a target branch.
+def licenseFile = commonDir.isDirectory() ? file('../LICENSE') : file('LICENSE')
+def licenseName = "LICENSE_${mod_id}"
+// NeoForge 47.1 runs on SRG names outside of development: the plugin remaps this jar with its
+// reobfJar task, which writes the jar to release in build/libs (the plain one goes to build/devlibs).
+tasks.named('jar', Jar).configure {
+    from(licenseFile) {
+        rename { licenseName }
+    }
+    manifest {
+        attributes([
+                'Specification-Title'   : mod_id,
+                'Specification-Vendor'  : mod_authors,
+                'Specification-Version' : '1',
+                'Implementation-Title'  : mod_name,
+                'Implementation-Version': mod_version,
+                'Implementation-Vendor' : mod_authors,
+                // This loader reads mixin configs from here; there is no [[mixins]] table in mods.toml.
+                'MixinConfigs'          : "${mod_id}.mixins.json,${mod_id}.compat.mixins.json,${mod_id}.neoforge.mixins.json"
+        ])
+    }
+}
+
+idea {
+    module {
+        downloadSources = true
+        downloadJavadoc = true
+    }
+}

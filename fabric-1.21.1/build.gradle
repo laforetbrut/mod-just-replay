@@ -1,0 +1,145 @@
+plugins {
+    id 'fabric-loom' version '1.17.21'
+}
+
+version = mod_version
+group = mod_group_id
+
+base {
+    archivesName = "${mod_id}-fabric-${minecraft_version}"
+}
+
+// Minecraft 1.21.1 ships Java 21 to players.
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+}
+
+// Loader-independent code for this Minecraft version lives in ../common on the main branch.
+// On the per-target branches it is merged into src/main, so this block does nothing there.
+def commonDir = file("../common/${minecraft_version}/src/main")
+if (commonDir.isDirectory()) {
+    sourceSets.main.java.srcDir(new File(commonDir, 'java'))
+    sourceSets.main.resources.srcDir(new File(commonDir, 'resources'))
+}
+
+sourceSets.main.resources {
+    exclude('**/*.bbmodel.license')
+}
+
+repositories {
+    maven {
+        name = 'Max Henkel'
+        url = 'https://maven.maxhenkel.de/repository/public'
+        content { includeGroup 'de.maxhenkel.voicechat' }
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+    // The common code is written with the official Mojang names.
+    mappings loom.officialMojangMappings()
+    modImplementation "net.fabricmc:fabric-loader:${loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+
+    // javax.annotation.Nullable is used by the common code; NeoForge carries it, Fabric does not.
+    compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
+
+    // Simple Voice Chat API (the version bundled with voicechat 1.21.1-2.6.22); optional at runtime.
+    compileOnly 'de.maxhenkel.voicechat:voicechat-api:2.6.20'
+
+    // Mods loaded next to the remapped jar by the production run tasks.
+    productionRuntimeMods "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+}
+
+loom {
+    // One refmap for both mixin configs; remapJar adds it to the configs listed in fabric.mod.json.
+    mixin {
+        // Loom 1.17 no longer runs the Mixin annotation processor by default; it writes the refmap.
+        useLegacyMixinAp = true
+        defaultRefmapName = 'justreplay.refmap.json'
+    }
+    runs {
+        client {
+            client()
+            runDir 'run'
+            if (project.hasProperty('gameDir')) {
+                runDir project.property('gameDir')
+            }
+            if (project.hasProperty('selftest')) {
+                vmArg '-Djustreplay.selftest=true'
+                vmArg '-Xmx8G'
+                vmArg '-Djustreplay.checkpointTicks=60'
+            }
+            // Unattended recording of a world for test footage, see SceneRecorder.
+            if (project.hasProperty('scene') || project.hasProperty('sceneReplay') || project.hasProperty('job')) {
+                // Job file: several records, replays, screenshots and exports in one launch, see SceneJob.
+                vmArg "-Djustreplay.job=${project.findProperty('job') ?: ''}"
+                vmArg "-Djustreplay.scene=${project.findProperty('scene') ?: ''}"
+                vmArg "-Djustreplay.sceneReplay=${project.findProperty('sceneReplay') ?: ''}"
+                vmArg "-Djustreplay.sceneExport=${project.findProperty('sceneExport') ?: ''}"
+                vmArg "-Djustreplay.sceneShots=${project.findProperty('sceneShots') ?: ''}"
+                vmArg "-Djustreplay.sceneEditor=${project.findProperty('sceneEditor') ?: ''}"
+                vmArg "-Djustreplay.sceneCommands=${project.findProperty('sceneCommands') ?: ''}"
+                vmArg "-Djustreplay.sceneSeconds=${project.findProperty('sceneSeconds') ?: '60'}"
+                vmArg "-Djustreplay.sceneDelay=${project.findProperty('sceneDelay') ?: '5'}"
+                programArgs '--width', '1600', '--height', '900'
+                vmArg '-Xmx8G'
+            }
+        }
+    }
+}
+
+// Self test on the remapped jar (exercises the refmap, unlike a dev run). Run folder: run-prod.
+// Log: run-prod/logs/latest.log. Needs no account: the task starts the client with an offline player.
+tasks.register('runProductionSelftest', net.fabricmc.loom.task.prod.ClientProductionRunTask) {
+    group = 'fabric'
+    description = 'Runs the self test on the remapped production jar with Fabric API.'
+    dependsOn tasks.named('remapJar')
+    runDir = layout.projectDirectory.dir('run-prod')
+    jvmArgs.addAll('-Djustreplay.selftest=true', '-Xmx4G', '-Djustreplay.checkpointTicks=60')
+}
+
+processResources {
+    var replaceProperties = [
+            minecraft_version_range: minecraft_version_range,
+            loader_version         : loader_version,
+            mod_id                 : mod_id,
+            mod_name               : mod_name,
+            mod_license            : mod_license,
+            mod_version            : mod_version,
+            mod_authors            : mod_authors,
+            mod_description        : mod_description,
+    ]
+    inputs.properties replaceProperties
+    filesMatching('fabric.mod.json') {
+        expand replaceProperties
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 21
+    options.compilerArgs << '-Xlint:deprecation'
+}
+
+// The license file sits at the repository root on main and at the project root on a target branch.
+def licenseFile = commonDir.isDirectory() ? file('../LICENSE') : file('LICENSE')
+def licenseName = "LICENSE_${mod_id}"
+if (!licenseFile.isFile()) {
+    logger.warn("No license file at ${licenseFile}: the jar will not contain ${licenseName}")
+}
+tasks.named('jar', Jar).configure {
+    from(licenseFile) {
+        rename { licenseName }
+    }
+    manifest {
+        attributes([
+                'Specification-Title'   : mod_id,
+                'Specification-Vendor'  : mod_authors,
+                'Specification-Version' : '1',
+                'Implementation-Title'  : mod_name,
+                'Implementation-Version': mod_version,
+                'Implementation-Vendor' : mod_authors
+        ])
+    }
+}

@@ -1,0 +1,20 @@
+{
+    "vertex": "justreplay:fx_screen",
+    "fragment": "justreplay:fx_grade",
+    "samplers": [
+        { "name": "DiffuseSampler" },
+        { "name": "LutSampler" }
+    ],
+    "uniforms": [
+        { "name": "OutSize", "type": "float", "count": 2, "values": [ 1.0, 1.0 ] },
+        { "name": "OpCount", "type": "int", "count": 1, "values": [ 0 ] },
+        { "name": "OpCode", "type": "float", "count": 16, "values": [ 0.0 ] },
+        { "name": "OpA", "type": "float", "count": 16, "values": [ 0.0 ] },
+        { "name": "OpB", "type": "float", "count": 16, "values": [ 0.0 ] },
+        { "name": "Sharpen", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "Chroma", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "Letterbox", "type": "float", "count": 2, "values": [ 0.0, 0.0 ] },
+        { "name": "Seed", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "LutInfo", "type": "float", "count": 3, "values": [ 0.0, 1.0, 1.0 ] }
+    ]
+}
