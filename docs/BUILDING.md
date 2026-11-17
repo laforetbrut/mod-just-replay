@@ -1,6 +1,6 @@
 # Building from source
 
-Just Replay 1.1.0 (mod id `justreplay`), author / auteur : vyrriox.
+Just Replay 1.1.1 (mod id `justreplay`), author / auteur : vyrriox.
 
 - [English](#english)
 - [Français](#français)

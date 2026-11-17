@@ -273,6 +273,8 @@ public final class SelfTest {
         }
     }
 
+    private static boolean vehiclePlacedLive;
+
     private static void shot(Minecraft mc, String name) {
         Screenshot.grab(mc.gameDirectory, "selftest-" + name + ".png", mc.getMainRenderTarget(), c -> log("screenshot {}", name));
     }
@@ -349,6 +351,7 @@ public final class SelfTest {
                     if (mc.screen == null) {
                         log("in world at {}", p.position());
                         Mods.summonAircraft(p);
+                        Mods.placeVehicle(mc, p, 8, 6);
                         Mods.seedRing(mc);
                         next(60);
                     }
@@ -400,6 +403,11 @@ public final class SelfTest {
                 if (t == 5) {
                     // Placed once the recording runs: a block changed in the same tick as the start could be missed.
                     Mods.place(mc, p, modsBase);
+                }
+                if (t >= 10 && !vehiclePlacedLive) {
+                    // A second car placed during the recording: its data comes from the recorded server answer.
+                    vehiclePlacedLive = true;
+                    Mods.placeVehicle(mc, p, -8, -8);
                 }
                 if (t == 40 && Mods.loaded("emotecraft")) {
                     p.setDeltaMovement(0, p.getDeltaMovement().y, 0);
@@ -494,6 +502,7 @@ public final class SelfTest {
                 Mods.checkCurios(mc, s, "at start");
                 Mods.checkAccessories(mc, s, "at start");
                 Mods.checkJadeAircraft(mc, "at start");
+                Mods.checkVehicles(mc, "at start");
                 Mods.checkImmersivePaintings("at start");
                 Mods.checkCulling("during the replay", false);
                 cullSkipped = Math.max(0, com.vyrriox.justreplay.compat.EntityCullingCompat.skippedEntityTicks());
@@ -553,7 +562,9 @@ public final class SelfTest {
                 Mods.checkCurios(mc, s, "after backward seek");
                 Mods.checkAccessoriesAfterClear(mc, s);
                 Mods.checkJadeAircraft(mc, "after backward seek");
+                Mods.checkVehicles(mc, "after backward seek");
                 shot(mc, "3-seek20");
+                Mods.faceVehicle(mc);
                 checkClockBackSeek(clockGecko, geckoClock(), clockEntity, com.vyrriox.justreplay.compat.ReplayCompat.lastGeckoEntityFrameTime());
                 clockGecko = geckoClock();
                 clockIris = irisClock();
@@ -565,6 +576,9 @@ public final class SelfTest {
             case 10 -> {
                 ReplaySession s = ReplaySession.current();
                 if (ironsPhase == 0) {
+                    if (Mods.loaded("mts")) {
+                        shot(mc, "3b-vehicle");
+                    }
                     log("speed x{}: cursor advanced {} ticks in 10 client ticks", s.playback().speed(), s.playback().cursor() - speedStart);
                     checkClockRise("speed", s.playback().cursor() - speedStart, clockStartStep, Math.max(1, s.playback().lastStep()),
                             clockGecko, geckoClock(), clockIris, irisClock());
@@ -1312,6 +1326,82 @@ public final class SelfTest {
          * An equipped biplane, out of the walking circle, summoned early enough that the client holds its equipment when
          * the recording starts: the recording's snapshot has to write it. Slot 1 is the biplane's weapon slot.
          */
+        /** Immersive Vehicles: places a car of its official content pack at an offset from the player. */
+        static void placeVehicle(Minecraft mc, LocalPlayer p, int dx, int dz) {
+            if (!loaded("mts")) {
+                return;
+            }
+            net.minecraft.world.item.Item car = net.minecraft.core.registries.BuiltInRegistries.ITEM.stream()
+                    .filter(i -> {
+                        net.minecraft.resources.ResourceLocation key = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(i);
+                        return key.getNamespace().equals("mts") && key.getPath().startsWith("mtsofficialpack.fordmustang69");
+                    }).findFirst().orElse(null);
+            net.minecraft.server.MinecraftServer server = mc.getSingleplayerServer();
+            if (car == null || server == null) {
+                log("vehicles: no car item of the official content pack or no server, nothing placed");
+                return;
+            }
+            java.util.UUID id = p.getUUID();
+            server.execute(() -> {
+                net.minecraft.server.level.ServerPlayer sp = server.getPlayerList().getPlayer(id);
+                if (sp == null) {
+                    return;
+                }
+                net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(car);
+                net.minecraft.world.item.ItemStack held = sp.getMainHandItem();
+                sp.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, stack);
+                net.minecraft.core.BlockPos ground = sp.blockPosition().below().offset(dx, 0, dz);
+                net.minecraft.world.phys.BlockHitResult hit = new net.minecraft.world.phys.BlockHitResult(
+                        net.minecraft.world.phys.Vec3.atCenterOf(ground), net.minecraft.core.Direction.UP, ground, false);
+                net.minecraft.world.InteractionResult result = stack.useOn(new net.minecraft.world.item.context.UseOnContext(
+                        sp, net.minecraft.world.InteractionHand.MAIN_HAND, hit));
+                sp.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, held);
+                log("vehicles: placed {} at {}: {}", net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(car), ground, result);
+            });
+        }
+
+        /**
+         * Immersive Vehicles: the car placed before the recording must have its data in the replay (it only comes from
+         * the snapshot), and the replay's own draw entity must follow the camera player. Skipped when the mod is absent.
+         */
+        static void checkVehicles(Minecraft mc, String label) {
+            if (!loaded("mts")) {
+                log("vehicles {}: skipped, mod absent", label);
+                return;
+            }
+            if (mc.level == null) {
+                log("vehicles {}: skipped, no level", label);
+                return;
+            }
+            int vehicles = 0;
+            int withData = 0;
+            for (net.minecraft.world.entity.Entity e : mc.level.entitiesForRendering()) {
+                if (com.vyrriox.justreplay.compat.ImmersiveVehiclesCompat.isVehicle(e)) {
+                    log("vehicles {}: {} id={} uuid={} at {}", label, e.getType(), e.getId(), e.getUUID(), e.blockPosition());
+                    vehicles++;
+                    withData += com.vyrriox.justreplay.compat.ImmersiveVehiclesCompat.hasData(e) ? 1 : 0;
+                }
+            }
+            net.minecraft.world.entity.Entity draw = com.vyrriox.justreplay.compat.ImmersiveVehiclesCompat.replayForwarder();
+            boolean drawing = draw != null && !draw.isRemoved() && draw.level() == mc.level;
+            log("vehicles {}: vehicles={} with data={} draw entity={} -> {}", label, vehicles, withData, drawing,
+                    vehicles > 0 && withData == vehicles && drawing ? "OK" : "FAIL");
+        }
+
+        /** Turns the replay camera towards the first Immersive Vehicles vehicle, for a screenshot of it. */
+        static void faceVehicle(Minecraft mc) {
+            if (!loaded("mts") || mc.level == null || mc.player == null) {
+                return;
+            }
+            for (net.minecraft.world.entity.Entity e : mc.level.entitiesForRendering()) {
+                if (com.vyrriox.justreplay.compat.ImmersiveVehiclesCompat.isVehicle(e)) {
+                    mc.player.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, e.position());
+                    log("vehicles: camera turned to {} at {}", e.getType(), e.blockPosition());
+                    return;
+                }
+            }
+        }
+
         static void summonAircraft(LocalPlayer p) {
             if (loaded("immersive_aircraft")) {
                 p.connection.sendCommand("summon immersive_aircraft:biplane ~-9 ~ ~6 "
