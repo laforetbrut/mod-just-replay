@@ -20,7 +20,7 @@ public final class CompatTargets {
             "neoforge", Set.of("accessories", "aeronautics", "armourers_workshop", "bettercombat", "bobby", "create", "curios",
                     "customnpcs", "distanthorizons", "dropthebeam", "emotecraft", "entityculling", "epicfight", "exposure",
                     "geckolib", "immersive_aircraft", "immersive_paintings", "irons_spellbooks", "iris", "jade", "morph",
-                    "parcool", "pehkui", PLAYER_ANIMATOR, "sable", "simulated", "waterframes"),
+                    "mts", "parcool", "pehkui", PLAYER_ANIMATOR, "sable", "simulated", "waterframes"),
             "fabric", Set.of("accessories", "armourers_workshop", "bettercombat", "bobby", "distanthorizons", "emotecraft",
                     "entityculling", "exposure", "geckolib", "immersive_aircraft", "immersive_paintings", "iris", "jade",
                     "pehkui", PLAYER_ANIMATOR, "sable", "waterframes"),
