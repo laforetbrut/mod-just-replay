@@ -41,3 +41,6 @@ images/*
 
 # Scratch folders of port tasks
 _temp/
+
+# Local copies of the built jars, see tools/collect_jars.sh
+jars/
