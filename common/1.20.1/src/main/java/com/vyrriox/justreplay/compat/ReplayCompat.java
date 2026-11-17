@@ -26,6 +26,7 @@ public final class ReplayCompat {
     static final boolean CURIOS = isLoaded("curios");
     static final boolean ENTITY_CULLING = isLoaded("entityculling");
     static final boolean JADE = isLoaded("jade");
+    static final boolean IMMERSIVE_VEHICLES = isLoaded("mts");
     private static final Set<String> FAILED = Collections.synchronizedSet(new HashSet<>());
     private static double monotonicFrame = -1;
     private static double monotonicValue;
@@ -194,6 +195,9 @@ public final class ReplayCompat {
 
     /** Called every client tick of a running replay, after the playback tick. */
     public static void tick(Minecraft mc, ReplaySession session) {
+        if (IMMERSIVE_VEHICLES) {
+            ImmersiveVehiclesCompat.tick(mc);
+        }
         if (WATERFRAMES) {
             try {
                 WaterFramesCompat.tick(mc, session.playback());
@@ -221,6 +225,9 @@ public final class ReplayCompat {
         if (DISTANT_HORIZONS) {
             DistantHorizonsCompat.onReplayEnd();
         }
+        if (IMMERSIVE_VEHICLES) {
+            ImmersiveVehiclesCompat.onReplayEnd();
+        }
     }
 
     /**
@@ -236,7 +243,8 @@ public final class ReplayCompat {
 
     /** A packet the client is about to send to the replay host: true to drop it (requests of mods with no server there). */
     public static boolean blockServerbound(Packet<?> packet) {
-        return JADE && JadeCompat.blockServerbound(packet);
+        return JADE && JadeCompat.blockServerbound(packet)
+                || IMMERSIVE_VEHICLES && ImmersiveVehiclesCompat.blockServerbound(packet);
     }
 
     // ---------------------------------------------------------------- recording hooks
@@ -274,6 +282,17 @@ public final class ReplayCompat {
     public static void writeEntityState(net.minecraft.world.entity.Entity entity, java.util.function.Consumer<Packet<?>> out) {
         if (CURIOS) {
             CuriosCompat.writeCurrent(entity, out);
+        }
+        if (IMMERSIVE_VEHICLES) {
+            ImmersiveVehiclesCompat.writeCurrent(entity, out);
+        }
+    }
+
+    /** Mod state of the blocks of a chunk just written into a snapshot or checkpoint (Immersive Vehicles blocks). */
+    public static void writeChunkState(net.minecraft.world.level.chunk.LevelChunk chunk,
+                                       java.util.function.Consumer<Packet<?>> out) {
+        if (IMMERSIVE_VEHICLES) {
+            ImmersiveVehiclesCompat.writeChunk(chunk, out);
         }
     }
 
