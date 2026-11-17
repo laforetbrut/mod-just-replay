@@ -19,7 +19,7 @@ Fabric API is needed. A recording opens only on the Minecraft version and the lo
 | Fabric 1.21.1 | Accessories, Armourer's Workshop, Better Combat, Bobby, Distant Horizons, Emotecraft, Entity Culling, Exposure, GeckoLib, Immersive Aircraft, Immersive Paintings, Iris, Jade, Pehkui, Player Animator, Sable, WaterFrames |
 | Forge 1.21.1 | Entity Culling, GeckoLib |
 | NeoForge 1.20.1 | Curios, GeckoLib, Jade |
-| Forge 1.20.1 | Curios, Entity Culling, GeckoLib, Jade |
+| Forge 1.20.1 | Curios, Entity Culling, GeckoLib, Immersive Vehicles, Jade |
 | Fabric 1.20.1 | Entity Culling, GeckoLib, Jade |
 | NeoForge 26.1.2 | Entity Culling, GeckoLib, Iris, Jade |
 | Fabric 26.1.2 | Entity Culling, GeckoLib, Iris, Jade |
@@ -217,7 +217,7 @@ il a été fait.
 | Fabric 1.21.1 | Accessories, Armourer's Workshop, Better Combat, Bobby, Distant Horizons, Emotecraft, Entity Culling, Exposure, GeckoLib, Immersive Aircraft, Immersive Paintings, Iris, Jade, Pehkui, Player Animator, Sable, WaterFrames |
 | Forge 1.21.1 | Entity Culling, GeckoLib |
 | NeoForge 1.20.1 | Curios, GeckoLib, Jade |
-| Forge 1.20.1 | Curios, Entity Culling, GeckoLib, Jade |
+| Forge 1.20.1 | Curios, Entity Culling, GeckoLib, Immersive Vehicles, Jade |
 | Fabric 1.20.1 | Entity Culling, GeckoLib, Jade |
 | NeoForge 26.1.2 | Entity Culling, GeckoLib, Iris, Jade |
 | Fabric 26.1.2 | Entity Culling, GeckoLib, Iris, Jade |
