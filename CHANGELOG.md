@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+- **Create Aeronautics, Sable, Create Propulsion**: checked together with Create 6.0.10 on NeoForge 1.21.1. The game loads, and recording, replays and seeks pass the self test. See `docs/COMPATIBILITY.md`.
+
+### Modifications
+- **Create Aeronautics, Sable, Create Propulsion** : vérifiés ensemble avec Create 6.0.10 sur NeoForge 1.21.1. Le jeu charge, et l'enregistrement, les replays et les sauts passent le test automatique. Voir `docs/COMPATIBILITY.md`.
+
+---
+
 ## [1.1.2] - 2026-11-18
 
 ### Added
