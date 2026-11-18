@@ -16,13 +16,13 @@ Fabric API is needed. A recording opens only on the Minecraft version and the lo
 | Target | Integrations enabled |
 |---|---|
 | NeoForge 1.21.1 | Accessories, Armourer's Workshop, Better Combat, Bobby, Create, Create Aeronautics, Curios, Custom NPCs, Distant Horizons, Drop the Beam, Emotecraft, Entity Culling, Epic Fight, Exposure, GeckoLib, Immersive Aircraft, Immersive Paintings, Immersive Vehicles, Iris, Iron's Spellbooks, Jade, Morph, ParCool, Pehkui, Player Animator, Sable, Simulated, WaterFrames |
-| Fabric 1.21.1 | Accessories, Armourer's Workshop, Better Combat, Bobby, Distant Horizons, Emotecraft, Entity Culling, Exposure, GeckoLib, Immersive Aircraft, Immersive Paintings, Iris, Jade, Pehkui, Player Animator, Sable, WaterFrames |
+| Fabric 1.21.1 | Accessories, Armourer's Workshop, Better Combat, Bobby, Custom NPCs, Distant Horizons, Emotecraft, Entity Culling, Exposure, GeckoLib, Immersive Aircraft, Immersive Paintings, Iris, Jade, Pehkui, Player Animator, Sable, WaterFrames |
 | Forge 1.21.1 | Entity Culling, GeckoLib |
-| NeoForge 1.20.1 | Curios, GeckoLib, Jade, More Player Models |
-| Forge 1.20.1 | Curios, Entity Culling, GeckoLib, Immersive Vehicles, Jade, More Player Models |
-| Fabric 1.20.1 | Entity Culling, GeckoLib, Jade |
-| NeoForge 26.1.2 | Entity Culling, GeckoLib, Immersive Vehicles, Iris, Jade |
-| Fabric 26.1.2 | Entity Culling, GeckoLib, Iris, Jade |
+| NeoForge 1.20.1 | Armourer's Workshop, Curios, Custom NPCs, GeckoLib, Jade, More Player Models |
+| Forge 1.20.1 | Armourer's Workshop, Curios, Custom NPCs, Entity Culling, Epic Fight, GeckoLib, Immersive Vehicles, Jade, More Player Models |
+| Fabric 1.20.1 | Armourer's Workshop, Custom NPCs, Entity Culling, GeckoLib, Jade |
+| NeoForge 26.1.2 | Armourer's Workshop, Entity Culling, GeckoLib, Immersive Vehicles, Iris, Jade |
+| Fabric 26.1.2 | Armourer's Workshop, Entity Culling, GeckoLib, Iris, Jade |
 | Forge 26.1.2 | GeckoLib |
 
 The list comes from `CompatTargets.java` of each `common/<minecraft version>/`. An enabled integration is not
@@ -217,13 +217,13 @@ il a été fait.
 | Cible | Intégrations actives |
 |---|---|
 | NeoForge 1.21.1 | Accessories, Armourer's Workshop, Better Combat, Bobby, Create, Create Aeronautics, Curios, Custom NPCs, Distant Horizons, Drop the Beam, Emotecraft, Entity Culling, Epic Fight, Exposure, GeckoLib, Immersive Aircraft, Immersive Paintings, Immersive Vehicles, Iris, Iron's Spellbooks, Jade, Morph, ParCool, Pehkui, Player Animator, Sable, Simulated, WaterFrames |
-| Fabric 1.21.1 | Accessories, Armourer's Workshop, Better Combat, Bobby, Distant Horizons, Emotecraft, Entity Culling, Exposure, GeckoLib, Immersive Aircraft, Immersive Paintings, Iris, Jade, Pehkui, Player Animator, Sable, WaterFrames |
+| Fabric 1.21.1 | Accessories, Armourer's Workshop, Better Combat, Bobby, Custom NPCs, Distant Horizons, Emotecraft, Entity Culling, Exposure, GeckoLib, Immersive Aircraft, Immersive Paintings, Iris, Jade, Pehkui, Player Animator, Sable, WaterFrames |
 | Forge 1.21.1 | Entity Culling, GeckoLib |
-| NeoForge 1.20.1 | Curios, GeckoLib, Jade, More Player Models |
-| Forge 1.20.1 | Curios, Entity Culling, GeckoLib, Immersive Vehicles, Jade, More Player Models |
-| Fabric 1.20.1 | Entity Culling, GeckoLib, Jade |
-| NeoForge 26.1.2 | Entity Culling, GeckoLib, Immersive Vehicles, Iris, Jade |
-| Fabric 26.1.2 | Entity Culling, GeckoLib, Iris, Jade |
+| NeoForge 1.20.1 | Armourer's Workshop, Curios, Custom NPCs, GeckoLib, Jade, More Player Models |
+| Forge 1.20.1 | Armourer's Workshop, Curios, Custom NPCs, Entity Culling, Epic Fight, GeckoLib, Immersive Vehicles, Jade, More Player Models |
+| Fabric 1.20.1 | Armourer's Workshop, Custom NPCs, Entity Culling, GeckoLib, Jade |
+| NeoForge 26.1.2 | Armourer's Workshop, Entity Culling, GeckoLib, Immersive Vehicles, Iris, Jade |
+| Fabric 26.1.2 | Armourer's Workshop, Entity Culling, GeckoLib, Iris, Jade |
 | Forge 26.1.2 | GeckoLib |
 
 La liste vient de `CompatTargets.java` de chaque `common/<version de minecraft>/`. Une intégration active n'est pas
