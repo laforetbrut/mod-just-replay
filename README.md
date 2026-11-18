@@ -97,7 +97,7 @@ known limits of each target.
 - **Edit recorded entities**: the **Entities** tab hides a recorded player or mob (for the whole replay or
   before or after the play head), moves it to a new spot with the crosshair, and sets the volume of its sounds
   (0 to 400%, or muted), in playback and in video exports.
-- **Hide armor** (Minecraft 1.21.1): "Armor shown" switches hide the helmet, chestplate (with the elytra),
+- **Hide armor**: "Armor shown" switches hide the helmet, chestplate (with the elytra),
   leggings or boots of a recorded player (**Entities** tab) or an actor (actor screen). The "Hide player armor in
   replays" setting (`hidePlayerArmor`) hides the armor of every player. The game itself is never changed.
 - **Glass interface**: a clear glass look with rounded corners and smooth animations. The editor has a
@@ -311,7 +311,7 @@ lu, et les limites connues de chaque cible.
 - **Modifier les entités enregistrées** : l'onglet **Entités** masque un joueur ou un mob enregistré (pour tout
   le replay, ou avant ou après la tête de lecture), le déplace au viseur et règle le volume de ses sons (0 à 400 %,
   ou coupés), en lecture et dans les exports vidéo.
-- **Masquer l'armure** (Minecraft 1.21.1) : les interrupteurs « Armor shown » cachent le casque, le plastron (avec
+- **Masquer l'armure** : les interrupteurs « Armor shown » cachent le casque, le plastron (avec
   les élytres), les jambières ou les bottes d'un joueur enregistré (onglet **Entités**) ou d'un acteur (écran de
   l'acteur). Le réglage « Hide player armor in replays » (`hidePlayerArmor`) cache l'armure de tous les joueurs.
   Le jeu lui-même ne change jamais.
