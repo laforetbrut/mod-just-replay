@@ -8,7 +8,8 @@
 #
 # The branches are never edited by hand: change main, then run this script from the repository
 # root. BASE_BRANCH names another source branch (develop, for instance); main by default. The
-# script then warns when main is behind that branch, since main is the released code.
+# script then warns when main is behind that branch, since main is the released code. It refuses
+# to start when the base branch is behind its copy on origin (pull it first).
 # An existing branch gets a new commit on top of its history (no force push needed); a branch
 # whose content did not change is left alone.
 #
@@ -25,6 +26,12 @@ fi
 
 BASE=${BASE_BRANCH:-main}
 MAIN=$(git rev-parse --verify "refs/heads/$BASE")
+# A release merges develop into main on GitHub: a local base that missed it would build stale branches.
+UPSTREAM=$(git rev-parse -q --verify "refs/remotes/origin/$BASE" || true)
+if [ -n "$UPSTREAM" ] && ! git merge-base --is-ancestor "$UPSTREAM" "$MAIN"; then
+    echo "$BASE is behind origin/$BASE: run git pull --ff-only on $BASE first." >&2
+    exit 1
+fi
 # Shared files copied to every branch when they exist on main.
 SHARED=(LICENSE NOTICE README.md CHANGELOG.md CONTRIBUTING.md SECURITY.md CODE_OF_CONDUCT.md .gitignore .gitattributes .github docs)
 
@@ -83,7 +90,10 @@ for target in $(git ls-tree -d --name-only "$MAIN"); do
 done
 
 # main is the released code: the target branches should never get ahead of it.
+holds_base() {
+    git rev-parse -q --verify "$1" >/dev/null && git merge-base --is-ancestor "$MAIN" "$1"
+}
 if [ "$BASE" != main ] && git rev-parse -q --verify refs/heads/main >/dev/null \
-        && ! git merge-base --is-ancestor "$MAIN" refs/heads/main; then
-    echo "warning: main is behind $BASE: merge $BASE into main (a fast-forward) so main holds the released code." >&2
+        && ! holds_base refs/heads/main && ! holds_base refs/remotes/origin/main; then
+    echo "warning: main is behind $BASE: merge a pull request from $BASE into main so main holds the released code." >&2
 fi
