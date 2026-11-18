@@ -21,7 +21,10 @@ public final class CompatTargets {
      * 4.8.4, Curios 5.14.1, Jade 11.13.3, Entity Culling 1.11.3, Immersive Vehicles 24.0.0 and More Player Models
      * 1.20.1.20240409. The NeoForge and Fabric rows are not yet checked against builds for those loaders, but for
      * More Player Models: its only 1.20.1 build is that Forge jar, which NeoForge 47.1 loads as it is, and every
-     * class and member the integration names was compiled against it with the classes of both loaders.
+     * class and member the integration names was compiled against it with the classes of both loaders. Armourer's
+     * Workshop 3.4.0-beta.3 (its Forge jar, also on NeoForge, and its Fabric jar) and the unofficial Custom NPCs port
+     * (Forge builds 20240824 and 20260711, also on NeoForge, and Fabric build 20251214) were checked the same way on
+     * each loader. Epic Fight 20.14.17 is Forge only: it needs Forge 47.4 or later and has no Fabric build.
      */
     private static final Map<String, Set<String>> SUPPORTED = Map.of(
             "neoforge", Set.of("armourers_workshop", "customnpcs", "geckolib", "curios", "jade", "moreplayermodels"),
