@@ -57,6 +57,8 @@ minecraft {
             }
             if (project.hasProperty('selftest')) {
                 property 'justreplay.selftest', 'true'
+                // Immersive Vehicles car the self test places (an item id or its start), see SelfTest.Mods.vehicleItem.
+                property 'justreplay.selftestVehicle', project.findProperty('selftestVehicle') ?: ''
                 jvmArgs '-Xmx8G'
                 property 'justreplay.checkpointTicks', '60'
             }

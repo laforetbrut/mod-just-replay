@@ -1322,19 +1322,48 @@ public final class SelfTest {
                     && ("mekanism".equals(modId) || com.vyrriox.justreplay.compat.CompatTargets.isSupported(modId));
         }
 
-        /** Immersive Vehicles: places a car of its official content pack at an offset from the player. */
+        /**
+         * The Immersive Vehicles car the self test places: the item named by {@code -Djustreplay.selftestVehicle} (an
+         * item id, or the start of one, with or without {@code mts:}; Gradle {@code -PselftestVehicle=...}), else the
+         * Mustang of the official content pack, else the first vehicle of any installed content pack.
+         */
+        static net.minecraft.world.item.Item vehicleItem() {
+            String wanted = System.getProperty("justreplay.selftestVehicle", "");
+            java.util.List<net.minecraft.world.item.Item> items = net.minecraft.core.registries.BuiltInRegistries.ITEM.stream()
+                    .filter(i -> net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(i).getNamespace().equals("mts"))
+                    .toList();
+            if (!wanted.isEmpty()) {
+                return items.stream().filter(i -> {
+                    net.minecraft.resources.ResourceLocation key = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(i);
+                    return key.toString().startsWith(wanted) || key.getPath().startsWith(wanted);
+                }).findFirst().orElse(null);
+            }
+            return items.stream()
+                    .filter(i -> net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(i).getPath().startsWith("mtsofficialpack.fordmustang69"))
+                    .findFirst().or(() -> items.stream().filter(Mods::isVehicleItem).findFirst()).orElse(null);
+        }
+
+        /** True for an Immersive Vehicles item that places a vehicle: the item it wraps is an {@code ItemVehicle}. */
+        static boolean isVehicleItem(net.minecraft.world.item.Item item) {
+            try {
+                Class<?> vehicle = Class.forName("minecrafttransportsimulator.items.instances.ItemVehicle", false,
+                        item.getClass().getClassLoader());
+                return vehicle.isInstance(item.getClass().getMethod("getWrappedItem").invoke(item));
+            } catch (ReflectiveOperationException | LinkageError e) {
+                return false;
+            }
+        }
+
+        /** Immersive Vehicles: places the car of {@link #vehicleItem()} at an offset from the player. */
         static void placeVehicle(Minecraft mc, LocalPlayer p, int dx, int dz) {
             if (!loaded("mts")) {
                 return;
             }
-            net.minecraft.world.item.Item car = net.minecraft.core.registries.BuiltInRegistries.ITEM.stream()
-                    .filter(i -> {
-                        net.minecraft.resources.ResourceLocation key = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(i);
-                        return key.getNamespace().equals("mts") && key.getPath().startsWith("mtsofficialpack.fordmustang69");
-                    }).findFirst().orElse(null);
+            net.minecraft.world.item.Item car = vehicleItem();
             net.minecraft.server.MinecraftServer server = mc.getSingleplayerServer();
             if (car == null || server == null) {
-                log("vehicles: no car item of the official content pack or no server, nothing placed");
+                log("vehicles: no car item (wanted '{}') or no server, nothing placed",
+                        System.getProperty("justreplay.selftestVehicle", ""));
                 return;
             }
             java.util.UUID id = p.getUUID();

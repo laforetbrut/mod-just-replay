@@ -108,6 +108,7 @@ Every project takes these properties on `runClient`, from its own folder:
 | `-Pselftest` | Automated record, replay, edit and export test in a development client. |
 | `-Pjob=<file>` | Runs a scene job file (see the README). |
 | `-PgameDir=<folder>` | Another game folder for the development client. |
+| `-PselftestVehicle=<item id>` | With `-Pselftest` and Immersive Vehicles: the car the self test places (an item id or its start, `mts:` optional). By default the Official Content Pack's Mustang, else the first car of any installed pack. |
 | `-PdevMods=<folder>` | `forge-1.20.1` only: loads the released jars of that folder, remapped to the names of the development game. A released 1.20.1 jar put in `mods/` fails on its first game call. Content packs that a mod reads from `mods/` (the Immersive Vehicles packs) still go in `<game folder>/mods`. |
 
 ```
@@ -195,6 +196,7 @@ Chaque projet accepte ces propriétés sur `runClient`, depuis son dossier :
 | `-Pselftest` | Test automatique d'enregistrement, lecture, édition et export dans un client de développement. |
 | `-Pjob=<fichier>` | Déroule un fichier de tâche de scène (voir le README). |
 | `-PgameDir=<dossier>` | Un autre dossier de jeu pour le client de développement. |
+| `-PselftestVehicle=<id d'objet>` | Avec `-Pselftest` et Immersive Vehicles : la voiture que pose le test automatique (un id d'objet ou son début, `mts:` facultatif). Par défaut la Mustang de l'Official Content Pack, sinon la première voiture d'un pack installé. |
 | `-PdevMods=<dossier>` | `forge-1.20.1` seulement : charge les jars publiés de ce dossier, remappés vers les noms du jeu de développement. Un jar 1.20.1 publié posé dans `mods/` échoue à son premier appel au jeu. Les packs de contenu qu'un mod lit dans `mods/` (ceux d'Immersive Vehicles) vont toujours dans `<dossier du jeu>/mods`. |
 
 ```
