@@ -212,3 +212,10 @@
 **Root cause:** VectorCraft and the Inter font are not installed here, so vector.available() is false and the pixel fallback is used; the task runner only hands out GitHub credentials for the repository of the task
 **Fix:** Rendered the SVG of vector.badge() with headless Chromium and the static Inter 4.1 TTF files from a temp folder (same widths as the published badges within 1 px); the push was left to a task on the images repository
 **Prevention:** Never publish badges or titles drawn by titles.py on Linux without comparing them to the published ones; run the images push as a task of the images repository
+
+## [2026-11-18 09:42] — Page badge widths of unpublished pictures
+**Context:** Task 422 redrew the Minecraft and loader badges but could not push them to Team-Arcadia/images; the page rebuilt with the new local badges was committed anyway.
+**Error:** curseforge_page.md gave badge-minecraft.png width 250 and badge-loaders.png width 222 while images_base still pins 7d35eb95556b, whose badges are 312 and 227 px wide: pasted as is, both badges show up 1.6x and 2x too big. check_page.py --online said nothing to report.
+**Root cause:** build_page.py reads the widths from the local images/ copies, which held the unpublished badges; check_page.py --online only checks that the pictures load, not their size.
+**Fix:** fetch_published.py . --force brought back the published badges, build_page.py wrote widths 156 and 114 again; a width check against the online pictures (half the natural width) found 0 mismatches.
+**Prevention:** Build and commit the page only from the pictures images_base serves: move images_base and rebuild in the same commit once the new pictures are pushed, never before.
