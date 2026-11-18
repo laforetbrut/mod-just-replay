@@ -227,3 +227,10 @@
 **Root cause:** Not in Just Replay: with Create 6.0.10, Create Aeronautics 1.3.2, Sable 2.0.6 and Create Propulsion: Simulated 1.1.5 on NeoForge 21.1.265 the dev client reaches the title screen (alone and with 16 common mods) and the full self test passes (155 lines, 0 failure). The owner ruled the report a mistake of the tester.
 **Fix:** No code change. The combination is now listed as loaded in docs/COMPATIBILITY.md.
 **Prevention:** Before hunting a load failure from someone else's summary, get the failing latest.log and its mods folder; first replay the same mods in a separate game folder (neoforge-1.21.1/run-<name>/mods, ignored by git) with -P neo_version=21.1.265 (Sable and Aeronautics need 21.1.228 or later).
+
+## [2026-11-18 13:50] — Page images refused by jsDelivr
+**Context:** Checking curseforge_page.md online before moving the badge pin of images_base (jsDelivr, commit 7d35eb95556b of Team-Arcadia/images)
+**Error:** check_page.py --online: 6 images HTTP 403 'Package size exceeded' (icons/play.png, title-films-fr.gif...), the 33 others served only from the jsDelivr cache
+**Root cause:** Team-Arcadia/images grew past 50 MB (156 MB), so jsDelivr refuses every file of the repository it has not cached, any commit pin included
+**Fix:** images_base moved to GitHub Pages (https://team-arcadia.github.io/images/mods/justreplay/curseforge/, on, branch main); page rebuilt, only the host changed; check_page.py --online nothing to report, widths 0 mismatches on 39 images
+**Prevention:** Never pin page images on jsDelivr again: Pages serves main, so rebuild the page (widths) in the same task as any push of new pictures
