@@ -68,6 +68,11 @@ public final class SelfTest {
     private static com.vyrriox.justreplay.editor.ActorPlacement.Spot seatSpot;
     private static int fxStep;
     private static boolean curiosGiven;
+    /** More Player Models looks of the recording player: before the recording, then after its change at {@link #LOOK_CHANGE_TICK}. */
+    private static final int LOOK_CHANGE_TICK = 100;
+    private static String lookBefore;
+    private static String lookAfter;
+    private static String cameraLook;
     private static int ringWaits;
     private static boolean ringRebuilt;
     private static int cullSkipped;
@@ -406,6 +411,8 @@ public final class SelfTest {
                         log("in world at {}", p.position());
                         Mods.placeVehicle(mc, p, 8, 6);
                         Mods.seedRing(mc);
+                        // Worn well before the recording starts: only its snapshot can give it to the actor.
+                        Mods.setLook(p, "0.8");
                         next(60);
                     }
                 }
@@ -439,6 +446,19 @@ public final class SelfTest {
                 if (t == 5) {
                     // Placed once the recording runs: a block changed in the same tick as the start could be missed.
                     Mods.place(mc, p, modsBase);
+                    lookBefore = Mods.look(p);
+                }
+                if (t == LOOK_CHANGE_TICK) {
+                    // The server answers the recording player under its own UUID: the recording must name its actor.
+                    Mods.setLook(p, "1.2");
+                }
+                if (t == LOOK_CHANGE_TICK + 50) {
+                    lookAfter = Mods.look(p);
+                    Mods.checkRecordingLook();
+                }
+                if (t == LOOK_CHANGE_TICK + 70) {
+                    // A third look, saved by the mod as the viewer's own: the camera must keep it through the replay.
+                    Mods.setLook(p, "0.9");
                 }
                 if (t >= 10 && !vehiclePlacedLive) {
                     // A second car placed during the recording: its data comes from the recorded server answer.
@@ -514,6 +534,9 @@ public final class SelfTest {
                 logWorld(mc, s, "playing");
                 log("mods while playing: {}", Mods.state(mc, s));
                 Mods.checkCurios(mc, s, "at start");
+                cameraLook = Mods.look(mc.player);
+                Mods.checkLook(mc, s, "at start");
+                Mods.checkLookGuards(mc);
                 Mods.checkJade("at start");
                 Mods.checkVehicles(mc, "at start");
                 Mods.checkCulling("during the replay", false);
@@ -572,6 +595,7 @@ public final class SelfTest {
                 logWorld(mc, s, "after forward seek");
                 log("mods after forward seek: {}", Mods.state(mc, s));
                 Mods.checkCurios(mc, s, "after forward seek");
+                Mods.checkLook(mc, s, "after forward seek");
                 Mods.checkCulling("after a toggle key press", false);
                 Mods.checkCullingEntities(mc);
                 shot(mc, "2-seek150");
@@ -584,6 +608,7 @@ public final class SelfTest {
                 ReplaySession s = ReplaySession.current();
                 logWorld(mc, s, "after backward seek");
                 Mods.checkCurios(mc, s, "after backward seek");
+                Mods.checkLook(mc, s, "after backward seek");
                 Mods.checkJade("after backward seek");
                 Mods.checkVehicles(mc, "after backward seek");
                 shot(mc, "3-seek20");
@@ -1580,6 +1605,76 @@ public final class SelfTest {
             }
             int worn = com.vyrriox.justreplay.compat.CuriosCompat.wornCount(s.findRecorder(mc));
             log("curios {}: worn stacks on the actor={} -> {}", label, worn, worn == 1 ? "OK" : "FAIL");
+        }
+
+        /** More Player Models: scales every part of the test player with the mod's own command; nothing when it is absent. */
+        static void setLook(LocalPlayer p, String scale) {
+            if (loaded("moreplayermodels")) {
+                p.connection.sendCommand("mpm scale @s " + scale);
+            }
+        }
+
+        /** The More Player Models look of a player, or null when the mod is absent. */
+        static String look(Entity entity) {
+            return loaded("moreplayermodels") && entity instanceof net.minecraft.world.entity.player.Player player
+                    ? com.vyrriox.justreplay.compat.MorePlayerModelsCompat.lookOf(player) : null;
+        }
+
+        /** The look must have changed while recording, or the replay checks below would pass on a default look. */
+        static void checkRecordingLook() {
+            if (loaded("moreplayermodels")) {
+                boolean changed = lookBefore != null && lookAfter != null && !lookBefore.equals(lookAfter);
+                log("more player models while recording: look read={} changed at tick {}={} -> {}", lookBefore != null,
+                        LOOK_CHANGE_TICK, changed, changed ? "OK" : "FAIL");
+            }
+        }
+
+        /**
+         * More Player Models: the actor wears the look the recording player had at the cursor. The first one reaches the
+         * replay through the snapshot alone, the second one was sent to the recording player under its own UUID. After
+         * the backward seek the mod holds the later look on disk for the actor, which must not replace the first one.
+         * The camera keeps the look it came with. Skipped when the mod is absent.
+         */
+        static void checkLook(Minecraft mc, ReplaySession s, String label) {
+            if (!loaded("moreplayermodels")) {
+                log("more player models {}: skipped, mod absent", label);
+                return;
+            }
+            int cursor = s.playback().cursor();
+            if (Math.abs(cursor - LOOK_CHANGE_TICK) < 15) {
+                log("more player models {}: skipped, cursor {} too close to the change at {}", label, cursor, LOOK_CHANGE_TICK);
+                return;
+            }
+            boolean changed = cursor > LOOK_CHANGE_TICK;
+            String expected = changed ? lookAfter : lookBefore;
+            String actor = look(s.findRecorder(mc));
+            log("more player models {}: cursor {} actor wears the {} look={} -> {}", label, cursor, changed ? "second" : "first",
+                    expected != null && expected.equals(actor), expected != null && expected.equals(actor) ? "OK" : "FAIL");
+            String camera = look(mc.player);
+            boolean kept = cameraLook != null && cameraLook.equals(camera) && !cameraLook.equals(lookAfter);
+            log("more player models {}: camera keeps its own look={} -> {}", label, kept, kept ? "OK" : "FAIL");
+        }
+
+        /** More Player Models during a replay: no request reaches the host, the editor stays closed, the web service is not asked. */
+        static void checkLookGuards(Minecraft mc) {
+            if (!loaded("moreplayermodels")) {
+                return;
+            }
+            net.minecraft.network.FriendlyByteBuf bytes = new net.minecraft.network.FriendlyByteBuf(io.netty.buffer.Unpooled.buffer(1));
+            bytes.writeByte(0);
+            boolean blocked = com.vyrriox.justreplay.compat.ReplayCompat.blockServerbound(com.vyrriox.justreplay.record.Payloads
+                    .makeServerbound(new net.minecraft.resources.ResourceLocation("moreplayermodels", "packets"), bytes));
+            log("more player models: requests to the replay host blocked={} -> {}", blocked, blocked ? "OK" : "FAIL");
+            try {
+                net.minecraft.client.gui.screens.Screen editor = (net.minecraft.client.gui.screens.Screen) Class
+                        .forName("noppes.mpm.client.gui.GuiMPM", true, mc.getClass().getClassLoader()).getConstructor().newInstance();
+                boolean closed = JustReplayClient.cancelsScreen(editor);
+                log("more player models: editor kept closed={} -> {}", closed, closed ? "OK" : "FAIL");
+            } catch (ReflectiveOperationException | LinkageError e) {
+                log("more player models: cannot build the editor screen ({}) -> FAIL", e.toString());
+            }
+            Boolean quiet = com.vyrriox.justreplay.compat.MorePlayerModelsCompat.webSyncHeld();
+            log("more player models: web service left alone={} -> {}", quiet, Boolean.TRUE.equals(quiet) ? "OK" : "FAIL");
         }
 
         /** Jade: with the clean HUD on, its tooltip must be gone during the replay; skipped with a log line when absent. */
