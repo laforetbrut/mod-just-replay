@@ -205,3 +205,10 @@
 **Root cause:** Immersive Vehicles reads its content packs only from the jars of the game's mods folder; a pack on the run classpath loads its assets but registers no item. A released 1.20.1 jar (SRG names) cannot go in mods/ of a dev run either
 **Fix:** the mod goes through -PdevMods=run-iv/devmods (fg.deobf), the content pack (no game class) in run-iv/mods
 **Prevention:** for a mod with content packs, put the packs where the mod scans for them and check the pack items exist before the test scene
+
+## [2026-11-18 07:46] — Page badges redrawn in pixel style, push to the images repository refused
+**Context:** Redrawing badge-minecraft.png and badge-loaders.png of the CurseForge page with images/tools/titles.py on the Debian box, then publishing them to Team-Arcadia/images
+**Error:** titles.py wrote 33 px pixel badges (the published ones are 68 px vector badges); git push to Team-Arcadia/images: could not read Username (no credentials for that repository in a mod-just-replay task)
+**Root cause:** VectorCraft and the Inter font are not installed here, so vector.available() is false and the pixel fallback is used; the task runner only hands out GitHub credentials for the repository of the task
+**Fix:** Rendered the SVG of vector.badge() with headless Chromium and the static Inter 4.1 TTF files from a temp folder (same widths as the published badges within 1 px); the push was left to a task on the images repository
+**Prevention:** Never publish badges or titles drawn by titles.py on Linux without comparing them to the published ones; run the images push as a task of the images repository
