@@ -122,8 +122,8 @@ icon = "star"
   icon = "bolt"
   name.en = "Works with your mods"
   name.fr = "Avec vos mods"
-  text.en = "Iris, Distant Horizons, Create, Voice Chat, Emotecraft, WaterFrames, Drop the Beam, Immersive Vehicles."
-  text.fr = "Iris, Distant Horizons, Create, Voice Chat, Emotecraft, WaterFrames, Drop the Beam, Immersive Vehicles."
+  text.en = "Iris, Distant Horizons, Create, Voice Chat, Emotecraft, WaterFrames, Drop the Beam, Immersive Vehicles, More Player Models."
+  text.fr = "Iris, Distant Horizons, Create, Voice Chat, Emotecraft, WaterFrames, Drop the Beam, Immersive Vehicles, More Player Models."
 
 [[section]]
 id = "start"
