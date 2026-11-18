@@ -132,9 +132,9 @@ The game folder is `run-prod/` and the log `run-prod/logs/latest.log`. `fabric-1
 ### Branch model
 
 - `develop` holds everything: `common/<mcversion>/` and one project per target. Every pull request goes to `develop`, from `feat/<name>` or `fix/<name>`.
-- `main` is the latest release. To ship a version, `develop` is merged into `main` (a fast-forward, `main` never gets commits of its own), then the release is tagged on `main`.
+- `main` is the latest release. To ship a version, a pull request from `develop` to `main` is merged (a plain merge commit: `main` gets the files of `develop` and nothing else), then the release is tagged on `main`.
 - One branch per target, named like its folder (`neoforge-1.21.1`, `fabric-1.20.1`...), is generated from `main` by `tools/make_branches.sh` once `main` has the release. It holds that single project at the repository root, with the common code merged into `src/main`.
-- **Target branches are never edited by hand.** Run the script from a clean checkout at the repository root. It warns when `main` is behind the branch it builds from.
+- **Target branches are never edited by hand.** Run the script from a clean checkout at the repository root, once `main` is pulled: it refuses a branch that is behind its copy on origin, and warns when `main` is behind the branch it builds from.
 
 ---
 
@@ -220,6 +220,6 @@ Le dossier du jeu est `run-prod/` et le journal `run-prod/logs/latest.log`. `fab
 ### Modèle de branches
 
 - `develop` contient tout : `common/<mcversion>/` et un projet par cible. Toute pull request va vers `develop`, depuis `feat/<nom>` ou `fix/<nom>`.
-- `main` est la dernière version publiée. Pour sortir une version, `develop` est fusionnée dans `main` (une avance rapide, `main` n'a jamais de commit à elle), puis la version est taguée sur `main`.
+- `main` est la dernière version publiée. Pour sortir une version, une pull request de `develop` vers `main` est fusionnée (un simple commit de fusion : `main` reçoit les fichiers de `develop` et rien d'autre), puis la version est taguée sur `main`.
 - Une branche par cible, du nom de son dossier (`neoforge-1.21.1`, `fabric-1.20.1`...), est générée depuis `main` par `tools/make_branches.sh` une fois la version sur `main`. Elle contient ce seul projet à la racine, avec le code commun fusionné dans `src/main`.
-- **Les branches de cible ne se modifient jamais à la main.** Lancer le script depuis une copie propre, à la racine du dépôt. Il prévient quand `main` est en retard sur la branche dont il part.
+- **Les branches de cible ne se modifient jamais à la main.** Lancer le script depuis une copie propre, à la racine du dépôt, une fois `main` à jour : il refuse une branche en retard sur sa copie d'origin, et prévient quand `main` est en retard sur la branche dont il part.
