@@ -2,8 +2,14 @@
 
 ## [Unreleased]
 
+### Added
+- **Hide armor** (Minecraft 1.21.1): switch off the helmet, chestplate, leggings or boots of a recorded player or an actor, one by one. The elytra go with the chestplate, a pumpkin or a head with the helmet. Only the replay and the video change, and older projects keep their armor. The new `hidePlayerArmor` option strips every player at once.
+
 ### Changed
 - **Create Aeronautics, Sable, Create Propulsion**: checked together with Create 6.0.10 on NeoForge 1.21.1. The game loads, and recording, replays and seeks pass the self test. See `docs/COMPATIBILITY.md`.
+
+### Ajouts
+- **Masquer l'armure** (Minecraft 1.21.1) : coupe le casque, le plastron, les jambières ou les bottes d'un joueur enregistré ou d'un acteur, pièce par pièce. Les élytres partent avec le plastron, une citrouille ou une tête avec le casque. Seuls le replay et la vidéo changent, et les anciens projets gardent leur armure. La nouvelle option `hidePlayerArmor` déshabille tous les joueurs d'un coup.
 
 ### Modifications
 - **Create Aeronautics, Sable, Create Propulsion** : vérifiés ensemble avec Create 6.0.10 sur NeoForge 1.21.1. Le jeu charge, et l'enregistrement, les replays et les sauts passent le test automatique. Voir `docs/COMPATIBILITY.md`.
