@@ -234,3 +234,17 @@
 **Root cause:** Team-Arcadia/images grew past 50 MB (156 MB), so jsDelivr refuses every file of the repository it has not cached, any commit pin included
 **Fix:** images_base moved to GitHub Pages (https://team-arcadia.github.io/images/mods/justreplay/curseforge/, on, branch main); page rebuilt, only the host changed; check_page.py --online nothing to report, widths 0 mismatches on 39 images
 **Prevention:** Never pin page images on jsDelivr again: Pages serves main, so rebuild the page (widths) in the same task as any push of new pictures
+
+## [2026-11-18 19:35] — Session killed by memory while two agents decompiled mod jars
+**Context:** Two background agents ran Vineflower on Epic Fight and Custom NPCs jars while the main session ran a javap loop over six Armourer's Workshop jars.
+**Error:** The main shell command ended with exit code 137 and the whole session stopped; both agents were stopped with no report.
+**Root cause:** Each Vineflower JVM takes a quarter of the 8 GB by default; two of them plus javap and the Claude processes ran the machine out of memory.
+**Fix:** Resumed one agent at a time with java -Xmx1500m for Vineflower, nothing else heavy alongside.
+**Prevention:** One JVM-heavy job at a time on this machine (decompiler, Gradle, game); give Vineflower -Xmx1500m in every agent brief.
+
+## [2026-11-19 00:40] — javac cannot find Entity in the NeoForge 26.1.2 patched game jar
+**Context:** Compiling a typed check of Armourer's Workshop names outside Gradle against the minecraft-patched merged jar of neoforge-26.1.2/build/moddev/artifacts.
+**Error:** error: cannot find symbol, symbol: class Entity, location: package net.minecraft.world.entity (javac -verbose shows Entity.class loaded from that jar).
+**Root cause:** The ModDevGradle patched jar holds Minecraft only; Entity extends NeoForge's AttachmentHolder, which is in the NeoForge universal jar, and javac reports the incomplete class as a missing symbol.
+**Fix:** Added the NeoForge universal jar of the same version (net.neoforged/neoforge in the Gradle modules cache) to the classpath.
+**Prevention:** Outside Gradle, compile against NeoForge 26.1.2 with both the minecraft-patched jar and the neoforge universal jar (the 1.21.1 neoforge merged jar already holds both).
