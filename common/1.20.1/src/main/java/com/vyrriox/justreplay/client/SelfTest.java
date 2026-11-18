@@ -44,6 +44,7 @@ public final class SelfTest {
     private static Entity movedMob;
     private static int skippedBefore;
     private static int offsetBefore;
+    private static int armorSkippedBefore;
     private static int wait;
     private static int settle;
     private static int speedStart;
@@ -613,6 +614,11 @@ public final class SelfTest {
                 ReplayProject.ActorData player = new ReplayProject.ActorData();
                 player.name = "Notch";
                 player.mainHand = "minecraft:diamond_sword";
+                // Hidden helmet, visible chestplate: checked once the actors are drawn.
+                player.head = "minecraft:diamond_helmet";
+                player.chest = "minecraft:iron_chestplate";
+                player.hiddenArmor = com.vyrriox.justreplay.editor.ArmorSlots.HEAD;
+                armorSkippedBefore = com.vyrriox.justreplay.editor.ArmorSlots.skipped();
                 player.keyframes.add(new ReplayProject.ActorKeyframe(20, c.x + 2, c.y, c.z + 2, 90, 0));
                 player.keyframes.add(new ReplayProject.ActorKeyframe(120, c.x + 8, c.y, c.z + 2, 90, 0));
                 ReplayProject.ActorData zombie = new ReplayProject.ActorData();
@@ -664,6 +670,7 @@ public final class SelfTest {
                     log("actor {} -> {}", a.type, e == null ? "missing" : e.getClass().getSimpleName() + " @ " + e.position());
                 }
                 shot(mc, "4-path-actors");
+                checkHiddenArmor(mc, s);
                 // Every curve and timing must give a usable camera state; the free camera then shows the 3D path.
                 for (String curve : new String[]{"CATMULL_ROM", "BEZIER", "LINEAR"}) {
                     for (String timing : new String[]{"CONSTANT_SPEED", "KEYFRAMES"}) {
@@ -1299,6 +1306,44 @@ public final class SelfTest {
         try (var files = Files.list(dir)) {
             return files.mapToLong(f -> f.toFile().length()).sum();
         }
+    }
+
+    /**
+     * Hidden armor: the player actor's helmet is hidden and its chestplate kept, the armor layer skipped at least one
+     * piece while the actors were drawn, the camera player is never touched, and the global option hides every slot.
+     */
+    private static void checkHiddenArmor(Minecraft mc, ReplaySession s) {
+        Entity notch = null;
+        for (ReplayProject.ActorData a : s.project().actors) {
+            if (a.isPlayer() && "Notch".equals(a.name)) {
+                notch = s.actors().entityOf(a);
+                break;
+            }
+        }
+        if (notch == null) {
+            log("hidden armor: player actor missing -> FAIL");
+            return;
+        }
+        int mask = com.vyrriox.justreplay.editor.ArmorSlots.hidden(notch);
+        boolean helmet = com.vyrriox.justreplay.editor.ArmorSlots.hides(notch, net.minecraft.world.entity.EquipmentSlot.HEAD);
+        boolean chest = com.vyrriox.justreplay.editor.ArmorSlots.hides(notch, net.minecraft.world.entity.EquipmentSlot.CHEST);
+        boolean worn = notch instanceof net.minecraft.world.entity.LivingEntity living
+                && !living.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).isEmpty();
+        int skipped = com.vyrriox.justreplay.editor.ArmorSlots.skipped() - armorSkippedBefore;
+        log("hidden armor: actor mask {} helmet hidden {} chestplate hidden {} helmet still worn {} -> {}, pieces skipped {} -> {}",
+                mask, helmet, chest, worn, mask == com.vyrriox.justreplay.editor.ArmorSlots.HEAD && helmet && !chest && worn ? "OK" : "FAIL",
+                skipped, skipped > 0 ? "OK" : "FAIL");
+        int camera = mc.player == null ? 0 : com.vyrriox.justreplay.editor.ArmorSlots.hidden(mc.player);
+        log("hidden armor: camera player mask {} -> {}", camera, camera == 0 ? "OK" : "FAIL");
+        boolean before = com.vyrriox.justreplay.config.JRConfig.HIDE_PLAYER_ARMOR.get();
+        int all;
+        try {
+            com.vyrriox.justreplay.config.JRConfig.HIDE_PLAYER_ARMOR.set(true);
+            all = com.vyrriox.justreplay.editor.ArmorSlots.hidden(notch);
+        } finally {
+            com.vyrriox.justreplay.config.JRConfig.HIDE_PLAYER_ARMOR.set(before);
+        }
+        log("hidden armor: global option mask {} -> {}", all, all == com.vyrriox.justreplay.editor.ArmorSlots.ALL ? "OK" : "FAIL");
     }
 
     /** Optional mods of the test pack: content placed before the recording and their replay state. */
