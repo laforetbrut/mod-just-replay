@@ -13,8 +13,12 @@ import java.util.Set;
  * @author vyrriox
  */
 public final class CompatTargets {
+    /**
+     * Integrations read against their 26.1 build, per loader. Immersive Vehicles ({@code mts}) was read from its NeoForge
+     * 24.0.0-26.1 jar; it has no Forge or Fabric build for 26.1.
+     */
     private static final Map<String, Set<String>> SUPPORTED = Map.of(
-            "neoforge", Set.of("entityculling", "geckolib", "iris", "jade"),
+            "neoforge", Set.of("entityculling", "geckolib", "iris", "jade", "mts"),
             "fabric", Set.of("entityculling", "geckolib", "iris", "jade"),
             "forge", Set.of("geckolib"));
 

@@ -28,6 +28,7 @@ public final class ReplayCompat {
     static final boolean JADE = isLoaded("jade");
     static final boolean IMMERSIVE_AIRCRAFT = isLoaded("immersive_aircraft");
     static final boolean IMMERSIVE_PAINTINGS = isLoaded("immersive_paintings");
+    static final boolean IMMERSIVE_VEHICLES = isLoaded("mts");
     private static final Set<String> FAILED = Collections.synchronizedSet(new HashSet<>());
     private static double monotonicFrame = -1;
     private static double monotonicValue;
@@ -205,6 +206,9 @@ public final class ReplayCompat {
         if (ENTITY_CULLING) {
             EntityCullingCompat.tick();
         }
+        if (IMMERSIVE_VEHICLES) {
+            ImmersiveVehiclesCompat.tick(mc);
+        }
     }
 
     /** Called when the replay session closes. */
@@ -218,6 +222,9 @@ public final class ReplayCompat {
         }
         if (ARMOURERS_WORKSHOP) {
             ArmourersWorkshopCompat.onReplayEnd();
+        }
+        if (IMMERSIVE_VEHICLES) {
+            ImmersiveVehiclesCompat.onReplayEnd();
         }
     }
 
@@ -260,7 +267,8 @@ public final class ReplayCompat {
         return BETTER_COMBAT && BetterCombatCompat.blockServerbound(packet)
                 || JADE && JadeCompat.blockServerbound(packet)
                 || IMMERSIVE_AIRCRAFT && ImmersiveAircraftCompat.blockServerbound(packet)
-                || IMMERSIVE_PAINTINGS && ImmersivePaintingsCompat.blockServerbound(packet);
+                || IMMERSIVE_PAINTINGS && ImmersivePaintingsCompat.blockServerbound(packet)
+                || IMMERSIVE_VEHICLES && ImmersiveVehiclesCompat.blockServerbound(packet);
     }
 
     // ---------------------------------------------------------------- recording hooks
@@ -333,6 +341,17 @@ public final class ReplayCompat {
         }
         if (IMMERSIVE_AIRCRAFT) {
             ImmersiveAircraftCompat.writeCurrent(entity, out);
+        }
+        if (IMMERSIVE_VEHICLES) {
+            ImmersiveVehiclesCompat.writeCurrent(entity, out);
+        }
+    }
+
+    /** Mod state of the blocks of a chunk just written into a snapshot or checkpoint (Immersive Vehicles blocks). */
+    public static void writeChunkState(net.minecraft.world.level.chunk.LevelChunk chunk,
+                                       java.util.function.Consumer<Packet<?>> out) {
+        if (IMMERSIVE_VEHICLES) {
+            ImmersiveVehiclesCompat.writeChunk(chunk, out);
         }
     }
 
