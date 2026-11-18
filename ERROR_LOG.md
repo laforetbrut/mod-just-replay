@@ -212,6 +212,7 @@
 **Root cause:** VectorCraft and the Inter font are not installed here, so vector.available() is false and the pixel fallback is used; the task runner only hands out GitHub credentials for the repository of the task
 **Fix:** Rendered the SVG of vector.badge() with headless Chromium and the static Inter 4.1 TTF files from a temp folder (same widths as the published badges within 1 px); the push was left to a task on the images repository
 **Prevention:** Never publish badges or titles drawn by titles.py on Linux without comparing them to the published ones; run the images push as a task of the images repository
+**Recurred:** 2026-11-18 13:30, Tasks 440 and 453 were both started as mod-just-replay tasks, so the images clone stayed read-only and nothing was pushed. vigie proposer always files the follow-up on the current project (Vigie issue 462): create the badges task from the dashboard on team-arcadia/other/images, together with mod-just-replay for the page.
 
 ## [2026-11-18 09:42] — Page badge widths of unpublished pictures
 **Context:** Task 422 redrew the Minecraft and loader badges but could not push them to Team-Arcadia/images; the page rebuilt with the new local badges was committed anyway.
