@@ -30,6 +30,7 @@ public final class ReplayCompat {
     static final boolean MORE_PLAYER_MODELS = isLoaded("moreplayermodels");
     static final boolean ARMOURERS_WORKSHOP = isLoaded("armourers_workshop");
     static final boolean CUSTOM_NPCS = isLoaded("customnpcs");
+    static final boolean EPIC_FIGHT = isLoaded("epicfight");
     private static final Set<String> FAILED = Collections.synchronizedSet(new HashSet<>());
     private static double monotonicFrame = -1;
     private static double monotonicValue;
@@ -220,6 +221,9 @@ public final class ReplayCompat {
         if (MORE_PLAYER_MODELS) {
             MorePlayerModelsCompat.holdWebSync();
         }
+        if (EPIC_FIGHT) {
+            EpicFightCompat.applyPending();
+        }
     }
 
     /** Called when the replay session closes. */
@@ -243,6 +247,9 @@ public final class ReplayCompat {
         if (ARMOURERS_WORKSHOP) {
             ArmourersWorkshopCompat.onReplayEnd();
         }
+        if (EPIC_FIGHT) {
+            EpicFightCompat.onReplayEnd();
+        }
     }
 
     /**
@@ -250,6 +257,10 @@ public final class ReplayCompat {
      * it and it must not reach the client.
      */
     public static boolean consumeRecorded(Packet<?> packet, int tick) {
+        if (EPIC_FIGHT) {
+            // The previous packet has been handled: its Epic Fight animation can be moved to its time.
+            EpicFightCompat.applyPending();
+        }
         return false;
     }
 
@@ -268,6 +279,9 @@ public final class ReplayCompat {
         if (CUSTOM_NPCS && packet != null) {
             packet = CustomNpcsCompat.filterPlayback(packet);
         }
+        if (EPIC_FIGHT && packet != null) {
+            packet = EpicFightCompat.filterPlayback(packet);
+        }
         return packet;
     }
 
@@ -276,7 +290,8 @@ public final class ReplayCompat {
         return JADE && JadeCompat.blockServerbound(packet)
                 || IMMERSIVE_VEHICLES && ImmersiveVehiclesCompat.blockServerbound(packet)
                 || MORE_PLAYER_MODELS && MorePlayerModelsCompat.blockServerbound(packet)
-                || CUSTOM_NPCS && CustomNpcsCompat.blockServerbound(packet);
+                || CUSTOM_NPCS && CustomNpcsCompat.blockServerbound(packet)
+                || EPIC_FIGHT && EpicFightCompat.blockServerbound(packet);
     }
 
     /** A screen a mod opens for the player itself, which a replay camera has no use for (the More Player Models editor). */
@@ -291,6 +306,13 @@ public final class ReplayCompat {
      * back to its sender.
      */
     public static void onLiveServerbound(Packet<?> packet) {
+        if (EPIC_FIGHT) {
+            try {
+                EpicFightCompat.onLiveServerbound(packet);
+            } catch (Throwable t) {
+                warnOnce("epicfight.serverbound", "Cannot record an Epic Fight request of the local player", t);
+            }
+        }
     }
 
     /**
@@ -355,6 +377,10 @@ public final class ReplayCompat {
             // Keyed by entity id, which the actor shares with the recording player.
             ArmourersWorkshopCompat.writeCurrent(player, out);
         }
+        if (EPIC_FIGHT) {
+            // Keyed by entity id, which the actor shares with the recording player.
+            EpicFightCompat.writeCurrent(player, out);
+        }
     }
 
     /** Mod state an entity other than a player carries now (snapshots and checkpoints), written after its spawn. */
@@ -396,6 +422,9 @@ public final class ReplayCompat {
         if (ARMOURERS_WORKSHOP) {
             ArmourersWorkshopCompat.writeCurrent(player, out);
         }
+        if (EPIC_FIGHT) {
+            EpicFightCompat.writeCurrent(player, out);
+        }
     }
 
     /**
@@ -404,6 +433,9 @@ public final class ReplayCompat {
      */
     public static void writeEntityStates(net.minecraft.client.multiplayer.ClientLevel level,
                                          java.util.function.Consumer<Packet<?>> out) {
+        if (EPIC_FIGHT) {
+            EpicFightCompat.writeEntities(level, out);
+        }
     }
 
     /** Mod state a snapshot or checkpoint must write because the server sends it only on a change. */
@@ -434,6 +466,9 @@ public final class ReplayCompat {
      * in its place, or null to drop it.
      */
     public static Packet<?> adjustSkipped(Packet<?> packet, int late) {
+        if (EPIC_FIGHT && late > 0 && packet != null) {
+            packet = EpicFightCompat.adjustSkipped(packet, late);
+        }
         return packet;
     }
 

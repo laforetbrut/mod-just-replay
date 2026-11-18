@@ -27,7 +27,7 @@ public final class CompatTargets {
             "neoforge", Set.of("armourers_workshop", "customnpcs", "geckolib", "curios", "jade", "moreplayermodels"),
             "fabric", Set.of("armourers_workshop", "customnpcs", "geckolib", "jade", "entityculling"),
             "forge", Set.of("armourers_workshop", "customnpcs", "geckolib", "curios", "jade", "entityculling", "mts",
-                    "moreplayermodels"));
+                    "moreplayermodels", "epicfight"));
 
     private CompatTargets() {
     }
