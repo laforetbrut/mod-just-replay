@@ -25,6 +25,7 @@ public final class JRConfig {
     public static final ConfigFile.IntValue NEXT_MINUTES;
     public static final ConfigFile.IntValue SEEK_STEP_SECONDS;
     public static final ConfigFile.BoolValue CLEAN_HUD;
+    public static final ConfigFile.BoolValue HIDE_PLAYER_ARMOR;
     public static final ConfigFile.IntValue PLAYBACK_VIEW_DISTANCE;
     public static final ConfigFile.BoolValue DISTANT_HORIZONS_LODS;
     public static final ConfigFile.IntValue DISTANT_HORIZONS_MAX_COPY_MB;
@@ -81,6 +82,9 @@ public final class JRConfig {
         CLEAN_HUD = playback.bool("cleanHud", true,
                 "Hide the hotbar, health, crosshair and every HUD added by other mods while watching a replay." + "\n"
                         + "Chat, titles, boss bars, scoreboard and the tab list stay visible since they are part of the recording.");
+        HIDE_PLAYER_ARMOR = playback.bool("hidePlayerArmor", false,
+                "Hide the armor of every player (helmet, chestplate, leggings, boots, elytra) while watching a replay" + "\n"
+                        + "and in exported videos. The editor can also hide it on one player or one actor.");
         PLAYBACK_VIEW_DISTANCE = playback.integer("viewDistance", 32, 8, 64,
                 "Chunks kept around the camera while watching a replay. Chunks the recording server unloaded" + "\n"
                         + "stay visible up to this distance instead of disappearing.");
