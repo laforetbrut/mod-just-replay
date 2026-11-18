@@ -39,6 +39,9 @@ public final class CompatMixinPlugin implements IMixinConfigPlugin {
         if (mixinClassName.contains(".MorePlayerModels")) {
             return CompatTargets.isActive("moreplayermodels");
         }
+        if (mixinClassName.contains(".Armourers")) {
+            return CompatTargets.isActive("armourers_workshop");
+        }
         if (mixinClassName.contains(".Bobby")) {
             return CompatTargets.isSupported("bobby");
         }

@@ -24,9 +24,10 @@ public final class CompatTargets {
      * class and member the integration names was compiled against it with the classes of both loaders.
      */
     private static final Map<String, Set<String>> SUPPORTED = Map.of(
-            "neoforge", Set.of("geckolib", "curios", "jade", "moreplayermodels"),
-            "fabric", Set.of("geckolib", "jade", "entityculling"),
-            "forge", Set.of("geckolib", "curios", "jade", "entityculling", "mts", "moreplayermodels"));
+            "neoforge", Set.of("armourers_workshop", "customnpcs", "geckolib", "curios", "jade", "moreplayermodels"),
+            "fabric", Set.of("armourers_workshop", "customnpcs", "geckolib", "jade", "entityculling"),
+            "forge", Set.of("armourers_workshop", "customnpcs", "geckolib", "curios", "jade", "entityculling", "mts",
+                    "moreplayermodels"));
 
     private CompatTargets() {
     }

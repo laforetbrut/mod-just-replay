@@ -1402,6 +1402,7 @@ public final class Recorder {
     private void writeSnapshotTail(Minecraft mc, ClientPacketListener listener, Consumer<byte[]> sink) {
         ClientLevel level = mc.level;
         LocalPlayer player = mc.player;
+        com.vyrriox.justreplay.compat.ReplayCompat.writeSnapshot(packet -> write(listener, packet, sink));
         writeMaps(level, listener, sink);
         // Ends the terrain loading screen of the login, as the server's own one does.
         write(listener, new net.minecraft.network.protocol.game.ClientboundSetDefaultSpawnPositionPacket(level.getSharedSpawnPos(), level.getSharedSpawnAngle()), sink);
@@ -1430,6 +1431,7 @@ public final class Recorder {
                 com.vyrriox.justreplay.compat.ReplayCompat.writePlayerState(other, other.getUUID(), packet -> write(listener, packet, sink));
             }
         }
+        com.vyrriox.justreplay.compat.ReplayCompat.writeEntityStates(level, packet -> write(listener, packet, sink));
     }
 
     /** Map contents: the server only sends them when they change or on first sight, and a login forgets them. */

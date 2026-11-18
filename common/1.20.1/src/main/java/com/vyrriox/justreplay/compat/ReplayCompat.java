@@ -28,6 +28,8 @@ public final class ReplayCompat {
     static final boolean JADE = isLoaded("jade");
     static final boolean IMMERSIVE_VEHICLES = isLoaded("mts");
     static final boolean MORE_PLAYER_MODELS = isLoaded("moreplayermodels");
+    static final boolean ARMOURERS_WORKSHOP = isLoaded("armourers_workshop");
+    static final boolean CUSTOM_NPCS = isLoaded("customnpcs");
     private static final Set<String> FAILED = Collections.synchronizedSet(new HashSet<>());
     private static double monotonicFrame = -1;
     private static double monotonicValue;
@@ -238,6 +240,17 @@ public final class ReplayCompat {
         if (MORE_PLAYER_MODELS) {
             MorePlayerModelsCompat.onReplayEnd();
         }
+        if (ARMOURERS_WORKSHOP) {
+            ArmourersWorkshopCompat.onReplayEnd();
+        }
+    }
+
+    /**
+     * A recorded packet about to be handled at its recorded tick (seeks included): true when an integration consumed
+     * it and it must not reach the client.
+     */
+    public static boolean consumeRecorded(Packet<?> packet, int tick) {
+        return false;
     }
 
     /**
@@ -252,6 +265,9 @@ public final class ReplayCompat {
         if (MORE_PLAYER_MODELS && packet != null) {
             packet = MorePlayerModelsCompat.filterPlayback(packet);
         }
+        if (CUSTOM_NPCS && packet != null) {
+            packet = CustomNpcsCompat.filterPlayback(packet);
+        }
         return packet;
     }
 
@@ -259,7 +275,8 @@ public final class ReplayCompat {
     public static boolean blockServerbound(Packet<?> packet) {
         return JADE && JadeCompat.blockServerbound(packet)
                 || IMMERSIVE_VEHICLES && ImmersiveVehiclesCompat.blockServerbound(packet)
-                || MORE_PLAYER_MODELS && MorePlayerModelsCompat.blockServerbound(packet);
+                || MORE_PLAYER_MODELS && MorePlayerModelsCompat.blockServerbound(packet)
+                || CUSTOM_NPCS && CustomNpcsCompat.blockServerbound(packet);
     }
 
     /** A screen a mod opens for the player itself, which a replay camera has no use for (the More Player Models editor). */
@@ -268,6 +285,13 @@ public final class ReplayCompat {
     }
 
     // ---------------------------------------------------------------- recording hooks
+
+    /**
+     * A packet the client sends on a live connection (any thread): integrations record what the server never sends
+     * back to its sender.
+     */
+    public static void onLiveServerbound(Packet<?> packet) {
+    }
 
     /**
      * Notes in a recording's meta what integrations need to know about the level being recorded (the Distant Horizons
@@ -327,10 +351,20 @@ public final class ReplayCompat {
         if (MORE_PLAYER_MODELS) {
             MorePlayerModelsCompat.writeCurrent(player, target, out);
         }
+        if (ARMOURERS_WORKSHOP) {
+            // Keyed by entity id, which the actor shares with the recording player.
+            ArmourersWorkshopCompat.writeCurrent(player, out);
+        }
     }
 
     /** Mod state an entity other than a player carries now (snapshots and checkpoints), written after its spawn. */
     public static void writeEntityState(net.minecraft.world.entity.Entity entity, java.util.function.Consumer<Packet<?>> out) {
+        if (ARMOURERS_WORKSHOP) {
+            ArmourersWorkshopCompat.writeCurrent(entity, out);
+        }
+        if (CUSTOM_NPCS) {
+            CustomNpcsCompat.writeCurrent(entity, out);
+        }
         if (CURIOS) {
             CuriosCompat.writeCurrent(entity, out);
         }
@@ -359,6 +393,48 @@ public final class ReplayCompat {
         if (MORE_PLAYER_MODELS) {
             MorePlayerModelsCompat.writeActorForm(player, target, out);
         }
+        if (ARMOURERS_WORKSHOP) {
+            ArmourersWorkshopCompat.writeCurrent(player, out);
+        }
+    }
+
+    /**
+     * Mod animation state of the non-player entities of the level (snapshots and checkpoints, after the entities are
+     * written).
+     */
+    public static void writeEntityStates(net.minecraft.client.multiplayer.ClientLevel level,
+                                         java.util.function.Consumer<Packet<?>> out) {
+    }
+
+    /** Mod state a snapshot or checkpoint must write because the server sends it only on a change. */
+    public static void writeSnapshot(java.util.function.Consumer<Packet<?>> out) {
+        if (ARMOURERS_WORKSHOP) {
+            try {
+                ArmourersWorkshopCompat.writeSnapshot(out);
+            } catch (Throwable t) {
+                warnOnce("aw.snapshot", "Cannot write the Armourer's Workshop skins into the snapshot", t);
+            }
+        }
+        if (CUSTOM_NPCS) {
+            try {
+                CustomNpcsCompat.writeSnapshot(out);
+            } catch (Throwable t) {
+                warnOnce("customnpcs.snapshot", "Cannot write the Custom NPCs player skins into the snapshot", t);
+            }
+        }
+    }
+
+    /** The encoded bytes of a recorded packet, with what a mod appends to a vanilla packet restored (Custom NPCs looks). */
+    public static byte[] patchEncoded(Packet<?> packet, byte[] bytes) {
+        return CUSTOM_NPCS ? CustomNpcsCompat.patchEncoded(packet, bytes) : bytes;
+    }
+
+    /**
+     * A recorded packet played during a seek, {@code late} ticks before the seek target. Returns the packet to handle
+     * in its place, or null to drop it.
+     */
+    public static Packet<?> adjustSkipped(Packet<?> packet, int late) {
+        return packet;
     }
 
     // ---------------------------------------------------------------- export hooks
