@@ -1354,6 +1354,7 @@ public final class Recorder {
                     try {
                         write(listener, new ClientboundLevelChunkWithLightPacket(chunk, level.getLightEngine(), null, null), sink);
                         chunks.markWritten(x, z);
+                        com.vyrriox.justreplay.compat.ReplayCompat.writeChunkState(chunk, packet -> write(listener, packet, sink));
                     } catch (Throwable t) {
                         JustReplay.LOGGER.warn("Skipping chunk {} in the snapshot: {}", chunk.getPos(), t.toString());
                     }

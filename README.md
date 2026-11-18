@@ -21,7 +21,7 @@ Fabric API is needed. A recording opens only on the Minecraft version and the lo
 | NeoForge 1.20.1 | Curios, GeckoLib, Jade |
 | Forge 1.20.1 | Curios, Entity Culling, GeckoLib, Immersive Vehicles, Jade |
 | Fabric 1.20.1 | Entity Culling, GeckoLib, Jade |
-| NeoForge 26.1.2 | Entity Culling, GeckoLib, Iris, Jade |
+| NeoForge 26.1.2 | Entity Culling, GeckoLib, Immersive Vehicles, Iris, Jade |
 | Fabric 26.1.2 | Entity Culling, GeckoLib, Iris, Jade |
 | Forge 26.1.2 | GeckoLib |
 
@@ -219,7 +219,7 @@ il a été fait.
 | NeoForge 1.20.1 | Curios, GeckoLib, Jade |
 | Forge 1.20.1 | Curios, Entity Culling, GeckoLib, Immersive Vehicles, Jade |
 | Fabric 1.20.1 | Entity Culling, GeckoLib, Jade |
-| NeoForge 26.1.2 | Entity Culling, GeckoLib, Iris, Jade |
+| NeoForge 26.1.2 | Entity Culling, GeckoLib, Immersive Vehicles, Iris, Jade |
 | Fabric 26.1.2 | Entity Culling, GeckoLib, Iris, Jade |
 | Forge 26.1.2 | GeckoLib |
 
