@@ -57,6 +57,8 @@ minecraft {
             }
             if (project.hasProperty('selftest')) {
                 property 'justreplay.selftest', 'true'
+                // Immersive Vehicles car the self test places (an item id or its start), see SelfTest.Mods.vehicleItem.
+                property 'justreplay.selftestVehicle', project.findProperty('selftestVehicle') ?: ''
                 jvmArgs '-Xmx8G'
                 property 'justreplay.checkpointTicks', '60'
             }
@@ -109,6 +111,20 @@ dependencies {
 
     // Simple Voice Chat API; optional at runtime. The 1.20.1 build of the mod ships API 2.5.x.
     compileOnly 'de.maxhenkel.voicechat:voicechat-api:2.5.0'
+}
+
+// Dev runs only: -PdevMods=<folder> loads the released jars of that folder, remapped from SRG names to the names of
+// the dev game. A released 1.20.1 jar dropped in the mods folder of a dev run breaks on its first game method call.
+if (project.hasProperty('devMods')) {
+    def devMods = file(project.property('devMods'))
+    repositories {
+        flatDir { dirs devMods }
+    }
+    dependencies {
+        devMods.listFiles({ File f -> f.name.endsWith('.jar') } as FileFilter).sort().each { File jar ->
+            runtimeOnly fg.deobf("devmods:${jar.name - '.jar'}:0")
+        }
+    }
 }
 
 var generateModMetadata = tasks.register('generateModMetadata', ProcessResources) {
