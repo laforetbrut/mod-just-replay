@@ -155,7 +155,7 @@
 **Fix:** a named `NoEntityClip` class with an explicit constructor. The tag was not moved, and the behaviour is the same.
 **Prevention:** run the CI matrix on the release commit before tagging, through a pull request or a manual workflow run.
 
-## [2026-11-05 21:30] - Curios worn items dropped in a replay when a datapack supplies the slots (1.20.1)
+## [2026-11-05 21:30] — Curios worn items dropped in a replay when a datapack supplies the slots (1.20.1)
 **Context:** production self test on Forge 1.20.1 with Curios 5.14.1 and the test ring datapack.
 **Error:** `SELFTEST curios at start: worn stacks on the actor=-1 -> FAIL`, with no warning logged.
 **Root cause:** `CurioInventoryCapability$Provider.getCapability` returns empty while the client's `CuriosEntityManager.CLIENT` lists no slot for the entity type. That map comes from the data of the server played on; the replay host lacks a world or server datapack, and the recording did not carry the definitions, so every Curios sync message was dropped.
@@ -219,3 +219,10 @@
 **Root cause:** build_page.py reads the widths from the local images/ copies, which held the unpublished badges; check_page.py --online only checks that the pictures load, not their size.
 **Fix:** fetch_published.py . --force brought back the published badges, build_page.py wrote widths 156 and 114 again; a width check against the online pictures (half the natural width) found 0 mismatches.
 **Prevention:** Build and commit the page only from the pictures images_base serves: move images_base and rebuild in the same commit once the new pictures are pushed, never before.
+
+## [2026-11-18 09:51] — Report: Create refuses to register its blocks with Just Replay (not reproduced)
+**Context:** A test on another machine summed up as: its usual mods plus Just Replay do not load, Create refuses to register its blocks; without Create, Create Aeronautics and Create Propulsion the game loads. Only a screenshot of that summary was given, no log and no mod list.
+**Error:** Summary only: Create refuses to register its blocks at startup when Just Replay is installed with Create, Create Aeronautics and Create Propulsion (NeoForge 1.21.1 dev client).
+**Root cause:** Not in Just Replay: with Create 6.0.10, Create Aeronautics 1.3.2, Sable 2.0.6 and Create Propulsion: Simulated 1.1.5 on NeoForge 21.1.265 the dev client reaches the title screen (alone and with 16 common mods) and the full self test passes (155 lines, 0 failure). The owner ruled the report a mistake of the tester.
+**Fix:** No code change. The combination is now listed as loaded in docs/COMPATIBILITY.md.
+**Prevention:** Before hunting a load failure from someone else's summary, get the failing latest.log and its mods folder; first replay the same mods in a separate game folder (neoforge-1.21.1/run-<name>/mods, ignored by git) with -P neo_version=21.1.265 (Sable and Aeronautics need 21.1.228 or later).
