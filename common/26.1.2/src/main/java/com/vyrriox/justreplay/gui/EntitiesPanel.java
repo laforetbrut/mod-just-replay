@@ -332,6 +332,18 @@ final class EntitiesPanel {
             if (column != 0) {
                 f.next();
             }
+            f.paragraph(tc("justreplay.armor.title"), Theme.TEXT_MUTED);
+            column = 0;
+            for (com.vyrriox.justreplay.editor.ArmorSlots.Slot slot : com.vyrriox.justreplay.editor.ArmorSlots.SLOTS) {
+                f.put(new GlassSwitch(tc("justreplay.armor." + slot.key()), () -> {
+                    ReplayProject.EntityEdit e = edit(false);
+                    return e == null || (e.hiddenArmor & slot.bit()) == 0;
+                }, () -> change(e -> e.hiddenArmor ^= slot.bit())).tip(slot.tip()), column, 2);
+                if (++column == 2) {
+                    f.next();
+                    column = 0;
+                }
+            }
             skinSection.build(f, EntitiesPanel::selectedEntity, () -> labelOf(entity));
         }
 
