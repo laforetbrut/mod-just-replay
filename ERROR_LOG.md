@@ -1,18 +1,19 @@
 # Error log
 
-## [2026-11-04 14:00] — Armourer's Workshop outfits missing from replays (1.0.9 and 1.0.10)
-**Context:** a user's singleplayer recordings with Armourer's Workshop showed no outfits; 1.0.10 logged `snapshot wrote 39 skins` yet nothing showed.
-**Error:** no error anywhere; the recording file had no `armourers_workshop:*` payload at all.
-**Root cause:** the compat encoded packets with Armourer's Workshop's `PacketSplitter.split`, which runs on its own thread pool and hands the parts back later. The collector was read right after the call, always empty, so nothing was written while the snapshot counted skins as written. Two releases shipped without an in-game test because no `.armour` file was available.
-**Fix:** the packet id and data are encoded on the calling thread and cut with the same begin/body/end markers. Reproduced and verified with a user's `.armour` file and `/armourers setSkin @s head /<file>.armour` (the slot name is required).
-**Prevention:** never trust a mod's helper to be synchronous; count what was actually written, not what was asked. Do not ship a compat claim without one end-to-end in-game check; ask for test assets first.
+## [2026-10-11 14:20] — BOM written by PowerShell broke compilation
+**Context:** editing a Java file with `Set-Content -Encoding utf8` in Windows PowerShell 5.1.
+**Error:** `illegal character: '﻿'`.
+**Root cause:** PowerShell 5.1 writes UTF-8 with a BOM.
+**Fix:** stripped the BOM with sed.
+**Prevention:** edit sources with the Edit/Write tools or sed, never PowerShell `Set-Content`.
 
-## [2026-11-01 20:10] — Sable airships empty in replays
-**Context:** first in-game test of the Sable support: an airship assembled before recording, replayed with a scene job.
-**Error:** the replay showed no airship; Sable logged `Cannot add chunk at 0, 0 in nonexistent sub-level plot` at the start and after every seek.
-**Root cause:** a replayed login packet keeps the existing camera player and adds it to the new level without updating the player's own level field. Sable's tracking packet reaches the level through the packet context player, so the sub-level was created in the level from before the seek, and its chunks then arrived in a level without it. Not a packet order problem (checked with debug logs before guessing further).
-**Fix:** after a replayed login, the camera player is moved to the current level (`EntityInvoker.setLevel`).
-**Prevention:** any mod handler that uses `context.player().level()` depends on this; when a mod's state vanishes in a replay, compare `mc.player.level()` with `mc.level` first.
+## [2026-10-11 14:50] — Replay session dropped before playback started
+**Context:** opening a replay from the title screen (self test step 4).
+**Error:** playback never started; the login event saw `session=null`.
+**Root cause:** loading the host world fires `ClientPlayerNetworkEvent.LoggingOut` with a null connection.
+`isReplayConnection(null)` returned true because the session connection was still null, so the session closed.
+**Fix:** `isReplayConnection` requires a non-null connection; only the replay connection ends a session.
+**Prevention:** never compare a nullable connection with `==` without a null guard.
 
 ## [2026-10-15 13:11] — WaterFrames frame missing from a self test recording
 **Context:** Arcadia self test, a WaterFrames frame placed with `/setblock` right before `Recorder.startManual()`.
@@ -27,21 +28,6 @@
 **Root cause:** not confirmed (no more game runs allowed); most likely emotes received from the network keep a name that is not a plain string, which `getName` casts.
 **Fix:** names are read defensively, falling back to the emote UUID.
 **Prevention:** treat every value read by reflection from another mod as possibly failing.
-
-## [2026-10-11 14:50] — Replay session dropped before playback started
-**Context:** opening a replay from the title screen (self test step 4).
-**Error:** playback never started; the login event saw `session=null`.
-**Root cause:** loading the host world fires `ClientPlayerNetworkEvent.LoggingOut` with a null connection.
-`isReplayConnection(null)` returned true because the session connection was still null, so the session closed.
-**Fix:** `isReplayConnection` requires a non-null connection; only the replay connection ends a session.
-**Prevention:** never compare a nullable connection with `==` without a null guard.
-
-## [2026-10-11 14:20] — BOM written by PowerShell broke compilation
-**Context:** editing a Java file with `Set-Content -Encoding utf8` in Windows PowerShell 5.1.
-**Error:** `illegal character: '﻿'`.
-**Root cause:** PowerShell 5.1 writes UTF-8 with a BOM.
-**Fix:** stripped the BOM with sed.
-**Prevention:** edit sources with the Edit/Write tools or sed, never PowerShell `Set-Content`.
 
 ## [2026-10-15 18:00] — FFmpeg quit during a self-test export
 **Context:** vanilla self-test run after the Drop the Beam work (no Drop the Beam jar loaded).
@@ -78,12 +64,26 @@
 **Fix:** `RegistryIds.complete` appends every local key the recording does not list after the highest recorded id before applying; the replay world's server no longer sends `update_recipes` during a session. Self-test step checks an id survives a recording that misses it.
 **Prevention:** never apply a partial registry snapshot to the shared static registries; any code touching registry ids must keep every registered entry mapped.
 
+## [2026-11-01 20:10] — Sable airships empty in replays
+**Context:** first in-game test of the Sable support: an airship assembled before recording, replayed with a scene job.
+**Error:** the replay showed no airship; Sable logged `Cannot add chunk at 0, 0 in nonexistent sub-level plot` at the start and after every seek.
+**Root cause:** a replayed login packet keeps the existing camera player and adds it to the new level without updating the player's own level field. Sable's tracking packet reaches the level through the packet context player, so the sub-level was created in the level from before the seek, and its chunks then arrived in a level without it. Not a packet order problem (checked with debug logs before guessing further).
+**Fix:** after a replayed login, the camera player is moved to the current level (`EntityInvoker.setLevel`).
+**Prevention:** any mod handler that uses `context.player().level()` depends on this; when a mod's state vanishes in a replay, compare `mc.player.level()` with `mc.level` first.
+
 ## [2026-11-03 12:00] — Armourer's Workshop outfits missing from singleplayer replays (1.0.9)
 **Context:** a user recorded in singleplayer with Armourer's Workshop 3.4.0-beta.3 after loading .armour files into the world's skin database, then replayed.
 **Error:** replays showed no outfits; no error from Just Replay or Armourer's Workshop in the log.
 **Root cause:** Armourer's Workshop has one SkinLoader for the whole JVM. The integrated server prepares it with its own sessions, so in singleplayer a db: skin is read straight from the world's skin database and no RequestSkinPacket or ResponseSkinPacket ever crosses the connection. 1.0.9 recorded skins only from those packets and from the loader cache at snapshot time. The replay world is another integrated world with an empty skin database, and its loader looks db: skins up there, never over the network, so the request mixin never fired.
 **Fix:** record every skin at the loader (SkinLoader$Entry.accept mixin), add every worn skin at snapshots (loaded from the world database in singleplayer), and during a replay serve lookups from the recording at SkinLoader.resume before any source is tried. Snapshot skin count logged, missing worn skins warned.
 **Prevention:** for any mod with a cache shared between client and integrated server, check how the client gets its data in singleplayer before assuming it comes over the network.
+
+## [2026-11-04 14:00] — Armourer's Workshop outfits missing from replays (1.0.9 and 1.0.10)
+**Context:** a user's singleplayer recordings with Armourer's Workshop showed no outfits; 1.0.10 logged `snapshot wrote 39 skins` yet nothing showed.
+**Error:** no error anywhere; the recording file had no `armourers_workshop:*` payload at all.
+**Root cause:** the compat encoded packets with Armourer's Workshop's `PacketSplitter.split`, which runs on its own thread pool and hands the parts back later. The collector was read right after the call, always empty, so nothing was written while the snapshot counted skins as written. Two releases shipped without an in-game test because no `.armour` file was available.
+**Fix:** the packet id and data are encoded on the calling thread and cut with the same begin/body/end markers. Reproduced and verified with a user's `.armour` file and `/armourers setSkin @s head /<file>.armour` (the slot name is required).
+**Prevention:** never trust a mod's helper to be synchronous; count what was actually written, not what was asked. Do not ship a compat claim without one end-to-end in-game check; ask for test assets first.
 
 ## [2026-11-05 14:40] — Replay closed right after opening, intermittently (decode error from the host)
 **Context:** self test with GeckoLib, Curios, Iron's Spellbooks, Iris and others, opening the buffer clip.
