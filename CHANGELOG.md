@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.1.2] - 2026-11-18
+
+### Added
+- **Immersive Vehicles** on Forge 1.20.1: vehicles now show up in replays there too, like on NeoForge 1.21.1, even the ones already parked when the recording starts.
+- **Immersive Vehicles** on NeoForge 26.1.2: same deal, your cars show up in replays and after a seek.
+
+### Changed
+- **Branches**: pull requests go to `develop`, and `main` is the latest release again, moved forward by a `develop` to `main` pull request at each version. `tools/make_branches.sh` warns when `main` is left behind, and refuses a branch that is behind its copy on origin.
+- **Building from source**: Forge 1.20.1 dev runs load released mod jars from `-PdevMods=<folder>`, remapped for the dev game. See `docs/BUILDING.md`.
+- **Self test**: `-PselftestVehicle=<item id>` picks the Immersive Vehicles car it places. Without it, it takes the Official Content Pack's Mustang, or else the first car of any installed pack.
+
+### Ajouts
+- **Immersive Vehicles** sur Forge 1.20.1 : les véhicules s'affichent maintenant aussi dans les replays, comme sur NeoForge 1.21.1, même ceux déjà garés au début de l'enregistrement.
+- **Immersive Vehicles** sur NeoForge 26.1.2 : pareil, tes voitures s'affichent dans les replays et après un saut.
+
+### Modifications
+- **Branches** : les pull requests visent `develop`, et `main` redevient la dernière version publiée, avancée par une pull request de `develop` vers `main` à chaque version. `tools/make_branches.sh` prévient quand `main` reste en arrière, et refuse une branche en retard sur sa copie d'origin.
+- **Compiler le mod** : sur Forge 1.20.1, les lancements de développement chargent les jars publiés de `-PdevMods=<dossier>`, remappés pour le jeu de développement. Voir `docs/BUILDING.md`.
+- **Test automatique** : `-PselftestVehicle=<id d'objet>` choisit la voiture d'Immersive Vehicles qu'il pose. Sans lui, il prend la Mustang de l'Official Content Pack, sinon la première voiture d'un pack installé.
+
+---
+
 ## [1.1.1] - 2026-11-17
 
 ### Added
