@@ -11,9 +11,9 @@ import java.util.Set;
 
 /**
  * Leaves out the optional mixins that cannot apply with some mods: the section draw guard targets the vanilla section
- * renderer, which Sodium and Embeddium replace. The GeckoLib, Jade and Iris mixins apply only with their mod, and only
- * on a loader where CompatTargets lists the integration. A mixin of an integration that is off on this loader never
- * applies.
+ * renderer, which Sodium and Embeddium replace. The GeckoLib, Jade, Iris and More Player Models mixins apply only
+ * with their mod, and only on a loader where CompatTargets lists the integration. A mixin of an integration that is
+ * off on this loader never applies.
  *
  * @author vyrriox
  */
@@ -35,6 +35,9 @@ public final class CompatMixinPlugin implements IMixinConfigPlugin {
         }
         if (mixinClassName.contains(".Iris")) {
             return CompatTargets.isActive("iris");
+        }
+        if (mixinClassName.contains(".MorePlayerModels")) {
+            return CompatTargets.isActive("moreplayermodels");
         }
         if (mixinClassName.contains(".Bobby")) {
             return CompatTargets.isSupported("bobby");

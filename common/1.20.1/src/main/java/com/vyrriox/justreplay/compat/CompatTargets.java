@@ -18,13 +18,15 @@ public final class CompatTargets {
 
     /**
      * Integrations read against their 1.20.1 build, per loader. The Forge builds were read from the jars of GeckoLib
-     * 4.8.4, Curios 5.14.1, Jade 11.13.3, Entity Culling 1.11.3 and Immersive Vehicles 24.0.0. The NeoForge and Fabric
-     * rows are not yet checked against builds for those loaders.
+     * 4.8.4, Curios 5.14.1, Jade 11.13.3, Entity Culling 1.11.3, Immersive Vehicles 24.0.0 and More Player Models
+     * 1.20.1.20240409. The NeoForge and Fabric rows are not yet checked against builds for those loaders, but for
+     * More Player Models: its only 1.20.1 build is that Forge jar, which NeoForge 47.1 loads as it is, and every
+     * class and member the integration names was compiled against it with the classes of both loaders.
      */
     private static final Map<String, Set<String>> SUPPORTED = Map.of(
-            "neoforge", Set.of("geckolib", "curios", "jade"),
+            "neoforge", Set.of("geckolib", "curios", "jade", "moreplayermodels"),
             "fabric", Set.of("geckolib", "jade", "entityculling"),
-            "forge", Set.of("geckolib", "curios", "jade", "entityculling", "mts"));
+            "forge", Set.of("geckolib", "curios", "jade", "entityculling", "mts", "moreplayermodels"));
 
     private CompatTargets() {
     }
