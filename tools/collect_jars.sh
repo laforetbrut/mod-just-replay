@@ -17,7 +17,7 @@ for dir in */; do
     fi
     if [ "${1:-}" = "--build" ]; then
         echo "== building $target"
-        (cd "$target" && ./gradlew build --no-build-cache --console=plain -q)
+        (cd "$target" && sh ./gradlew build --no-build-cache --console=plain -q)
     fi
     # The version of this target decides the folder, and which jar of build/libs is the current one.
     version=$(sed -n 's/^mod_version=//p' "$target/gradle.properties" | tr -d '\r' | head -n 1)

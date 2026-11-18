@@ -3,25 +3,25 @@
 # Just Replay
 
 Record, replay and edit your Minecraft sessions, with a cinematic editor and video export.
-Version 1.1.0, client side. Minecraft 1.20.1, 1.21.1 and 26.1.2 on NeoForge, Forge and Fabric. Author: vyrriox.
+Version 1.1.2, client side. Minecraft 1.20.1, 1.21.1 and 26.1.2 on NeoForge, Forge and Fabric. Author: vyrriox.
 License: Apache-2.0.
 
 ## English
 
 ### Supported targets
 
-Pick the jar of your Minecraft version and loader: `justreplay-<loader>-<minecraft version>-1.1.0.jar`. On Fabric,
+Pick the jar of your Minecraft version and loader: `justreplay-<loader>-<minecraft version>-1.1.2.jar`. On Fabric,
 Fabric API is needed. A recording opens only on the Minecraft version and the loader it was made on.
 
 | Target | Integrations enabled |
 |---|---|
-| NeoForge 1.21.1 | Accessories, Armourer's Workshop, Better Combat, Bobby, Create, Create Aeronautics, Curios, Custom NPCs, Distant Horizons, Drop the Beam, Emotecraft, Entity Culling, Epic Fight, Exposure, GeckoLib, Immersive Aircraft, Immersive Paintings, Iris, Iron's Spellbooks, Jade, Morph, ParCool, Pehkui, Player Animator, Sable, Simulated, WaterFrames |
+| NeoForge 1.21.1 | Accessories, Armourer's Workshop, Better Combat, Bobby, Create, Create Aeronautics, Curios, Custom NPCs, Distant Horizons, Drop the Beam, Emotecraft, Entity Culling, Epic Fight, Exposure, GeckoLib, Immersive Aircraft, Immersive Paintings, Immersive Vehicles, Iris, Iron's Spellbooks, Jade, Morph, ParCool, Pehkui, Player Animator, Sable, Simulated, WaterFrames |
 | Fabric 1.21.1 | Accessories, Armourer's Workshop, Better Combat, Bobby, Distant Horizons, Emotecraft, Entity Culling, Exposure, GeckoLib, Immersive Aircraft, Immersive Paintings, Iris, Jade, Pehkui, Player Animator, Sable, WaterFrames |
 | Forge 1.21.1 | Entity Culling, GeckoLib |
 | NeoForge 1.20.1 | Curios, GeckoLib, Jade |
-| Forge 1.20.1 | Curios, Entity Culling, GeckoLib, Jade |
+| Forge 1.20.1 | Curios, Entity Culling, GeckoLib, Immersive Vehicles, Jade |
 | Fabric 1.20.1 | Entity Culling, GeckoLib, Jade |
-| NeoForge 26.1.2 | Entity Culling, GeckoLib, Iris, Jade |
+| NeoForge 26.1.2 | Entity Culling, GeckoLib, Immersive Vehicles, Iris, Jade |
 | Fabric 26.1.2 | Entity Culling, GeckoLib, Iris, Jade |
 | Forge 26.1.2 | GeckoLib |
 
@@ -200,26 +200,26 @@ step n/m: <reason>` and the game quits; a full run logs `SCENE job finished`. Th
 
 Apache License 2.0, see `LICENSE` and `NOTICE`. The jar bundles no third-party code. FFmpeg is an external
 program you install yourself; Just Replay only starts it for video export. Optional integrations (Simple
-Voice Chat, Distant Horizons, Emotecraft, ParCool, Better Combat, Morph, Pehkui, Custom NPCs, Armourer's Workshop, Epic Fight, WaterFrames, Create, Sable, Create Aeronautics, Drop the Beam, Bobby, Iris, GeckoLib, Curios, Iron's Spellbooks, Entity Culling, Exposure, Accessories, Jade, Immersive Paintings, Immersive Aircraft) work through those mods'
+Voice Chat, Distant Horizons, Emotecraft, ParCool, Better Combat, Morph, Pehkui, Custom NPCs, Armourer's Workshop, Epic Fight, WaterFrames, Create, Sable, Create Aeronautics, Drop the Beam, Bobby, Iris, GeckoLib, Curios, Iron's Spellbooks, Entity Culling, Exposure, Accessories, Jade, Immersive Paintings, Immersive Aircraft, Immersive Vehicles) work through those mods'
 classes and APIs and include none of their code. Not affiliated with Mojang or Microsoft.
 
 ## Français
 
 ### Cibles prises en charge
 
-Choisir le jar de sa version de Minecraft et de son loader : `justreplay-<loader>-<version de minecraft>-1.1.0.jar`.
+Choisir le jar de sa version de Minecraft et de son loader : `justreplay-<loader>-<version de minecraft>-1.1.2.jar`.
 Sur Fabric, Fabric API est nécessaire. Un enregistrement ne s'ouvre que sur la version de Minecraft et le loader où
 il a été fait.
 
 | Cible | Intégrations actives |
 |---|---|
-| NeoForge 1.21.1 | Accessories, Armourer's Workshop, Better Combat, Bobby, Create, Create Aeronautics, Curios, Custom NPCs, Distant Horizons, Drop the Beam, Emotecraft, Entity Culling, Epic Fight, Exposure, GeckoLib, Immersive Aircraft, Immersive Paintings, Iris, Iron's Spellbooks, Jade, Morph, ParCool, Pehkui, Player Animator, Sable, Simulated, WaterFrames |
+| NeoForge 1.21.1 | Accessories, Armourer's Workshop, Better Combat, Bobby, Create, Create Aeronautics, Curios, Custom NPCs, Distant Horizons, Drop the Beam, Emotecraft, Entity Culling, Epic Fight, Exposure, GeckoLib, Immersive Aircraft, Immersive Paintings, Immersive Vehicles, Iris, Iron's Spellbooks, Jade, Morph, ParCool, Pehkui, Player Animator, Sable, Simulated, WaterFrames |
 | Fabric 1.21.1 | Accessories, Armourer's Workshop, Better Combat, Bobby, Distant Horizons, Emotecraft, Entity Culling, Exposure, GeckoLib, Immersive Aircraft, Immersive Paintings, Iris, Jade, Pehkui, Player Animator, Sable, WaterFrames |
 | Forge 1.21.1 | Entity Culling, GeckoLib |
 | NeoForge 1.20.1 | Curios, GeckoLib, Jade |
-| Forge 1.20.1 | Curios, Entity Culling, GeckoLib, Jade |
+| Forge 1.20.1 | Curios, Entity Culling, GeckoLib, Immersive Vehicles, Jade |
 | Fabric 1.20.1 | Entity Culling, GeckoLib, Jade |
-| NeoForge 26.1.2 | Entity Culling, GeckoLib, Iris, Jade |
+| NeoForge 26.1.2 | Entity Culling, GeckoLib, Immersive Vehicles, Iris, Jade |
 | Fabric 26.1.2 | Entity Culling, GeckoLib, Iris, Jade |
 | Forge 26.1.2 | GeckoLib |
 
@@ -389,5 +389,5 @@ Chaque étape est écrite dans le log avec le préfixe `SCENE`, pour qu'un outil
 
 Licence Apache 2.0, voir `LICENSE` et `NOTICE`. Le jar n'embarque aucun code tiers. FFmpeg est un programme
 externe que tu installes toi-même ; Just Replay ne fait que le lancer pour l'export vidéo. Les intégrations
-optionnelles (Simple Voice Chat, Distant Horizons, Emotecraft, ParCool, Better Combat, Morph, Pehkui, Custom NPCs, Armourer's Workshop, Epic Fight, WaterFrames, Create, Sable, Create Aeronautics, Drop the Beam, Bobby, Iris, GeckoLib, Curios, Iron's Spellbooks, Entity Culling, Exposure, Accessories, Jade, Immersive Paintings, Immersive Aircraft) passent par les
+optionnelles (Simple Voice Chat, Distant Horizons, Emotecraft, ParCool, Better Combat, Morph, Pehkui, Custom NPCs, Armourer's Workshop, Epic Fight, WaterFrames, Create, Sable, Create Aeronautics, Drop the Beam, Bobby, Iris, GeckoLib, Curios, Iron's Spellbooks, Entity Culling, Exposure, Accessories, Jade, Immersive Paintings, Immersive Aircraft, Immersive Vehicles) passent par les
 classes et API de ces mods et n'incluent aucun de leur code. Projet non affilié à Mojang ou Microsoft.

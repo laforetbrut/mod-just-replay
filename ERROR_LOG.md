@@ -184,3 +184,24 @@
 **Root cause:** The sheet derives the environment from the side key of the dependency blocks in mods.toml, which says where a dependency applies and not where the mod runs
 **Fix:** Tagged the nine CurseForge files with Client only, as on every earlier file of the project
 **Prevention:** Check the environment tag against the previous file on the site and the README; never take it from a mods.toml dependency side
+
+## [2026-11-17 07:55] — Release build stopped: gradlew not executable
+**Context:** mod-release dry run of 1.1.1 on the Debian box, tools/collect_jars.sh --build
+**Error:** tools/collect_jars.sh: ./gradlew: Permission denied, every target FAIL
+**Root cause:** the gradlew files of the targets are committed with mode 100644 and the script ran ./gradlew
+**Fix:** collect_jars.sh runs sh ./gradlew (PR #5)
+**Prevention:** scripts launch the wrapper with sh, never rely on the exec bit of files that came from Windows
+
+## [2026-11-17 07:55] — Immersive Vehicles invisible in replays
+**Context:** player report: vehicles of Immersive Vehicles never showed in replays (NeoForge 1.21.1)
+**Error:** replay plays, vehicles absent; the self test shows 1 of 3 builder entities with data and no draw entity
+**Root cause:** IV draws every vehicle through BuilderEntityRenderForwarder, which renders only when it follows Minecraft.player; in a replay it follows the recording player or nobody. Vehicles already loaded before the recording also never get their handshake answer
+**Fix:** ImmersiveVehiclesCompat: own client-side forwarder that follows the camera player, handshake answers written in snapshots and checkpoints, serverbound mts:main blocked
+**Prevention:** for a mod with its own render or sync entity, check who it follows and what it asks the server once, and cover it in the self test
+
+## [2026-11-17 17:24] — Immersive Vehicles packs and released jars in a Forge 1.20.1 dev run
+**Context:** self test of the Immersive Vehicles support on forge-1.20.1, the mod and its Official Content Pack loaded as remapped dev dependencies (-PdevMods)
+**Error:** SELFTEST vehicles: no car item of the official content pack, then vehicles=0 -> FAIL and JsonSyntaxException: Unknown item 'mts:mtsofficialpack.screws'
+**Root cause:** Immersive Vehicles reads its content packs only from the jars of the game's mods folder; a pack on the run classpath loads its assets but registers no item. A released 1.20.1 jar (SRG names) cannot go in mods/ of a dev run either
+**Fix:** the mod goes through -PdevMods=run-iv/devmods (fg.deobf), the content pack (no game class) in run-iv/mods
+**Prevention:** for a mod with content packs, put the packs where the mod scans for them and check the pack items exist before the test scene

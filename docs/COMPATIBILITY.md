@@ -2,7 +2,7 @@
 
 ## English
 
-Just Replay 1.1.0 runs on nine targets: Minecraft 1.20.1, 1.21.1 and 26.1.2 on NeoForge, Forge and Fabric.
+Just Replay 1.1.2 runs on nine targets: Minecraft 1.20.1, 1.21.1 and 26.1.2 on NeoForge, Forge and Fabric.
 
 ### Status per target
 
@@ -15,13 +15,13 @@ The self test passes with 0 failures on all nine targets, in a development clien
 
 | Target | Mods in the self test | Enabled but only read |
 |---|---|---|
-| NeoForge 1.21.1 | Development run: GeckoLib, Mowzie's Mobs, Curios, Iron's Spellbooks, Iris, Sodium, Entity Culling, Exposure, Accessories, Jade, Immersive Paintings, Immersive Aircraft: run. Accessories on mobs not exercised. | Older integrations keep the status in the table below. |
+| NeoForge 1.21.1 | Development run: GeckoLib, Mowzie's Mobs, Curios, Iron's Spellbooks, Iris, Sodium, Entity Culling, Exposure, Accessories, Jade, Immersive Paintings, Immersive Aircraft, Immersive Vehicles: run. Accessories on mobs not exercised. | Older integrations keep the status in the table below. |
 | Fabric 1.21.1 | Production: GeckoLib, Entity Culling, Iris, Sodium, Jade, Exposure, Accessories, Immersive Paintings: run. Immersive Aircraft: run. | Armourer's Workshop, Better Combat, Bobby, Distant Horizons, Emotecraft, Pehkui, Player Animator, Sable, WaterFrames |
 | Forge 1.21.1 | Production: GeckoLib, Entity Culling: run. | None |
 | NeoForge 1.20.1 | No third-party mod. | Curios, GeckoLib, Jade |
-| Forge 1.20.1 | Production: GeckoLib, Jade, Entity Culling: run. Curios: run. | None |
+| Forge 1.20.1 | Production: GeckoLib, Jade, Entity Culling: run. Curios: run. Development run: Immersive Vehicles: run. | None |
 | Fabric 1.20.1 | No third-party mod. | Entity Culling, GeckoLib, Jade |
-| NeoForge 26.1.2 | Production: GeckoLib, Iris, Sodium, Jade, Entity Culling: run. | None |
+| NeoForge 26.1.2 | Production: GeckoLib, Iris, Sodium, Jade, Entity Culling: run. Development run: Immersive Vehicles: run. | None |
 | Fabric 26.1.2 | Production: GeckoLib, Iris, Sodium, Jade, Entity Culling: run. | None |
 | Forge 26.1.2 | Production: GeckoLib: run. | None |
 
@@ -66,6 +66,7 @@ Every integration is optional: it is reached by reflection or by optional mixins
 | **Jade** | With the clean HUD on, the tooltip is not computed during a replay and its requests never reach the replay host. A recorded packet that would rewrite the viewer's Jade settings is dropped. | Run on NeoForge and Fabric 1.21.1, Forge 1.20.1, NeoForge and Fabric 26.1.2. Read on NeoForge and Fabric 1.20.1. |
 | **Immersive Paintings** | The painting list and the images in use are written in snapshots and checkpoints, as the payloads the server would send. Deletions are removed from recorded lists, so a replay never deletes the viewer's cache file. | Run on NeoForge and Fabric 1.21.1. |
 | **Immersive Aircraft** | An aircraft asks the server for its equipment once. Snapshots and checkpoints write its slots, and its requests to the replay host are blocked. | Run on NeoForge and Fabric 1.21.1: an equipped biplane keeps its equipment at the start of a replay and after a backward seek. |
+| **Immersive Vehicles** | A vehicle, a seat or an Immersive Vehicles block reaches the client as an empty shell that asks the server for its data once. Snapshots and checkpoints write that data as the server answers, and its requests to the replay host are blocked. The mod draws all its vehicles through one invisible entity that must follow the local player: a replay gets its own, that follows the camera, and recorded ones no longer draw. | Run on NeoForge 1.21.1 and Forge 1.20.1 with Immersive Vehicles 24.0.0 and its Official Content Pack, and on NeoForge 26.1.2 with Immersive Vehicles 24.0.0-26.1 and the R.A.G.E 3.0 beta 2 pack (the official pack has no 26.1 build): a car placed before the recording has its data at the start of a replay and after a backward seek. NeoForge 26.1.2 in a development client only. Forge 1.20.1 in a development client only, the mod remapped by `-PdevMods`. Driving and physics during a replay not checked by a human. |
 | **Bobby** | Bobby reports itself disabled while a replay runs (no cached chunks, nothing saved). | Unchanged. |
 | **Drop the Beam** | Lights, beams, moving heads, haze and particles follow the level game time and need nothing. Everything that follows a song (music, light desk cues, video screens, sound reactive signals) follows the server clock as `ServerClock` estimates it. **Clock:** the recorded `clock_pong` packets plus a clock sample the recorder writes every 2 s (a pong carrying a marker, with the server instant the recording client estimated) map each recorded tick to the server instant; they are read ahead in the background when a replay opens and while playing. During a replay `ServerClock` answers with that mapping at the frame's replay time (cursor and partial tick): it stops with the replay, follows its speed and jumps with seeks. Recorded pongs never reach Drop the Beam; its pings and requests are not sent to the replay host; its "pause with the single-player game" logic is off during a replay. **Recording:** the latest music state, mix and layers per turntable, song offers and analyses, shows per desk, features and libraries are kept per connection and written into every snapshot and checkpoint, so a recording started mid-session plays the music already running. **Live audio:** fed silence while the replay is paused, away from x1 (songs are rendered at their natural pitch) or its game sounds are muted; its volume follows the project's game volume and ducking. **Export:** its audio thread renders nothing during an export; every voice is rendered offline for each frame with the clock pinned to that frame, attenuated (linear to its range, jukebox volume) and panned relative to the camera, then mixed as a game sound (game volume, mute, ducking). **Song starts:** `DropTheBeamCompat.songStartTicks()` gives the replay tick (with decimals) where each song is heard from its start, and each repeat of a song looping on its own; they are logged as `Drop the Beam: turntable ... starts "title" at replay tick ...`. | Compiled against Drop the Beam 0.1.0 sources, not yet tested in game. |
 
@@ -189,7 +190,7 @@ in the exported HUD.
 
 ## Français
 
-Just Replay 1.1.0 tourne sur neuf cibles : Minecraft 1.20.1, 1.21.1 et 26.1.2 sur NeoForge, Forge et Fabric.
+Just Replay 1.1.2 tourne sur neuf cibles : Minecraft 1.20.1, 1.21.1 et 26.1.2 sur NeoForge, Forge et Fabric.
 
 ### État par cible
 
@@ -203,13 +204,13 @@ Le test automatique passe avec 0 échec sur les neuf cibles, en client de dével
 
 | Cible | Mods dans le test automatique | Actives mais seulement lues |
 |---|---|---|
-| NeoForge 1.21.1 | Développement : GeckoLib, Mowzie's Mobs, Curios, Iron's Spellbooks, Iris, Sodium, Entity Culling, Exposure, Accessories, Jade, Immersive Paintings, Immersive Aircraft : testés. Accessories sur les mobs non exercé. | Les anciennes intégrations gardent l'état écrit plus bas. |
+| NeoForge 1.21.1 | Développement : GeckoLib, Mowzie's Mobs, Curios, Iron's Spellbooks, Iris, Sodium, Entity Culling, Exposure, Accessories, Jade, Immersive Paintings, Immersive Aircraft, Immersive Vehicles : testés. Accessories sur les mobs non exercé. | Les anciennes intégrations gardent l'état écrit plus bas. |
 | Fabric 1.21.1 | Production : GeckoLib, Entity Culling, Iris, Sodium, Jade, Exposure, Accessories, Immersive Paintings : testés. Immersive Aircraft : testé. | Armourer's Workshop, Better Combat, Bobby, Distant Horizons, Emotecraft, Pehkui, Player Animator, Sable, WaterFrames |
 | Forge 1.21.1 | Production : GeckoLib, Entity Culling : testés. | Aucune |
 | NeoForge 1.20.1 | Aucun mod tiers. | Curios, GeckoLib, Jade |
-| Forge 1.20.1 | Production : GeckoLib, Jade, Entity Culling : testés. Curios : testé. | Aucune |
+| Forge 1.20.1 | Production : GeckoLib, Jade, Entity Culling : testés. Curios : testé. Développement : Immersive Vehicles : testé. | Aucune |
 | Fabric 1.20.1 | Aucun mod tiers. | Entity Culling, GeckoLib, Jade |
-| NeoForge 26.1.2 | Production : GeckoLib, Iris, Sodium, Jade, Entity Culling : testés. | Aucune |
+| NeoForge 26.1.2 | Production : GeckoLib, Iris, Sodium, Jade, Entity Culling : testés. Développement : Immersive Vehicles : testé. | Aucune |
 | Fabric 26.1.2 | Production : GeckoLib, Iris, Sodium, Jade, Entity Culling : testés. | Aucune |
 | Forge 26.1.2 | Production : GeckoLib : testé. | Aucune |
 
@@ -400,6 +401,7 @@ fait rien quand le mod est absent. Le code se trouve dans `com.vyrriox.justrepla
 - **Jade** : avec le HUD propre, l'infobulle n'est pas calculée pendant un replay et ses demandes n'atteignent pas le serveur du replay. Un paquet enregistré qui réécrirait les réglages Jade est ignoré. Testé sur NeoForge et Fabric 1.21.1, Forge 1.20.1, NeoForge et Fabric 26.1.2 ; seulement lu sur NeoForge et Fabric 1.20.1.
 - **Immersive Paintings** : la liste des tableaux et les images utilisées sont écrites dans les instantanés et points de reprise ; les suppressions sont retirées des listes enregistrées, un replay n'efface donc jamais le cache de celui qui regarde. Testé sur NeoForge et Fabric 1.21.1.
 - **Immersive Aircraft** : les instantanés et points de reprise écrivent l'équipement d'un appareil, et ses demandes au serveur du replay sont bloquées. Testé sur NeoForge et Fabric 1.21.1 : un biplan équipé garde son équipement au début d'un replay et après un retour en arrière.
+- **Immersive Vehicles** : un véhicule, un siège ou un bloc d'Immersive Vehicles arrive chez le client comme une coquille vide qui demande une fois ses données au serveur. Les instantanés et points de reprise écrivent ces données comme le serveur y répond, et ses demandes au serveur du replay sont bloquées. Le mod dessine tous ses véhicules par une entité invisible qui doit suivre le joueur local : un replay a la sienne, qui suit la caméra, et celles enregistrées ne dessinent plus. Testé sur NeoForge 1.21.1 et Forge 1.20.1 avec Immersive Vehicles 24.0.0 et son Official Content Pack, et sur NeoForge 26.1.2 avec Immersive Vehicles 24.0.0-26.1 et le pack R.A.G.E 3.0 bêta 2 (l'Official Content Pack n'existe pas en 26.1) : une voiture posée avant l'enregistrement a ses données au début d'un replay et après un retour en arrière. NeoForge 26.1.2 en client de développement seulement. Forge 1.20.1 en client de développement seulement, le mod remappé par `-PdevMods`. Conduite et physique pendant un replay non vérifiées par un humain.
 
 Limites connues des cibles : sur tout Fabric, le HUD propre ne peut pas masquer les HUD des autres mods en 1.20.1 et
 1.21.1, pas de modificateurs de touches, pas de bouton de réglages sans Mod Menu. Sur Forge 1.21.1 et 26.1.2,
