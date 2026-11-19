@@ -23,6 +23,7 @@ public final class JRConfig {
     public static final ConfigFile.BoolValue REPLAY_BUFFER;
     public static final ConfigFile.IntValue BUFFER_MINUTES;
     public static final ConfigFile.IntValue NEXT_MINUTES;
+    public static final ConfigFile.BoolValue NAME_ON_SAVE;
     public static final ConfigFile.IntValue SEEK_STEP_SECONDS;
     public static final ConfigFile.BoolValue CLEAN_HUD;
     public static final ConfigFile.IntValue PLAYBACK_VIEW_DISTANCE;
@@ -75,6 +76,9 @@ public final class JRConfig {
                         + "cached chunks: about 150 to 300 MB for 2 hours. Lower it if your game is short on memory.");
         NEXT_MINUTES = recording.integer("nextMinutes", 5, 1, 240,
                 "Length of a recording started with the 'Record next minutes' key; it stops by itself.");
+        NAME_ON_SAVE = recording.bool("nameOnSave", true,
+                "Ask for a name when a recording stops or the last minutes are saved. The replay is saved under" + "\n"
+                        + "the date and time first; Esc or Skip keeps that name.");
         ConfigFile.Section playback = SPEC.section("playback", "Watching replays.");
         SEEK_STEP_SECONDS = playback.integer("seekStepSeconds", 5, 1, 600,
                 "Seconds skipped by the seek keys.");
