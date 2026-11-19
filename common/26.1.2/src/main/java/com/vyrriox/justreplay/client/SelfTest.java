@@ -52,6 +52,12 @@ public final class SelfTest {
     /** Start position of the recording, around which the modded test content is placed. */
     private static net.minecraft.core.BlockPos modsBase;
     private static Path clip;
+    /** Rename check: the name typed in the naming window, the folder it gives and a replay already in that folder. */
+    private static final String RENAME_TYPED = "Self test: clip?";
+    private static final String RENAME_FOLDER = "Self test_ clip_";
+    private static Path renameDecoy;
+    private static String renameDefault;
+    private static int renameWait;
     private static java.util.concurrent.CompletableFuture<com.vyrriox.justreplay.format.ReplayBuffer.Saved> clipSave;
     /** Blocks the placement steps seat and lay actors on: stairs and the head of a bed. */
     private static net.minecraft.core.BlockPos stairPos;
@@ -982,9 +988,27 @@ public final class SelfTest {
                         step = 19;
                         return;
                     }
+                    // The clip is named through the window a player gets, then opened under its new name.
+                    offerRename();
+                    go(70, 10);
+                }
+            }
+            case 70 -> {
+                renameWait = 0;
+                go(typeRename(mc) ? 71 : 72, 2);
+            }
+            case 71 -> {
+                if (ReplayNaming.renaming() && ++renameWait < 200) {
+                    return;
+                }
+                checkRename();
+                go(72, 5);
+            }
+            case 72 -> {
+                if (atMenu(mc)) {
                     ReplaySession.open(clip, mc.screen);
                     log("buffer clip opening");
-                    next(40);
+                    go(17, 40);
                 }
             }
             case 17 -> {
@@ -1238,6 +1262,67 @@ public final class SelfTest {
         }
         s.saveProject();
         log("audio clips in project: {} on {} tracks", clips, s.project().audioTracks.size());
+    }
+
+    /**
+     * Rename check, first part: a replay already holds the folder the new name gives, then the saved clip waits for
+     * the naming window as a recording the player stops does.
+     */
+    private static void offerRename() throws java.io.IOException {
+        renameDefault = ReplayStorage.readMeta(clip).name;
+        renameDecoy = clip.resolveSibling(RENAME_FOLDER);
+        // Left by an earlier run of the test.
+        ReplayStorage.deleteRecursively(renameDecoy);
+        ReplayStorage.deleteRecursively(clip.resolveSibling(RENAME_FOLDER + " (2)"));
+        Files.createDirectories(renameDecoy);
+        Files.writeString(renameDecoy.resolve("decoy.txt"), "decoy");
+        ReplayNaming.queue(clip);
+        log("rename: clip {} waits for its name, saved as '{}'", clip.getFileName(), renameDefault);
+    }
+
+    /**
+     * Rename check, second part: the window opened by itself on the menu with the saved name selected; a name is
+     * typed over it and Enter closes it. False when the window never opened.
+     */
+    private static boolean typeRename(Minecraft mc) throws java.io.IOException {
+        com.vyrriox.justreplay.gui.TextInputScreen window = ReplayNaming.window();
+        boolean open = window != null && mc.screen == window;
+        log("rename: window opened with the saved name '{}' -> {}", open ? window.value() : String.valueOf(mc.screen),
+                open && renameDefault.equals(window.value()) ? "OK" : "FAIL");
+        if (!open) {
+            ReplayStorage.deleteRecursively(renameDecoy);
+            return false;
+        }
+        // The saved name is selected: the first letter typed replaces it, as for a player.
+        for (char c : RENAME_TYPED.toCharArray()) {
+            window.charTyped(new net.minecraft.client.input.CharacterEvent(c));
+        }
+        log("rename: typed over the saved name '{}' -> {}", window.value(), RENAME_TYPED.equals(window.value()) ? "OK" : "FAIL");
+        window.keyPressed(new net.minecraft.client.input.KeyEvent(257, 0, 0));
+        log("rename: Enter closes the window -> {}", mc.screen != window ? "OK" : "FAIL");
+        return true;
+    }
+
+    /**
+     * Rename check, last part: the clip moved to the folder after the decoy's, the list shows the typed name with
+     * the same number, and the replay that had the folder first is untouched. The clip is then opened from there.
+     */
+    private static void checkRename() throws java.io.IOException {
+        log("rename: done in the background -> {}", ReplayNaming.renaming() ? "FAIL" : "OK");
+        Path renamed = clip.resolveSibling(RENAME_FOLDER + " (2)");
+        boolean moved = Files.isRegularFile(renamed.resolve(ReplayStorage.STREAM)) && !Files.exists(clip);
+        log("rename: folder {} -> {} -> {}", clip.getFileName(), renamed.getFileName(), moved ? "OK" : "FAIL");
+        String shown = ReplayStorage.readMeta(moved ? renamed : clip).name;
+        log("rename: shown name '{}' -> {}", shown, (RENAME_TYPED + " (2)").equals(shown) ? "OK" : "FAIL");
+        Path decoyFile = renameDecoy.resolve("decoy.txt");
+        boolean kept = Files.isRegularFile(decoyFile) && "decoy".equals(Files.readString(decoyFile));
+        log("rename: the replay already in {} is untouched -> {}", renameDecoy.getFileName(), kept ? "OK" : "FAIL");
+        boolean listed = ReplayStorage.list().stream().anyMatch(e -> e.dir().equals(renamed) && shown.equals(e.meta().name));
+        log("rename: the replay list shows it -> {}", listed ? "OK" : "FAIL");
+        ReplayStorage.deleteRecursively(renameDecoy);
+        if (moved) {
+            clip = renamed;
+        }
     }
 
     /** Checks the saved instant replay opens like any replay: stream, first packet, checkpoints, duration. */

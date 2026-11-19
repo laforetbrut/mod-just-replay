@@ -51,6 +51,7 @@ public final class JustReplayClient {
         Recorder.clientTickAll(mc);
         ReplaySession.clientTick(mc);
         handleKeys(mc);
+        ReplayNaming.tick(mc);
         SelfTest.tick(mc);
         SceneRecorder.tick(mc);
         com.vyrriox.justreplay.compat.ReplayCompat.clientTick(mc);
@@ -82,6 +83,7 @@ public final class JustReplayClient {
         Path saved = Recorder.endCapture();
         if (saved != null) {
             toast(Recorder.lastStopIncomplete() ? "justreplay.toast.incomplete" : "justreplay.toast.saved", saved.getFileName().toString());
+            offerName(saved);
         }
     }
 
@@ -237,6 +239,7 @@ public final class JustReplayClient {
             Path saved = Recorder.stop();
             if (saved != null) {
                 toast(Recorder.lastStopIncomplete() ? "justreplay.toast.incomplete" : "justreplay.toast.saved", saved.getFileName().toString());
+                offerName(saved);
             }
         } else if (Recorder.startManual()) {
             toast("justreplay.toast.started", "");
@@ -266,6 +269,16 @@ public final class JustReplayClient {
         GlassToast.show(icon, accent, Component.translatable(key), detail.isEmpty() ? null : Component.literal(detail));
     }
 
+    /**
+     * Offers the naming window for a recording that just stopped. Not when its files are incomplete (disk error or
+     * timeout): something may still be writing into its folder.
+     */
+    private static void offerName(Path saved) {
+        if (!Recorder.lastStopIncomplete()) {
+            ReplayNaming.offer(saved);
+        }
+    }
+
     private static boolean savingBuffer;
 
     /** Saves the instant replay buffer off the client thread; the toast follows when the files are written. */
@@ -292,6 +305,7 @@ public final class JustReplayClient {
                     : String.format(java.util.Locale.ROOT, "%.1f", minutes);
             toast(Component.translatable("justreplay.toast.buffer_saved", length),
                     Component.literal(saved.dir().getFileName().toString()));
+            ReplayNaming.offer(saved.dir());
         }));
     }
 
@@ -335,6 +349,7 @@ public final class JustReplayClient {
             Path saved = Recorder.stop();
             if (saved != null) {
                 toast(Recorder.lastStopIncomplete() ? "justreplay.toast.incomplete" : "justreplay.toast.next_done", saved.getFileName().toString());
+                offerName(saved);
             }
         }
         ReplaySession session = ReplaySession.current();

@@ -10,12 +10,14 @@
 - **Custom NPCs** (unofficial port) on Forge, NeoForge and Fabric 1.20.1 and on Fabric 1.21.1: NPCs keep their look, and your dialogs and menus stay out of the replay.
 - **Integration switches**: one switch per mod in the new `compat` section of the settings, also in the settings screen for the mods you have. Turn one off and Just Replay leaves that mod alone from the next start.
 - **Startup line**: the log now says at startup which Just Replay, loader and integrations are running. Handy for reading crash reports.
+- **Name your replays**: stop a recording (F8, F7, the pause menu buttons, a timed recording, leaving a world) and a window asks for a name, filled with the date and time. Enter or Rename renames it, Esc or Skip keeps the date. The folder gets a name Windows and Linux accept and never takes another replay's, a ` (2)` is added instead. Don't want it? Turn off `nameOnSave`.
 
 Heads up: none of this has been tried in game yet. Every target builds and each integration was checked against the mod's own jar, so tell me if something looks off.
 
 ### Changed
 - **Self test**: checks hidden armor on every target, and More Player Models looks on Forge 1.20.1 (with `-PdevMods`).
 - **Create Aeronautics, Sable, Create Propulsion**: checked together with Create 6.0.10 on NeoForge 1.21.1. The game loads, and recording, replays and seeks pass the self test. See `docs/COMPATIBILITY.md`.
+- **Building from source**: `./gradlew build` also runs the unit tests of `common/<mc>/src/test`, and the target branches carry them. See `docs/BUILDING.md`.
 
 ### Fixed
 - **Big modpacks**: an integration whose mod changed (a method or class gone, a crash in its code) no longer takes the game down. It turns itself off until the next start with one warning in the log, and the rest keeps going.
@@ -30,12 +32,14 @@ Heads up: none of this has been tried in game yet. Every target builds and each 
 - **Custom NPCs** (portage non officiel) sur Forge, NeoForge et Fabric 1.20.1 et sur Fabric 1.21.1 : les PNJ gardent leur apparence, et tes dialogues et menus restent hors du replay.
 - **Interrupteurs d'intégration** : un interrupteur par mod dans la nouvelle section `compat` des réglages, aussi dans l'écran des réglages pour les mods installés. Coupé, Just Replay laisse ce mod tranquille dès le prochain démarrage.
 - **Ligne de démarrage** : le log dit au démarrage quelle version de Just Replay, quel loader et quelles intégrations tournent. Pratique pour lire un rapport de crash.
+- **Nommer ses replays** : arrête un enregistrement (F8, F7, les boutons du menu pause, un enregistrement minuté, en quittant un monde) et une fenêtre demande un nom, prérempli avec la date et l'heure. Entrée ou Rename le renomme, Échap ou Skip garde la date. Le dossier prend un nom accepté par Windows et Linux et ne prend jamais celui d'un autre replay, un ` (2)` est ajouté à la place. Pas envie ? Coupe `nameOnSave`.
 
 Attention : rien de tout ça n'a encore été essayé en jeu. Toutes les cibles compilent et chaque intégration a été vérifiée contre le jar du mod lui-même, alors dis-moi si quelque chose cloche.
 
 ### Modifications
 - **Test automatique** : vérifie l'armure masquée sur toutes les cibles, et les apparences de More Player Models sur Forge 1.20.1 (avec `-PdevMods`).
 - **Create Aeronautics, Sable, Create Propulsion** : vérifiés ensemble avec Create 6.0.10 sur NeoForge 1.21.1. Le jeu charge, et l'enregistrement, les replays et les sauts passent le test automatique. Voir `docs/COMPATIBILITY.md`.
+- **Compiler le mod** : `./gradlew build` lance aussi les tests unitaires de `common/<mc>/src/test`, et les branches de cible les embarquent. Voir `docs/BUILDING.md`.
 
 ### Correctifs
 - **Gros modpacks** : une intégration dont le mod a changé (méthode ou classe disparue, plantage dans son code) ne fait plus planter le jeu. Elle se coupe jusqu'au prochain démarrage avec un seul avertissement dans le log, et le reste continue.

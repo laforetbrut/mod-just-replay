@@ -39,6 +39,11 @@ see [When an integration fails](docs/COMPATIBILITY.md#when-an-integration-fails)
   blocks, entities and effects come back in the replay. Start and stop with **F8** or from the pause menu,
   or enable auto recording in the config. The recording player is saved too (position, look, pose,
   equipment, swings, scale and other attributes).
+- **Name your replays**: when a recording stops (F8, F7, the pause menu buttons, a timed recording, leaving a
+  world), a window asks for a name, filled with the date and time. Enter or Rename renames the replay, Esc or
+  Skip keeps the date. The folder gets a name Windows and Linux accept (`Boss: round 2?` goes to
+  `Boss_ round 2_`) and never the folder of another replay (` (2)` is added); the replay list shows the name as
+  typed. The files are written first, so the game never waits for the window. Turn it off with `nameOnSave`.
 - **Playback**: free spectator camera, play and pause, speed from x0.1 to x8, seek forward and backward,
   jump to the recording player's point of view. Pause and speed go through the vanilla tick rate (rebuilt by the
   mod on 1.20.1), so every
@@ -247,6 +252,12 @@ ignoré : voir [Quand une intégration échoue](docs/COMPATIBILITY.md#quand-une-
   blocs, entités et effets moddés reviennent dans le replay. Démarrer et arrêter avec **F8** ou depuis le
   menu pause, ou activer l'enregistrement automatique dans la config. Le joueur qui enregistre est aussi
   sauvegardé (position, regard, posture, équipement, coups, taille et autres attributs).
+- **Nommer ses replays** : quand un enregistrement s'arrête (F8, F7, les boutons du menu pause, un
+  enregistrement minuté, en quittant un monde), une fenêtre demande un nom, prérempli avec la date et l'heure.
+  Entrée ou Rename renomme le replay, Échap ou Skip garde la date. Le dossier prend un nom accepté par Windows
+  et Linux (`Boss: round 2?` va dans `Boss_ round 2_`) et jamais le dossier d'un autre replay (` (2)` est
+  ajouté) ; la liste des replays montre le nom tel qu'il a été tapé. Les fichiers sont écrits d'abord, le jeu
+  n'attend donc jamais la fenêtre. L'option `nameOnSave` la coupe.
 - **Lecture** : caméra libre en spectateur, lecture et pause, vitesse de x0,1 à x8, saut en avant et en
   arrière, retour au point de vue du joueur enregistré. La pause et la vitesse passent par le tick rate
   vanilla (reconstruit par le mod en 1.20.1), donc toutes les entités et les rendus des mods suivent l'horloge du replay.
