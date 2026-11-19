@@ -294,6 +294,34 @@ public final class ReplaySession {
                     Component.translatable("justreplay.toast.wrong_loader", recordedLoader),
                     Component.literal(dir.getFileName().toString()));
         }
+        if (recorded != null && !recorded.ignoreModChanges && com.vyrriox.justreplay.config.JRConfig.WARN_MOD_CHANGES.get()) {
+            com.vyrriox.justreplay.format.ModDiff mods = com.vyrriox.justreplay.format.ModDiff.compare(recorded.mods,
+                    com.vyrriox.justreplay.platform.Platform.get().modList());
+            if (!mods.isEmpty()) {
+                JustReplay.LOGGER.warn("Replay {} was recorded with other mods ({} differences): {}", dir, mods.size(),
+                        String.join(", ", mods.lines()));
+                mc.setScreen(new com.vyrriox.justreplay.gui.ModsChangedScreen(mods, (open, dontWarnAgain) -> {
+                    if (!open) {
+                        mc.setScreen(parent);
+                        return;
+                    }
+                    if (dontWarnAgain) {
+                        recorded.ignoreModChanges = true;
+                        ReplayStorage.writeMeta(dir, recorded);
+                    }
+                    load(mc, dir, parent);
+                }));
+                return;
+            }
+        }
+        load(mc, dir, parent);
+    }
+
+    /** Reads the replay off the render thread, then starts it; the checks of {@link #open} are done. */
+    private static void load(Minecraft mc, Path dir, Screen parent) {
+        if (current != null || mc.level != null || loading) {
+            return;
+        }
         loading = true;
         mc.setScreenAndShow(new GenericMessageScreen(Component.translatable("justreplay.loading")));
         // Decompressing a long replay takes a while: do it off the render thread.
