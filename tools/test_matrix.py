@@ -633,7 +633,7 @@ def run_matrix(args):
     xvfb = use_xvfb(args.xvfb)
     wrap = shlex.split(args.wrap) if args.wrap else []
     extra = ["-P" + p for p in args.property]
-    gradle_flags = ["--no-daemon", f"--max-workers={args.max_workers}"]
+    gradle_flags = ["--no-daemon", f"--max-workers={args.max_workers}"] + args.gradle_arg
     started = datetime.datetime.now()
     missing = sorted({jdk for _, jdk in targets if jdk not in jdks})
 
@@ -791,6 +791,8 @@ def main(argv=None):
                         help="seconds to wait for a running game to close before each step (default 0: stop at once)")
     parser.add_argument("--ignore-servers", action="store_true", help="only a running client blocks a step")
     parser.add_argument("--max-workers", type=int, default=2, help="Gradle workers (default 2)")
+    parser.add_argument("--gradle-arg", action="append", default=[], metavar="ARG",
+                        help="extra Gradle argument for every command, e.g. --gradle-arg=--no-build-cache")
     parser.add_argument("--skip-build", action="store_true", help="start the self tests without building first")
     parser.add_argument("--skip-run", action="store_true", help="build only")
     parser.add_argument("--stop-on-fail", action="store_true", help="stop at the first failed target")

@@ -31,6 +31,7 @@ python3 tools/test_matrix.py --dry-run                 # the nine steps and thei
 python3 tools/test_matrix.py                           # every target
 python3 tools/test_matrix.py --targets 1.21.1          # a Minecraft version (or a loader, or targets: a,b)
 python3 tools/test_matrix.py --targets neoforge-1.21.1 --skip-build
+python3 tools/test_matrix.py --skip-run --gradle-arg=--no-build-cache   # builds only, like the CI
 python3 tools/test_matrix.py --parse neoforge-1.21.1/run-matrix/logs/latest.log
 ```
 
@@ -143,6 +144,7 @@ python3 tools/test_matrix.py --dry-run                 # les neuf étapes et leu
 python3 tools/test_matrix.py                           # toutes les cibles
 python3 tools/test_matrix.py --targets 1.21.1          # une version de Minecraft (ou un loader, ou des cibles : a,b)
 python3 tools/test_matrix.py --targets neoforge-1.21.1 --skip-build
+python3 tools/test_matrix.py --skip-run --gradle-arg=--no-build-cache   # builds seulement, comme la CI
 python3 tools/test_matrix.py --parse neoforge-1.21.1/run-matrix/logs/latest.log
 ```
 
