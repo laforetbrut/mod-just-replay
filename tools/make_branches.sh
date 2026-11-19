@@ -2,9 +2,9 @@
 # Regenerates the per-target branches from main.
 #
 # main holds one folder per target (<loader>-<minecraft version>/) and the shared code of each
-# Minecraft version (common/<minecraft version>/src/main). Each target also has a branch named like
-# its folder, holding that single project at the repository root with the shared code merged into
-# src/main, so it builds on its own with ./gradlew build.
+# Minecraft version (common/<minecraft version>/src/main, its unit tests in src/test). Each target
+# also has a branch named like its folder, holding that single project at the repository root with
+# the shared code merged into src/main and src/test, so it builds on its own with ./gradlew build.
 #
 # The branches are never edited by hand: change main, then run this script from the repository
 # root. BASE_BRANCH names another source branch (develop, for instance); main by default. The
@@ -52,14 +52,16 @@ for target in $(git ls-tree -d --name-only "$MAIN"); do
 
     # The project itself, moved to the root.
     git archive "$MAIN" "$target" | tar -x -C "$WORK/"
-    # Shared code of this Minecraft version, merged into src/main.
-    if git cat-file -e "$MAIN:common/$version/src/main" 2>/dev/null; then
-        mkdir -p "$WORK/common-$target"
-        git archive "$MAIN" "common/$version/src/main" | tar -x -C "$WORK/common-$target"
-        mkdir -p "$tree_dir/src/main"
-        cp -R "$WORK/common-$target/common/$version/src/main/." "$tree_dir/src/main/"
-        rm -rf "$WORK/common-$target"
-    fi
+    # Shared code of this Minecraft version and its unit tests, merged into src/main and src/test.
+    for set in main test; do
+        if git cat-file -e "$MAIN:common/$version/src/$set" 2>/dev/null; then
+            mkdir -p "$WORK/common-$target"
+            git archive "$MAIN" "common/$version/src/$set" | tar -x -C "$WORK/common-$target"
+            mkdir -p "$tree_dir/src/$set"
+            cp -R "$WORK/common-$target/common/$version/src/$set/." "$tree_dir/src/$set/"
+            rm -rf "$WORK/common-$target"
+        fi
+    done
     # Shared documents and repository files.
     for item in "${SHARED[@]}"; do
         if git cat-file -e "$MAIN:$item" 2>/dev/null; then

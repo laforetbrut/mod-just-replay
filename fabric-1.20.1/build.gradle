@@ -26,6 +26,13 @@ if (commonDir.isDirectory()) {
     sourceSets.main.resources.srcDir(new File(commonDir, 'resources'))
 }
 
+// Unit tests of the shared code (classes without game code), run by ./gradlew build. On the per-target branches they
+// are merged into src/test, so this block does nothing there.
+def commonTestDir = file("../common/${minecraft_version}/src/test/java")
+if (commonTestDir.isDirectory()) {
+    sourceSets.test.java.srcDir(commonTestDir)
+}
+
 sourceSets.main.resources {
     exclude('**/*.bbmodel.license')
 }
@@ -39,6 +46,8 @@ repositories {
 }
 
 dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.2'
     minecraft "com.mojang:minecraft:${minecraft_version}"
     // The common code is written with the official Mojang names.
     mappings loom.officialMojangMappings()
@@ -144,4 +153,12 @@ tasks.named('jar', Jar).configure {
                 'Implementation-Vendor' : mod_authors
         ])
     }
+}
+
+tasks.named('test', Test).configure {
+    useJUnitPlatform()
+    // The game's logging writes a logs folder where the tests run: keep it in build.
+    def testRun = layout.buildDirectory.dir('test-run').get().asFile
+    workingDir = testRun
+    doFirst { testRun.mkdirs() }
 }
