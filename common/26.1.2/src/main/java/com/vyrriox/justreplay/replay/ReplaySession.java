@@ -444,6 +444,7 @@ public final class ReplaySession {
             s.spectate.clear();
             VideoExporter.cancel();
             s.voices.close();
+            s.playback.logSkipped();
             com.vyrriox.justreplay.compat.ReplayCompat.onReplayEnd();
             s.saveProject();
             current = null;
