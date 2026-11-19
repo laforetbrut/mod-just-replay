@@ -387,7 +387,11 @@ public final class ReplaySession {
         ReplayProject loaded = ReplayStorage.readProject(dir);
         Path backup = ReplayStorage.lastProjectBackup;
         ReplayStorage.lastProjectBackup = null;
-        current = new ReplaySession(dir, ReplayStorage.readMeta(dir), loaded, packets);
+        ReplayMeta openedMeta = ReplayStorage.readMeta(dir);
+        if (loaded.importRecordingMarkers(openedMeta == null ? null : openedMeta.markers)) {
+            ReplayStorage.writeProject(dir, loaded);
+        }
+        current = new ReplaySession(dir, openedMeta, loaded, packets);
         current.parentScreen = parent;
         if (backup != null) {
             net.minecraft.client.gui.components.toasts.SystemToast.add(mc.getToasts(),
