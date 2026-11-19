@@ -39,9 +39,10 @@ public abstract class HiddenArmorMixin {
 
     /**
      * NeoForge draws the pieces from an overload taking the animation arguments too: the stack it reads comes back
-     * empty for a hidden slot, which skips the piece the same way. Matches every overload by name.
+     * empty for a hidden slot, which skips the piece the same way. The trailing * takes every overload: a bare name
+     * only takes the first method of that name, here the vanilla one, which NeoForge no longer calls.
      */
-    @Redirect(method = "renderArmorPiece", require = 0, at = @At(value = "INVOKE",
+    @Redirect(method = "renderArmorPiece*", require = 0, at = @At(value = "INVOKE",
             target = "Lnet/minecraft/world/entity/LivingEntity;getItemBySlot(Lnet/minecraft/world/entity/EquipmentSlot;)Lnet/minecraft/world/item/ItemStack;"))
     private ItemStack justreplay$hiddenStack(LivingEntity entity, EquipmentSlot slot) {
         if (ArmorSlots.hides(entity, slot)) {
