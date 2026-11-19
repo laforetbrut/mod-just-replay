@@ -95,6 +95,11 @@ public final class ReplayProject {
         public boolean hideSkinLayers;
         /** For a recorded player: body parts hidden, a mask of {@link com.vyrriox.justreplay.editor.BodyParts}. */
         public int hiddenParts;
+        /**
+         * Armor slots hidden in the replay, a mask of {@link com.vyrriox.justreplay.editor.ArmorSlots}. Absent from older
+         * projects, which keep their armor visible.
+         */
+        public int hiddenArmor;
         /** For a recorded player: skins worn from given ticks, sorted by tick. */
         public List<SkinChange> skinChanges = new ArrayList<>();
         /** Uniform render scale around the feet, 0.05 to 10; 1 leaves the entity unchanged. */
@@ -114,7 +119,7 @@ public final class ReplayProject {
 
         /** True when the edit changes nothing and can be dropped. */
         public boolean isEmpty() {
-            return !hidden && offsets.isEmpty() && !muted && !hideSkinLayers && hiddenParts == 0 && skinChanges.isEmpty() && Math.abs(soundGain - 1.0F) < 0.001F
+            return !hidden && offsets.isEmpty() && !muted && !hideSkinLayers && hiddenParts == 0 && hiddenArmor == 0 && skinChanges.isEmpty() && Math.abs(soundGain - 1.0F) < 0.001F
                     && Math.abs(scale - 1.0F) < 0.001F;
         }
 
@@ -468,6 +473,11 @@ public final class ReplayProject {
         public boolean hideSkinLayers;
         /** For a player actor: body parts hidden, a mask of {@link com.vyrriox.justreplay.editor.BodyParts}. */
         public int hiddenParts;
+        /**
+         * Armor slots hidden on any actor, a mask of {@link com.vyrriox.justreplay.editor.ArmorSlots}: the equipment stays
+         * set, it is just not drawn. Absent from older projects, which keep their armor visible.
+         */
+        public int hiddenArmor;
         /** For a player actor: skins worn from given ticks, sorted by tick. */
         public List<SkinChange> skinChanges = new ArrayList<>();
 

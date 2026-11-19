@@ -1305,8 +1305,6 @@ public final class SelfTest {
         }
     }
 
-    /** Optional mods of the test pack: content placed before the recording and their replay state. */
-    /** See {@link com.vyrriox.justreplay.format.RegistryIdsBackend#selfCheck}; the replay gets its own ids back after it. */
     /**
      * Hidden armor: the player actor's helmet is hidden and its chestplate kept, the armor layer skipped at least one
      * piece while the actors were drawn, the camera player is never touched, and the global option hides every slot.
@@ -1345,6 +1343,8 @@ public final class SelfTest {
         log("hidden armor: global option mask {} -> {}", all, all == com.vyrriox.justreplay.editor.ArmorSlots.ALL ? "OK" : "FAIL");
     }
 
+    /** Optional mods of the test pack: content placed before the recording and their replay state. */
+    /** See {@link com.vyrriox.justreplay.format.RegistryIdsBackend#selfCheck}; the replay gets its own ids back after it. */
     private static void checkRegistryCompletion(ReplaySession s) {
         try {
             com.vyrriox.justreplay.platform.ClientPlatform.get().registryIds().selfCheck(SelfTest::log);

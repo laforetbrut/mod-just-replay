@@ -16,13 +16,13 @@ Fabric API is needed. A recording opens only on the Minecraft version and the lo
 | Target | Integrations enabled |
 |---|---|
 | NeoForge 1.21.1 | Accessories, Armourer's Workshop, Better Combat, Bobby, Create, Create Aeronautics, Curios, Custom NPCs, Distant Horizons, Drop the Beam, Emotecraft, Entity Culling, Epic Fight, Exposure, GeckoLib, Immersive Aircraft, Immersive Paintings, Immersive Vehicles, Iris, Iron's Spellbooks, Jade, Morph, ParCool, Pehkui, Player Animator, Sable, Simulated, WaterFrames |
-| Fabric 1.21.1 | Accessories, Armourer's Workshop, Better Combat, Bobby, Distant Horizons, Emotecraft, Entity Culling, Exposure, GeckoLib, Immersive Aircraft, Immersive Paintings, Iris, Jade, Pehkui, Player Animator, Sable, WaterFrames |
+| Fabric 1.21.1 | Accessories, Armourer's Workshop, Better Combat, Bobby, Custom NPCs, Distant Horizons, Emotecraft, Entity Culling, Exposure, GeckoLib, Immersive Aircraft, Immersive Paintings, Iris, Jade, Pehkui, Player Animator, Sable, WaterFrames |
 | Forge 1.21.1 | Entity Culling, GeckoLib |
-| NeoForge 1.20.1 | Curios, GeckoLib, Jade |
-| Forge 1.20.1 | Curios, Entity Culling, GeckoLib, Immersive Vehicles, Jade |
-| Fabric 1.20.1 | Entity Culling, GeckoLib, Jade |
-| NeoForge 26.1.2 | Entity Culling, GeckoLib, Immersive Vehicles, Iris, Jade |
-| Fabric 26.1.2 | Entity Culling, GeckoLib, Iris, Jade |
+| NeoForge 1.20.1 | Armourer's Workshop, Curios, Custom NPCs, GeckoLib, Jade, More Player Models |
+| Forge 1.20.1 | Armourer's Workshop, Curios, Custom NPCs, Entity Culling, Epic Fight, GeckoLib, Immersive Vehicles, Jade, More Player Models |
+| Fabric 1.20.1 | Armourer's Workshop, Custom NPCs, Entity Culling, GeckoLib, Jade |
+| NeoForge 26.1.2 | Armourer's Workshop, Entity Culling, GeckoLib, Immersive Vehicles, Iris, Jade |
+| Fabric 26.1.2 | Armourer's Workshop, Entity Culling, GeckoLib, Iris, Jade |
 | Forge 26.1.2 | GeckoLib |
 
 The list comes from `CompatTargets.java` of each `common/<minecraft version>/`. An enabled integration is not
@@ -97,9 +97,12 @@ known limits of each target.
 - **Edit recorded entities**: the **Entities** tab hides a recorded player or mob (for the whole replay or
   before or after the play head), moves it to a new spot with the crosshair, and sets the volume of its sounds
   (0 to 400%, or muted), in playback and in video exports.
-- **Hide armor** (Minecraft 1.21.1): "Armor shown" switches hide the helmet, chestplate (with the elytra),
-  leggings or boots of a recorded player (**Entities** tab) or an actor (actor screen). The "Hide player armor in
-  replays" setting (`hidePlayerArmor`) hides the armor of every player. The game itself is never changed.
+- **Hide armor**: "Armor shown" switches hide the helmet (with a pumpkin or a head worn instead), chestplate (with
+  the elytra), leggings or boots of a recorded player (**Entities** tab) or an actor (actor screen), in playback and
+  in video exports. The "Hide player armor in replays" setting (`hidePlayerArmor`) hides the armor of every player
+  and actor. The game itself is never changed. Mobs and NPCs keep their armor, and Armourer's Workshop skins stay
+  on. Every target builds with it, but it has not been tried in game yet: see "Hidden armor" in
+  [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md).
 - **Glass interface**: a clear glass look with rounded corners and smooth animations. The editor has a
   collapsible sidebar (Cameras, Actors, Scene, Export), a bottom dock with the transport controls and a
   zoomable multi-lane timeline (Ctrl + wheel), and a shortcut overlay on **F1** or **?**.
@@ -203,7 +206,7 @@ step n/m: <reason>` and the game quits; a full run logs `SCENE job finished`. Th
 
 Apache License 2.0, see `LICENSE` and `NOTICE`. The jar bundles no third-party code. FFmpeg is an external
 program you install yourself; Just Replay only starts it for video export. Optional integrations (Simple
-Voice Chat, Distant Horizons, Emotecraft, ParCool, Better Combat, Morph, Pehkui, Custom NPCs, Armourer's Workshop, Epic Fight, WaterFrames, Create, Sable, Create Aeronautics, Drop the Beam, Bobby, Iris, GeckoLib, Curios, Iron's Spellbooks, Entity Culling, Exposure, Accessories, Jade, Immersive Paintings, Immersive Aircraft, Immersive Vehicles) work through those mods'
+Voice Chat, Distant Horizons, Emotecraft, ParCool, Better Combat, Morph, Pehkui, Custom NPCs, Armourer's Workshop, Epic Fight, WaterFrames, Create, Sable, Create Aeronautics, Drop the Beam, Bobby, Iris, GeckoLib, Curios, Iron's Spellbooks, Entity Culling, Exposure, Accessories, Jade, Immersive Paintings, Immersive Aircraft, Immersive Vehicles, More Player Models) work through those mods'
 classes and APIs and include none of their code. Not affiliated with Mojang or Microsoft.
 
 ## Français
@@ -217,13 +220,13 @@ il a été fait.
 | Cible | Intégrations actives |
 |---|---|
 | NeoForge 1.21.1 | Accessories, Armourer's Workshop, Better Combat, Bobby, Create, Create Aeronautics, Curios, Custom NPCs, Distant Horizons, Drop the Beam, Emotecraft, Entity Culling, Epic Fight, Exposure, GeckoLib, Immersive Aircraft, Immersive Paintings, Immersive Vehicles, Iris, Iron's Spellbooks, Jade, Morph, ParCool, Pehkui, Player Animator, Sable, Simulated, WaterFrames |
-| Fabric 1.21.1 | Accessories, Armourer's Workshop, Better Combat, Bobby, Distant Horizons, Emotecraft, Entity Culling, Exposure, GeckoLib, Immersive Aircraft, Immersive Paintings, Iris, Jade, Pehkui, Player Animator, Sable, WaterFrames |
+| Fabric 1.21.1 | Accessories, Armourer's Workshop, Better Combat, Bobby, Custom NPCs, Distant Horizons, Emotecraft, Entity Culling, Exposure, GeckoLib, Immersive Aircraft, Immersive Paintings, Iris, Jade, Pehkui, Player Animator, Sable, WaterFrames |
 | Forge 1.21.1 | Entity Culling, GeckoLib |
-| NeoForge 1.20.1 | Curios, GeckoLib, Jade |
-| Forge 1.20.1 | Curios, Entity Culling, GeckoLib, Immersive Vehicles, Jade |
-| Fabric 1.20.1 | Entity Culling, GeckoLib, Jade |
-| NeoForge 26.1.2 | Entity Culling, GeckoLib, Immersive Vehicles, Iris, Jade |
-| Fabric 26.1.2 | Entity Culling, GeckoLib, Iris, Jade |
+| NeoForge 1.20.1 | Armourer's Workshop, Curios, Custom NPCs, GeckoLib, Jade, More Player Models |
+| Forge 1.20.1 | Armourer's Workshop, Curios, Custom NPCs, Entity Culling, Epic Fight, GeckoLib, Immersive Vehicles, Jade, More Player Models |
+| Fabric 1.20.1 | Armourer's Workshop, Custom NPCs, Entity Culling, GeckoLib, Jade |
+| NeoForge 26.1.2 | Armourer's Workshop, Entity Culling, GeckoLib, Immersive Vehicles, Iris, Jade |
+| Fabric 26.1.2 | Armourer's Workshop, Entity Culling, GeckoLib, Iris, Jade |
 | Forge 26.1.2 | GeckoLib |
 
 La liste vient de `CompatTargets.java` de chaque `common/<version de minecraft>/`. Une intégration active n'est pas
@@ -311,10 +314,13 @@ lu, et les limites connues de chaque cible.
 - **Modifier les entités enregistrées** : l'onglet **Entités** masque un joueur ou un mob enregistré (pour tout
   le replay, ou avant ou après la tête de lecture), le déplace au viseur et règle le volume de ses sons (0 à 400 %,
   ou coupés), en lecture et dans les exports vidéo.
-- **Masquer l'armure** (Minecraft 1.21.1) : les interrupteurs « Armor shown » cachent le casque, le plastron (avec
-  les élytres), les jambières ou les bottes d'un joueur enregistré (onglet **Entités**) ou d'un acteur (écran de
-  l'acteur). Le réglage « Hide player armor in replays » (`hidePlayerArmor`) cache l'armure de tous les joueurs.
-  Le jeu lui-même ne change jamais.
+- **Masquer l'armure** : les interrupteurs « Armor shown » cachent le casque (avec une citrouille ou une tête
+  portée à sa place), le plastron (avec les élytres), les jambières ou les bottes d'un joueur enregistré (onglet
+  **Entités**) ou d'un acteur (écran de l'acteur), en lecture et dans les exports vidéo. Le réglage « Hide player
+  armor in replays » (`hidePlayerArmor`) cache l'armure de tous les joueurs et acteurs. Le jeu lui-même ne change
+  jamais. Les mobs et les PNJ gardent leur armure, et les skins d'Armourer's Workshop restent en place. Toutes les
+  cibles compilent avec, mais rien n'a encore été essayé en jeu : voir « Armure masquée » dans
+  [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md).
 - **Interface en verre** : un style de verre clair aux coins arrondis et aux animations fluides. L'éditeur a
   un panneau latéral repliable (Caméras, Acteurs, Scène, Export), un dock en bas avec les commandes de
   lecture et une timeline à pistes zoomable (Ctrl + molette), et la liste des raccourcis sur **F1** ou **?**.
@@ -396,5 +402,5 @@ Chaque étape est écrite dans le log avec le préfixe `SCENE`, pour qu'un outil
 
 Licence Apache 2.0, voir `LICENSE` et `NOTICE`. Le jar n'embarque aucun code tiers. FFmpeg est un programme
 externe que tu installes toi-même ; Just Replay ne fait que le lancer pour l'export vidéo. Les intégrations
-optionnelles (Simple Voice Chat, Distant Horizons, Emotecraft, ParCool, Better Combat, Morph, Pehkui, Custom NPCs, Armourer's Workshop, Epic Fight, WaterFrames, Create, Sable, Create Aeronautics, Drop the Beam, Bobby, Iris, GeckoLib, Curios, Iron's Spellbooks, Entity Culling, Exposure, Accessories, Jade, Immersive Paintings, Immersive Aircraft, Immersive Vehicles) passent par les
+optionnelles (Simple Voice Chat, Distant Horizons, Emotecraft, ParCool, Better Combat, Morph, Pehkui, Custom NPCs, Armourer's Workshop, Epic Fight, WaterFrames, Create, Sable, Create Aeronautics, Drop the Beam, Bobby, Iris, GeckoLib, Curios, Iron's Spellbooks, Entity Culling, Exposure, Accessories, Jade, Immersive Paintings, Immersive Aircraft, Immersive Vehicles, More Player Models) passent par les
 classes et API de ces mods et n'incluent aucun de leur code. Projet non affilié à Mojang ou Microsoft.

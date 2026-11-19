@@ -400,7 +400,7 @@ public final class Recorder {
             });
         }
         try {
-            c.encode(packet, sink);
+            c.encode(com.vyrriox.justreplay.compat.ReplayCompat.rewriteRecorded(packet, localUuid, actorUuid), sink);
         } catch (Throwable t) {
             logUnrecordable(packet, t);
         }
@@ -1126,7 +1126,7 @@ public final class Recorder {
         }
         write(listener, new ClientboundSetEquipmentPacket(player.getId(), equipment), sink);
         writeAttributes(listener, player, sink);
-        com.vyrriox.justreplay.compat.ReplayCompat.writePlayerState(player, packet -> write(listener, packet, sink));
+        com.vyrriox.justreplay.compat.ReplayCompat.writePlayerState(player, actorUuid, packet -> write(listener, packet, sink));
     }
 
     // ---------------------------------------------------------------- packet writing
@@ -1195,7 +1195,7 @@ public final class Recorder {
             actorAttributes = null;
             writeActorSpawn(listener, player, sink);
             // A form the server sent before this spawn (joining a world morphed) is never sent again.
-            com.vyrriox.justreplay.compat.ReplayCompat.writeActorForm(player, packet -> write(listener, packet));
+            com.vyrriox.justreplay.compat.ReplayCompat.writeActorForm(player, actorUuid, packet -> write(listener, packet));
         }
 
         Vec3 pos = player.position();
@@ -1244,6 +1244,9 @@ public final class Recorder {
         }
         lastSwinging = player.swinging;
         lastSwingTime = player.swingTime;
+
+        // Mod state of the recording player and of the players around it that no packet carries.
+        com.vyrriox.justreplay.compat.ReplayCompat.writeLiveChanges(mc, player, actorUuid, packet -> write(listener, packet));
     }
 
     /** Base values and modifiers of the entity's syncable attributes, as the server sends them on spawn. */
@@ -1399,6 +1402,7 @@ public final class Recorder {
     private void writeSnapshotTail(Minecraft mc, ClientPacketListener listener, Consumer<byte[]> sink) {
         ClientLevel level = mc.level;
         LocalPlayer player = mc.player;
+        com.vyrriox.justreplay.compat.ReplayCompat.writeSnapshot(packet -> write(listener, packet, sink));
         writeMaps(level, listener, sink);
         // Ends the terrain loading screen of the login, as the server's own one does.
         write(listener, new net.minecraft.network.protocol.game.ClientboundSetDefaultSpawnPositionPacket(level.getSharedSpawnPos(), level.getSharedSpawnAngle()), sink);
@@ -1420,12 +1424,14 @@ public final class Recorder {
         for (Entity vehicle : withPassengers) {
             write(listener, new ClientboundSetPassengersPacket(vehicle), sink);
         }
-        // Mod state of the other players in progress (worn curios): the server sends it only on a change.
+        // Mod state of the other players in progress (worn curios, More Player Models looks): the server sends it
+        // only on a change.
         for (net.minecraft.world.entity.player.Player other : level.players()) {
             if (other != player) {
-                com.vyrriox.justreplay.compat.ReplayCompat.writePlayerState(other, packet -> write(listener, packet, sink));
+                com.vyrriox.justreplay.compat.ReplayCompat.writePlayerState(other, other.getUUID(), packet -> write(listener, packet, sink));
             }
         }
+        com.vyrriox.justreplay.compat.ReplayCompat.writeEntityStates(level, packet -> write(listener, packet, sink));
     }
 
     /** Map contents: the server only sends them when they change or on first sight, and a login forgets them. */

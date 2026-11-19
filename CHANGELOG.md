@@ -3,15 +3,29 @@
 ## [Unreleased]
 
 ### Added
-- **Hide armor** (Minecraft 1.21.1): switch off the helmet, chestplate, leggings or boots of a recorded player or an actor, one by one. The elytra go with the chestplate, a pumpkin or a head with the helmet. Only the replay and the video change, and older projects keep their armor. The new `hidePlayerArmor` option strips every player at once.
+- **Hide armor**: switch off the helmet, chestplate, leggings or boots of a recorded player or an actor, one by one. The elytra go with the chestplate, a pumpkin or a head with the helmet. Only the replay and the video change, and older projects keep their armor. The new `hidePlayerArmor` option strips every player at once. It also works on the models Epic Fight draws; Armourer's Workshop skins stay on.
+- **More Player Models** on Forge and NeoForge 1.20.1: everyone keeps their look in replays, tails and ears included, yours on your actor, even after a seek. Works with or without the mod on the server, and watching a replay never touches your own look. MPM has no official build for 1.21.1 or 26.1.2, so it stays off there.
+- **Epic Fight** on Forge 1.20.1: battle mode, attacks and dodges play back like on NeoForge 1.21.1, yours on your actor, even if the recording starts mid-fight or you seek. Watch it with the same Epic Fight version and addons as the recording.
+- **Armourer's Workshop** on Forge, NeoForge and Fabric 1.20.1 and on NeoForge and Fabric 26.1.2: skins and wardrobes show up in replays, singleplayer included.
+- **Custom NPCs** (unofficial port) on Forge, NeoForge and Fabric 1.20.1 and on Fabric 1.21.1: NPCs keep their look, and your dialogs and menus stay out of the replay.
+
+Heads up: none of this has been tried in game yet. Every target builds and each integration was checked against the mod's own jar, so tell me if something looks off.
 
 ### Changed
+- **Self test**: checks hidden armor on every target, and More Player Models looks on Forge 1.20.1 (with `-PdevMods`).
 - **Create Aeronautics, Sable, Create Propulsion**: checked together with Create 6.0.10 on NeoForge 1.21.1. The game loads, and recording, replays and seeks pass the self test. See `docs/COMPATIBILITY.md`.
 
 ### Ajouts
-- **Masquer l'armure** (Minecraft 1.21.1) : coupe le casque, le plastron, les jambières ou les bottes d'un joueur enregistré ou d'un acteur, pièce par pièce. Les élytres partent avec le plastron, une citrouille ou une tête avec le casque. Seuls le replay et la vidéo changent, et les anciens projets gardent leur armure. La nouvelle option `hidePlayerArmor` déshabille tous les joueurs d'un coup.
+- **Masquer l'armure** : coupe le casque, le plastron, les jambières ou les bottes d'un joueur enregistré ou d'un acteur, pièce par pièce. Les élytres partent avec le plastron, une citrouille ou une tête avec le casque. Seuls le replay et la vidéo changent, et les anciens projets gardent leur armure. La nouvelle option `hidePlayerArmor` déshabille tous les joueurs d'un coup. Ça marche aussi sur les modèles dessinés par Epic Fight ; les skins d'Armourer's Workshop restent en place.
+- **More Player Models** sur Forge et NeoForge 1.20.1 : chacun garde son apparence dans les replays, queues et oreilles comprises, la tienne sur ton acteur, même après un saut. Ça marche avec ou sans le mod sur le serveur, et regarder un replay ne touche jamais à ta propre apparence. MPM n'a pas de build officiel en 1.21.1 ni en 26.1.2, donc il reste éteint là-bas.
+- **Epic Fight** sur Forge 1.20.1 : le mode combat, les attaques et les esquives se rejouent comme sur NeoForge 1.21.1, les tiennes sur ton acteur, même si l'enregistrement commence en plein combat ou si tu sautes dans le temps. Regarde-le avec la même version d'Epic Fight et les mêmes addons qu'à l'enregistrement.
+- **Armourer's Workshop** sur Forge, NeoForge et Fabric 1.20.1 et sur NeoForge et Fabric 26.1.2 : les skins et les garde-robes s'affichent dans les replays, en solo aussi.
+- **Custom NPCs** (portage non officiel) sur Forge, NeoForge et Fabric 1.20.1 et sur Fabric 1.21.1 : les PNJ gardent leur apparence, et tes dialogues et menus restent hors du replay.
+
+Attention : rien de tout ça n'a encore été essayé en jeu. Toutes les cibles compilent et chaque intégration a été vérifiée contre le jar du mod lui-même, alors dis-moi si quelque chose cloche.
 
 ### Modifications
+- **Test automatique** : vérifie l'armure masquée sur toutes les cibles, et les apparences de More Player Models sur Forge 1.20.1 (avec `-PdevMods`).
 - **Create Aeronautics, Sable, Create Propulsion** : vérifiés ensemble avec Create 6.0.10 sur NeoForge 1.21.1. Le jeu charge, et l'enregistrement, les replays et les sauts passent le test automatique. Voir `docs/COMPATIBILITY.md`.
 
 ---

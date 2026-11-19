@@ -16,14 +16,18 @@ public final class CompatTargets {
     /** Key of the Player Animator mixins, whose library has a different mod id on each loader. */
     public static final String PLAYER_ANIMATOR = "playeranimator";
 
+    /**
+     * Integrations read against their 1.21.1 build, per loader. Custom NPCs ({@code customnpcs}) is the unofficial port
+     * of its NeoForge build 20241226 and Fabric build 20260521: the same classes and packets on both loaders.
+     */
     private static final Map<String, Set<String>> SUPPORTED = Map.of(
             "neoforge", Set.of("accessories", "aeronautics", "armourers_workshop", "bettercombat", "bobby", "create", "curios",
                     "customnpcs", "distanthorizons", "dropthebeam", "emotecraft", "entityculling", "epicfight", "exposure",
                     "geckolib", "immersive_aircraft", "immersive_paintings", "irons_spellbooks", "iris", "jade", "morph",
                     "mts", "parcool", "pehkui", PLAYER_ANIMATOR, "sable", "simulated", "waterframes"),
-            "fabric", Set.of("accessories", "armourers_workshop", "bettercombat", "bobby", "distanthorizons", "emotecraft",
-                    "entityculling", "exposure", "geckolib", "immersive_aircraft", "immersive_paintings", "iris", "jade",
-                    "pehkui", PLAYER_ANIMATOR, "sable", "waterframes"),
+            "fabric", Set.of("accessories", "armourers_workshop", "bettercombat", "bobby", "customnpcs", "distanthorizons",
+                    "emotecraft", "entityculling", "exposure", "geckolib", "immersive_aircraft", "immersive_paintings", "iris",
+                    "jade", "pehkui", PLAYER_ANIMATOR, "sable", "waterframes"),
             "forge", Set.of("entityculling", "geckolib"));
 
     private CompatTargets() {
