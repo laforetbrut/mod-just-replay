@@ -16,8 +16,9 @@ import org.spongepowered.asm.mixin.injection.Redirect;
  */
 @Mixin(LightTexture.class)
 public abstract class VisualLightMixin {
+    // Optional: a brightness mod redirecting the same read must not stop the game; night vision is then off.
     @Redirect(method = "updateLightTexture(F)V",
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/OptionInstance;get()Ljava/lang/Object;", ordinal = 1))
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/OptionInstance;get()Ljava/lang/Object;", ordinal = 1), require = 0)
     private Object justreplay$fullBright(OptionInstance<?> option) {
         return Visuals.nightVision() ? Double.valueOf(Visuals.FULL_BRIGHT) : option.get();
     }
