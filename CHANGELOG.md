@@ -20,19 +20,18 @@
 
 Heads up: none of this has been tried in game yet. Every target builds and each integration was checked against the mod's own jar, so tell me if something looks off.
 
-### Fixed
-- A hand edited project with an empty weather no longer stops the replay from opening.
-
 ### Changed
 - **Self test**: checks hidden armor on every target, and More Player Models looks on Forge 1.20.1 (with `-PdevMods`).
 - **Create Aeronautics, Sable, Create Propulsion**: checked together with Create 6.0.10 on NeoForge 1.21.1. The game loads, and recording, replays and seeks pass the self test. See `docs/COMPATIBILITY.md`.
 - **Building from source**: `./gradlew build` also runs the unit tests of `common/<mc>/src/test`, and the target branches carry them. See `docs/BUILDING.md`.
+- **Test matrix**: `tools/test_matrix.py` builds and self tests every target one after the other, with one report, also with the mods of a modpack. See `docs/TEST_MATRIX.md`.
 
 ### Fixed
 - **Big modpacks**: an integration whose mod changed (a method or class gone, a crash in its code) no longer takes the game down. It turns itself off until the next start with one warning in the log, and the rest keeps going.
 - **Mixins**: another mod that rewrote a method Just Replay hooks no longer stops the game at startup, only that feature is lost.
 - **Mod packets**: a packet that can't be recorded, read back or played is skipped and counted instead of breaking the recording or the replay. One line sums them up at the end.
 - **Export names**: a video named like a Windows device (CON, NUL, COM1...) or starting with a dot now gets a name that works everywhere.
+- **Hand edited projects**: an empty weather no longer stops the replay from opening.
 
 ### Ajouts
 - **Masquer l'armure** : coupe le casque, le plastron, les jambières ou les bottes d'un joueur enregistré ou d'un acteur, pièce par pièce. Les élytres partent avec le plastron, une citrouille ou une tête avec le casque. Seuls le replay et la vidéo changent, et les anciens projets gardent leur armure. La nouvelle option `hidePlayerArmor` déshabille tous les joueurs d'un coup. Ça marche aussi sur les modèles dessinés par Epic Fight ; les skins d'Armourer's Workshop restent en place.
@@ -52,19 +51,18 @@ Heads up: none of this has been tried in game yet. Every target builds and each 
 
 Attention : rien de tout ça n'a encore été essayé en jeu. Toutes les cibles compilent et chaque intégration a été vérifiée contre le jar du mod lui-même, alors dis-moi si quelque chose cloche.
 
-### Corrections
-- Un projet retouché à la main avec une météo vide ne bloque plus l'ouverture du replay.
-
 ### Modifications
 - **Test automatique** : vérifie l'armure masquée sur toutes les cibles, et les apparences de More Player Models sur Forge 1.20.1 (avec `-PdevMods`).
 - **Create Aeronautics, Sable, Create Propulsion** : vérifiés ensemble avec Create 6.0.10 sur NeoForge 1.21.1. Le jeu charge, et l'enregistrement, les replays et les sauts passent le test automatique. Voir `docs/COMPATIBILITY.md`.
 - **Compiler le mod** : `./gradlew build` lance aussi les tests unitaires de `common/<mc>/src/test`, et les branches de cible les embarquent. Voir `docs/BUILDING.md`.
+- **Matrice de tests** : `tools/test_matrix.py` compile et teste toutes les cibles l'une après l'autre, avec un seul rapport, aussi avec les mods d'un modpack. Voir `docs/TEST_MATRIX.md`.
 
 ### Correctifs
 - **Gros modpacks** : une intégration dont le mod a changé (méthode ou classe disparue, plantage dans son code) ne fait plus planter le jeu. Elle se coupe jusqu'au prochain démarrage avec un seul avertissement dans le log, et le reste continue.
 - **Mixins** : un autre mod qui a réécrit une méthode accrochée par Just Replay n'empêche plus le jeu de démarrer, seule cette fonction est perdue.
 - **Paquets de mods** : un paquet impossible à enregistrer, relire ou rejouer est ignoré et compté au lieu de casser l'enregistrement ou le replay. Une ligne en fait le compte à la fin.
 - **Noms d'export** : une vidéo nommée comme un périphérique Windows (CON, NUL, COM1...) ou qui commence par un point reçoit maintenant un nom valable partout.
+- **Projets retouchés à la main** : une météo vide ne bloque plus l'ouverture du replay.
 
 ---
 
