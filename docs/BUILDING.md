@@ -22,7 +22,7 @@ Repository / Dépôt : <https://github.com/laforetbrut/mod-just-replay>
 
 `fabric-1.20.1` compiles for Java 17, but Fabric Loom needs Java 21 to run: start its Gradle with Java 21. `fabric-26.1.2` sets its daemon to Java 25 in `gradle/gradle-daemon-jvm.properties`.
 
-The continuous integration (`.github/workflows/build.yml`) builds the nine targets when a version tag is pushed, on pull requests, and when started by hand from the Actions page. A plain push to a branch does not start it.
+The continuous integration (`.github/workflows/build.yml`) builds the nine targets when a version tag is pushed, on pull requests, and when started by hand from the Actions page. A plain push to a branch does not start it. Each target's `./gradlew build` runs its unit tests; when a build fails, its test report is kept as the `test-report-<target>` artifact. A second job checks the log reader of `tools/test_matrix.py`.
 
 ### Repository layout
 
@@ -161,7 +161,7 @@ The game folder is `run-prod/` and the log `run-prod/logs/latest.log`. `fabric-1
 
 `fabric-1.20.1` compile pour Java 17, mais Fabric Loom a besoin de Java 21 pour tourner : lancer son Gradle avec Java 21. `fabric-26.1.2` règle son daemon sur Java 25 dans `gradle/gradle-daemon-jvm.properties`.
 
-L'intégration continue (`.github/workflows/build.yml`) compile les neuf cibles quand un tag de version est poussé, sur les pull requests, et à la main depuis la page Actions. Un simple push sur une branche ne la lance pas.
+L'intégration continue (`.github/workflows/build.yml`) compile les neuf cibles quand un tag de version est poussé, sur les pull requests, et à la main depuis la page Actions. Un simple push sur une branche ne la lance pas. Le `./gradlew build` de chaque cible lance ses tests unitaires ; quand un build échoue, son rapport de tests est gardé dans l'artefact `test-report-<cible>`. Un second job vérifie le lecteur de journal de `tools/test_matrix.py`.
 
 ### Organisation du dépôt
 
