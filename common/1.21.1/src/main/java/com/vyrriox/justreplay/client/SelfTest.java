@@ -484,7 +484,7 @@ public final class SelfTest {
             case 4 -> {
                 if (atMenu(mc)) {
                     Mods.checkCulling("before the replay", true);
-                    ReplaySession.open(replay, mc.screen);
+                    openThroughModWarning(mc, replay);
                     log("replay opening");
                     next(40);
                 }
@@ -1311,6 +1311,37 @@ public final class SelfTest {
      * Hidden armor: the player actor's helmet is hidden and its chestplate kept, the armor layer skipped at least one
      * piece while the actors were drawn, the camera player is never touched, and the global option hides every slot.
      */
+    /**
+     * Opens the replay with a mod that is not installed written into its list: the window that lists changed mods
+     * must show it among the missing ones, then "Open anyway" opens the replay.
+     */
+    private static void openThroughModWarning(Minecraft mc, Path dir) {
+        com.vyrriox.justreplay.format.ReplayMeta meta = ReplayStorage.readMeta(dir);
+        if (meta == null) {
+            log("mods changed window: no meta.json -> FAIL");
+            ReplaySession.open(dir, mc.screen);
+            return;
+        }
+        meta.mods.add("justreplay_selftest_missing@1.0");
+        ReplayStorage.writeMeta(dir, meta);
+        boolean warn = com.vyrriox.justreplay.config.JRConfig.WARN_MOD_CHANGES.get();
+        com.vyrriox.justreplay.config.JRConfig.WARN_MOD_CHANGES.set(true);
+        try {
+            ReplaySession.open(dir, mc.screen);
+        } finally {
+            com.vyrriox.justreplay.config.JRConfig.WARN_MOD_CHANGES.set(warn);
+        }
+        if (mc.screen instanceof com.vyrriox.justreplay.gui.ModsChangedScreen window) {
+            boolean listed = !window.mods().missing().isEmpty()
+                    && "justreplay_selftest_missing".equals(window.mods().missing().get(0).id());
+            log("mods changed window: shown, fake mod listed first {} ({} differences) -> {}", listed, window.mods().size(),
+                    listed ? "OK" : "FAIL");
+            window.openAnyway();
+        } else {
+            log("mods changed window: not shown, screen {} -> FAIL", mc.screen == null ? null : mc.screen.getClass().getSimpleName());
+        }
+    }
+
     private static void checkHiddenArmor(Minecraft mc, ReplaySession s) {
         Entity notch = null;
         for (ReplayProject.ActorData a : s.project().actors) {
