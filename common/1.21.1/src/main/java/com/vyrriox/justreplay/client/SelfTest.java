@@ -974,13 +974,13 @@ public final class SelfTest {
                 s.project().entityEdits.clear();
                 hiddenMob = null;
                 movedMob = null;
-                go(62, 5);
+                go(70, 5);
             }
-            case 62 -> {
+            case 70 -> {
                 checkVisuals(mc, ReplaySession.current());
-                go(63, 20);
+                go(71, 20);
             }
-            case 63 -> {
+            case 71 -> {
                 ReplaySession s = ReplaySession.current();
                 int skipped = com.vyrriox.justreplay.editor.EntityEdits.skippedRenders() - skippedBefore;
                 log("visuals: entities of the hidden type {} skipped {} renders -> {}", s.project().hiddenEntityTypes, skipped,
