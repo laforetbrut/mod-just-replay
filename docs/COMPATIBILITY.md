@@ -260,7 +260,8 @@ in the exported HUD.
 
 ### Test protocol
 
-1. Dev run with a subset (Sodium, Iris, Create, GeckoLib mods, Voice Chat, Emotecraft) in `localRuntime`.
+1. Dev run with a subset (Sodium, Iris, Create, GeckoLib mods, Voice Chat, Emotecraft) in `localRuntime`, or the
+   whole `mods` folder of a pack with `tools/test_matrix.py --mods` ([TEST_MATRIX.md](TEST_MATRIX.md)).
 2. Full pack run: copy the built jar into the Arcadia V2 instance, record 10 minutes on a server, then play,
    seek, edit and export.
 3. Any crash or visual difference is logged in `ERROR_LOG.md` and gets a compatibility module.
@@ -334,7 +335,8 @@ personnalisés. Les mods ci-dessous demandent un traitement dédié, classés pa
 - **Niveau 5, réseau** : les mods Arcadia, NoChatReports, SkinRestorer, la suite FTB, KubeJS, Easy NPC et
   les véhicules rapides.
 
-Protocole de test : un environnement de développement avec les mods principaux, puis le pack complet sur un
+Protocole de test : un environnement de développement avec les mods principaux (ou tout le dossier `mods` d'un
+pack avec `tools/test_matrix.py --mods`, voir [TEST_MATRIX.md](TEST_MATRIX.md)), puis le pack complet sur un
 serveur (10 minutes enregistrées, relues, éditées et exportées). Chaque problème est consigné dans
 `ERROR_LOG.md`.
 

@@ -18,7 +18,7 @@ Repository / Dépôt : <https://github.com/laforetbrut/mod-just-replay>
 | Git | To clone the repository. |
 | JDK 17, 21, 25 | The JDK of the targets you build: Java 17 for Minecraft 1.20.1, 21 for 1.21.1, 25 for 26.1.2. The projects use a Gradle toolchain, with the foojay resolver plugin to locate one. |
 | Gradle | Not needed. Each project ships its own wrapper (`gradlew`, `gradlew.bat`). |
-| Bash | Only for the scripts of `tools/`. |
+| Bash, Python 3 | Only for the scripts of `tools/` (Python for `test_matrix.py`). |
 
 `fabric-1.20.1` compiles for Java 17, but Fabric Loom needs Java 21 to run: start its Gradle with Java 21. `fabric-26.1.2` sets its daemon to Java 25 in `gradle/gradle-daemon-jvm.properties`.
 
@@ -38,7 +38,7 @@ fabric-1.21.1/                   Fabric project for Minecraft 1.21.1
 neoforge-26.1.2/                 NeoForge project for Minecraft 26.1.2
 forge-26.1.2/                    Forge project for Minecraft 26.1.2
 fabric-26.1.2/                   Fabric project for Minecraft 26.1.2
-tools/                           branch generator, jar collector
+tools/                           branch generator, jar collector, test matrix
 docs/                            this documentation
 ```
 
@@ -125,7 +125,8 @@ cd fabric-1.21.1
 ./gradlew runClient -Pselftest
 ```
 
-The run ends with a `SELFTEST DONE` line in the log; a pass has 0 FAIL lines.
+The run ends with a `SELFTEST DONE` line in the log; a pass has 0 FAIL lines. To build and self test every target
+one after the other, with one report, use `tools/test_matrix.py` ([TEST_MATRIX.md](TEST_MATRIX.md)).
 
 ### Production self test
 
@@ -156,7 +157,7 @@ The game folder is `run-prod/` and the log `run-prod/logs/latest.log`. `fabric-1
 | Git | Pour cloner le dépôt. |
 | JDK 17, 21, 25 | Le JDK des cibles à compiler : Java 17 pour Minecraft 1.20.1, 21 pour 1.21.1, 25 pour 26.1.2. Les projets utilisent une toolchain Gradle, avec le plugin foojay pour la trouver. |
 | Gradle | Inutile. Chaque projet a son propre wrapper (`gradlew`, `gradlew.bat`). |
-| Bash | Seulement pour les scripts de `tools/`. |
+| Bash, Python 3 | Seulement pour les scripts de `tools/` (Python pour `test_matrix.py`). |
 
 `fabric-1.20.1` compile pour Java 17, mais Fabric Loom a besoin de Java 21 pour tourner : lancer son Gradle avec Java 21. `fabric-26.1.2` règle son daemon sur Java 25 dans `gradle/gradle-daemon-jvm.properties`.
 
@@ -168,7 +169,7 @@ L'intégration continue (`.github/workflows/build.yml`) compile les neuf cibles 
 common/<mcversion>/src/main/     code et ressources partagés par tous les loaders (1.20.1, 1.21.1, 26.1.2)
 common/<mcversion>/src/test/     tests unitaires de ce code partagé, lancés par le build de chaque loader
 <loader>-<mcversion>/            un projet Gradle par cible : neoforge, forge, fabric x 1.20.1, 1.21.1, 26.1.2
-tools/                           générateur de branches, collecteur de jars
+tools/                           générateur de branches, collecteur de jars, matrice de tests
 docs/                            cette documentation
 ```
 
@@ -222,7 +223,9 @@ cd fabric-1.21.1
 ./gradlew runClient -Pselftest
 ```
 
-Le lancement se termine par une ligne `SELFTEST DONE` dans le journal ; une réussite n'a aucune ligne FAIL.
+Le lancement se termine par une ligne `SELFTEST DONE` dans le journal ; une réussite n'a aucune ligne FAIL. Pour
+compiler et tester toutes les cibles l'une après l'autre, avec un seul rapport, utilise `tools/test_matrix.py`
+([TEST_MATRIX.md](TEST_MATRIX.md)).
 
 ### Test automatique en production
 
