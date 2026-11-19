@@ -42,6 +42,9 @@ public final class Playback {
     private final Set<Class<?>> failedTypes = Collections.synchronizedSet(new HashSet<>());
     /** Ids of recorded mod payloads skipped because no installed mod receives them, logged once each. */
     private final Set<net.minecraft.resources.ResourceLocation> skippedPayloads = new HashSet<>();
+    /** Recorded packets that could not be read or played: skipped and counted, summed up when the replay ends. */
+    private final com.vyrriox.justreplay.record.SkippedPackets skipped =
+            new com.vyrriox.justreplay.record.SkippedPackets("Replay", JustReplay.LOGGER::warn);
     private PacketCodec codec;
     private int cursor;
     private boolean paused;
@@ -278,7 +281,25 @@ public final class Playback {
     }
 
     @SuppressWarnings("unchecked")
+    /**
+     * Plays one recorded packet. Whatever goes wrong with it (a mod payload that cannot be read or handled, a filter
+     * that fails) skips that packet only: it is counted and the replay goes on with the next one.
+     */
     private void handle(Minecraft mc, RecordedPacket recorded) {
+        try {
+            handleChecked(mc, recorded);
+        } catch (Throwable t) {
+            PacketCodec c = codec;
+            skipped.fail(com.vyrriox.justreplay.record.SkippedPackets.Stage.PLAY, c != null ? c.describe(recorded.data()) : null, t);
+        }
+    }
+
+    /** Logs how many recorded packets this replay skipped, if any, then counts from zero. */
+    public void logSkipped() {
+        skipped.flush(JustReplay.LOGGER::warn);
+    }
+
+    private void handleChecked(Minecraft mc, RecordedPacket recorded) {
         ClientPacketListener listener = mc.getConnection();
         if (listener == null) {
             return;
@@ -289,13 +310,12 @@ public final class Playback {
             if (skippedPayloads.add(unregistered)) {
                 JustReplay.LOGGER.info("Skipping recorded {} packets: no mod here receives them", unregistered);
             }
+            skipped.count(com.vyrriox.justreplay.record.SkippedPackets.Stage.NO_RECEIVER, unregistered.toString());
             return;
         }
-        Packet<? super ClientGamePacketListener> packet;
-        try {
-            packet = codec.decode(recorded.data());
-        } catch (Throwable t) {
-            logOnce(RecordedPacket.class, "Cannot decode a recorded packet (mod missing or changed?): " + t);
+        // A packet that cannot be read (its mod changed or is missing) is counted and skipped.
+        Packet<? super ClientGamePacketListener> packet = skipped.read(recorded.data(), codec::decode, codec::describe);
+        if (packet == null) {
             return;
         }
         if (packet instanceof net.minecraft.network.protocol.game.ClientboundPlayerChatPacket chat) {
@@ -335,7 +355,7 @@ public final class Playback {
         try {
             ((Packet<ClientGamePacketListener>) packet).handle(listener);
         } catch (Throwable t) {
-            logOnce(packet.getClass(), "Packet " + packet.getClass().getSimpleName() + " failed during playback: " + t);
+            skipped.fail(com.vyrriox.justreplay.record.SkippedPackets.Stage.PLAY, PacketCodec.typeName(packet), t);
         } finally {
             dispatching = false;
             dispatchTick = -1;

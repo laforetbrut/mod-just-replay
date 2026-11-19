@@ -153,6 +153,8 @@ public final class Recorder {
     /** UUID of the recording player's own profile, the one its actor's UUID is derived from. */
     private final UUID localUuid;
     private final Set<Object> failedTypes = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    /** Packets that could not be encoded: skipped and counted, summed up in the log when the recording stops. */
+    private final SkippedPackets skipped = new SkippedPackets("Recording", JustReplay.LOGGER::warn);
     private final Consumer<byte[]> sink = this::accept;
     private volatile boolean stopped;
     private volatile int tick;
@@ -302,6 +304,20 @@ public final class Recorder {
     // ---------------------------------------------------------------- network thread
 
     /** Called by the connection mixin for every packet the client receives, before it is handled. */
+    /** Received packet types the recorder could not look at, logged once each. */
+    private static final Set<String> RECEIVE_FAILED = ConcurrentHashMap.newKeySet();
+
+    /**
+     * A received packet the recorder could not look at: logged once per type, the game handles the packet as usual (an
+     * error here would otherwise reach the network thread and close the connection).
+     */
+    public static void onReceiveError(Packet<?> packet, Throwable t) {
+        String type = PacketCodec.typeName(packet);
+        if (RECEIVE_FAILED.add(type)) {
+            JustReplay.LOGGER.warn("Just Replay could not record a received {} packet, the game handles it as usual: {}", type, t.toString(), t);
+        }
+    }
+
     public static void onPacketReceived(Connection connection, Packet<?> packet) {
         if (packet instanceof ClientboundLoginPacket login) {
             lastLogin = login;
@@ -369,7 +385,16 @@ public final class Recorder {
         }
     }
 
+    /** Records one received packet. Nothing here may reach the connection: a packet that fails is skipped and counted. */
     private void capture(Packet<?> packet) {
+        try {
+            captureChecked(packet);
+        } catch (Throwable t) {
+            logUnrecordable(packet, t);
+        }
+    }
+
+    private void captureChecked(Packet<?> packet) {
         if (!(connection.getPacketListener() instanceof ClientPacketListener listener)) {
             return;
         }
@@ -414,13 +439,12 @@ public final class Recorder {
         return c;
     }
 
-    /** Logs once per packet type (custom payload id when it has one) a packet that cannot be encoded. */
+    /**
+     * Counts a packet that cannot be encoded, by type (custom payload id when it has one): the first of each type logs a
+     * warning, the stop of the recording a summary.
+     */
     private void logUnrecordable(Packet<?> packet, Throwable t) {
-        Object type = Payloads.idOf(packet) != null ? Payloads.idOf(packet) : packet.getClass();
-        if (failedTypes.add(type)) {
-            JustReplay.LOGGER.warn("Cannot record {}, it will be skipped: {}", type, t.toString(),
-                    t.getCause() != null ? t.getCause() : t);
-        }
+        skipped.fail(SkippedPackets.Stage.RECORD, PacketCodec.typeName(packet), t);
     }
 
     /** Hands an encoded packet to every output, at the current tick. */
@@ -740,6 +764,7 @@ public final class Recorder {
             r.meta.durationTicks = Math.min(r.meta.durationTicks, Math.max(0, r.writer.lastTick()));
         }
         ReplayStorage.writeMeta(r.dir, r.meta);
+        c.skipped.flush(JustReplay.LOGGER::warn);
         if (complete) {
             JustReplay.LOGGER.info("Recording saved to {} ({} ticks)", r.dir, r.meta.durationTicks);
         } else {
@@ -1143,9 +1168,7 @@ public final class Recorder {
         try {
             c.encode(packet, out);
         } catch (Throwable t) {
-            if (failedTypes.add(packet.getClass())) {
-                JustReplay.LOGGER.warn("Cannot record synthetic packet {}: {}", packet.getClass().getName(), t.toString());
-            }
+            logUnrecordable(packet, t);
         }
     }
 
