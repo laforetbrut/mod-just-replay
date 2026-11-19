@@ -948,5 +948,15 @@
   "justreplay.actor.action.clip.from.tip": "First emote tick played",
   "justreplay.actor.action.clip.to": "Emote to",
   "justreplay.actor.action.clip.to.tip": "Last emote tick played; empty means the end of the emote",
-  "justreplay.actor.action.clip.length": "Emote length: %s ticks"
+  "justreplay.actor.action.clip.length": "Emote length: %s ticks",
+  "justreplay.configuration.warnModChanges": "Warn when mods changed",
+  "justreplay.mods_changed.title": "Mods changed since this recording",
+  "justreplay.mods_changed.message": "This replay was recorded with other mods. A missing mod leaves its blocks, entities and effects out, and an updated one can show them differently.",
+  "justreplay.mods_changed.missing": "Missing (%s)",
+  "justreplay.mods_changed.added": "Added (%s)",
+  "justreplay.mods_changed.updated": "Updated (%s)",
+  "justreplay.mods_changed.version": "%s: %s -> %s",
+  "justreplay.mods_changed.dont_warn": "Don't warn again for this replay",
+  "justreplay.mods_changed.dont_warn.tip": "Saved with this replay. The warning can be turned off for every replay in the settings.",
+  "justreplay.mods_changed.open": "Open anyway"
 }
