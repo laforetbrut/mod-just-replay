@@ -248,3 +248,17 @@
 **Root cause:** The ModDevGradle patched jar holds Minecraft only; Entity extends NeoForge's AttachmentHolder, which is in the NeoForge universal jar, and javac reports the incomplete class as a missing symbol.
 **Fix:** Added the NeoForge universal jar of the same version (net.neoforged/neoforge in the Gradle modules cache) to the classpath.
 **Prevention:** Outside Gradle, compile against NeoForge 26.1.2 with both the minecraft-patched jar and the neoforge universal jar (the 1.21.1 neoforge merged jar already holds both).
+
+## [2026-11-19 10:08] — ModDevGradle unit tests: no Gson on the test classpath, then 'Mod development has not been enabled yet'
+**Context:** Adding JUnit 5 tests of common/<mc>/src/test to the NeoForge targets (ModDevGradle 2.0, legacyforge for NeoForge 1.20.1), task 470
+**Error:** compileTestJava: package com.google.gson does not exist; after adding neoForge.addModdingDependenciesTo(sourceSets.test) above the neoForge block: A problem occurred evaluating root project 'justreplay'. > Mod development has not been enabled yet
+**Root cause:** ModDevGradle puts the game and its libraries on the main source set only; addModdingDependenciesTo needs the neoForge { version = ... } block (which enables mod development) to have run first
+**Fix:** Call neoForge.addModdingDependenciesTo(sourceSets.test) (legacyForge.addModdingDependenciesTo on NeoForge 1.20.1) after the neoForge/legacyForge block, at the end of build.gradle. Loom and ForgeGradle 6/7 need nothing
+**Prevention:** On ModDevGradle targets, add test dependencies on the game with addModdingDependenciesTo placed after the neoForge or legacyForge block
+
+## [2026-11-19 10:08] — Unit tests leave a logs folder in the loader project
+**Context:** First runs of the shared unit tests (./gradlew test) on the 1.21.1 targets, task 470
+**Error:** Untracked neoforge-1.21.1/logs/, forge-1.21.1/logs/, fabric-1.21.1/logs/ (empty latest.log and debug.log) after the test task
+**Root cause:** The tested classes log through SLF4J; the game's Log4j configuration on the test classpath writes logs/ in the working folder, which is the project folder by default
+**Fix:** In each build.gradle, the test task runs in build/test-run: workingDir = layout.buildDirectory.dir('test-run').get().asFile, doFirst { testRun.mkdirs() }
+**Prevention:** Give every JUnit test task of a mod project a working folder under build/ so the game's logging never writes into the project

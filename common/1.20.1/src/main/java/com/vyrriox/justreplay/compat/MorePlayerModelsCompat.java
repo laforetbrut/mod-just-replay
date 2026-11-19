@@ -110,7 +110,7 @@ public final class MorePlayerModelsCompat {
     }
 
     private static Reflect reflect() {
-        if (reflect != null || reflectFailed || !ReplayCompat.MORE_PLAYER_MODELS) {
+        if (reflect != null || reflectFailed || !Integrations.MORE_PLAYER_MODELS.on()) {
             return reflect;
         }
         try {
@@ -137,7 +137,7 @@ public final class MorePlayerModelsCompat {
         } catch (Throwable t) {
             reflectFailed = true;
             reflect = null;
-            ReplayCompat.warnOnce("mpm.reflect", "More Player Models support disabled, its classes changed", t);
+            Integrations.MORE_PLAYER_MODELS.fail("reflect", t);
         }
         return reflect;
     }

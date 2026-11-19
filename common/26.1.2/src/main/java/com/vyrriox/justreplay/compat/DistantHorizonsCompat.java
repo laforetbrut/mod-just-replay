@@ -241,7 +241,7 @@ final class DistantHorizonsCompat {
         ClassLoader loader = DistantHorizonsCompat.class.getClassLoader();
         Class<?> type = api(SAVE_STRUCTURE);
         InvocationHandler handler = (proxy, method, args) -> switch (method.getName()) {
-            case "overrideFilePath" -> redirect((File) args[0], args[1]);
+            case "overrideFilePath" -> redirectSafely((File) args[0], args[1]);
             case "getPriority" -> OVERRIDE_PRIORITY;
             case "equals" -> proxy == args[0];
             case "hashCode" -> System.identityHashCode(proxy);
@@ -276,6 +276,19 @@ final class DistantHorizonsCompat {
                     api(SAVE_STRUCTURE), override);
         } catch (Throwable t) {
             ReplayCompat.warnOnce("dh.unbind", "Cannot remove the Distant Horizons folder override", t);
+        }
+    }
+
+    /** {@link #redirect} as DH calls it, on its own threads: an error must not reach DH, it keeps its own folder. */
+    private static File redirectSafely(File current, Object level) {
+        if (!Integrations.DISTANT_HORIZONS.on()) {
+            return null;
+        }
+        try {
+            return redirect(current, level);
+        } catch (Throwable t) {
+            Integrations.DISTANT_HORIZONS.fail("overrideFilePath", t);
+            return null;
         }
     }
 

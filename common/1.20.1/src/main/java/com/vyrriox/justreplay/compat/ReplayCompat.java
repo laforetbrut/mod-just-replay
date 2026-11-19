@@ -6,31 +6,29 @@ import com.vyrriox.justreplay.replay.Playback;
 import com.vyrriox.justreplay.replay.ReplaySession;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.protocol.Packet;
-import com.vyrriox.justreplay.platform.Platform;
 
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+
+// The integrations (CURIOS, JADE...): ReplayCompat forwards each hook through the one it belongs to.
+import static com.vyrriox.justreplay.compat.Integrations.*;
 
 /**
  * Entry point of the optional mod integrations: the replay session, the playback and the recorder call these hooks,
  * which forward them to each integration whose mod is installed. Every integration reaches its mod by reflection
  * (or through optional mixins), so nothing here loads a class of a missing mod. Only the integrations listed in
  * {@link CompatTargets} for the running loader are active.
+ * <p>
+ * Each call into an integration goes through its {@link Integration} (see {@link Integrations}): it runs only while
+ * the integration is on, and any error it throws (a {@link LinkageError} from a changed mod included) turns that
+ * integration off for the rest of the game with one warning, instead of crashing the game, the recording or the
+ * replay. Hooks that put back what an integration changed in its mod still run after such a failure
+ * ({@link Integration#cleanup}).
  *
  * @author vyrriox
  */
 public final class ReplayCompat {
-    static final boolean WATERFRAMES = isLoaded("waterframes");
-    static final boolean DISTANT_HORIZONS = isLoaded("distanthorizons");
-    static final boolean CURIOS = isLoaded("curios");
-    static final boolean ENTITY_CULLING = isLoaded("entityculling");
-    static final boolean JADE = isLoaded("jade");
-    static final boolean IMMERSIVE_VEHICLES = isLoaded("mts");
-    static final boolean MORE_PLAYER_MODELS = isLoaded("moreplayermodels");
-    static final boolean ARMOURERS_WORKSHOP = isLoaded("armourers_workshop");
-    static final boolean CUSTOM_NPCS = isLoaded("customnpcs");
-    static final boolean EPIC_FIGHT = isLoaded("epicfight");
     private static final Set<String> FAILED = Collections.synchronizedSet(new HashSet<>());
     private static double monotonicFrame = -1;
     private static double monotonicValue;
@@ -39,26 +37,19 @@ public final class ReplayCompat {
     private ReplayCompat() {
     }
 
-    private static boolean isLoaded(String modId) {
-        try {
-            if (!Platform.get().isModLoaded(modId)) {
-                return false;
-            }
-            if (!CompatTargets.isSupported(modId)) {
-                JustReplay.LOGGER.info("{} is installed but its integration is not supported on this target", modId);
-                return false;
-            }
-            return true;
-        } catch (Throwable t) {
-            return false;
-        }
-    }
-
     /** Logs an integration failure once per key, then the integration keeps going without that feature. */
     static void warnOnce(String key, String message, Throwable t) {
         if (FAILED.add(key)) {
             JustReplay.LOGGER.warn("{}: {}", message, t == null ? "" : t.toString());
         }
+    }
+
+    /**
+     * Logs once an error of a compat mixin that adjusts the game itself for a mod (the level renderer clock, the section
+     * draw guard): that adjustment is skipped and the game keeps its own behaviour.
+     */
+    public static void warnOnceGame(String hook, Throwable t) {
+        warnOnce("game." + hook, "Just Replay cannot adjust " + hook + " during replays, it keeps the game's behaviour", t);
     }
 
     // ---------------------------------------------------------------- replay clock
@@ -160,96 +151,48 @@ public final class ReplayCompat {
      * prepare what the replay world needs (Distant Horizons' recorded LODs).
      */
     public static void prepareReplay(com.vyrriox.justreplay.format.ReplayMeta meta) {
-        if (DISTANT_HORIZONS) {
-            try {
-                DistantHorizonsCompat.prepare(meta);
-            } catch (Throwable t) {
-                warnOnce("dh.prepare", "Cannot prepare the Distant Horizons LODs for the replay", t);
-            }
-        }
+        DISTANT_HORIZONS.run("prepare", () -> DistantHorizonsCompat.prepare(meta));
     }
 
     /** Called once the replay world has fully closed (its integrated server stopped), or after it failed to open. */
     public static void onReplayWorldClosed() {
-        if (DISTANT_HORIZONS) {
-            try {
-                DistantHorizonsCompat.onReplayWorldClosed();
-            } catch (Throwable t) {
-                warnOnce("dh.closed", "Cannot clean up the Distant Horizons replay data", t);
-            }
-        }
+        DISTANT_HORIZONS.cleanup("onReplayWorldClosed", DistantHorizonsCompat::onReplayWorldClosed);
     }
 
     /** Called once when replay playback starts. */
     public static void onReplayStart(Minecraft mc) {
-        if (DISTANT_HORIZONS) {
-            DistantHorizonsCompat.onReplayStart();
-        }
-        if (ENTITY_CULLING) {
-            EntityCullingCompat.onReplayStart();
-        }
-        if (MORE_PLAYER_MODELS) {
-            MorePlayerModelsCompat.holdWebSync();
-        }
+        DISTANT_HORIZONS.run("onReplayStart", DistantHorizonsCompat::onReplayStart);
+        ENTITY_CULLING.run("onReplayStart", EntityCullingCompat::onReplayStart);
+        MORE_PLAYER_MODELS.run("holdWebSync", MorePlayerModelsCompat::holdWebSync);
     }
 
     /** Called every client tick, replay or not. */
     public static void clientTick(Minecraft mc) {
-        if (DISTANT_HORIZONS && !ReplaySession.isRunning()) {
-            DistantHorizonsCompat.recoverAfterInterruptedReplay();
+        if (DISTANT_HORIZONS.on() && !ReplaySession.isRunning()) {
+            DISTANT_HORIZONS.run("recoverAfterInterruptedReplay", DistantHorizonsCompat::recoverAfterInterruptedReplay);
         }
     }
 
     /** Called every client tick of a running replay, after the playback tick. */
     public static void tick(Minecraft mc, ReplaySession session) {
-        if (IMMERSIVE_VEHICLES) {
-            ImmersiveVehiclesCompat.tick(mc);
-        }
-        if (WATERFRAMES) {
-            try {
-                WaterFramesCompat.tick(mc, session.playback());
-            } catch (Throwable t) {
-                warnOnce("waterframes.tick", "WaterFrames sync failed", t);
-            }
-        }
-        if (DISTANT_HORIZONS) {
-            DistantHorizonsCompat.tick();
-        }
-        if (ENTITY_CULLING) {
-            EntityCullingCompat.tick();
-        }
-        if (MORE_PLAYER_MODELS) {
-            MorePlayerModelsCompat.holdWebSync();
-        }
-        if (EPIC_FIGHT) {
-            EpicFightCompat.applyPending();
-        }
+        IMMERSIVE_VEHICLES.run("tick", () -> ImmersiveVehiclesCompat.tick(mc));
+        WATERFRAMES.run("tick", () -> WaterFramesCompat.tick(mc, session.playback()));
+        DISTANT_HORIZONS.run("tick", DistantHorizonsCompat::tick);
+        ENTITY_CULLING.run("tick", EntityCullingCompat::tick);
+        MORE_PLAYER_MODELS.run("holdWebSync", MorePlayerModelsCompat::holdWebSync);
+        EPIC_FIGHT.run("applyPending", EpicFightCompat::applyPending);
     }
 
-    /** Called when the replay session closes. */
+    /** Called when the replay session closes. Runs for integrations that failed too: they put back what they changed. */
     public static void onReplayEnd() {
         monotonicFrame = -1;
-        if (ENTITY_CULLING) {
-            EntityCullingCompat.onReplayEnd();
-        }
-        if (WATERFRAMES) {
-            WaterFramesCompat.clear();
-        }
-        if (DISTANT_HORIZONS) {
-            DistantHorizonsCompat.onReplayEnd();
-        }
-        if (IMMERSIVE_VEHICLES) {
-            ImmersiveVehiclesCompat.onReplayEnd();
-        }
-        if (MORE_PLAYER_MODELS) {
-            MorePlayerModelsCompat.onReplayEnd();
-        }
-        if (ARMOURERS_WORKSHOP) {
-            ArmourersWorkshopCompat.onReplayEnd();
-        }
-        if (EPIC_FIGHT) {
-            EpicFightCompat.onReplayEnd();
-        }
+        ENTITY_CULLING.cleanup("onReplayEnd", EntityCullingCompat::onReplayEnd);
+        WATERFRAMES.cleanup("onReplayEnd", WaterFramesCompat::clear);
+        DISTANT_HORIZONS.cleanup("onReplayEnd", DistantHorizonsCompat::onReplayEnd);
+        IMMERSIVE_VEHICLES.cleanup("onReplayEnd", ImmersiveVehiclesCompat::onReplayEnd);
+        MORE_PLAYER_MODELS.cleanup("onReplayEnd", MorePlayerModelsCompat::onReplayEnd);
+        ARMOURERS_WORKSHOP.cleanup("onReplayEnd", ArmourersWorkshopCompat::onReplayEnd);
+        EPIC_FIGHT.cleanup("onReplayEnd", EpicFightCompat::onReplayEnd);
     }
 
     /**
@@ -257,9 +200,13 @@ public final class ReplayCompat {
      * it and it must not reach the client.
      */
     public static boolean consumeRecorded(Packet<?> packet, int tick) {
-        if (EPIC_FIGHT) {
-            // The previous packet has been handled: its Epic Fight animation can be moved to its time.
-            EpicFightCompat.applyPending();
+        if (EPIC_FIGHT.on()) {
+            try {
+                // The previous packet has been handled: its Epic Fight animation can be moved to its time.
+                EpicFightCompat.applyPending();
+            } catch (Throwable t) {
+                EPIC_FIGHT.fail("applyPending", t);
+            }
         }
         return false;
     }
@@ -267,36 +214,52 @@ public final class ReplayCompat {
     /**
      * A recorded packet about to be handled, after the generic filters: returns the packet to handle in its place, or
      * null to drop it (Jade's payloads that belong to the live connection, a More Player Models look that names the
-     * viewer's own UUID).
+     * viewer's own UUID). A failing integration leaves the packet as it was. Called for every packet: no allocation.
      */
     public static Packet<?> filterPlayback(Packet<?> packet) {
-        if (JADE && packet != null) {
-            packet = JadeCompat.filterPlayback(packet);
+        if (packet != null && JADE.on()) {
+            try {
+                packet = JadeCompat.filterPlayback(packet);
+            } catch (Throwable t) {
+                JADE.fail("filterPlayback", t);
+            }
         }
-        if (MORE_PLAYER_MODELS && packet != null) {
-            packet = MorePlayerModelsCompat.filterPlayback(packet);
+        if (packet != null && MORE_PLAYER_MODELS.on()) {
+            try {
+                packet = MorePlayerModelsCompat.filterPlayback(packet);
+            } catch (Throwable t) {
+                MORE_PLAYER_MODELS.fail("filterPlayback", t);
+            }
         }
-        if (CUSTOM_NPCS && packet != null) {
-            packet = CustomNpcsCompat.filterPlayback(packet);
+        if (packet != null && CUSTOM_NPCS.on()) {
+            try {
+                packet = CustomNpcsCompat.filterPlayback(packet);
+            } catch (Throwable t) {
+                CUSTOM_NPCS.fail("filterPlayback", t);
+            }
         }
-        if (EPIC_FIGHT && packet != null) {
-            packet = EpicFightCompat.filterPlayback(packet);
+        if (packet != null && EPIC_FIGHT.on()) {
+            try {
+                packet = EpicFightCompat.filterPlayback(packet);
+            } catch (Throwable t) {
+                EPIC_FIGHT.fail("filterPlayback", t);
+            }
         }
         return packet;
     }
 
     /** A packet the client is about to send to the replay host: true to drop it (requests of mods with no server there). */
     public static boolean blockServerbound(Packet<?> packet) {
-        return JADE && JadeCompat.blockServerbound(packet)
-                || IMMERSIVE_VEHICLES && ImmersiveVehiclesCompat.blockServerbound(packet)
-                || MORE_PLAYER_MODELS && MorePlayerModelsCompat.blockServerbound(packet)
-                || CUSTOM_NPCS && CustomNpcsCompat.blockServerbound(packet)
-                || EPIC_FIGHT && EpicFightCompat.blockServerbound(packet);
+        return JADE.on() && JADE.test("blockServerbound", () -> JadeCompat.blockServerbound(packet))
+                || IMMERSIVE_VEHICLES.on() && IMMERSIVE_VEHICLES.test("blockServerbound", () -> ImmersiveVehiclesCompat.blockServerbound(packet))
+                || MORE_PLAYER_MODELS.on() && MORE_PLAYER_MODELS.test("blockServerbound", () -> MorePlayerModelsCompat.blockServerbound(packet))
+                || CUSTOM_NPCS.on() && CUSTOM_NPCS.test("blockServerbound", () -> CustomNpcsCompat.blockServerbound(packet))
+                || EPIC_FIGHT.on() && EPIC_FIGHT.test("blockServerbound", () -> EpicFightCompat.blockServerbound(packet));
     }
 
     /** A screen a mod opens for the player itself, which a replay camera has no use for (the More Player Models editor). */
     public static boolean blocksScreen(net.minecraft.client.gui.screens.Screen screen) {
-        return MORE_PLAYER_MODELS && MorePlayerModelsCompat.isOwnScreen(screen);
+        return MORE_PLAYER_MODELS.on() && MORE_PLAYER_MODELS.test("isOwnScreen", () -> MorePlayerModelsCompat.isOwnScreen(screen));
     }
 
     // ---------------------------------------------------------------- recording hooks
@@ -306,11 +269,11 @@ public final class ReplayCompat {
      * back to its sender.
      */
     public static void onLiveServerbound(Packet<?> packet) {
-        if (EPIC_FIGHT) {
+        if (EPIC_FIGHT.on()) {
             try {
                 EpicFightCompat.onLiveServerbound(packet);
             } catch (Throwable t) {
-                warnOnce("epicfight.serverbound", "Cannot record an Epic Fight request of the local player", t);
+                EPIC_FIGHT.fail("onLiveServerbound", t);
             }
         }
     }
@@ -321,8 +284,8 @@ public final class ReplayCompat {
      */
     public static void describeLevel(com.vyrriox.justreplay.format.ReplayMeta meta, net.minecraft.world.level.Level level,
                                      boolean force) {
-        if (DISTANT_HORIZONS) {
-            DistantHorizonsCompat.describe(meta, level, force);
+        if (DISTANT_HORIZONS.on()) {
+            DISTANT_HORIZONS.run("describe", () -> DistantHorizonsCompat.describe(meta, level, force));
         }
     }
 
@@ -332,11 +295,11 @@ public final class ReplayCompat {
      * actor, as another client receives it. The packet the client handles is never changed.
      */
     public static Packet<?> rewriteRecorded(Packet<?> packet, java.util.UUID localUuid, java.util.UUID actorUuid) {
-        if (MORE_PLAYER_MODELS) {
+        if (MORE_PLAYER_MODELS.on()) {
             try {
                 packet = MorePlayerModelsCompat.rewriteRecorded(packet, localUuid, actorUuid);
             } catch (Throwable t) {
-                warnOnce("mpm.rewrite", "Cannot record the local player's More Player Models look for its actor", t);
+                MORE_PLAYER_MODELS.fail("rewriteRecorded", t);
             }
         }
         return packet;
@@ -348,16 +311,12 @@ public final class ReplayCompat {
      */
     public static void writeLiveChanges(Minecraft mc, net.minecraft.client.player.LocalPlayer player, java.util.UUID actorUuid,
                                         java.util.function.Consumer<Packet<?>> out) {
-        if (MORE_PLAYER_MODELS) {
-            MorePlayerModelsCompat.writeLiveChanges(mc, player, actorUuid, out);
-        }
+        MORE_PLAYER_MODELS.run("writeLiveChanges", () -> MorePlayerModelsCompat.writeLiveChanges(mc, player, actorUuid, out));
     }
 
     /** Mod definitions the entity state depends on (snapshots and checkpoints), written before any entity. */
     public static void writeDefinitions(java.util.function.Consumer<Packet<?>> out) {
-        if (CURIOS) {
-            CuriosCompat.writeDefinitions(out);
-        }
+        CURIOS.run("writeDefinitions", () -> CuriosCompat.writeDefinitions(out));
     }
 
     /**
@@ -366,65 +325,45 @@ public final class ReplayCompat {
      */
     public static void writePlayerState(net.minecraft.world.entity.player.Player player, java.util.UUID target,
                                         java.util.function.Consumer<Packet<?>> out) {
-        if (CURIOS) {
-            // Keyed by entity id, which the actor shares with the recording player.
-            CuriosCompat.writeCurrent(player, out);
-        }
-        if (MORE_PLAYER_MODELS) {
-            MorePlayerModelsCompat.writeCurrent(player, target, out);
-        }
-        if (ARMOURERS_WORKSHOP) {
-            // Keyed by entity id, which the actor shares with the recording player.
-            ArmourersWorkshopCompat.writeCurrent(player, out);
-        }
-        if (EPIC_FIGHT) {
-            // Keyed by entity id, which the actor shares with the recording player.
-            EpicFightCompat.writeCurrent(player, out);
-        }
+        // Curios, Armourer's Workshop and Epic Fight key their state by entity id, which the actor shares with the
+        // recording player. More Player Models keys it by UUID.
+        CURIOS.run("writeCurrent", () -> CuriosCompat.writeCurrent(player, out));
+        MORE_PLAYER_MODELS.run("writeCurrent", () -> MorePlayerModelsCompat.writeCurrent(player, target, out));
+        ARMOURERS_WORKSHOP.run("writeCurrent", () -> ArmourersWorkshopCompat.writeCurrent(player, out));
+        EPIC_FIGHT.run("writeCurrent", () -> EpicFightCompat.writeCurrent(player, out));
     }
 
     /** Mod state an entity other than a player carries now (snapshots and checkpoints), written after its spawn. */
     public static void writeEntityState(net.minecraft.world.entity.Entity entity, java.util.function.Consumer<Packet<?>> out) {
-        if (ARMOURERS_WORKSHOP) {
-            ArmourersWorkshopCompat.writeCurrent(entity, out);
+        if (ARMOURERS_WORKSHOP.on()) {
+            ARMOURERS_WORKSHOP.run("writeCurrent", () -> ArmourersWorkshopCompat.writeCurrent(entity, out));
         }
-        if (CUSTOM_NPCS) {
-            CustomNpcsCompat.writeCurrent(entity, out);
+        if (CUSTOM_NPCS.on()) {
+            CUSTOM_NPCS.run("writeCurrent", () -> CustomNpcsCompat.writeCurrent(entity, out));
         }
-        if (CURIOS) {
-            CuriosCompat.writeCurrent(entity, out);
+        if (CURIOS.on()) {
+            CURIOS.run("writeCurrent", () -> CuriosCompat.writeCurrent(entity, out));
         }
-        if (IMMERSIVE_VEHICLES) {
-            ImmersiveVehiclesCompat.writeCurrent(entity, out);
+        if (IMMERSIVE_VEHICLES.on()) {
+            IMMERSIVE_VEHICLES.run("writeCurrent", () -> ImmersiveVehiclesCompat.writeCurrent(entity, out));
         }
     }
 
     /** Mod state of the blocks of a chunk just written into a snapshot or checkpoint (Immersive Vehicles blocks). */
     public static void writeChunkState(net.minecraft.world.level.chunk.LevelChunk chunk,
                                        java.util.function.Consumer<Packet<?>> out) {
-        if (IMMERSIVE_VEHICLES) {
-            ImmersiveVehiclesCompat.writeChunk(chunk, out);
+        if (IMMERSIVE_VEHICLES.on()) {
+            IMMERSIVE_VEHICLES.run("writeChunk", () -> ImmersiveVehiclesCompat.writeChunk(chunk, out));
         }
     }
 
-    /**
-     * Form and size the recording player's actor needs right after it spawns: the server sent them before the capture
-     * saw the actor.
-     */
+    /** Mod state the recording player's actor needs right after it spawns (the server sent it before the capture). */
     public static void writeActorForm(net.minecraft.world.entity.player.Player player, java.util.UUID target,
                                       java.util.function.Consumer<Packet<?>> out) {
-        if (CURIOS) {
-            CuriosCompat.writeCurrent(player, out);
-        }
-        if (MORE_PLAYER_MODELS) {
-            MorePlayerModelsCompat.writeActorForm(player, target, out);
-        }
-        if (ARMOURERS_WORKSHOP) {
-            ArmourersWorkshopCompat.writeCurrent(player, out);
-        }
-        if (EPIC_FIGHT) {
-            EpicFightCompat.writeCurrent(player, out);
-        }
+        CURIOS.run("writeCurrent", () -> CuriosCompat.writeCurrent(player, out));
+        MORE_PLAYER_MODELS.run("writeActorForm", () -> MorePlayerModelsCompat.writeActorForm(player, target, out));
+        ARMOURERS_WORKSHOP.run("writeCurrent", () -> ArmourersWorkshopCompat.writeCurrent(player, out));
+        EPIC_FIGHT.run("writeCurrent", () -> EpicFightCompat.writeCurrent(player, out));
     }
 
     /**
@@ -433,32 +372,26 @@ public final class ReplayCompat {
      */
     public static void writeEntityStates(net.minecraft.client.multiplayer.ClientLevel level,
                                          java.util.function.Consumer<Packet<?>> out) {
-        if (EPIC_FIGHT) {
-            EpicFightCompat.writeEntities(level, out);
-        }
+        EPIC_FIGHT.run("writeEntities", () -> EpicFightCompat.writeEntities(level, out));
     }
 
     /** Mod state a snapshot or checkpoint must write because the server sends it only on a change. */
     public static void writeSnapshot(java.util.function.Consumer<Packet<?>> out) {
-        if (ARMOURERS_WORKSHOP) {
-            try {
-                ArmourersWorkshopCompat.writeSnapshot(out);
-            } catch (Throwable t) {
-                warnOnce("aw.snapshot", "Cannot write the Armourer's Workshop skins into the snapshot", t);
-            }
-        }
-        if (CUSTOM_NPCS) {
-            try {
-                CustomNpcsCompat.writeSnapshot(out);
-            } catch (Throwable t) {
-                warnOnce("customnpcs.snapshot", "Cannot write the Custom NPCs player skins into the snapshot", t);
-            }
-        }
+        ARMOURERS_WORKSHOP.run("writeSnapshot", () -> ArmourersWorkshopCompat.writeSnapshot(out));
+        CUSTOM_NPCS.run("writeSnapshot", () -> CustomNpcsCompat.writeSnapshot(out));
     }
 
     /** The encoded bytes of a recorded packet, with what a mod appends to a vanilla packet restored (Custom NPCs looks). */
     public static byte[] patchEncoded(Packet<?> packet, byte[] bytes) {
-        return CUSTOM_NPCS ? CustomNpcsCompat.patchEncoded(packet, bytes) : bytes;
+        if (!CUSTOM_NPCS.on()) {
+            return bytes;
+        }
+        try {
+            return CustomNpcsCompat.patchEncoded(packet, bytes);
+        } catch (Throwable t) {
+            CUSTOM_NPCS.fail("patchEncoded", t);
+            return bytes;
+        }
     }
 
     /**
@@ -466,8 +399,12 @@ public final class ReplayCompat {
      * in its place, or null to drop it.
      */
     public static Packet<?> adjustSkipped(Packet<?> packet, int late) {
-        if (EPIC_FIGHT && late > 0 && packet != null) {
-            packet = EpicFightCompat.adjustSkipped(packet, late);
+        if (late > 0 && packet != null && EPIC_FIGHT.on()) {
+            try {
+                packet = EpicFightCompat.adjustSkipped(packet, late);
+            } catch (Throwable t) {
+                EPIC_FIGHT.fail("adjustSkipped", t);
+            }
         }
         return packet;
     }
@@ -480,7 +417,7 @@ public final class ReplayCompat {
 
         /** Exports render frames faster or slower than real time: in-world videos are moved to each frame's time. */
         public static void onRenderFrame(float partialTick) {
-            if (!WATERFRAMES || !VideoExporter.isActive()) {
+            if (!WATERFRAMES.on() || !VideoExporter.isActive()) {
                 return;
             }
             Playback playback = playback();
@@ -490,7 +427,7 @@ public final class ReplayCompat {
             try {
                 WaterFramesCompat.syncFrame(playback, partialTick);
             } catch (Throwable t) {
-                warnOnce("waterframes.frame", "WaterFrames export sync failed", t);
+                WATERFRAMES.fail("syncFrame", t);
             }
         }
     }

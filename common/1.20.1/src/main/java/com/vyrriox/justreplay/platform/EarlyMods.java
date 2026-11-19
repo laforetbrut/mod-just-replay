@@ -3,6 +3,8 @@ package com.vyrriox.justreplay.platform;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Method;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 /**
  * Tells whether a mod is present while mixins are being selected, before mods are constructed. The loader classes are
@@ -35,6 +37,32 @@ public final class EarlyMods {
             LoggerFactory.getLogger(EarlyMods.class).error("Cannot read the early mod list", e);
         }
         return false;
+    }
+
+    /**
+     * The loader's config folder, readable before mods are constructed (the integration switches are read while
+     * mixins are chosen). {@code config} under the working folder when the loader cannot tell.
+     */
+    public static Path configDir() {
+        ClassLoader loader = EarlyMods.class.getClassLoader();
+        try {
+            Class<?> fabric = find("net.fabricmc.loader.api.FabricLoader", loader);
+            if (fabric != null) {
+                Object instance = fabric.getMethod("getInstance").invoke(null);
+                return (Path) fabric.getMethod("getConfigDir").invoke(instance);
+            }
+            Class<?> paths = find("net.neo" + "forged.fml" + ".loading.FMLPaths", loader);
+            if (paths == null) {
+                paths = find("net.minecraftforge.fml" + ".loading.FMLPaths", loader);
+            }
+            if (paths != null) {
+                Object configDir = paths.getField("CONFIGDIR").get(null);
+                return (Path) paths.getMethod("get").invoke(configDir);
+            }
+        } catch (Throwable t) {
+            LoggerFactory.getLogger(EarlyMods.class).warn("Cannot read the loader's config folder: {}", t.toString());
+        }
+        return Paths.get("config");
     }
 
     /** {@code neoforge}, {@code forge} or {@code fabric}, read from the loader classes present. */

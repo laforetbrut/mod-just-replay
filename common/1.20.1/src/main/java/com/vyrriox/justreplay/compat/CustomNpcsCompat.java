@@ -69,7 +69,7 @@ public final class CustomNpcsCompat {
     }
 
     private static Reflect reflect() {
-        if (reflect != null || reflectFailed || !ReplayCompat.CUSTOM_NPCS) {
+        if (reflect != null || reflectFailed || !Integrations.CUSTOM_NPCS.on()) {
             return reflect;
         }
         try {
@@ -133,7 +133,7 @@ public final class CustomNpcsCompat {
                     writeSpawnData);
         } catch (Throwable t) {
             reflectFailed = true;
-            JustReplay.LOGGER.warn("Custom NPCs found but its classes are not as expected; NPC looks may be missing from replays", t);
+            Integrations.CUSTOM_NPCS.fail("reflect", t);
         }
         return reflect;
     }

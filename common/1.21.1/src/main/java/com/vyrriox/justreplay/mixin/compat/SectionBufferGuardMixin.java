@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.mixin.compat;
 
+import com.vyrriox.justreplay.compat.ReplayCompat;
 import com.mojang.blaze3d.vertex.VertexBuffer;
 import com.vyrriox.justreplay.mixin.VertexBufferAccessor;
 import com.vyrriox.justreplay.replay.ReplaySession;
@@ -20,7 +21,12 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 @Mixin(LevelRenderer.class)
 public abstract class SectionBufferGuardMixin {
     private static boolean justreplay$unusable(VertexBuffer buffer) {
-        return ReplaySession.isRunning() && (buffer.isInvalid() || ((VertexBufferAccessor) buffer).justreplay$mode() == null);
+        try {
+            return ReplaySession.isRunning() && (buffer.isInvalid() || ((VertexBufferAccessor) buffer).justreplay$mode() == null);
+        } catch (Throwable t) {
+            ReplayCompat.warnOnceGame("LevelRenderer.renderSectionLayer", t);
+            return false;
+        }
     }
 
     @Redirect(method = "renderSectionLayer", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/VertexBuffer;bind()V"))

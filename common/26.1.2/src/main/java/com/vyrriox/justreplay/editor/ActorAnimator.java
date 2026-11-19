@@ -1041,13 +1041,13 @@ public final class ActorAnimator {
                 double emoteTick = Math.max(0, emote.clipFrom) + (cursor - emote.tick) * emoteSpeed[0];
                 if (emote.clipTo >= 0 && emoteTick > emote.clipTo) {
                     // Past the end of the clip: Emotecraft has no clip, so the emote stops there.
-                    com.vyrriox.justreplay.compat.EmotecraftCompat.stopActorEmote(entity);
+                    com.vyrriox.justreplay.compat.ReplayCompat.stopActorEmote(entity);
                 } else {
-                    com.vyrriox.justreplay.compat.EmotecraftCompat.applyActorEmote(entity, emoteName, emote.tick,
+                    com.vyrriox.justreplay.compat.ReplayCompat.applyActorEmote(entity, emoteName, emote.tick,
                             emote.clipFrom, emoteSpeed[0], cursor);
                 }
             } else {
-                com.vyrriox.justreplay.compat.EmotecraftCompat.stopActorEmote(entity);
+                com.vyrriox.justreplay.compat.ReplayCompat.stopActorEmote(entity);
             }
         }
         if (now.sit && isHumanoid(entity)) {

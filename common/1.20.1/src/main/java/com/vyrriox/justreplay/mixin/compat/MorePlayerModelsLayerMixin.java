@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.mixin.compat;
 
+import com.vyrriox.justreplay.compat.Integrations;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.vyrriox.justreplay.compat.MorePlayerModelsCompat;
 import net.minecraft.client.player.AbstractClientPlayer;
@@ -26,8 +27,15 @@ public abstract class MorePlayerModelsLayerMixin {
     private void justreplay$hiddenBody(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player,
                                        float limbSwing, float limbSwingAmount, float partialTick, float ageInTicks,
                                        float netHeadYaw, float headPitch, CallbackInfo ci) {
-        if (MorePlayerModelsCompat.hidesLayer(this, player)) {
-            ci.cancel();
+        if (!Integrations.MORE_PLAYER_MODELS.on()) {
+            return;
+        }
+        try {
+            if (MorePlayerModelsCompat.hidesLayer(this, player)) {
+                ci.cancel();
+            }
+        } catch (Throwable t) {
+            Integrations.MORE_PLAYER_MODELS.fail("LayerInterface.render", t);
         }
     }
 }

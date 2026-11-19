@@ -443,6 +443,7 @@
   "justreplay.configuration.extraChunkRadius": "Cached chunk radius",
   "justreplay.configuration.checkpointMinutes": "Minutes between checkpoints",
   "justreplay.configuration.editor": "Editor",
+  "justreplay.configuration.compat": "Mod integrations",
   "justreplay.configuration.mode": "Editor mode",
   "justreplay.editor.mode.simple": "Simple",
   "justreplay.editor.mode.advanced": "Advanced",

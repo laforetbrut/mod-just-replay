@@ -29,6 +29,10 @@ The list comes from `CompatTargets.java` of each `common/<minecraft version>/`. 
 always a tested one: [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) says what was run, what was only read, and the
 known limits of each target.
 
+Each integration can be turned off on its own in the `compat` section of the settings. One that fails turns itself
+off with a single warning in the log instead of crashing the game, and a mod packet that cannot be read is skipped:
+see [When an integration fails](docs/COMPATIBILITY.md#when-an-integration-fails).
+
 ### Features
 
 - **Recording**: every packet the client receives is saved, custom mod payloads included, so modded
@@ -232,6 +236,10 @@ il a été fait.
 La liste vient de `CompatTargets.java` de chaque `common/<version de minecraft>/`. Une intégration active n'est pas
 toujours testée : [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) dit ce qui a été exécuté, ce qui a seulement été
 lu, et les limites connues de chaque cible.
+
+Chaque intégration se coupe à part dans la section `compat` des réglages. Une intégration qui échoue se coupe toute
+seule avec un seul avertissement dans le log au lieu de faire planter le jeu, et un paquet de mod illisible est
+ignoré : voir [Quand une intégration échoue](docs/COMPATIBILITY.md#quand-une-intégration-échoue).
 
 ### Fonctionnalités
 

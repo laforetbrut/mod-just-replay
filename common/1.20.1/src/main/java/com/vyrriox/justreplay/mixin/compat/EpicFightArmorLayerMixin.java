@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.mixin.compat;
 
+import com.vyrriox.justreplay.compat.Integrations;
 import com.vyrriox.justreplay.editor.ArmorSlots;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
@@ -23,9 +24,15 @@ public abstract class EpicFightArmorLayerMixin {
     @Redirect(method = "renderLayer", require = 0, remap = false, at = @At(value = "INVOKE",
             target = "Lnet/minecraft/world/entity/LivingEntity;getItemBySlot(Lnet/minecraft/world/entity/EquipmentSlot;)Lnet/minecraft/world/item/ItemStack;", remap = true))
     private ItemStack justreplay$hiddenStack(LivingEntity entity, EquipmentSlot slot) {
-        if (ArmorSlots.hides(entity, slot)) {
-            ArmorSlots.countSkipped();
-            return ItemStack.EMPTY;
+        if (Integrations.EPIC_FIGHT.on()) {
+            try {
+                if (ArmorSlots.hides(entity, slot)) {
+                    ArmorSlots.countSkipped();
+                    return ItemStack.EMPTY;
+                }
+            } catch (Throwable t) {
+                Integrations.EPIC_FIGHT.fail("WearableItemLayer.renderLayer", t);
+            }
         }
         return entity.getItemBySlot(slot);
     }

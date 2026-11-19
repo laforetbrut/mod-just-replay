@@ -51,7 +51,7 @@ public final class EmotecraftCompat {
     }
 
     private static Reflect reflect() {
-        if (reflect != null || reflectFailed || !ReplayCompat.EMOTECRAFT) {
+        if (reflect != null || reflectFailed || !Integrations.EMOTECRAFT.on()) {
             return reflect;
         }
         try {
@@ -85,7 +85,7 @@ public final class EmotecraftCompat {
             JustReplay.LOGGER.info("Emotecraft detected: emotes are recorded for the local player and follow the replay clock");
         } catch (Throwable t) {
             reflectFailed = true;
-            ReplayCompat.warnOnce("emotecraft.reflect", "Emotecraft support disabled, its classes changed", t);
+            Integrations.EMOTECRAFT.fail("reflect", t);
         }
         return reflect;
     }

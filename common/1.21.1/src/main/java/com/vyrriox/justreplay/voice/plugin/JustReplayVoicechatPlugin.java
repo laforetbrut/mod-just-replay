@@ -1,5 +1,7 @@
 package com.vyrriox.justreplay.voice.plugin;
 
+import com.vyrriox.justreplay.compat.Integrations;
+import com.vyrriox.justreplay.compat.Integration;
 import com.vyrriox.justreplay.JustReplay;
 import com.vyrriox.justreplay.voice.VoiceBridge;
 import com.vyrriox.justreplay.voice.VoiceRecorder;
@@ -32,24 +34,30 @@ public final class JustReplayVoicechatPlugin implements VoicechatPlugin {
 
     @Override
     public void initialize(VoicechatApi api) {
-        VoiceBridge.install(() -> new OpusCodec(api.createEncoder(OpusEncoderMode.VOIP), null),
-                () -> new OpusCodec(null, api.createDecoder()));
+        Integrations.VOICE_CHAT.run("initialize", () -> VoiceBridge.install(
+                () -> new OpusCodec(api.createEncoder(OpusEncoderMode.VOIP), null),
+                () -> new OpusCodec(null, api.createDecoder())));
     }
 
     @Override
     public void registerEvents(EventRegistration registration) {
-        registration.registerEvent(ClientReceiveSoundEvent.EntitySound.class, event ->
+        // Each listener runs inside the voice chat: an error turns this integration off instead of reaching it.
+        Integration voice = Integrations.VOICE_CHAT;
+        if (!voice.on()) {
+            return;
+        }
+        registration.registerEvent(ClientReceiveSoundEvent.EntitySound.class, event -> voice.run("EntitySound", () ->
                 VoiceRecorder.onVoice(VoiceTrack.ENTITY, event.getEntityId(), Double.NaN, Double.NaN, Double.NaN,
-                        event.getDistance(), event.getRawAudio()));
-        registration.registerEvent(ClientReceiveSoundEvent.LocationalSound.class, event -> {
+                        event.getDistance(), event.getRawAudio())));
+        registration.registerEvent(ClientReceiveSoundEvent.LocationalSound.class, event -> voice.run("LocationalSound", () -> {
             Position position = event.getPosition();
             VoiceRecorder.onVoice(VoiceTrack.LOCATIONAL, event.getId(), position.getX(), position.getY(), position.getZ(),
                     event.getDistance(), event.getRawAudio());
-        });
-        registration.registerEvent(ClientReceiveSoundEvent.StaticSound.class, event ->
-                VoiceRecorder.onVoice(VoiceTrack.STATIC, event.getId(), Double.NaN, Double.NaN, Double.NaN, 0.0F, event.getRawAudio()));
-        registration.registerEvent(ClientSoundEvent.class, event ->
-                VoiceRecorder.onMicrophone((float) event.getVoicechat().getVoiceChatDistance(), event.getRawAudio()));
+        }));
+        registration.registerEvent(ClientReceiveSoundEvent.StaticSound.class, event -> voice.run("StaticSound", () ->
+                VoiceRecorder.onVoice(VoiceTrack.STATIC, event.getId(), Double.NaN, Double.NaN, Double.NaN, 0.0F, event.getRawAudio())));
+        registration.registerEvent(ClientSoundEvent.class, event -> voice.run("ClientSoundEvent", () ->
+                VoiceRecorder.onMicrophone((float) event.getVoicechat().getVoiceChatDistance(), event.getRawAudio())));
     }
 
     /** Opus encoder or decoder of the voice chat API. */

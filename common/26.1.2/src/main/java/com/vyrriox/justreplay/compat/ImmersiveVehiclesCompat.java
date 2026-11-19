@@ -57,7 +57,7 @@ public final class ImmersiveVehiclesCompat {
     }
 
     private static Reflect reflect() {
-        if (reflect != null || reflectFailed || !ReplayCompat.IMMERSIVE_VEHICLES) {
+        if (reflect != null || reflectFailed || !Integrations.IMMERSIVE_VEHICLES.on()) {
             return reflect;
         }
         try {
@@ -84,7 +84,7 @@ public final class ImmersiveVehiclesCompat {
         } catch (Throwable t) {
             reflectFailed = true;
             reflect = null;
-            ReplayCompat.warnOnce("vehicles.reflect", "Immersive Vehicles support disabled, its classes changed", t);
+            Integrations.IMMERSIVE_VEHICLES.fail("reflect", t);
         }
         return reflect;
     }

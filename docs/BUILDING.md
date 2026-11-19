@@ -28,6 +28,7 @@ The continuous integration (`.github/workflows/build.yml`) builds the nine targe
 
 ```
 common/<mcversion>/src/main/     code and resources shared by every loader (1.20.1, 1.21.1, 26.1.2)
+common/<mcversion>/src/test/     unit tests of that shared code, run by every loader's build
 neoforge-1.20.1/                 NeoForge project for Minecraft 1.20.1
 forge-1.20.1/                    Forge project for Minecraft 1.20.1
 fabric-1.20.1/                   Fabric project for Minecraft 1.20.1
@@ -42,7 +43,7 @@ docs/                            this documentation
 ```
 
 - Each `<loader>-<mcversion>/` folder is a **standalone Gradle project**. There is no root build.
-- Its build adds `../common/<mcversion>/src/main` to the main source set. The loader folder only holds the glue: entry points, events, networking and the `Platform` implementation.
+- Its build adds `../common/<mcversion>/src/main` to the main source set and `../common/<mcversion>/src/test` to the test source set. The loader folder only holds the glue: entry points, events, networking and the `Platform` implementation.
 - NeoForge for Minecraft 1.20.1 is the 47.1 fork of Forge. Its project uses the legacy plugin of ModDevGradle.
 - `CompatTargets.java` of each `common/<mcversion>/` lists the integrations enabled per loader.
 
@@ -56,6 +57,8 @@ cd neoforge-1.21.1
 ```
 
 On Windows use `gradlew.bat`. The jar is written to `build/libs/` and named `justreplay-<loader>-<mcversion>-<version>.jar`, for example `justreplay-forge-1.20.1-1.1.0.jar`.
+
+The build also runs the unit tests of `common/<mcversion>/src/test` (JUnit 5): the integration guard, the integration switches of the config and the skipped packets counter. They only use classes without game code and start no game; `./gradlew test` runs them alone, the report is in `build/reports/tests/test/`.
 
 - **Use `--no-build-cache` for a jar you will ship or run in production.** A cache hit once produced a Forge 1.20.1 jar without its refmap (see `ERROR_LOG.md`, now also guarded in that project). After such a build, check that the refmap is in the jar.
 - Install the jar of `build/libs/`. NeoForge 1.20.1 and the Fabric projects of 1.20.1 and 1.21.1 write a development jar elsewhere, which only works in development runs.
@@ -157,13 +160,14 @@ L'intégration continue (`.github/workflows/build.yml`) compile les neuf cibles 
 
 ```
 common/<mcversion>/src/main/     code et ressources partagés par tous les loaders (1.20.1, 1.21.1, 26.1.2)
+common/<mcversion>/src/test/     tests unitaires de ce code partagé, lancés par le build de chaque loader
 <loader>-<mcversion>/            un projet Gradle par cible : neoforge, forge, fabric x 1.20.1, 1.21.1, 26.1.2
 tools/                           générateur de branches, collecteur de jars
 docs/                            cette documentation
 ```
 
 - Chaque dossier `<loader>-<mcversion>/` est un **projet Gradle autonome**. Il n'y a pas de build à la racine.
-- Son build ajoute `../common/<mcversion>/src/main` au source set principal. Le dossier du loader ne contient que le code propre au loader : points d'entrée, événements, réseau et implémentation de `Platform`.
+- Son build ajoute `../common/<mcversion>/src/main` au source set principal et `../common/<mcversion>/src/test` au source set de test. Le dossier du loader ne contient que le code propre au loader : points d'entrée, événements, réseau et implémentation de `Platform`.
 - NeoForge pour Minecraft 1.20.1 est le fork 47.1 de Forge. Son projet utilise le plugin legacy de ModDevGradle.
 - `CompatTargets.java` de chaque `common/<mcversion>/` liste les intégrations actives par loader.
 
@@ -177,6 +181,8 @@ cd neoforge-1.21.1
 ```
 
 Sous Windows, utiliser `gradlew.bat`. Le jar est écrit dans `build/libs/` sous le nom `justreplay-<loader>-<mcversion>-<version>.jar`, par exemple `justreplay-forge-1.20.1-1.1.0.jar`.
+
+Le build lance aussi les tests unitaires de `common/<mcversion>/src/test` (JUnit 5) : la garde des intégrations, les interrupteurs d'intégration de la config et le compteur de paquets ignorés. Ils n'utilisent que des classes sans code du jeu et ne lancent aucun jeu ; `./gradlew test` les lance seuls, le rapport est dans `build/reports/tests/test/`.
 
 - **Utiliser `--no-build-cache` pour un jar à publier ou à lancer en production.** Une reprise du cache a déjà produit un jar Forge 1.20.1 sans sa refmap (voir `ERROR_LOG.md`, ce projet est maintenant aussi protégé). Après un tel build, vérifier que la refmap est dans le jar.
 - Installer le jar de `build/libs/`. NeoForge 1.20.1 et les projets Fabric de 1.20.1 et 1.21.1 écrivent ailleurs un jar de développement, qui ne marche qu'en développement.

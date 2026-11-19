@@ -1,11 +1,13 @@
 package com.vyrriox.justreplay.mixin.compat;
 
+import com.vyrriox.justreplay.compat.Integrations;
 import com.vyrriox.justreplay.editor.BodyParts;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
@@ -22,13 +24,26 @@ public abstract class EpicFightHeldItemMixin {
     @Redirect(method = "renderLayer", require = 0, remap = false, at = @At(value = "INVOKE",
             target = "Lnet/minecraft/world/entity/LivingEntity;getMainHandItem()Lnet/minecraft/world/item/ItemStack;", remap = true))
     private ItemStack justreplay$hiddenMainHand(LivingEntity entity) {
-        return BodyParts.armHidden(entity, entity.getMainArm()) ? ItemStack.EMPTY : entity.getMainHandItem();
+        return justreplay$armHidden(entity, entity.getMainArm()) ? ItemStack.EMPTY : entity.getMainHandItem();
     }
 
     @Redirect(method = "renderLayer", require = 0, remap = false, at = @At(value = "INVOKE",
             target = "Lnet/minecraft/world/entity/LivingEntity;getOffhandItem()Lnet/minecraft/world/item/ItemStack;", remap = true))
     private ItemStack justreplay$hiddenOffHand(LivingEntity entity) {
         HumanoidArm off = entity.getMainArm() == HumanoidArm.LEFT ? HumanoidArm.RIGHT : HumanoidArm.LEFT;
-        return BodyParts.armHidden(entity, off) ? ItemStack.EMPTY : entity.getOffhandItem();
+        return justreplay$armHidden(entity, off) ? ItemStack.EMPTY : entity.getOffhandItem();
+    }
+
+    @Unique
+    private static boolean justreplay$armHidden(LivingEntity entity, HumanoidArm arm) {
+        if (!Integrations.EPIC_FIGHT.on()) {
+            return false;
+        }
+        try {
+            return BodyParts.armHidden(entity, arm);
+        } catch (Throwable t) {
+            Integrations.EPIC_FIGHT.fail("PatchedItemInHandLayer.renderLayer", t);
+            return false;
+        }
     }
 }

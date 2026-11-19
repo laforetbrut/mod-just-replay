@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.mixin.compat;
 
+import com.vyrriox.justreplay.compat.Integrations;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.vyrriox.justreplay.compat.MorePlayerModelsCompat;
 import net.minecraft.client.model.PlayerModel;
@@ -27,8 +28,15 @@ public abstract class MorePlayerModelsPartsMixin {
     private static void justreplay$hiddenPart(@Coerce Object data, @Coerce Object part, PoseStack pose, MultiBufferSource buffers,
                                               int light, AbstractClientPlayer player, PlayerModel<?> model, @Coerce Object look,
                                               CallbackInfo ci) {
-        if (MorePlayerModelsCompat.hidesPart(player, part)) {
-            ci.cancel();
+        if (!Integrations.MORE_PLAYER_MODELS.on()) {
+            return;
+        }
+        try {
+            if (MorePlayerModelsCompat.hidesPart(player, part)) {
+                ci.cancel();
+            }
+        } catch (Throwable t) {
+            Integrations.MORE_PLAYER_MODELS.fail("LayerParts.renderPart", t);
         }
     }
 }

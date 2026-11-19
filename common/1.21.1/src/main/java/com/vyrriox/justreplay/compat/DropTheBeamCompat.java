@@ -113,7 +113,7 @@ public final class DropTheBeamCompat {
         if (reflect != null || reflectFailed) {
             return reflect;
         }
-        if (!ReplayCompat.DROP_THE_BEAM) {
+        if (!Integrations.DROP_THE_BEAM.on()) {
             reflectFailed = true;
             return null;
         }
@@ -132,7 +132,7 @@ public final class DropTheBeamCompat {
             JustReplay.LOGGER.info("Drop the Beam detected: its music, shows and screens follow the replay clock");
         } catch (Throwable t) {
             reflectFailed = true;
-            ReplayCompat.warnOnce("dropthebeam.reflect", "Drop the Beam support disabled, its classes changed", t);
+            Integrations.DROP_THE_BEAM.fail("reflect", t);
         }
         return reflect;
     }

@@ -119,6 +119,28 @@ Limits:
   (an entity model), which keeps its armor.
 - Armor a mod draws with its own layer instead of the vanilla armor layer is not covered.
 
+### When an integration fails
+
+Big modpacks mix versions nobody tested together, so every integration has a safety net:
+
+- An integration runs only when its mod is installed, it is supported on the running loader (`CompatTargets`) and
+  the config leaves it on. Its mixins apply under the same conditions (`CompatMixinPlugin`).
+- Every call into another mod goes through the guard of its integration (`Integration`). The first error (a method
+  or class that changed, `NoSuchMethodError`, `NoClassDefFoundError`, a crash in the other mod's code) turns that
+  integration off until the next start, with one warning in the log naming it and the hook that failed. What it
+  changed in its mod (Entity Culling's switch, the Distant Horizons folder override) is still put back when the
+  replay ends.
+- To turn an integration off by hand: `compat.<mod id>` set to `false` in `config/justreplay-client.json`, or its
+  switch in the settings screen (shown for the installed mods). It applies at the next start, mixins included.
+- A packet that cannot be encoded, read back or played (a mod payload, most of the time) is skipped and counted: the
+  recording or the replay goes on. The first of each type logs a warning, and a `Recording: N packets skipped (...)`
+  or `Replay: N packets skipped (...)` line sums them up at the end.
+- The mixins tolerate a method another mod rewrote (`defaultRequire` 0): that hook is lost, the game starts.
+- At startup Just Replay logs one line with its version, the loader, Minecraft and the state of each integration
+  found, for example `Just Replay 1.1.2 on neoforge 21.1.221, Minecraft 1.21.1. Integrations on: Curios, Jade; off in
+  the config: GeckoLib; installed but not supported on this loader: none; not installed: 26.` Read it first in a
+  crash log.
+
 ### Known limits
 
 - A block changed in the very tick a recording starts in the middle of a session can be missed: the packet is
@@ -516,6 +538,31 @@ Limites :
 - More Player Models (1.20.1) : l'armure masquée marche comme sur un joueur vanilla, sauf sur un joueur dessiné comme
   une autre entité (un modèle d'entité), qui garde son armure.
 - Une armure qu'un mod dessine avec sa propre couche au lieu de la couche d'armure vanilla n'est pas couverte.
+
+### Quand une intégration échoue
+
+Les gros modpacks mélangent des versions que personne n'a testées ensemble, alors chaque intégration a un filet :
+
+- Une intégration ne tourne que si son mod est installé, qu'elle est prise en charge sur le loader lancé
+  (`CompatTargets`) et que la config la laisse active. Ses mixins s'appliquent aux mêmes conditions
+  (`CompatMixinPlugin`).
+- Chaque appel vers un autre mod passe par la garde de son intégration (`Integration`). La première erreur (méthode
+  ou classe changée, `NoSuchMethodError`, `NoClassDefFoundError`, plantage dans le code de l'autre mod) coupe cette
+  intégration jusqu'au prochain démarrage, avec un seul avertissement dans le log qui la nomme avec le point
+  d'accroche en cause. Ce qu'elle avait changé dans son mod (l'interrupteur d'Entity Culling, la redirection de
+  dossier de Distant Horizons) est quand même remis à la fin du replay.
+- Pour couper une intégration à la main : `compat.<id du mod>` à `false` dans `config/justreplay-client.json`, ou son
+  interrupteur dans l'écran des réglages (affiché pour les mods installés). Effet au prochain démarrage, mixins
+  compris.
+- Un paquet impossible à encoder, relire ou rejouer (un paquet de mod, le plus souvent) est ignoré et compté :
+  l'enregistrement ou le replay continue. Le premier de chaque type écrit un avertissement, et une ligne
+  `Recording: N packets skipped (...)` ou `Replay: N packets skipped (...)` en fait le compte à la fin.
+- Les mixins tolèrent une méthode réécrite par un autre mod (`defaultRequire` 0) : ce point d'accroche est perdu, le
+  jeu démarre.
+- Au démarrage, Just Replay écrit une ligne avec sa version, le loader, Minecraft et l'état de chaque intégration
+  trouvée, par exemple `Just Replay 1.1.2 on neoforge 21.1.221, Minecraft 1.21.1. Integrations on: Curios, Jade; off
+  in the config: GeckoLib; installed but not supported on this loader: none; not installed: 26.` C'est la première
+  ligne à lire dans un log de crash.
 
 ### Limites connues
 

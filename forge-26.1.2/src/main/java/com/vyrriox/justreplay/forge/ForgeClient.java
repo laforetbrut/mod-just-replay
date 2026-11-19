@@ -80,6 +80,8 @@ public final class ForgeClient {
     static void init(FMLJavaModLoadingContext context) {
         context.getContainer().registerExtensionPoint(ConfigScreenHandler.ConfigScreenFactory.class,
                 () -> new ConfigScreenHandler.ConfigScreenFactory(JRConfigScreen::new));
+        // First: the version, loader and integrations line that crash logs are read with.
+        com.vyrriox.justreplay.compat.Integrations.logStartup();
         for (Class<?> type : PRELOADED) {
             try {
                 Class.forName(type.getName(), true, type.getClassLoader());

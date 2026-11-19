@@ -96,7 +96,7 @@ public final class EpicFightCompat {
     private static Method accGet, accInRegistry, accName, dynIsRepeat, dynTotalTime, dynPlaySpeed;
 
     private static boolean reflect() {
-        if (ready || reflectFailed || !ReplayCompat.EPIC_FIGHT) {
+        if (ready || reflectFailed || !Integrations.EPIC_FIGHT.on()) {
             return ready;
         }
         try {
@@ -188,7 +188,7 @@ public final class EpicFightCompat {
             JustReplay.LOGGER.info("Epic Fight detected: the local player's animations and mode are recorded for its actor");
         } catch (Throwable t) {
             reflectFailed = true;
-            ReplayCompat.warnOnce("epicfight.reflect", "Epic Fight support disabled, its classes changed", t);
+            Integrations.EPIC_FIGHT.fail("reflect", t);
         }
         return ready;
     }
@@ -224,7 +224,8 @@ public final class EpicFightCompat {
         if (mc.isSameThread()) {
             write.run();
         } else {
-            mc.execute(write);
+            // Runs later on the client thread, out of the caller's guard.
+            mc.execute(() -> Integrations.EPIC_FIGHT.run("recordLocalRequest", write::run));
         }
     }
 

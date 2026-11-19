@@ -62,7 +62,7 @@ public final class WaterFramesCompat {
         if (reflect != null || reflectFailed) {
             return reflect;
         }
-        if (!ReplayCompat.WATERFRAMES) {
+        if (!Integrations.WATERFRAMES.on()) {
             // Not installed (the WaterFrames mixins can still be reached from vanilla paths): stay silent.
             reflectFailed = true;
             return null;
@@ -85,7 +85,7 @@ public final class WaterFramesCompat {
             JustReplay.LOGGER.info("WaterFrames detected: in-world videos follow the replay clock");
         } catch (Throwable t) {
             reflectFailed = true;
-            ReplayCompat.warnOnce("waterframes.reflect", "WaterFrames support disabled, its classes changed", t);
+            Integrations.WATERFRAMES.fail("reflect", t);
         }
         return reflect;
     }

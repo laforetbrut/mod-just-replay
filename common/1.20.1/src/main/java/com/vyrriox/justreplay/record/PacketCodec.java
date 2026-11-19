@@ -141,6 +141,44 @@ public final class PacketCodec {
         }
     }
 
+    /** The name a skipped packet is counted under: its mod payload id, or its class. */
+    public static String typeName(Packet<?> packet) {
+        if (packet == null) {
+            return "unknown packet";
+        }
+        try {
+            net.minecraft.resources.ResourceLocation id = Payloads.idOf(packet);
+            if (id != null) {
+                return id.toString();
+            }
+        } catch (Throwable ignored) {
+            // A payload that cannot even name itself: counted under its packet class.
+        }
+        return packet.getClass().getSimpleName();
+    }
+
+    /**
+     * The name of a recorded packet read from its raw bytes, for one that cannot be decoded: its mod payload id, or
+     * its packet id in this protocol.
+     */
+    public String describe(byte[] data) {
+        net.minecraft.network.FriendlyByteBuf buf = new net.minecraft.network.FriendlyByteBuf(Unpooled.wrappedBuffer(data));
+        try {
+            int id = buf.readVarInt();
+            if (customPayloadId == -2) {
+                unregisteredPayload(data);
+            }
+            if (id == customPayloadId && customPayloadId >= 0) {
+                return buf.readResourceLocation().toString();
+            }
+            return "packet #" + id;
+        } catch (Throwable t) {
+            return "damaged packet";
+        } finally {
+            buf.release();
+        }
+    }
+
     @SuppressWarnings("unchecked")
     public Packet<? super ClientGamePacketListener> decode(byte[] data) {
         FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.wrappedBuffer(data));
