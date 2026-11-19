@@ -9,7 +9,10 @@
 - **Armourer's Workshop** on Forge, NeoForge and Fabric 1.20.1 and on NeoForge and Fabric 26.1.2: skins and wardrobes show up in replays, singleplayer included.
 - **Custom NPCs** (unofficial port) on Forge, NeoForge and Fabric 1.20.1 and on Fabric 1.21.1: NPCs keep their look, and your dialogs and menus stay out of the replay.
 
+Heads up: none of this has been tried in game yet. Every target builds and each integration was checked against the mod's own jar, so tell me if something looks off.
+
 ### Changed
+- **Self test**: checks hidden armor on every target, and More Player Models looks on Forge 1.20.1 (with `-PdevMods`).
 - **Create Aeronautics, Sable, Create Propulsion**: checked together with Create 6.0.10 on NeoForge 1.21.1. The game loads, and recording, replays and seeks pass the self test. See `docs/COMPATIBILITY.md`.
 
 ### Ajouts
@@ -19,7 +22,10 @@
 - **Armourer's Workshop** sur Forge, NeoForge et Fabric 1.20.1 et sur NeoForge et Fabric 26.1.2 : les skins et les garde-robes s'affichent dans les replays, en solo aussi.
 - **Custom NPCs** (portage non officiel) sur Forge, NeoForge et Fabric 1.20.1 et sur Fabric 1.21.1 : les PNJ gardent leur apparence, et tes dialogues et menus restent hors du replay.
 
+Attention : rien de tout ça n'a encore été essayé en jeu. Toutes les cibles compilent et chaque intégration a été vérifiée contre le jar du mod lui-même, alors dis-moi si quelque chose cloche.
+
 ### Modifications
+- **Test automatique** : vérifie l'armure masquée sur toutes les cibles, et les apparences de More Player Models sur Forge 1.20.1 (avec `-PdevMods`).
 - **Create Aeronautics, Sable, Create Propulsion** : vérifiés ensemble avec Create 6.0.10 sur NeoForge 1.21.1. Le jeu charge, et l'enregistrement, les replays et les sauts passent le test automatique. Voir `docs/COMPATIBILITY.md`.
 
 ---
