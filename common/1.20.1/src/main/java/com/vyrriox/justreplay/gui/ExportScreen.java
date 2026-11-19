@@ -1,6 +1,7 @@
 package com.vyrriox.justreplay.gui;
 
 import com.vyrriox.justreplay.config.JRConfig;
+import com.vyrriox.justreplay.export.ExportNames;
 import com.vyrriox.justreplay.export.ExportRenderSize;
 import com.vyrriox.justreplay.export.ExportResolution;
 import com.vyrriox.justreplay.export.VideoExporter;
@@ -74,6 +75,7 @@ public class ExportScreen extends GlassScreen {
         fileName.setMaxLength(128);
         fileName.setValue(fileValue);
         f.full(fileName);
+        f.text(this::fileLine, Theme.TEXT_MUTED);
 
         f.text(() -> Component.translatable("justreplay.export.ffmpeg"), Theme.TEXT_DIM);
         ffmpeg = new GlassTextField(font, 0, Component.translatable("justreplay.export.ffmpeg"));
@@ -171,6 +173,15 @@ public class ExportScreen extends GlassScreen {
         return ticks == null ? Component.translatable("justreplay.export.error.nothing")
                 : Component.translatable(session.project().cuts.isEmpty() ? "justreplay.export.range" : "justreplay.export.range.cuts",
                 Timeline.formatTicks(ticks[0]), Timeline.formatTicks(ticks[1]));
+    }
+
+    /** The name the video gets: the typed name made safe, followed by the range unless the config keeps the old names. */
+    private Component fileLine() {
+        int[] ticks = range();
+        String typed = fileName.getValue();
+        String base = ticks == null ? ExportNames.safeName(typed)
+                : ExportNames.baseName(typed, ticks[0], ticks[1], session.playback().duration(), JRConfig.EXPORT_RANGE_IN_NAME.get());
+        return Component.translatable("justreplay.export.file.final", base + ".mp4");
     }
 
     private Component sizeLine() {

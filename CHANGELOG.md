@@ -11,6 +11,7 @@
 - **Integration switches**: one switch per mod in the new `compat` section of the settings, also in the settings screen for the mods you have. Turn one off and Just Replay leaves that mod alone from the next start.
 - **Startup line**: the log now says at startup which Just Replay, loader and integrations are running. Handy for reading crash reports.
 - **Name your replays**: stop a recording (F8, F7, the pause menu buttons, a timed recording, leaving a world) and a window asks for a name, filled with the date and time. Enter or Rename renames it, Esc or Skip keeps the date. The folder gets a name Windows and Linux accept and never takes another replay's, a ` (2)` is added instead. Don't want it? Turn off `nameOnSave`.
+- **Exported range in the name**: export 0:10 to 0:20 of a replay and you get `myreplay_00m10s-00m20s.mp4`, with hours for replays of an hour or more. The end toast and the log say it too, with duration, resolution, fps and path. Turn `rangeInFileName` off to keep the old names. Exports still never overwrite a file, and scene jobs keep their exact names.
 
 Heads up: none of this has been tried in game yet. Every target builds and each integration was checked against the mod's own jar, so tell me if something looks off.
 
@@ -23,6 +24,7 @@ Heads up: none of this has been tried in game yet. Every target builds and each 
 - **Big modpacks**: an integration whose mod changed (a method or class gone, a crash in its code) no longer takes the game down. It turns itself off until the next start with one warning in the log, and the rest keeps going.
 - **Mixins**: another mod that rewrote a method Just Replay hooks no longer stops the game at startup, only that feature is lost.
 - **Mod packets**: a packet that can't be recorded, read back or played is skipped and counted instead of breaking the recording or the replay. One line sums them up at the end.
+- **Export names**: a video named like a Windows device (CON, NUL, COM1...) or starting with a dot now gets a name that works everywhere.
 
 ### Ajouts
 - **Masquer l'armure** : coupe le casque, le plastron, les jambières ou les bottes d'un joueur enregistré ou d'un acteur, pièce par pièce. Les élytres partent avec le plastron, une citrouille ou une tête avec le casque. Seuls le replay et la vidéo changent, et les anciens projets gardent leur armure. La nouvelle option `hidePlayerArmor` déshabille tous les joueurs d'un coup. Ça marche aussi sur les modèles dessinés par Epic Fight ; les skins d'Armourer's Workshop restent en place.
@@ -33,6 +35,7 @@ Heads up: none of this has been tried in game yet. Every target builds and each 
 - **Interrupteurs d'intégration** : un interrupteur par mod dans la nouvelle section `compat` des réglages, aussi dans l'écran des réglages pour les mods installés. Coupé, Just Replay laisse ce mod tranquille dès le prochain démarrage.
 - **Ligne de démarrage** : le log dit au démarrage quelle version de Just Replay, quel loader et quelles intégrations tournent. Pratique pour lire un rapport de crash.
 - **Nommer ses replays** : arrête un enregistrement (F8, F7, les boutons du menu pause, un enregistrement minuté, en quittant un monde) et une fenêtre demande un nom, prérempli avec la date et l'heure. Entrée ou Rename le renomme, Échap ou Skip garde la date. Le dossier prend un nom accepté par Windows et Linux et ne prend jamais celui d'un autre replay, un ` (2)` est ajouté à la place. Pas envie ? Coupe `nameOnSave`.
+- **Plage exportée dans le nom** : exporte de 0:10 à 0:20 d'un replay et tu obtiens `monreplay_00m10s-00m20s.mp4`, avec les heures pour un replay d'une heure ou plus. Le message de fin et le log le disent aussi, avec durée, résolution, fps et chemin. Coupe `rangeInFileName` pour garder les anciens noms. Un export n'écrase toujours aucun fichier, et les tâches de scène gardent leur nom exact.
 
 Attention : rien de tout ça n'a encore été essayé en jeu. Toutes les cibles compilent et chaque intégration a été vérifiée contre le jar du mod lui-même, alors dis-moi si quelque chose cloche.
 
@@ -45,6 +48,7 @@ Attention : rien de tout ça n'a encore été essayé en jeu. Toutes les cibles 
 - **Gros modpacks** : une intégration dont le mod a changé (méthode ou classe disparue, plantage dans son code) ne fait plus planter le jeu. Elle se coupe jusqu'au prochain démarrage avec un seul avertissement dans le log, et le reste continue.
 - **Mixins** : un autre mod qui a réécrit une méthode accrochée par Just Replay n'empêche plus le jeu de démarrer, seule cette fonction est perdue.
 - **Paquets de mods** : un paquet impossible à enregistrer, relire ou rejouer est ignoré et compté au lieu de casser l'enregistrement ou le replay. Une ligne en fait le compte à la fin.
+- **Noms d'export** : une vidéo nommée comme un périphérique Windows (CON, NUL, COM1...) ou qui commence par un point reçoit maintenant un nom valable partout.
 
 ---
 

@@ -77,7 +77,9 @@ see [When an integration fails](docs/COMPATIBILITY.md#when-an-integration-fails)
   `.minecraft/justreplay/emotes/` and play them on player and humanoid actors with the *Custom emote* action. No
   other mod is needed; an example file (wave and bow) is created in the folder on first use.
 - **Video export**: renders the camera path frame by frame to MP4 through FFmpeg, every frame is exact
-  whatever the speed of the machine.
+  whatever the speed of the machine. The file name says which part of the replay it holds
+  (`myreplay_00m10s-00m20s.mp4`, with hours for replays of an hour or more), and so do the end toast and the log;
+  turn `rangeInFileName` off to keep the old names. An export never overwrites a file: a taken name gets `_2`, `_3`...
 - **Audio editor**: put OGG or WAV files in `.minecraft/justreplay/audio/` and place them on audio tracks
   from the **Audio** tab: move, trim, split (**S**), duplicate (**Ctrl + D**), fade, loop and change the speed
   of clips on the timeline, set track volume, mute and solo, and lower or mute the game sounds (with ducking
@@ -137,7 +139,7 @@ see [When an integration fails](docs/COMPATIBILITY.md#when-an-integration-fails)
 ### Where are the files
 
 - Replays: `.minecraft/justreplay/replays/<name>/` (`stream.bin.gz` + `index.bin`, `meta.json`, `project.json`, `registries.bin`)
-- Videos: `.minecraft/justreplay/exports/`
+- Videos: `.minecraft/justreplay/exports/` (`<name>_<start>-<end>.mp4`)
 - Blockbench models: `.minecraft/justreplay/models/`
 - Audio files (OGG, WAV): `.minecraft/justreplay/audio/`
 - LUT images (PNG, 1024x32 strip or 512x512 grid): `.minecraft/justreplay/luts/`
@@ -194,9 +196,10 @@ folder (`run/`). The file lists steps run in order:
 | `quit` | none; the game also quits after the last step |
 
 Durations are in seconds and can be fractional. Shots and exports follow the camera path of the replay's
-project (`project.json`). An MP4 goes to `justreplay/exports/<name>.mp4`; a PNG sequence goes to the folder
-`justreplay/exports/<name>/` (`frame_00000.png`, ... and `audio.wav` when there is sound). An existing export is
-never overwritten: the new one gets `_2`, `_3`... Job exports never change the export settings of the config.
+project (`project.json`). An MP4 goes to `justreplay/exports/<name>.mp4`, without the range the export screen adds
+to its names; a PNG sequence goes to the folder `justreplay/exports/<name>/` (`frame_00000.png`, ... and
+`audio.wav` when there is sound). An existing export is never overwritten: the new one gets `_2`, `_3`... Job
+exports never change the export settings of the config.
 
 To line up events with the recording, a `record` step writes in the replay's `meta.json` the game time of tick 0
 (`startGameTime`) and the replay tick its commands ran at (`sceneCommandsTick`, negative). An event scheduled
@@ -298,7 +301,10 @@ ignoré : voir [Quand une intégration échoue](docs/COMPATIBILITY.md#quand-une-
   `.minecraft/justreplay/emotes/` et les jouer sur les acteurs joueurs et humanoïdes avec l'action *Custom emote*.
   Aucun autre mod n'est nécessaire ; un fichier d'exemple (salut et révérence) est créé dans le dossier au premier usage.
 - **Export vidéo** : rend le chemin de caméra image par image en MP4 via FFmpeg, chaque image est exacte
-  quelle que soit la puissance du PC.
+  quelle que soit la puissance du PC. Le nom du fichier dit quelle partie du replay il contient
+  (`monreplay_00m10s-00m20s.mp4`, avec les heures pour un replay d'une heure ou plus), comme le message de fin
+  et le log ; `rangeInFileName` coupé garde les anciens noms. Un export n'écrase jamais un fichier : un nom pris
+  reçoit `_2`, `_3`...
 - **Éditeur audio** : déposer des fichiers OGG ou WAV dans `.minecraft/justreplay/audio/` et les placer sur
   des pistes audio depuis l'onglet **Audio** : déplacer, rogner, scinder (**S**), dupliquer (**Ctrl + D**),
   ajouter des fondus, boucler et changer la vitesse des clips sur la timeline, régler le volume, le muet et le
@@ -351,7 +357,7 @@ Voir le tableau de la section anglaise. Toutes les touches se changent dans Opti
 ### Fichiers
 
 - Replays : `.minecraft/justreplay/replays/<nom>/`
-- Vidéos : `.minecraft/justreplay/exports/`
+- Vidéos : `.minecraft/justreplay/exports/` (`<nom>_<début>-<fin>.mp4`)
 - Modèles Blockbench : `.minecraft/justreplay/models/`
 - Fichiers audio (OGG, WAV) : `.minecraft/justreplay/audio/`
 - Images LUT (PNG, bande 1024x32 ou grille 512x512) : `.minecraft/justreplay/luts/`
@@ -398,10 +404,10 @@ La propriété Gradle `-Pjob` règle la propriété JVM `justreplay.job` ; un ch
 | `quit` | aucun ; le jeu se ferme aussi après la dernière étape |
 
 Les durées sont en secondes et peuvent être décimales. Les captures et les exports suivent le chemin de caméra
-du projet du replay (`project.json`). Un MP4 va dans `justreplay/exports/<name>.mp4` ; une séquence PNG va dans
-le dossier `justreplay/exports/<name>/` (`frame_00000.png`, ... et `audio.wav` s'il y a du son). Un export
-existant n'est jamais écrasé : le nouveau prend `_2`, `_3`... Les exports d'une tâche ne touchent jamais aux
-réglages d'export de la config.
+du projet du replay (`project.json`). Un MP4 va dans `justreplay/exports/<name>.mp4`, sans la plage que l'écran
+d'export ajoute à ses noms ; une séquence PNG va dans le dossier `justreplay/exports/<name>/` (`frame_00000.png`,
+... et `audio.wav` s'il y a du son). Un export existant n'est jamais écrasé : le nouveau prend `_2`, `_3`... Les
+exports d'une tâche ne touchent jamais aux réglages d'export de la config.
 
 Pour caler des événements sur l'enregistrement, une étape `record` écrit dans le `meta.json` du replay le temps
 de jeu du tick 0 (`startGameTime`) et le tick du replay où ses commandes ont tourné (`sceneCommandsTick`,
