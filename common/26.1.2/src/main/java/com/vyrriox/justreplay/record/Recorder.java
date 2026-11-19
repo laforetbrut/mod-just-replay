@@ -369,11 +369,62 @@ public final class Recorder {
         }
         if (!ReplaySession.isReplayConnection(connection)) {
             trackSpawns(connection, packet);
+            trackServerPacks(connection, packet);
         }
         Recorder c = capture;
         if (c != null && c.connection == connection) {
             c.capture(packet);
+            if (packet instanceof ClientboundLoginPacket) {
+                // Packs pushed before the login (configuration phase) are not in the stream: the set follows it.
+                for (Packet<?> pack : serverPackPackets(connection)) {
+                    c.capture(pack);
+                }
+            }
         }
+    }
+
+    // ---------------------------------------------------------------- server resource packs
+
+    /** Resource packs the server of {@link #livePacksConnection} pushed and did not remove, in push order. */
+    private static final com.vyrriox.justreplay.format.ServerPackState LIVE_PACKS = new com.vyrriox.justreplay.format.ServerPackState();
+    private static Connection livePacksConnection;
+
+    /** Follows the resource pack packets of a live connection, in every phase (most packs come before the login). */
+    private static void trackServerPacks(Connection connection, Packet<?> packet) {
+        boolean push = packet instanceof net.minecraft.network.protocol.common.ClientboundResourcePackPushPacket;
+        boolean pop = packet instanceof net.minecraft.network.protocol.common.ClientboundResourcePackPopPacket;
+        if (!push && !pop) {
+            return;
+        }
+        synchronized (LIVE_PACKS) {
+            if (livePacksConnection != connection) {
+                LIVE_PACKS.clear();
+                livePacksConnection = connection;
+            }
+            if (packet instanceof net.minecraft.network.protocol.common.ClientboundResourcePackPushPacket p) {
+                LIVE_PACKS.push(new com.vyrriox.justreplay.format.ServerPackState.Pack(p.id(), p.url(), p.hash(), p.required()));
+            } else if (packet instanceof net.minecraft.network.protocol.common.ClientboundResourcePackPopPacket p) {
+                LIVE_PACKS.pop(p.id().orElse(null));
+            }
+        }
+    }
+
+    /**
+     * The whole pack set of a live connection as packets: a removal of every pack, then a push per pack. Written after
+     * the login, at the start of a recording and in checkpoints, so playback finds the same set at any tick.
+     */
+    private static List<Packet<?>> serverPackPackets(Connection connection) {
+        List<com.vyrriox.justreplay.format.ServerPackState.Pack> packs;
+        synchronized (LIVE_PACKS) {
+            packs = livePacksConnection == connection ? LIVE_PACKS.packs() : List.of();
+        }
+        List<Packet<?>> packets = new ArrayList<>();
+        packets.add(new net.minecraft.network.protocol.common.ClientboundResourcePackPopPacket(java.util.Optional.empty()));
+        for (com.vyrriox.justreplay.format.ServerPackState.Pack pack : packs) {
+            packets.add(new net.minecraft.network.protocol.common.ClientboundResourcePackPushPacket(pack.id(), pack.url(), pack.hash(),
+                    pack.required(), java.util.Optional.empty()));
+        }
+        return packets;
     }
 
     // ---------------------------------------------------------------- spawn cache
@@ -1464,6 +1515,9 @@ public final class Recorder {
             write(listener, new ClientboundGameEventPacket(ClientboundGameEventPacket.THUNDER_LEVEL_CHANGE, level.getThunderLevel(1.0F)), sink);
         }
 
+        for (Packet<?> pack : serverPackPackets(listener.getConnection())) {
+            write(listener, pack, sink);
+        }
         write(listener, new ClientboundSetChunkCacheRadiusPacket(lastChunkRadius), sink);
         write(listener, new ClientboundSetChunkCacheCenterPacket(player.chunkPosition().x(), player.chunkPosition().z()), sink);
     }
