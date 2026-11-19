@@ -472,5 +472,6 @@ public final class ArmourersWorkshopCompat {
     static void onReplayEnd() {
         REPLAY_SKINS.clear();
         REPLAY_MISSING.clear();
+        ArmourersHiddenArmor.clear();
     }
 }

@@ -6,10 +6,12 @@
   "compatibilityLevel": "JAVA_17",
   "plugin": "com.vyrriox.justreplay.mixin.compat.CompatMixinPlugin",
   "client": [
+    "ArmourersEquipmentSlotsMixin",
     "ArmourersSendMixin",
     "ArmourersSkinEntryMixin",
     "ArmourersSkinLoaderMixin",
     "ArmourersSkinResponseMixin",
+    "ArmourersWardrobeSlotsMixin",
     "BobbyMixin",
     "EpicFightAnimatorTickMixin",
     "EpicFightArmorLayerMixin",

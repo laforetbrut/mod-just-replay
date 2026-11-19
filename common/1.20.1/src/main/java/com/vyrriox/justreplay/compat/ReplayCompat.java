@@ -181,6 +181,7 @@ public final class ReplayCompat {
         ENTITY_CULLING.run("tick", EntityCullingCompat::tick);
         MORE_PLAYER_MODELS.run("holdWebSync", MorePlayerModelsCompat::holdWebSync);
         EPIC_FIGHT.run("applyPending", EpicFightCompat::applyPending);
+        ARMOURERS_WORKSHOP.run("hiddenArmor", () -> ArmourersHiddenArmor.tick(mc));
     }
 
     /** Called when the replay session closes. Runs for integrations that failed too: they put back what they changed. */
