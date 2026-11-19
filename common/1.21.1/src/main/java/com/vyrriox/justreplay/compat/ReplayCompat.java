@@ -193,6 +193,7 @@ public final class ReplayCompat {
         DROP_THE_BEAM.run("tick", () -> DropTheBeamCompat.tick(mc, session));
         EPIC_FIGHT.run("applyPending", EpicFightCompat::applyPending);
         ENTITY_CULLING.run("tick", EntityCullingCompat::tick);
+        ARMOURERS_WORKSHOP.run("hiddenArmor", () -> ArmourersHiddenArmor.tick(mc));
     }
 
     /** Called when the replay session closes. Runs for integrations that failed too: they put back what they changed. */
