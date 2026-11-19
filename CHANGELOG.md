@@ -4,15 +4,25 @@
 
 ### Added
 - **Hide armor** (Minecraft 1.21.1): switch off the helmet, chestplate, leggings or boots of a recorded player or an actor, one by one. The elytra go with the chestplate, a pumpkin or a head with the helmet. Only the replay and the video change, and older projects keep their armor. The new `hidePlayerArmor` option strips every player at once.
+- **Exported range in the name**: export 0:10 to 0:20 of a replay and you get `myreplay_00m10s-00m20s.mp4`, with hours for replays of an hour or more. The end toast and the log say it too, with duration, resolution, fps and path. Turn `rangeInFileName` off to keep the old names. Exports still never overwrite a file, and scene jobs keep their exact names.
 
 ### Changed
 - **Create Aeronautics, Sable, Create Propulsion**: checked together with Create 6.0.10 on NeoForge 1.21.1. The game loads, and recording, replays and seeks pass the self test. See `docs/COMPATIBILITY.md`.
+- **Building from source**: `./gradlew build` also runs the unit tests of `common/<mc>/src/test`, and the target branches carry them. See `docs/BUILDING.md`.
+
+### Fixed
+- **Export names**: a video named like a Windows device (CON, NUL, COM1...) or starting with a dot now gets a name that works everywhere.
 
 ### Ajouts
 - **Masquer l'armure** (Minecraft 1.21.1) : coupe le casque, le plastron, les jambières ou les bottes d'un joueur enregistré ou d'un acteur, pièce par pièce. Les élytres partent avec le plastron, une citrouille ou une tête avec le casque. Seuls le replay et la vidéo changent, et les anciens projets gardent leur armure. La nouvelle option `hidePlayerArmor` déshabille tous les joueurs d'un coup.
+- **Plage exportée dans le nom** : exporte de 0:10 à 0:20 d'un replay et tu obtiens `monreplay_00m10s-00m20s.mp4`, avec les heures pour un replay d'une heure ou plus. Le message de fin et le log le disent aussi, avec durée, résolution, fps et chemin. Coupe `rangeInFileName` pour garder les anciens noms. Un export n'écrase toujours aucun fichier, et les tâches de scène gardent leur nom exact.
 
 ### Modifications
 - **Create Aeronautics, Sable, Create Propulsion** : vérifiés ensemble avec Create 6.0.10 sur NeoForge 1.21.1. Le jeu charge, et l'enregistrement, les replays et les sauts passent le test automatique. Voir `docs/COMPATIBILITY.md`.
+- **Compiler le mod** : `./gradlew build` lance aussi les tests unitaires de `common/<mc>/src/test`, et les branches de cible les embarquent. Voir `docs/BUILDING.md`.
+
+### Correctifs
+- **Noms d'export** : une vidéo nommée comme un périphérique Windows (CON, NUL, COM1...) ou qui commence par un point reçoit maintenant un nom valable partout.
 
 ---
 
