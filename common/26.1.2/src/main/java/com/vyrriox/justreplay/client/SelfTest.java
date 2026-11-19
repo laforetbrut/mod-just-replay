@@ -48,6 +48,8 @@ public final class SelfTest {
     private static int settle;
     private static int speedStart;
     private static Path replay;
+    /** File the export step writes: its name carries the exported range unless the config keeps the old names. */
+    private static Path exportFile;
     /** Start position of the recording, around which the modded test content is placed. */
     private static net.minecraft.core.BlockPos modsBase;
     private static Path clip;
@@ -934,13 +936,21 @@ public final class SelfTest {
                 mc.setScreen(null);
                 ReplaySession s = ReplaySession.current();
                 s.setCameraPath(false);
-                Files.deleteIfExists(ReplayStorage.exportRoot().resolve("selftest.mp4"));
+                // Ticks 20 to 80 are 0:01 to 0:04. A file left by an earlier run would push this export to _2.
+                exportFile = ReplayStorage.exportRoot().resolve(com.vyrriox.justreplay.config.JRConfig.EXPORT_RANGE_IN_NAME.get()
+                        ? "selftest_00m01s-00m04s.mp4" : "selftest.mp4");
+                Files.deleteIfExists(exportFile);
                 com.vyrriox.justreplay.config.JRConfig.EXPORT_CRF.set(18);
                 com.vyrriox.justreplay.config.JRConfig.EXPORT_FPS.set(60);
                 com.vyrriox.justreplay.config.JRConfig.EXPORT_RESOLUTION.set(com.vyrriox.justreplay.export.ExportResolution.FULL_HD_1080);
                 com.vyrriox.justreplay.editor.overlay.OverlayRenderer.resetExportFrames();
                 var error = VideoExporter.start(s, 20, 80, "selftest");
                 log("export start error={}", error == null ? "none" : error.getString());
+                if (error == null) {
+                    Path output = VideoExporter.current().output();
+                    log("export file name {} (expected {}): {}", output.getFileName(), exportFile.getFileName(),
+                            output.equals(exportFile) ? "OK" : "FAIL");
+                }
                 next(1);
             }
             case 14 -> {
@@ -950,10 +960,10 @@ public final class SelfTest {
                 }
             }
             case 15 -> {
-                Path mp4 = ReplayStorage.exportRoot().resolve("selftest.mp4");
+                Path mp4 = exportFile;
                 log("export file exists={} size={}", Files.exists(mp4), Files.exists(mp4) ? Files.size(mp4) : 0);
                 log("export audio clips mixed={} (expected 2), audio mux log={}", com.vyrriox.justreplay.export.ExportAudio.lastMixedClips(),
-                        Files.exists(ReplayStorage.exportRoot().resolve("selftest.mp4.audio.log")));
+                        Files.exists(mp4.resolveSibling(mp4.getFileName() + ".audio.log")));
                 log("mods after export: {}", Mods.state(mc, ReplaySession.current()));
                 if (exportClockFirst < 0) {
                     log("clock export: no sample while the export ran FAIL");
