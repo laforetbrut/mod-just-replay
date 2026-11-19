@@ -357,6 +357,7 @@ public final class SelfTest {
             // showing none has no reader, and the two reads of a check would see a single jump back and no rise.
             geckoClock();
         }
+        pollServerPack(mc);
         if (wait > 0) {
             wait--;
             return;
@@ -403,6 +404,7 @@ public final class SelfTest {
                     }
                     if (mc.screen == null) {
                         log("in world at {}", p.position());
+                        pushServerPack(mc);
                         Mods.placeVehicle(mc, p, 8, 6);
                         Mods.seedRing(mc);
                         next(60);
@@ -1356,6 +1358,73 @@ public final class SelfTest {
             window.openAnyway();
         } else {
             log("mods changed window: not shown, screen {} -> FAIL", mc.screen == null ? null : mc.screen.getClass().getSimpleName());
+        }
+    }
+
+    private static final java.util.UUID SERVER_PACK_ID = com.vyrriox.justreplay.format.ServerPackState.idOf("http://127.0.0.1:9/justreplay-selftest-pack.zip");
+    private static final String SERVER_PACK_KEY = "justreplay.selftest.server_pack";
+    /** 0 before the push, 1 pushed, 2 checked in the replay. */
+    private static int serverPackState;
+    private static int serverPackTicks;
+
+    /**
+     * Before the recording: a small pack (one translation) in the game's cache of server packs, then the integrated
+     * server pushes it. The prompt the game shows for it is closed: the recording player never loads it, the replay must.
+     */
+    private static void pushServerPack(Minecraft mc) {
+        try {
+            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+            try (java.util.zip.ZipOutputStream zip = new java.util.zip.ZipOutputStream(bytes)) {
+                int format = net.minecraft.SharedConstants.getCurrentVersion().getPackVersion(net.minecraft.server.packs.PackType.CLIENT_RESOURCES);
+                zip.putNextEntry(new java.util.zip.ZipEntry("pack.mcmeta"));
+                zip.write(("{\"pack\": {\"pack_format\": " + format + ", \"description\": \"Just Replay self test\"}}")
+                        .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                zip.closeEntry();
+                zip.putNextEntry(new java.util.zip.ZipEntry("assets/justreplay/lang/en_us.json"));
+                zip.write(("{\"" + SERVER_PACK_KEY + "\": \"applied\"}").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                zip.closeEntry();
+            }
+            byte[] data = bytes.toByteArray();
+            String sha1 = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-1").digest(data));
+            // 1.20.1 names a cached server pack by the SHA-1 of its address.
+            String address = "http://127.0.0.1:9/justreplay-selftest-pack.zip";
+            String addressSha1 = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-1")
+                    .digest(address.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            Path file = mc.gameDirectory.toPath().resolve("server-resource-packs").resolve(addressSha1);
+            Files.createDirectories(file.getParent());
+            Files.write(file, data);
+            net.minecraft.server.MinecraftServer server = mc.getSingleplayerServer();
+            server.execute(() -> server.getPlayerList().getPlayers().forEach(player -> player.connection.send(
+                    new net.minecraft.network.protocol.game.ClientboundResourcePackPacket(address, sha1, false, null))));
+            com.vyrriox.justreplay.config.JRConfig.SERVER_RESOURCE_PACKS.set(com.vyrriox.justreplay.config.JRConfig.ServerResourcePacks.CACHED);
+            serverPackState = 1;
+            log("server resource pack pushed by the integrated server ({} bytes, cached as {})", data.length, sha1);
+        } catch (Exception e) {
+            log("server resource pack: cannot prepare it ({}) -> FAIL", e.toString());
+            serverPackState = 2;
+        }
+    }
+
+    /** Closes the pack prompt of the live game, then waits in the replay until the pack's translation is there. */
+    private static void pollServerPack(Minecraft mc) {
+        if (serverPackState != 1) {
+            return;
+        }
+        if (!ReplaySession.isRunning()) {
+            if (mc.screen instanceof net.minecraft.client.gui.screens.ConfirmScreen) {
+                log("server resource pack prompt closed without loading the pack");
+                mc.setScreen(null);
+            }
+            return;
+        }
+        boolean applied = com.vyrriox.justreplay.replay.ReplayPacks.applied().stream().anyMatch(pack -> pack.id().equals(SERVER_PACK_ID));
+        boolean loaded = "applied".equals(net.minecraft.client.resources.language.I18n.get(SERVER_PACK_KEY));
+        if (applied && loaded && mc.getOverlay() == null) {
+            serverPackState = 2;
+            log("server resource pack in the replay: applied from the cache, translation loaded after {} ticks -> OK", serverPackTicks);
+        } else if (++serverPackTicks > 1200) {
+            serverPackState = 2;
+            log("server resource pack in the replay: applied {} translation loaded {} overlay {} -> FAIL", applied, loaded, mc.getOverlay());
         }
     }
 

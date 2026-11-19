@@ -964,5 +964,9 @@
   "justreplay.toast.marker.at": "At %s in the recording",
   "justreplay.toast.marker.buffer": "Kept with the last minutes",
   "justreplay.toast.marker_idle": "Nothing is recording",
-  "justreplay.toast.marker_idle.hint": "Press %s to record, or turn on the instant replay buffer"
+  "justreplay.toast.marker_idle.hint": "Press %s to record, or turn on the instant replay buffer",
+  "justreplay.configuration.serverResourcePacks": "Server resource packs",
+  "justreplay.toast.server_pack_missing": "Server resource pack not found",
+  "justreplay.toast.server_pack_missing.hint": "It is not in the game's cache: set Server resource packs to DOWNLOAD to fetch it",
+  "justreplay.toast.server_pack_missing.bad_url": "It is not in the game's cache and its address cannot be used"
 }

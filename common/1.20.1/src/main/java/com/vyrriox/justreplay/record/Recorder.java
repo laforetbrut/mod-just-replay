@@ -369,11 +369,34 @@ public final class Recorder {
         }
         if (!ReplaySession.isReplayConnection(connection)) {
             trackSpawns(connection, packet);
+            trackServerPack(connection, packet);
         }
         Recorder c = capture;
         if (c != null && c.connection == connection) {
             c.capture(packet);
         }
+    }
+
+    // ---------------------------------------------------------------- server resource pack
+
+    /** The resource pack the server of {@link #livePackConnection} sent last (1.20.1 servers have one at most). */
+    private static volatile net.minecraft.network.protocol.game.ClientboundResourcePackPacket livePack;
+    private static volatile Connection livePackConnection;
+
+    private static void trackServerPack(Connection connection, Packet<?> packet) {
+        if (packet instanceof net.minecraft.network.protocol.game.ClientboundResourcePackPacket pack) {
+            livePackConnection = connection;
+            livePack = pack;
+        }
+    }
+
+    /** The live server's pack as a packet, written at the start of a recording and in checkpoints; empty without one. */
+    private static List<Packet<?>> serverPackPackets(Connection connection) {
+        net.minecraft.network.protocol.game.ClientboundResourcePackPacket pack = livePack;
+        if (pack == null || livePackConnection != connection) {
+            return List.of();
+        }
+        return List.of(new net.minecraft.network.protocol.game.ClientboundResourcePackPacket(pack.getUrl(), pack.getHash(), pack.isRequired(), null));
     }
 
     // ---------------------------------------------------------------- spawn cache
@@ -1434,6 +1457,9 @@ public final class Recorder {
             write(listener, new ClientboundGameEventPacket(ClientboundGameEventPacket.THUNDER_LEVEL_CHANGE, level.getThunderLevel(1.0F)), sink);
         }
 
+        for (Packet<?> pack : serverPackPackets(listener.getConnection())) {
+            write(listener, pack, sink);
+        }
         write(listener, new ClientboundSetChunkCacheRadiusPacket(lastChunkRadius), sink);
         write(listener, new ClientboundSetChunkCacheCenterPacket(player.chunkPosition().x, player.chunkPosition().z), sink);
         com.vyrriox.justreplay.compat.ReplayCompat.writeDefinitions(packet -> write(listener, packet, sink));

@@ -463,6 +463,7 @@ public final class ReplaySession {
             VideoExporter.cancel();
             s.voices.close();
             com.vyrriox.justreplay.compat.ReplayCompat.onReplayEnd();
+            ReplayPacks.close(Minecraft.getInstance());
             s.saveProject();
             current = null;
             pendingWorldCleanup = true;
@@ -503,6 +504,7 @@ public final class ReplaySession {
             // Recorded ids must be in place before the codec decodes anything.
             boolean ids = com.vyrriox.justreplay.format.RegistryIds.apply(s.dir);
             JustReplay.LOGGER.info("Registry ids from the recording: {}", ids ? "applied" : "none (older replay)");
+            ReplayPacks.reset();
             s.playback.start(mc.getConnection());
             JustReplay.LOGGER.info("Replay playback started: {} ticks", s.playback.duration());
         }
@@ -510,6 +512,7 @@ public final class ReplaySession {
             return;
         }
         s.playback.tick(mc);
+        ReplayPacks.tick(mc);
         com.vyrriox.justreplay.compat.ReplayCompat.tick(mc, s);
         try {
             s.voices.tick(mc, s);

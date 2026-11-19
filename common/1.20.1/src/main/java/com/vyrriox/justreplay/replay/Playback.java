@@ -192,6 +192,7 @@ public final class Playback {
                 }
             }
             if (!restored && backward) {
+                ReplayPacks.onWorldRebuild();
                 packets.rewind();
                 cursor = 0;
             }
@@ -230,6 +231,7 @@ public final class Playback {
         if (snapshot.isEmpty()) {
             return false;
         }
+        ReplayPacks.onWorldRebuild();
         for (RecordedPacket recorded : snapshot) {
             handle(mc, recorded);
         }
@@ -307,6 +309,9 @@ public final class Playback {
         }
         if (recorded.tick() < skippingTo && PacketFilter.isTransient(packet)) {
             // Sounds and effects of skipped time would all fire at once.
+            return;
+        }
+        if (ReplayPacks.consume(packet)) {
             return;
         }
         if (PacketFilter.shouldDrop(packet)) {
