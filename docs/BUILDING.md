@@ -64,7 +64,8 @@ The build also runs the unit tests of `common/<mcversion>/src/test` (JUnit 5). T
 - the cleaning of replay names and the renaming of replay folders;
 - the names of video exports (the exported range and the final file name);
 - the changed mods warning, the markers placed while recording and the server resource packs of a replay;
-- the light, fog and particle settings, and the speed track (video time of each replay tick).
+- the light, fog and particle settings, and the speed track (video time of each replay tick);
+- the Armourer's Workshop wardrobe skins a hidden armor slot takes with it.
 
 - **Use `--no-build-cache` for a jar you will ship or run in production.** A cache hit once produced a Forge 1.20.1 jar without its refmap (see `ERROR_LOG.md`, now also guarded in that project). After such a build, check that the refmap is in the jar.
 - Install the jar of `build/libs/`. NeoForge 1.20.1 and the Fabric projects of 1.20.1 and 1.21.1 write a development jar elsewhere, which only works in development runs.
@@ -195,7 +196,8 @@ Le build lance aussi les tests unitaires de `common/<mcversion>/src/test` (JUnit
 - le nettoyage des noms de replay et le renommage des dossiers de replay ;
 - les noms des exports vidéo (la plage exportée et le nom final du fichier) ;
 - l'avertissement des mods changés, les repères posés pendant l'enregistrement et les packs de ressources du serveur d'un replay ;
-- les réglages de lumière, de brouillard et de particules, et la piste de vitesse (temps vidéo de chaque tick du replay).
+- les réglages de lumière, de brouillard et de particules, et la piste de vitesse (temps vidéo de chaque tick du replay) ;
+- les skins de garde-robe d'Armourer's Workshop qu'un emplacement d'armure masqué emporte avec lui.
 
 - **Utiliser `--no-build-cache` pour un jar à publier ou à lancer en production.** Une reprise du cache a déjà produit un jar Forge 1.20.1 sans sa refmap (voir `ERROR_LOG.md`, ce projet est maintenant aussi protégé). Après un tel build, vérifier que la refmap est dans le jar.
 - Installer le jar de `build/libs/`. NeoForge 1.20.1 et les projets Fabric de 1.20.1 et 1.21.1 écrivent ailleurs un jar de développement, qui ne marche qu'en développement.
