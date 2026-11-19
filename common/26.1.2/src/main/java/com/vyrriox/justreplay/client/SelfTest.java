@@ -936,6 +936,28 @@ public final class SelfTest {
                 s.project().entityEdits.clear();
                 hiddenMob = null;
                 movedMob = null;
+                go(70, 5);
+            }
+            case 70 -> {
+                checkVisuals(mc, ReplaySession.current());
+                go(71, 20);
+            }
+            case 71 -> {
+                ReplaySession s = ReplaySession.current();
+                int skipped = com.vyrriox.justreplay.editor.EntityEdits.skippedRenders() - skippedBefore;
+                log("visuals: entities of the hidden type {} skipped {} renders -> {}", s.project().hiddenEntityTypes, skipped,
+                        hiddenMob == null || skipped > 0 ? "OK" : "FAIL");
+                // Night vision, no fog and the outline: for the owner to look at.
+                shot(mc, "visuals-night-vision-no-fog-outline");
+                com.vyrriox.justreplay.editor.WorldSettings w = s.project().world;
+                w.nightVision = false;
+                w.fog = com.vyrriox.justreplay.editor.WorldSettings.FOG_NORMAL;
+                w.particles = com.vyrriox.justreplay.editor.WorldSettings.PARTICLES_ALL;
+                w.hiddenParticles.clear();
+                s.project().hiddenEntityTypes.clear();
+                s.project().entityEdits.clear();
+                hiddenMob = null;
+                movedMob = null;
                 go(13, 5);
             }
             case 13 -> {
@@ -1348,6 +1370,69 @@ public final class SelfTest {
             serverPackState = 2;
             log("server resource pack in the replay: applied {} translation loaded {} overlay {} -> FAIL", applied, loaded, mc.getOverlay());
         }
+    }
+
+    /**
+     * World tab and Entities tab visuals: a chosen particle type is not created while another is, "None" creates
+     * nothing, a recorded mob gets an outline, every entity of another recorded mob's type is hidden (counted over
+     * the next ticks), then night vision and no fog for the picture.
+     */
+    private static void checkVisuals(Minecraft mc, ReplaySession s) {
+        com.vyrriox.justreplay.editor.WorldSettings w = s.project().world;
+        Vec3 at = mc.player.position().add(0, 1.5, 0);
+        w.particles = com.vyrriox.justreplay.editor.WorldSettings.PARTICLES_CHOSEN;
+        w.hiddenParticles = new java.util.ArrayList<>(java.util.List.of("minecraft:flame"));
+        int hiddenBefore = com.vyrriox.justreplay.editor.Visuals.hiddenParticles();
+        boolean flameHidden = mc.particleEngine.createParticle(net.minecraft.core.particles.ParticleTypes.FLAME, at.x, at.y, at.z, 0, 0, 0) == null;
+        boolean smokeShown = mc.particleEngine.createParticle(net.minecraft.core.particles.ParticleTypes.SMOKE, at.x, at.y, at.z, 0, 0, 0) != null;
+        w.particles = com.vyrriox.justreplay.editor.WorldSettings.PARTICLES_NONE;
+        boolean noneHidden = mc.particleEngine.createParticle(net.minecraft.core.particles.ParticleTypes.SMOKE, at.x, at.y, at.z, 0, 0, 0) == null;
+        int counted = com.vyrriox.justreplay.editor.Visuals.hiddenParticles() - hiddenBefore;
+        log("visuals: chosen type hidden {} other type shown {} none hides all {} counted {} -> {}", flameHidden, smokeShown, noneHidden,
+                counted, flameHidden && smokeShown && noneHidden && counted >= 2 ? "OK" : "FAIL");
+        w.particles = com.vyrriox.justreplay.editor.WorldSettings.PARTICLES_ALL;
+        Entity typed = null;
+        Entity outlined = null;
+        for (Entity e : mc.level.entitiesForRendering()) {
+            if (e == mc.player || com.vyrriox.justreplay.editor.ActorManager.isActorEntity(e)
+                    || !(e instanceof net.minecraft.world.entity.LivingEntity) || e instanceof net.minecraft.world.entity.player.Player) {
+                continue;
+            }
+            if (typed == null) {
+                typed = e;
+            } else if (outlined == null && e.getType() != typed.getType()) {
+                outlined = e;
+            }
+        }
+        if (outlined != null) {
+            ReplayProject.EntityEdit glow = new ReplayProject.EntityEdit(outlined.getUUID().toString(), "test outline");
+            glow.glow = true;
+            s.project().entityEdits.add(glow);
+            boolean glows = mc.shouldEntityAppearGlowing(outlined);
+            log("visuals: outline on {} -> {}", outlined.getType().getDescriptionId(), glows ? "OK" : "FAIL");
+        } else {
+            log("visuals: outline skipped, no second recorded mob type");
+        }
+        hiddenMob = typed;
+        if (typed != null) {
+            s.project().toggleHiddenType(com.vyrriox.justreplay.editor.EntityEdits.typeId(typed));
+        }
+        skippedBefore = com.vyrriox.justreplay.editor.EntityEdits.skippedRenders();
+        // Night vision: the lightmap state of the frame gets the full brightness.
+        net.minecraft.client.renderer.LightmapRenderStateExtractor extractor =
+                ((com.vyrriox.justreplay.mixin.GameRendererVisualAccessor) mc.gameRenderer).justreplay$lightmapExtractor();
+        w.nightVision = true;
+        net.minecraft.client.renderer.state.LightmapRenderState light = new net.minecraft.client.renderer.state.LightmapRenderState();
+        extractor.extract(light, 1.0F);
+        log("visuals: night vision lightmap brightness {} -> {}", light.brightness,
+                light.brightness >= com.vyrriox.justreplay.editor.Visuals.FULL_BRIGHT ? "OK" : "FAIL");
+        // No fog: the fog of the frame is pushed past any view distance.
+        w.fog = com.vyrriox.justreplay.editor.WorldSettings.FOG_OFF;
+        net.minecraft.client.renderer.fog.FogData fog = ((com.vyrriox.justreplay.mixin.GameRendererVisualAccessor) mc.gameRenderer)
+                .justreplay$fogRenderer().setupFog(mc.gameRenderer.getMainCamera(), mc.options.getEffectiveRenderDistance(),
+                        mc.getDeltaTracker(), 0.0F, mc.level);
+        log("visuals: fog off starts at {} -> {}", fog.renderDistanceStart,
+                fog.renderDistanceStart >= com.vyrriox.justreplay.editor.WorldSettings.NO_FOG ? "OK" : "FAIL");
     }
 
     /** The two markers placed with the recording marker key arrive on the timeline at the first opening. */
