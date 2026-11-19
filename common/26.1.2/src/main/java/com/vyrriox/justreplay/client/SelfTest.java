@@ -43,6 +43,7 @@ public final class SelfTest {
     private static Entity hiddenMob;
     /** The slow motion export of the speed track check. */
     private static VideoExporter slowExport;
+    private static int slowWait;
     private static Entity movedMob;
     private static int skippedBefore;
     private static int offsetBefore;
@@ -1029,22 +1030,27 @@ public final class SelfTest {
                 s.project().speed = new com.vyrriox.justreplay.editor.SpeedTrack();
                 s.project().speed.setKey(0, 0.5F);
                 Files.deleteIfExists(ReplayStorage.exportRoot().resolve("selftest_slow.mp4"));
-                var error = VideoExporter.start(s, 20, 60, "selftest_slow");
+                // The exact name whatever rangeInFileName says, as SceneJob does.
+                slowWait = 0;
+                var error = VideoExporter.start(s, 20, 60, "selftest_slow", VideoExporter.Settings.fromConfig(), false);
                 slowExport = VideoExporter.current();
                 log("slow motion export start error={}", error == null ? "none" : error.getString());
                 next(1);
             }
             case 73 -> {
-                if (!VideoExporter.isActive()) {
-                    next(100);
+                // The file is written once the finisher thread has let FFmpeg end and mixed the sound: a minute at most.
+                if (!VideoExporter.isActive() && (slowExport == null || slowExport.completion().isDone() || ++slowWait > 1200)) {
+                    next(1);
                 }
             }
             case 74 -> {
                 int frames = slowExport == null ? -1 : slowExport.frames();
                 double seconds = slowExport == null ? -1 : slowExport.videoSeconds();
-                Path slow = ReplayStorage.exportRoot().resolve("selftest_slow.mp4");
-                log("slow motion export: {} frames for 40 ticks at x0.5 (expected 241), {} s of video, file {} -> {}", frames, seconds,
-                        Files.exists(slow), frames == 241 && Math.abs(seconds - 4.0) < 1.0E-6 && Files.exists(slow) ? "OK" : "FAIL");
+                Path slow = slowExport == null ? null : slowExport.output();
+                boolean written = slow != null && Files.exists(slow);
+                log("slow motion export: {} frames for 40 ticks at x0.5 (expected 241), {} s of video, file {} written {} -> {}", frames,
+                        seconds, slow == null ? "none" : slow.getFileName(), written,
+                        frames == 241 && Math.abs(seconds - 4.0) < 1.0E-6 && written ? "OK" : "FAIL");
                 ReplaySession.current().project().speed = new com.vyrriox.justreplay.editor.SpeedTrack();
                 slowExport = null;
                 mc.level.disconnect(net.minecraft.network.chat.Component.empty());
