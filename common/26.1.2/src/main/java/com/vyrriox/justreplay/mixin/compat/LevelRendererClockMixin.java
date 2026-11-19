@@ -23,9 +23,13 @@ public abstract class LevelRendererClockMixin {
 
     @Inject(method = "tick", at = @At("TAIL"), require = 0)
     private void justreplay$replayClock(CallbackInfo ci) {
-        int replayTicks = ReplayCompat.animationTicks();
-        if (replayTicks >= 0) {
-            this.ticks = replayTicks;
+        try {
+            int replayTicks = ReplayCompat.animationTicks();
+            if (replayTicks >= 0) {
+                this.ticks = replayTicks;
+            }
+        } catch (Throwable t) {
+            ReplayCompat.warnOnceGame("LevelRenderer.tick", t);
         }
     }
 }

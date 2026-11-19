@@ -1,7 +1,9 @@
 package com.vyrriox.justreplay.mixin.compat;
 
 import com.vyrriox.justreplay.compat.CompatTargets;
+import com.vyrriox.justreplay.platform.EarlyMods;
 import org.objectweb.asm.tree.ClassNode;
+import org.slf4j.LoggerFactory;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
 import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
 
@@ -9,29 +11,31 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Applies the mixins of an integration only with its mod, on a loader where that integration has been read.
+ * Chooses the optional mixins. A mixin of an integration applies only while that integration may run: its mod is
+ * installed (for most of them), the integration is supported on this loader and the {@code compat} section of the
+ * config leaves it on (see {@link CompatTargets#mixinsApply}). The section draw guard targets the vanilla section
+ * renderer, which Sodium and Embeddium replace. An error while choosing leaves the mixin out: a mixin that is not
+ * applied costs a feature, a wrong one could stop the game from starting.
  *
  * @author vyrriox
  */
 public final class CompatMixinPlugin implements IMixinConfigPlugin {
+    private static boolean loaded(String modId) {
+        return EarlyMods.isLoaded(modId);
+    }
+
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
-        if (mixinClassName.contains(".Armourers")) {
-            return CompatTargets.isActive("armourers_workshop");
+        try {
+            if (mixinClassName.endsWith(".SectionBufferGuardMixin")) {
+                return !loaded("sodium") && !loaded("embeddium");
+            }
+            String owner = CompatTargets.mixinOwner(mixinClassName);
+            return owner == null || CompatTargets.mixinsApply(owner);
+        } catch (Throwable t) {
+            LoggerFactory.getLogger(CompatMixinPlugin.class).warn("Leaving out the mixin {}: {}", mixinClassName, t.toString());
+            return false;
         }
-        if (mixinClassName.contains(".GeckoLib")) {
-            return CompatTargets.isActive("geckolib");
-        }
-        if (mixinClassName.contains(".Jade")) {
-            return CompatTargets.isActive("jade");
-        }
-        if (mixinClassName.contains(".Iris")) {
-            return CompatTargets.isActive("iris");
-        }
-        if (mixinClassName.contains(".Bobby")) {
-            return CompatTargets.isSupported("bobby");
-        }
-        return true;
     }
 
     @Override

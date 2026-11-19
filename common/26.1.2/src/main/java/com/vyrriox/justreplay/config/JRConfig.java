@@ -1,10 +1,15 @@
 package com.vyrriox.justreplay.config;
 
+import com.vyrriox.justreplay.compat.CompatSwitches;
+import com.vyrriox.justreplay.compat.CompatTargets;
 import com.vyrriox.justreplay.export.ExportResolution;
 import com.vyrriox.justreplay.platform.Platform;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * Client configuration of Just Replay.
@@ -34,6 +39,8 @@ public final class JRConfig {
     public static final ConfigFile.IntValue EXPORT_WARMUP_FRAMES;
     public static final ConfigFile.EnumValue<ExportResolution> EXPORT_RESOLUTION;
     public static final ConfigFile.EnumValue<EditorMode> EDITOR_MODE;
+    /** One switch per integration, by mod id (see {@link CompatSwitches}, which reads them before the game starts). */
+    public static final Map<String, ConfigFile.BoolValue> COMPAT;
 
     /** How much of the replay editor is shown. */
     public enum EditorMode {
@@ -45,7 +52,7 @@ public final class JRConfig {
 
     static {
         Path dir = Platform.get().configDir();
-        Path file = dir.resolve("justreplay-client.json");
+        Path file = dir.resolve(CompatSwitches.FILE_NAME);
         SPEC = new ConfigFile(file, "Just Replay client settings.");
         ConfigFile.Section recording = SPEC.section("recording", "Recording.");
         AUTO_RECORD_MULTIPLAYER = recording.bool("autoRecordMultiplayer", false,
@@ -108,6 +115,14 @@ public final class JRConfig {
         EDITOR_MODE = editor.enumeration("mode", EditorMode.SIMPLE,
                 "SIMPLE shows the essentials of the replay editor with big controls; ADVANCED shows every tool." + "\n"
                         + "Switching keeps all the work done in either mode.");
+        ConfigFile.Section compat = SPEC.section(CompatSwitches.SECTION,
+                "Integrations with other mods, one switch per mod id. An integration that fails turns itself off until the" + "\n"
+                        + "next start and says so in the log; set it to false here to keep it off. Changes apply at the next start.");
+        Map<String, ConfigFile.BoolValue> switches = new LinkedHashMap<>();
+        for (Map.Entry<String, String> mod : CompatTargets.NAMES.entrySet()) {
+            switches.put(mod.getKey(), compat.bool(mod.getKey(), true, mod.getValue() + " integration (applies at the next start)."));
+        }
+        COMPAT = Collections.unmodifiableMap(switches);
         boolean firstRun = !Files.exists(file);
         SPEC.load();
         Path legacy = dir.resolve("justreplay-client.toml");
