@@ -70,6 +70,28 @@ Every integration is optional: it is reached by reflection or by optional mixins
 | **Bobby** | Bobby reports itself disabled while a replay runs (no cached chunks, nothing saved). | Unchanged. |
 | **Drop the Beam** | Lights, beams, moving heads, haze and particles follow the level game time and need nothing. Everything that follows a song (music, light desk cues, video screens, sound reactive signals) follows the server clock as `ServerClock` estimates it. **Clock:** the recorded `clock_pong` packets plus a clock sample the recorder writes every 2 s (a pong carrying a marker, with the server instant the recording client estimated) map each recorded tick to the server instant; they are read ahead in the background when a replay opens and while playing. During a replay `ServerClock` answers with that mapping at the frame's replay time (cursor and partial tick): it stops with the replay, follows its speed and jumps with seeks. Recorded pongs never reach Drop the Beam; its pings and requests are not sent to the replay host; its "pause with the single-player game" logic is off during a replay. **Recording:** the latest music state, mix and layers per turntable, song offers and analyses, shows per desk, features and libraries are kept per connection and written into every snapshot and checkpoint, so a recording started mid-session plays the music already running. **Live audio:** fed silence while the replay is paused, away from x1 (songs are rendered at their natural pitch) or its game sounds are muted; its volume follows the project's game volume and ducking. **Export:** its audio thread renders nothing during an export; every voice is rendered offline for each frame with the clock pinned to that frame, attenuated (linear to its range, jukebox volume) and panned relative to the camera, then mixed as a game sound (game volume, mute, ducking). **Song starts:** `DropTheBeamCompat.songStartTicks()` gives the replay tick (with decimals) where each song is heard from its start, and each repeat of a song looping on its own; they are logged as `Drop the Beam: turntable ... starts "title" at replay tick ...`. | Compiled against Drop the Beam 0.1.0 sources, not yet tested in game. |
 
+### When an integration fails
+
+Big modpacks mix versions nobody tested together, so every integration has a safety net:
+
+- An integration runs only when its mod is installed, it is supported on the running loader (`CompatTargets`) and
+  the config leaves it on. Its mixins apply under the same conditions (`CompatMixinPlugin`).
+- Every call into another mod goes through the guard of its integration (`Integration`). The first error (a method
+  or class that changed, `NoSuchMethodError`, `NoClassDefFoundError`, a crash in the other mod's code) turns that
+  integration off until the next start, with one warning in the log naming it and the hook that failed. What it
+  changed in its mod (Entity Culling's switch, the Distant Horizons folder override) is still put back when the
+  replay ends.
+- To turn an integration off by hand: `compat.<mod id>` set to `false` in `config/justreplay-client.json`, or its
+  switch in the settings screen (shown for the installed mods). It applies at the next start, mixins included.
+- A packet that cannot be encoded, read back or played (a mod payload, most of the time) is skipped and counted: the
+  recording or the replay goes on. The first of each type logs a warning, and a `Recording: N packets skipped (...)`
+  or `Replay: N packets skipped (...)` line sums them up at the end.
+- The mixins tolerate a method another mod rewrote (`defaultRequire` 0): that hook is lost, the game starts.
+- At startup Just Replay logs one line with its version, the loader, Minecraft and the state of each integration
+  found, for example `Just Replay 1.1.2 on neoforge 21.1.221, Minecraft 1.21.1. Integrations on: Curios, Jade; off in
+  the config: GeckoLib; installed but not supported on this loader: none; not installed: 26.` Read it first in a
+  crash log.
+
 ### Known limits
 
 - A block changed in the very tick a recording starts in the middle of a session can be missed: the packet is
@@ -403,6 +425,31 @@ fait rien quand le mod est absent. Le code se trouve dans `com.vyrriox.justrepla
 - **Immersive Paintings** : la liste des tableaux et les images utilisées sont écrites dans les instantanés et points de reprise ; les suppressions sont retirées des listes enregistrées, un replay n'efface donc jamais le cache de celui qui regarde. Testé sur NeoForge et Fabric 1.21.1.
 - **Immersive Aircraft** : les instantanés et points de reprise écrivent l'équipement d'un appareil, et ses demandes au serveur du replay sont bloquées. Testé sur NeoForge et Fabric 1.21.1 : un biplan équipé garde son équipement au début d'un replay et après un retour en arrière.
 - **Immersive Vehicles** : un véhicule, un siège ou un bloc d'Immersive Vehicles arrive chez le client comme une coquille vide qui demande une fois ses données au serveur. Les instantanés et points de reprise écrivent ces données comme le serveur y répond, et ses demandes au serveur du replay sont bloquées. Le mod dessine tous ses véhicules par une entité invisible qui doit suivre le joueur local : un replay a la sienne, qui suit la caméra, et celles enregistrées ne dessinent plus. Testé sur NeoForge 1.21.1 et Forge 1.20.1 avec Immersive Vehicles 24.0.0 et son Official Content Pack, et sur NeoForge 26.1.2 avec Immersive Vehicles 24.0.0-26.1 et le pack R.A.G.E 3.0 bêta 2 (l'Official Content Pack n'existe pas en 26.1) : une voiture posée avant l'enregistrement a ses données au début d'un replay et après un retour en arrière. NeoForge 26.1.2 en client de développement seulement. Forge 1.20.1 en client de développement seulement, le mod remappé par `-PdevMods`. Conduite et physique pendant un replay non vérifiées par un humain.
+
+### Quand une intégration échoue
+
+Les gros modpacks mélangent des versions que personne n'a testées ensemble, alors chaque intégration a un filet :
+
+- Une intégration ne tourne que si son mod est installé, qu'elle est prise en charge sur le loader lancé
+  (`CompatTargets`) et que la config la laisse active. Ses mixins s'appliquent aux mêmes conditions
+  (`CompatMixinPlugin`).
+- Chaque appel vers un autre mod passe par la garde de son intégration (`Integration`). La première erreur (méthode
+  ou classe changée, `NoSuchMethodError`, `NoClassDefFoundError`, plantage dans le code de l'autre mod) coupe cette
+  intégration jusqu'au prochain démarrage, avec un seul avertissement dans le log qui la nomme avec le point
+  d'accroche en cause. Ce qu'elle avait changé dans son mod (l'interrupteur d'Entity Culling, la redirection de
+  dossier de Distant Horizons) est quand même remis à la fin du replay.
+- Pour couper une intégration à la main : `compat.<id du mod>` à `false` dans `config/justreplay-client.json`, ou son
+  interrupteur dans l'écran des réglages (affiché pour les mods installés). Effet au prochain démarrage, mixins
+  compris.
+- Un paquet impossible à encoder, relire ou rejouer (un paquet de mod, le plus souvent) est ignoré et compté :
+  l'enregistrement ou le replay continue. Le premier de chaque type écrit un avertissement, et une ligne
+  `Recording: N packets skipped (...)` ou `Replay: N packets skipped (...)` en fait le compte à la fin.
+- Les mixins tolèrent une méthode réécrite par un autre mod (`defaultRequire` 0) : ce point d'accroche est perdu, le
+  jeu démarre.
+- Au démarrage, Just Replay écrit une ligne avec sa version, le loader, Minecraft et l'état de chaque intégration
+  trouvée, par exemple `Just Replay 1.1.2 on neoforge 21.1.221, Minecraft 1.21.1. Integrations on: Curios, Jade; off
+  in the config: GeckoLib; installed but not supported on this loader: none; not installed: 26.` C'est la première
+  ligne à lire dans un log de crash.
 
 Limites connues des cibles : sur tout Fabric, le HUD propre ne peut pas masquer les HUD des autres mods en 1.20.1 et
 1.21.1, pas de modificateurs de touches, pas de bouton de réglages sans Mod Menu. Sur Forge 1.21.1 et 26.1.2,

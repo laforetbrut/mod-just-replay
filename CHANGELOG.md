@@ -4,15 +4,29 @@
 
 ### Added
 - **Hide armor** (Minecraft 1.21.1): switch off the helmet, chestplate, leggings or boots of a recorded player or an actor, one by one. The elytra go with the chestplate, a pumpkin or a head with the helmet. Only the replay and the video change, and older projects keep their armor. The new `hidePlayerArmor` option strips every player at once.
+- **Integration switches**: one switch per mod in the new `compat` section of the settings, also in the settings screen for the mods you have. Turn one off and Just Replay leaves that mod alone from the next start.
+- **Startup line**: the log now says at startup which Just Replay, loader and integrations are running. Handy for reading crash reports.
 
 ### Changed
 - **Create Aeronautics, Sable, Create Propulsion**: checked together with Create 6.0.10 on NeoForge 1.21.1. The game loads, and recording, replays and seeks pass the self test. See `docs/COMPATIBILITY.md`.
 
+### Fixed
+- **Big modpacks**: an integration whose mod changed (a method or class gone, a crash in its code) no longer takes the game down. It turns itself off until the next start with one warning in the log, and the rest keeps going.
+- **Mixins**: another mod that rewrote a method Just Replay hooks no longer stops the game at startup, only that feature is lost.
+- **Mod packets**: a packet that can't be recorded, read back or played is skipped and counted instead of breaking the recording or the replay. One line sums them up at the end.
+
 ### Ajouts
 - **Masquer l'armure** (Minecraft 1.21.1) : coupe le casque, le plastron, les jambières ou les bottes d'un joueur enregistré ou d'un acteur, pièce par pièce. Les élytres partent avec le plastron, une citrouille ou une tête avec le casque. Seuls le replay et la vidéo changent, et les anciens projets gardent leur armure. La nouvelle option `hidePlayerArmor` déshabille tous les joueurs d'un coup.
+- **Interrupteurs d'intégration** : un interrupteur par mod dans la nouvelle section `compat` des réglages, aussi dans l'écran des réglages pour les mods installés. Coupé, Just Replay laisse ce mod tranquille dès le prochain démarrage.
+- **Ligne de démarrage** : le log dit au démarrage quelle version de Just Replay, quel loader et quelles intégrations tournent. Pratique pour lire un rapport de crash.
 
 ### Modifications
 - **Create Aeronautics, Sable, Create Propulsion** : vérifiés ensemble avec Create 6.0.10 sur NeoForge 1.21.1. Le jeu charge, et l'enregistrement, les replays et les sauts passent le test automatique. Voir `docs/COMPATIBILITY.md`.
+
+### Correctifs
+- **Gros modpacks** : une intégration dont le mod a changé (méthode ou classe disparue, plantage dans son code) ne fait plus planter le jeu. Elle se coupe jusqu'au prochain démarrage avec un seul avertissement dans le log, et le reste continue.
+- **Mixins** : un autre mod qui a réécrit une méthode accrochée par Just Replay n'empêche plus le jeu de démarrer, seule cette fonction est perdue.
+- **Paquets de mods** : un paquet impossible à enregistrer, relire ou rejouer est ignoré et compté au lieu de casser l'enregistrement ou le replay. Une ligne en fait le compte à la fin.
 
 ---
 
