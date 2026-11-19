@@ -47,6 +47,7 @@ public final class SelfTest {
     private static int skippedBefore;
     private static int offsetBefore;
     private static int armorSkippedBefore;
+    private static int armorLayerSkippedBefore;
     private static int wait;
     private static int settle;
     private static int speedStart;
@@ -662,6 +663,7 @@ public final class SelfTest {
                 player.chest = "minecraft:iron_chestplate";
                 player.hiddenArmor = com.vyrriox.justreplay.editor.ArmorSlots.HEAD;
                 armorSkippedBefore = com.vyrriox.justreplay.editor.ArmorSlots.skipped();
+                armorLayerSkippedBefore = com.vyrriox.justreplay.editor.ArmorSlots.armorLayerSkipped();
                 player.keyframes.add(new ReplayProject.ActorKeyframe(20, c.x + 2, c.y, c.z + 2, 90, 0));
                 player.keyframes.add(new ReplayProject.ActorKeyframe(120, c.x + 8, c.y, c.z + 2, 90, 0));
                 ReplayProject.ActorData zombie = new ReplayProject.ActorData();
@@ -1517,9 +1519,12 @@ public final class SelfTest {
         boolean worn = notch instanceof net.minecraft.world.entity.LivingEntity living
                 && !living.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).isEmpty();
         int skipped = com.vyrriox.justreplay.editor.ArmorSlots.skipped() - armorSkippedBefore;
-        log("hidden armor: actor mask {} helmet hidden {} chestplate hidden {} helmet still worn {} -> {}, pieces skipped {} -> {}",
+        // The head item layer skips a hidden head on every frame by itself: the armor layer must have skipped too.
+        int layer = com.vyrriox.justreplay.editor.ArmorSlots.armorLayerSkipped() - armorLayerSkippedBefore;
+        log("hidden armor: actor mask {} helmet hidden {} chestplate hidden {} helmet still worn {} -> {}, pieces skipped {} of which"
+                        + " by the armor layer {} -> {}",
                 mask, helmet, chest, worn, mask == com.vyrriox.justreplay.editor.ArmorSlots.HEAD && helmet && !chest && worn ? "OK" : "FAIL",
-                skipped, skipped > 0 ? "OK" : "FAIL");
+                skipped, layer, layer > 0 ? "OK" : "FAIL");
         int camera = mc.player == null ? 0 : com.vyrriox.justreplay.editor.ArmorSlots.hidden(mc.player);
         log("hidden armor: camera player mask {} -> {}", camera, camera == 0 ? "OK" : "FAIL");
         boolean before = com.vyrriox.justreplay.config.JRConfig.HIDE_PLAYER_ARMOR.get();

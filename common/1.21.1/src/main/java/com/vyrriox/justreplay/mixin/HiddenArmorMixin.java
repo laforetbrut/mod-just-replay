@@ -32,7 +32,7 @@ public abstract class HiddenArmorMixin {
     private void justreplay$hiddenPiece(PoseStack pose, MultiBufferSource buffers, LivingEntity entity, EquipmentSlot slot,
                                         int light, HumanoidModel<?> model, CallbackInfo ci) {
         if (ArmorSlots.hides(entity, slot)) {
-            ArmorSlots.countSkipped();
+            ArmorSlots.countArmorLayerSkipped();
             ci.cancel();
         }
     }
@@ -45,7 +45,7 @@ public abstract class HiddenArmorMixin {
             target = "Lnet/minecraft/world/entity/LivingEntity;getItemBySlot(Lnet/minecraft/world/entity/EquipmentSlot;)Lnet/minecraft/world/item/ItemStack;"))
     private ItemStack justreplay$hiddenStack(LivingEntity entity, EquipmentSlot slot) {
         if (ArmorSlots.hides(entity, slot)) {
-            ArmorSlots.countSkipped();
+            ArmorSlots.countArmorLayerSkipped();
             return ItemStack.EMPTY;
         }
         return entity.getItemBySlot(slot);

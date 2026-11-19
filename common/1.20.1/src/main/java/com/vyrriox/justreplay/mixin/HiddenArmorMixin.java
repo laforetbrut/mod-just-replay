@@ -30,7 +30,7 @@ public abstract class HiddenArmorMixin {
     private void justreplay$hiddenPiece(PoseStack pose, MultiBufferSource buffers, LivingEntity entity, EquipmentSlot slot,
                                         int light, HumanoidModel<?> model, CallbackInfo ci) {
         if (ArmorSlots.hides(entity, slot)) {
-            ArmorSlots.countSkipped();
+            ArmorSlots.countArmorLayerSkipped();
             ci.cancel();
         }
     }

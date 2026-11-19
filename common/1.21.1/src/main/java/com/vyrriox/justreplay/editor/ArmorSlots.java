@@ -38,6 +38,8 @@ public final class ArmorSlots {
 
     /** Armor pieces, elytra and head items skipped, for the self test. */
     private static int skipped;
+    /** Of those, the pieces the armor layer itself skipped. */
+    private static int armorLayerSkipped;
 
     private ArmorSlots() {
     }
@@ -88,5 +90,15 @@ public final class ArmorSlots {
 
     public static int skipped() {
         return skipped;
+    }
+
+    /** Called by the armor layer hooks each time they skip an armor piece. */
+    public static void countArmorLayerSkipped() {
+        skipped++;
+        armorLayerSkipped++;
+    }
+
+    public static int armorLayerSkipped() {
+        return armorLayerSkipped;
     }
 }

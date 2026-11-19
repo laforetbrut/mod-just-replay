@@ -34,7 +34,7 @@ public abstract class HiddenArmorMixin {
                                         int lightCoords, HumanoidRenderState state, CallbackInfo ci) {
         Entity entity = RenderStateEntity.of(state);
         if (entity != null && ArmorSlots.hides(entity, slot)) {
-            ArmorSlots.countSkipped();
+            ArmorSlots.countArmorLayerSkipped();
             ci.cancel();
         }
     }
