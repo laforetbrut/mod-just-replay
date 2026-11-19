@@ -4,15 +4,19 @@
 
 ### Added
 - **Hide armor** (Minecraft 1.21.1): switch off the helmet, chestplate, leggings or boots of a recorded player or an actor, one by one. The elytra go with the chestplate, a pumpkin or a head with the helmet. Only the replay and the video change, and older projects keep their armor. The new `hidePlayerArmor` option strips every player at once.
+- **Name your replays**: stop a recording (F8, F7, the pause menu buttons, a timed recording, leaving a world) and a window asks for a name, filled with the date and time. Enter or Rename renames it, Esc or Skip keeps the date. The folder gets a name Windows and Linux accept and never takes another replay's, a ` (2)` is added instead. Don't want it? Turn off `nameOnSave`.
 
 ### Changed
 - **Create Aeronautics, Sable, Create Propulsion**: checked together with Create 6.0.10 on NeoForge 1.21.1. The game loads, and recording, replays and seeks pass the self test. See `docs/COMPATIBILITY.md`.
+- **Building from source**: `./gradlew build` also runs the unit tests of `common/<mc>/src/test`, and the target branches carry them. See `docs/BUILDING.md`.
 
 ### Ajouts
 - **Masquer l'armure** (Minecraft 1.21.1) : coupe le casque, le plastron, les jambières ou les bottes d'un joueur enregistré ou d'un acteur, pièce par pièce. Les élytres partent avec le plastron, une citrouille ou une tête avec le casque. Seuls le replay et la vidéo changent, et les anciens projets gardent leur armure. La nouvelle option `hidePlayerArmor` déshabille tous les joueurs d'un coup.
+- **Nommer ses replays** : arrête un enregistrement (F8, F7, les boutons du menu pause, un enregistrement minuté, en quittant un monde) et une fenêtre demande un nom, prérempli avec la date et l'heure. Entrée ou Rename le renomme, Échap ou Skip garde la date. Le dossier prend un nom accepté par Windows et Linux et ne prend jamais celui d'un autre replay, un ` (2)` est ajouté à la place. Pas envie ? Coupe `nameOnSave`.
 
 ### Modifications
 - **Create Aeronautics, Sable, Create Propulsion** : vérifiés ensemble avec Create 6.0.10 sur NeoForge 1.21.1. Le jeu charge, et l'enregistrement, les replays et les sauts passent le test automatique. Voir `docs/COMPATIBILITY.md`.
+- **Compiler le mod** : `./gradlew build` lance aussi les tests unitaires de `common/<mc>/src/test`, et les branches de cible les embarquent. Voir `docs/BUILDING.md`.
 
 ---
 
