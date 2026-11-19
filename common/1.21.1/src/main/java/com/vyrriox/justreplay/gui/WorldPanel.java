@@ -5,6 +5,7 @@ import com.vyrriox.justreplay.editor.fx.FxEffect.Key;
 import com.vyrriox.justreplay.gui.ui.Form;
 import com.vyrriox.justreplay.gui.ui.GlassButton;
 import com.vyrriox.justreplay.gui.ui.GlassSlider;
+import com.vyrriox.justreplay.gui.ui.GlassSwitch;
 import com.vyrriox.justreplay.gui.ui.Icon;
 import com.vyrriox.justreplay.gui.ui.Segmented;
 import com.vyrriox.justreplay.gui.ui.Stepper;
@@ -99,13 +100,51 @@ final class WorldPanel {
             f.full(new Stepper(tc("justreplay.world.moon.phase"), () -> world().moonPhase + 1, "", 0,
                     () -> moon(-1), () -> moon(1)).icon(Icon.EYE).tip(tc("justreplay.world.moon.tip")));
         }
-        f.paragraph(tc(world().active() ? "justreplay.world.active" : "justreplay.world.inactive"), Theme.TEXT_MUTED);
-        if (world().active()) {
+        visuals(f);
+        boolean changed = world().active() || world().visualsActive();
+        f.paragraph(tc(changed ? "justreplay.world.active" : "justreplay.world.inactive"), Theme.TEXT_MUTED);
+        if (changed) {
             f.full(new GlassButton(tc("justreplay.world.reset"), b -> {
                 session.project().world = new WorldSettings();
                 save();
                 screen.refresh();
             }).icon(Icon.TRASH).tip(tc("justreplay.world.reset.tip")));
+        }
+    }
+
+    /** Light, fog and particles: shown in previews, in playback and in exported videos. */
+    private void visuals(Form f) {
+        WorldSettings w = world();
+        f.header(tc("justreplay.world.visuals"), Icon.EYE);
+        f.full(new GlassSwitch(tc("justreplay.world.night_vision"), () -> world().nightVision, () -> {
+            world().nightVision = !world().nightVision;
+            save();
+            screen.refresh();
+        }).icon(Icon.EYE).tip(tc("justreplay.world.night_vision.tip")));
+        f.text(() -> tc("justreplay.world.fog"), Theme.TEXT_DIM);
+        f.full(new Segmented<>(WorldSettings.FOGS, w.fog, v -> tc("justreplay.world.fog." + v.toLowerCase(java.util.Locale.ROOT)), null, v -> {
+            world().fog = v;
+            save();
+            screen.refresh();
+        }).tip(tc("justreplay.world.fog.tip")));
+        f.text(() -> tc("justreplay.world.particles"), Theme.TEXT_DIM);
+        f.full(new Segmented<>(WorldSettings.PARTICLE_MODES, w.particles,
+                v -> tc("justreplay.world.particles." + v.toLowerCase(java.util.Locale.ROOT)), null, v -> {
+            world().particles = v;
+            save();
+            screen.refresh();
+        }).tip(tc("justreplay.world.particles.tip")));
+        if (WorldSettings.PARTICLES_CHOSEN.equals(w.particles)) {
+            java.util.List<String> types = new java.util.ArrayList<>();
+            for (net.minecraft.resources.ResourceLocation id : net.minecraft.core.registries.BuiltInRegistries.PARTICLE_TYPE.keySet()) {
+                types.add(id.toString());
+            }
+            java.util.Collections.sort(types);
+            TypeList.build(screen, f, "particles", types, id -> id, w.hiddenParticles, id -> {
+                world().toggleParticle(id);
+                save();
+                screen.refresh();
+            });
         }
     }
 
