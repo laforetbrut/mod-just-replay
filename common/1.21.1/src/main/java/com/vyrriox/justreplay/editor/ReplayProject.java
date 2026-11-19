@@ -79,6 +79,8 @@ public final class ReplayProject {
     public List<EntityEdit> entityEdits = new ArrayList<>();
     /** Entity type ids (such as {@code minecraft:zombie}) whose recorded entities are not drawn. */
     public List<String> hiddenEntityTypes = new ArrayList<>();
+    /** Speed keys, timelapses and freezes of previews and exported videos. */
+    public SpeedTrack speed = new SpeedTrack();
 
     /**
      * Edit of one recorded entity. Hidden from {@code hideFrom} to {@code hideTo} (-1: the end of the replay);
@@ -519,6 +521,8 @@ public final class ReplayProject {
         if (world == null) world = new WorldSettings();
         world.normalize();
         hiddenEntityTypes = WorldSettings.cleanIds(hiddenEntityTypes);
+        if (speed == null) speed = new SpeedTrack();
+        speed.normalize();
         if (entityEdits == null) entityEdits = new ArrayList<>();
         entityEdits.removeIf(e -> e == null || e.uuid == null || e.uuid.isBlank());
         for (EntityEdit edit : entityEdits) {
