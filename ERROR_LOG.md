@@ -283,3 +283,45 @@
 **Root cause:** /tmp is a 3.9 GB tmpfs held in memory on this machine, and the loader folders carry their build and run folders, several GB together
 **Fix:** Removed the copy (2.2 GB free again) and compared single files with git show develop:<path>
 **Prevention:** Never copy loader folders (build/, run*/) to /tmp; compare with git show <ref>:<path>, or git archive only the paths needed
+
+## [2026-11-20 00:32] — Hidden armor did nothing on NeoForge 1.21.1: a bare mixin method name hooks one overload
+**Context:** Task 467: in-game self test of hidden armor on NeoForge 1.21.1 with the armor layer counted on its own
+**Error:** SELFTEST hidden armor: pieces skipped 26 of which by the armor layer 0 -> FAIL (helmet still drawn)
+**Root cause:** Mixin 0.8 narrows @Redirect(method = "renderArmorPiece") to the first method of that name (TargetSelectors, SELECT_MEMBER turns the default quantifier into SINGLE). NeoForge declares the vanilla renderArmorPiece before its 12 argument overload, and render() only calls the overload.
+**Fix:** method = "renderArmorPiece*" takes every overload (HiddenArmorMixin, commit e9f1734); the Fabric refmap maps it to the single vanilla method.
+**Prevention:** Never rely on a bare method name to cover overloads: use name* or full descriptors, and run livrables/verif-mixins/scan_overloads.py of task 467 on each common tree after adding a name-only selector.
+
+## [2026-11-20 00:32] — Self test passed hidden armor while the armor layer hid nothing
+**Context:** Task 467: the hidden armor self test step counted skipped pieces to prove the armor hooks work
+**Error:** pieces skipped 19 -> OK on NeoForge 1.21.1 although the vanilla helmet was still drawn
+**Root cause:** The head item layer hook calls ArmorSlots.countSkipped() on every frame of a hidden head by itself, so the total was above zero without the armor layer skipping anything.
+**Fix:** The armor layer hooks count apart (ArmorSlots.countArmorLayerSkipped); the check requires that counter above zero (commit 93fbfd1). Proved red before the mixin fix, green after.
+**Prevention:** A self test counter must only be fed by the hook it proves; prove each new check red once on a known bad case.
+
+## [2026-11-20 00:32] — Slow motion export self test: file not found although the export succeeded
+**Context:** Task 467: first in-game run of self test steps 72 to 74 (speed track export, task 474)
+**Error:** slow motion export: 241 frames ... file false -> FAIL
+**Root cause:** The export named the file with its range (rangeInFileName, task 472: selftest_slow_00m01s-00m03s.mp4) while the step looked for selftest_slow.mp4, and it looked as soon as capture ended, before the finisher thread muxed the file.
+**Fix:** The step asks for the exact name like SceneJob (start with rangeInName false) and waits for VideoExporter.completion() before reading output() (commit 44bc397).
+**Prevention:** Check an export through VideoExporter.output() once completion() is done, never by a guessed name right after isActive() turns false.
+
+## [2026-11-20 00:33] — Game froze on Fabric when leaving a replay (IntegratedServer.halt waits for a dead thread)
+**Context:** Task 467: Fabric 26.1.2 self test, leaving the replay after the slow motion export (a server resource pack was active)
+**Error:** Self test TIMEOUT; jstack: Render thread parked in CompletableFuture.join <- BlockableEventLoop.executeBlocking <- IntegratedServer.halt <- Minecraft.disconnect, no Server thread left
+**Root cause:** The integrated server stops by itself when its player logs out. Leaving reloaded the resources (server pack dropped) before Minecraft.disconnect reached IntegratedServer.halt, which hands one more task to the server thread with executeBlocking, unguarded in vanilla; the thread was gone. NeoForge and Forge 47 guard it with isRunning().
+**Fix:** IntegratedServerHaltMixin redirects that executeBlocking behind server.isRunning() in every version; self test step 74 now leaves once the host thread has ended, which froze for sure without the guard (commit 63f52ae, Fabric 26.1.2 PASS).
+**Prevention:** Before leaving a world from code, assume the host may already be stopped; test leave paths on Fabric too, NeoForge hides this deadlock.
+
+## [2026-11-20 00:33] — Forge 1.21.1 and 26.1.2 dev clients cannot start in the Vigie sandbox (~/.minecraft/assets)
+**Context:** Task 467: test matrix runClient of forge-1.21.1 and forge-26.1.2 (ForgeGradle 7, Slime Launcher 0.2.3)
+**Error:** java.lang.IllegalArgumentException: Failed to create index directory: ~/.minecraft/assets/indexes (self test INCOMPLETE after 30 s)
+**Root cause:** Slime Launcher keeps the game assets in <user.home>/.minecraft/assets and checks or downloads them before launch; the task sandbox cannot write the home folder. No launcher option is reachable from the FG7 run config.
+**Fix:** -PmcHome=<dir> sets user.home of the dev game (forge build.gradle, commit 2c3eabb); <dir>/.minecraft/assets links to ~/.gradle/caches/neoformruntime/assets (indexes 17 and 30 complete, nothing downloaded).
+**Prevention:** On this machine run Forge 1.21.1 and 26.1.2 dev clients with -P mcHome=<task folder>/mchome and that link.
+
+## [2026-11-20 00:33] — Armourer's Workshop 3.4 stops the Forge 1.20.1 dev client at launch
+**Context:** Task 467: test matrix forge-1.20.1 with the Armourer's Workshop Forge 1.20.1 jar in devmods (-PdevMods)
+**Error:** Critical injection failure: @Inject annotation on aw2$renderGuiItemPre could not find any targets matching 'm_280405_(...)' (armourersworkshop-compat-mixins.json GuiGraphicsMixin)
+**Root cause:** Armourer's Workshop names its mixin targets in SRG itself through its config plugin (moe.plushie.armourers_workshop.api.annotation.Resolver), without a refmap, so fg.deobf and mixin.env.remapRefMap cannot translate them to the Parchment names of the dev game.
+**Fix:** None on our side: the hidden armor hooks were checked on Forge 1.20.1 by name against the real jar (verif-compat of task 467) and in game on Fabric 1.20.1, whose code is the same.
+**Prevention:** Test Armourer's Workshop 1.20.1 in game on Fabric 1.20.1 or with an installed Forge game, not in the Forge 1.20.1 dev client.
