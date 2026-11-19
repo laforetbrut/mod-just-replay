@@ -11,7 +11,9 @@ self test and gave no error, but its behaviour was not exercised. **Read** means
 against the mod's build and is enabled in `CompatTargets.java`, nothing was run. "Production" means the real jar in
 an offline client outside a development environment, with no launcher.
 
-The self test passes with 0 failures on all nine targets, in a development client and with the production jar.
+The self test of 1.1.2 passes with 0 failures on all nine targets, in a development client and with the production
+jar. The checks added since (hidden armor on every target, More Player Models looks on Forge 1.20.1) are written but
+have not run yet.
 
 | Target | Mods in the self test | Enabled but only read |
 |---|---|---|
@@ -48,8 +50,9 @@ unofficial port here (CurseForge `customnpcs-unofficial`): the official Custom N
 | Forge 26.1.2 | No build | No build (its 26.1.2 jar named "forge" is a NeoForge build) | No build |
 
 Not checked on any target: the look of real shader packs, real multiplayer recording on the new targets, and a real
-launcher (CurseForge, Modrinth App, Prism). Everything ran on Windows, on one machine and GPU; macOS is untested. A
-screenshot was read for Fabric 1.21.1, Forge 1.21.1, NeoForge 26.1.2 and Forge 1.20.1 and looked right.
+launcher (CurseForge, Modrinth App, Prism). Self tests ran on Windows (one machine and GPU) and on Linux (a client
+with no screen and software rendering); macOS is untested. A screenshot was read for Fabric 1.21.1, Forge 1.21.1,
+NeoForge 26.1.2 and Forge 1.20.1 and looked right.
 
 Reference pack for the NeoForge 1.21.1 target: **Arcadia V2** (444 mods). Just Replay must record, play back, edit and
 export with every mod of this pack installed. Most mods work for free because recording captures every
@@ -76,7 +79,7 @@ Every integration is optional: it is reached by reflection or by optional mixins
 | **Create** (Flywheel, Ponder) | Create's animation clock (`AnimationTickHolder`) and the level renderer clock read by Flywheel's shaders are set to the replay cursor: kinetic visuals stop with the replay, follow its speed and show the same angles after a seek and in exports. The train network packets (track graphs, edge groups, trains, roll calls), sent once per connection, are kept and written again in every snapshot and checkpoint. Contraptions keep their original spawn packets through the existing spawn cache; block entity data travels in chunk packets. | Clock tested in the Arcadia pack (the counter equals the cursor, stays still while paused). Trains and moving contraptions untested. |
 | **Mekanism** | Machines are block entities synced by update packets and chunk data: no dedicated code. | Machine placed in the self test, no error in the log; visuals not inspected. |
 | **Distant Horizons** | The distant terrain (LODs) of the recorded world shows in replays and exports. While recording, the DH level folder of each visited dimension (`IDhApiLevelWrapper.getDhSaveFolder()`, holding `DistantHorizons.sqlite`: `saves/<world>/data`, `saves/<world>/DIM-1/data`... in singleplayer, `Distant_Horizons_server_data/<server>/<dimension>` on a server) is written to `meta.json` (`distantHorizons`, relative to the game folder). When the replay opens, those databases are copied once to `justreplay/dh-session` (DH never opens the originals), and a save structure override (`IDhApiSaveStructure`, only for folders inside the replay world) points the replay world's levels at the copies. The DH world is set read only when its first level loads, before DH opens the database, so neither the void host chunks nor the replayed chunks change the LODs; distant generation is turned off with an API override. The copies are deleted once the replay world has closed. Without a copy (option `playback.distantHorizonsLods` off, recording made before this, missing database, database above `distantHorizonsMaxCopyMb`) LOD rendering is turned off for the replay as before. | Previous version (LODs off) tested with DH 3.3.3. LODs in replays: compiled against DH's public API names, not yet tested in game. |
-| **GeckoLib** | GeckoLib's render clock and the tick its models read follow the replay: animated mobs, block entities, items, armor and textures hold while paused, follow the speed and advance by the exact frame time in an export. The clock never goes back after a seek, since a clock going back holds animations at 0. | Run by the self test on the targets above. On 26.1.2 it is GeckoLib 5. |
+| **GeckoLib** | GeckoLib's render clock and the tick its models read follow the replay: animated mobs, block entities, items, armor and textures hold while paused, follow the speed and advance by the exact frame time in an export. The clock never goes back after a seek, since a clock going back holds animations at 0. | Run by the self test on the targets whose row above lists it. Read on NeoForge and Fabric 1.20.1. On 26.1.2 it is GeckoLib 5. |
 | **Curios** | A full sync is sent only when an entity starts being tracked, and later changes are slot deltas. Snapshots and checkpoints therefore write the worn items of every entity, so a recording started mid-session and seeks show them. | Run on NeoForge 1.21.1 and on Forge 1.20.1. Read on NeoForge 1.20.1. |
 | **Iron's Spellbooks** | The recording player's cast packets are written for its actor, and snapshots and checkpoints carry cast state. Packets aimed at the receiving client's own player (mana, cooldowns, cast state, motion) are dropped, as are serverbound ones. | Run on NeoForge 1.21.1 only. |
 | **Iris** | The frame time and frame counter seconds of shader packs are set from the replay clock: paused with the replay, at its speed, and the same at a given tick in every export. | Clock run by the self test. No human has looked at the result with real shader packs. |
@@ -87,9 +90,34 @@ Every integration is optional: it is reached by reflection or by optional mixins
 | **Immersive Paintings** | The painting list and the images in use are written in snapshots and checkpoints, as the payloads the server would send. Deletions are removed from recorded lists, so a replay never deletes the viewer's cache file. | Run on NeoForge and Fabric 1.21.1. |
 | **Immersive Aircraft** | An aircraft asks the server for its equipment once. Snapshots and checkpoints write its slots, and its requests to the replay host are blocked. | Run on NeoForge and Fabric 1.21.1: an equipped biplane keeps its equipment at the start of a replay and after a backward seek. |
 | **Immersive Vehicles** | A vehicle, a seat or an Immersive Vehicles block reaches the client as an empty shell that asks the server for its data once. Snapshots and checkpoints write that data as the server answers, and its requests to the replay host are blocked. The mod draws all its vehicles through one invisible entity that must follow the local player: a replay gets its own, that follows the camera, and recorded ones no longer draw. | Run on NeoForge 1.21.1 and Forge 1.20.1 with Immersive Vehicles 24.0.0 and its Official Content Pack, and on NeoForge 26.1.2 with Immersive Vehicles 24.0.0-26.1 and the R.A.G.E 3.0 beta 2 pack (the official pack has no 26.1 build): a car placed before the recording has its data at the start of a replay and after a backward seek. NeoForge 26.1.2 in a development client only. Forge 1.20.1 in a development client only, the mod remapped by `-PdevMods`. Driving and physics during a replay not checked by a human. |
-| **More Player Models** (Noppes, Forge build for 1.20.1) | A player's look (body proportions, added parts, entity model, skin URL, name, animation) is NBT the server sends once, five seconds after a client starts tracking the player, then on each change; every message names its player by UUID. They are recorded as they are, and the ones about the recording player (the server sends a player its own look) are written for its actor. Snapshots and checkpoints write the look and the back item of every player, the actor's at each spawn. On a server without the mod no packet carries a look (each client reads its own files and the mod's web service): during a capture the looks, and the recording player's animations, are written as they change. During a replay the mod's requests to the replay host are dropped, its editor stays closed, its web service is not asked, and a recorded look that names the viewer's own UUID is dropped, since the mod would save it as the viewer's own. The parts the mod adds and its back item follow hidden body parts; hidden armor works as on a vanilla player. | Read against the jar of build 1.20.1.20240409 (Forge, the same file NeoForge 47.1 loads). Every class, member and mixin target was checked against it with the classes of Forge and NeoForge 1.20.1. Not yet run in game. No official build for 1.21.1 or 26.1.2: off there. |
+| **More Player Models** (Noppes, Forge build for 1.20.1) | A player's look (body proportions, added parts, entity model, skin URL, name, animation) is NBT the server sends once, five seconds after a client starts tracking the player, then on each change; every message names its player by UUID. They are recorded as they are, and the ones about the recording player (the server sends a player its own look) are written for its actor. Snapshots and checkpoints write the look and the back item of every player, the actor's at each spawn. On a server without the mod no packet carries a look (each client reads its own files and the mod's web service): during a capture the looks, and the recording player's animations, are written as they change. During a replay the mod's requests to the replay host are dropped, its editor stays closed, its web service is not asked, and a recorded look that names the viewer's own UUID is dropped, since the mod would save it as the viewer's own. The parts the mod adds and its back item follow hidden body parts; hidden armor works as on a vanilla player. | Read against the jar of build 1.20.1.20240409 (Forge, the same file NeoForge 47.1 loads). Every class, member and mixin target was checked against it with the classes of Forge and NeoForge 1.20.1. Not yet run in game. No official build for Fabric, 1.21.1 or 26.1.2: off there. |
 | **Bobby** | Bobby reports itself disabled while a replay runs (no cached chunks, nothing saved). | Unchanged. |
 | **Drop the Beam** | Lights, beams, moving heads, haze and particles follow the level game time and need nothing. Everything that follows a song (music, light desk cues, video screens, sound reactive signals) follows the server clock as `ServerClock` estimates it. **Clock:** the recorded `clock_pong` packets plus a clock sample the recorder writes every 2 s (a pong carrying a marker, with the server instant the recording client estimated) map each recorded tick to the server instant; they are read ahead in the background when a replay opens and while playing. During a replay `ServerClock` answers with that mapping at the frame's replay time (cursor and partial tick): it stops with the replay, follows its speed and jumps with seeks. Recorded pongs never reach Drop the Beam; its pings and requests are not sent to the replay host; its "pause with the single-player game" logic is off during a replay. **Recording:** the latest music state, mix and layers per turntable, song offers and analyses, shows per desk, features and libraries are kept per connection and written into every snapshot and checkpoint, so a recording started mid-session plays the music already running. **Live audio:** fed silence while the replay is paused, away from x1 (songs are rendered at their natural pitch) or its game sounds are muted; its volume follows the project's game volume and ducking. **Export:** its audio thread renders nothing during an export; every voice is rendered offline for each frame with the clock pinned to that frame, attenuated (linear to its range, jukebox volume) and panned relative to the camera, then mixed as a game sound (game volume, mute, ducking). **Song starts:** `DropTheBeamCompat.songStartTicks()` gives the replay tick (with decimals) where each song is heard from its start, and each repeat of a song looping on its own; they are logged as `Drop the Beam: turntable ... starts "title" at replay tick ...`. | Compiled against Drop the Beam 0.1.0 sources, not yet tested in game. |
+
+### Hidden armor (every target)
+
+The editor's "Armor shown" switches hide the helmet, chestplate, leggings or boots of a recorded player (**Entities**
+tab) or of an actor (actor screen), one by one; the `hidePlayerArmor` setting hides all four on every player, actors
+included. A hidden helmet also takes a pumpkin or a mob head worn instead, a hidden chestplate the elytra. Only the
+drawing changes, in the replay and in exported videos: the entity keeps its equipment, nothing changes outside a
+running replay, the replay camera is never affected, and projects saved before this option keep their armor.
+
+The render hooks are optional mixins (`require = 0`) on the vanilla armor, elytra and head item layers, written for
+the signatures of each version: the vanilla ones on 1.20.1 and 1.21.1 (plus NeoForge's own overload on NeoForge
+1.21.1), and the new render state layers on 26.1.2. Every target builds; the self test checks are written (mask,
+skipped pieces, camera player, global setting) but have not run, and nothing was looked at in game yet. A hook that does not apply fails silently: the armor then simply stays visible.
+
+Limits:
+
+- Mobs, Custom NPCs NPCs and other non-player entities are not covered: the switches only show for players, and the
+  setting only targets players and actors.
+- Armourer's Workshop draws its skins (wardrobe and skinned armor) itself, from its own slot list: a hidden slot
+  hides the vanilla piece only and an Armourer's Workshop skin on it stays visible.
+- Epic Fight models (battle mode players): armor and held items follow the hidden slots and arms, on NeoForge 1.21.1
+  and Forge 1.20.1.
+- More Player Models (1.20.1): hidden armor works as on a vanilla player, except on a player drawn as another entity
+  (an entity model), which keeps its armor.
+- Armor a mod draws with its own layer instead of the vanilla armor layer is not covered.
 
 ### Known limits
 
@@ -119,15 +147,12 @@ Every integration is optional: it is reached by reflection or by optional mixins
   replays right only with the same Epic Fight version, addons and datapacks. There the recording player turning its
   model yaw lock off is not copied for its actor (Epic Fight's own handler of that message falls into a mode change
   with no mode), so the actor keeps its last model yaw until the next one.
-- Hidden armor: Armourer's Workshop draws its skins (wardrobe and skinned armor) itself, from its own slot list, so a
-  hidden armor slot hides the vanilla piece only and an Armourer's Workshop skin on it stays visible. Custom NPCs
-  NPCs and other mobs are not players: the `hidePlayerArmor` option and the editor's armor switches cover players
-  and actors only (Custom NPCs draws its NPCs with the vanilla layers, which the option would follow).
+- Hidden armor: see "Hidden armor (every target)" above.
 - Morph: the form of a player is known only once its client asked for it (first time it renders that player), so
   a player never seen by the recording client before the recording started replays in its form only from the
   server's answer on. The morph selector and biomass HUD of the recording player are not replayed.
 - Custom NPCs: a recording made before this version has no NPC looks (the add entity packets were recorded without them). Skins given as a URL are downloaded again at replay time, so an offline client or a dead link shows the default skin. Chat bubbles and NPC chat lines are replayed as recorded.
-- More Player Models: no official build exists for 1.21.1 or 26.1.2, so nothing is enabled there. Unofficial ports are not supported: their packets replay as recorded, and a look sent to the recording player under its own UUID is applied to the viewer, which such a port saves as the viewer's own look (read in the code of one port, not run). On 1.20.1, a player drawn as another entity (an entity model) ignores hidden body parts and hidden armor. A part that spans both arms or both legs goes only when both are hidden. Chat bubbles and eye blinks follow real time, not the replay clock. A skin given as a URL is downloaded again at replay time. Your own character in someone else's recording shows the look you have now. Until a player's recorded look plays (up to five seconds after it appears, as on a live server), the mod shows the look it last saw of that player. A recording made before this version has no looks in its snapshots: they show when their packets play, and a seek loses them.
+- More Player Models: no official build exists for Fabric, 1.21.1 or 26.1.2, so nothing is enabled there. Unofficial ports are not supported: their packets replay as recorded, and a look sent to the recording player under its own UUID is applied to the viewer, which such a port saves as the viewer's own look (read in the code of one port, not run). On 1.20.1, a player drawn as another entity (an entity model) ignores hidden body parts and hidden armor. A part that spans both arms or both legs goes only when both are hidden. Chat bubbles and eye blinks follow real time, not the replay clock. A skin given as a URL is downloaded again at replay time. Your own character in someone else's recording shows the look you have now. Until a player's recorded look plays (up to five seconds after it appears, as on a live server), the mod shows the look it last saw of that player. A recording made before this version has no looks in its snapshots: they show when their packets play, and a seek loses them.
 - Armourer's Workshop: each snapshot and checkpoint carries every skin the client holds or a recorded entity wears,
   which makes recordings larger when many skins are loaded. On a server, a worn skin the client never loaded is
   asked for at the snapshot and recorded when its answer arrives. Singleplayer recordings made with 1.0.9 hold only
@@ -230,7 +255,9 @@ l'intégration a seulement été lue d'après le build du mod et qu'elle est act
 été exécuté. « Production » désigne le vrai jar dans un client hors ligne, hors environnement de développement et sans
 launcher.
 
-Le test automatique passe avec 0 échec sur les neuf cibles, en client de développement et avec le jar de production.
+Le test automatique de la 1.1.2 passe avec 0 échec sur les neuf cibles, en client de développement et avec le jar de
+production. Les vérifications ajoutées depuis (armure masquée sur toutes les cibles, apparences de More Player Models
+sur Forge 1.20.1) sont écrites mais n'ont pas encore tourné.
 
 | Cible | Mods dans le test automatique | Actives mais seulement lues |
 |---|---|---|
@@ -267,14 +294,14 @@ le portage non officiel (CurseForge `customnpcs-unofficial`) : le Custom NPCs of
 | Forge 26.1.2 | Pas de build | Pas de build (son jar 26.1.2 nommé « forge » est un build NeoForge) | Pas de build |
 
 Vérifié sur aucune cible : le rendu de vrais shader packs, un vrai enregistrement multijoueur sur les nouvelles cibles,
-un vrai launcher (CurseForge, Modrinth App, Prism). Tout a tourné sous Windows, sur une seule machine et une seule carte
-graphique ; macOS n'est pas testé. Une capture a été lue pour Fabric 1.21.1, Forge 1.21.1, NeoForge 26.1.2 et Forge
-1.20.1 et semblait correcte.
+un vrai launcher (CurseForge, Modrinth App, Prism). Les tests automatiques ont tourné sous Windows (une seule machine
+et une seule carte graphique) et sous Linux (client sans écran, rendu logiciel) ; macOS n'est pas testé. Une capture a
+été lue pour Fabric 1.21.1, Forge 1.21.1, NeoForge 26.1.2 et Forge 1.20.1 et semblait correcte.
 
 Pack de référence pour la cible NeoForge 1.21.1 : **Arcadia V2** (444 mods). Just Replay doit enregistrer, relire,
 éditer et exporter avec tous les mods de ce pack installés. La plupart des mods fonctionnent sans travail
 spécifique, car l'enregistrement capture tous les paquets reçus par le client, y compris les paquets
-personnalisés. Les mods ci-dessus demandent un traitement dédié, classés par niveau de risque :
+personnalisés. Les mods ci-dessous demandent un traitement dédié, classés par niveau de risque :
 
 - **Niveau 1, rendu** : Sodium, Iris, Create et Flywheel, les mods d'optimisation, Ixeris, Bobby.
 - **Niveau 2, animations** : GeckoLib, les mods d'animation du joueur, Pehkui, les cosmétiques, les
@@ -406,9 +433,7 @@ fait rien quand le mod est absent. Le code se trouve dans `com.vyrriox.justrepla
   Un replay n'a besoin ni de la bibliothèque, ni de la base, ni du serveur, ni du cache local, dans la même session
   comme après un redémarrage. En 1.20.1, sans charges typées, les paquets passent par le canal que nomme le
   répartiteur du mod. Lu sur Armourer's Workshop 3.4.0-beta.3 : sources et jar pour NeoForge 1.21.1, jars pour les
-  autres cibles du tableau plus haut. Compilé, pas encore testé en jeu. Limites : chaque instantané et point de reprise contient tous les skins chargés
-  ou portés (fichiers plus gros), les enregistrements solo faits avec la 1.0.9 ne contiennent que les skins chargés
-  par le client à leur début, et ceux faits avant la 1.0.9 n'ont pas de skins à leur début.
+  autres cibles du tableau plus haut. Compilé, pas encore testé en jeu.
 - **Epic Fight** : Epic Fight dessine les joueurs en mode combat et les mobs qu'il prend en charge avec ses
   propres modèles animés. Les animations arrivent en `SPAnimatorControl` avec l'id d'entité (joueurs comme mobs),
   les mouvements de base (repos, marche, course... selon l'arme) en `SPChangeLivingMotion`, le mode d'un joueur
@@ -450,7 +475,7 @@ fait rien quand le mod est absent. Le code se trouve dans `com.vyrriox.justrepla
   Aeronautics 1.3.2. Chargés dans le test automatique avec Create 6.0.10 et Create Propulsion: Simulated 1.1.5 :
   les deux lignes de détection apparaissent, sans erreur. Dirigeables et cordes ne font pas partie du test automatique.
 
-- **GeckoLib** : l'horloge de rendu de GeckoLib et le tick lu par ses modèles suivent le replay : mobs, blocs, objets, armures et textures animés se figent en pause, suivent la vitesse et avancent du temps exact de l'image en export. Testé par le test automatique sur les cibles du tableau ; en 26.1.2 c'est GeckoLib 5.
+- **GeckoLib** : l'horloge de rendu de GeckoLib et le tick lu par ses modèles suivent le replay : mobs, blocs, objets, armures et textures animés se figent en pause, suivent la vitesse et avancent du temps exact de l'image en export. Testé par le test automatique sur les cibles dont la ligne du tableau le cite ; seulement lu sur NeoForge et Fabric 1.20.1. En 26.1.2 c'est GeckoLib 5.
 - **Curios** : les instantanés et points de reprise écrivent les objets portés de chaque entité. Testé sur NeoForge 1.21.1 et sur Forge 1.20.1 ; seulement lu sur NeoForge 1.20.1.
 - **Iron's Spellbooks** : les paquets de sorts du joueur enregistré sont écrits pour son acteur, et les instantanés et points de reprise gardent l'état d'incantation. Les paquets visant le joueur du client qui les reçoit (mana, recharges, poussées) et ceux vers le serveur sont bloqués. Testé sur NeoForge 1.21.1 seulement.
 - **Iris** : le temps des shader packs vient de l'horloge du replay, figé en pause, à sa vitesse et identique à un tick donné dans chaque export. Horloge testée ; personne n'a regardé le résultat avec de vrais shader packs.
@@ -461,27 +486,123 @@ fait rien quand le mod est absent. Le code se trouve dans `com.vyrriox.justrepla
 - **Immersive Paintings** : la liste des tableaux et les images utilisées sont écrites dans les instantanés et points de reprise ; les suppressions sont retirées des listes enregistrées, un replay n'efface donc jamais le cache de celui qui regarde. Testé sur NeoForge et Fabric 1.21.1.
 - **Immersive Aircraft** : les instantanés et points de reprise écrivent l'équipement d'un appareil, et ses demandes au serveur du replay sont bloquées. Testé sur NeoForge et Fabric 1.21.1 : un biplan équipé garde son équipement au début d'un replay et après un retour en arrière.
 - **Immersive Vehicles** : un véhicule, un siège ou un bloc d'Immersive Vehicles arrive chez le client comme une coquille vide qui demande une fois ses données au serveur. Les instantanés et points de reprise écrivent ces données comme le serveur y répond, et ses demandes au serveur du replay sont bloquées. Le mod dessine tous ses véhicules par une entité invisible qui doit suivre le joueur local : un replay a la sienne, qui suit la caméra, et celles enregistrées ne dessinent plus. Testé sur NeoForge 1.21.1 et Forge 1.20.1 avec Immersive Vehicles 24.0.0 et son Official Content Pack, et sur NeoForge 26.1.2 avec Immersive Vehicles 24.0.0-26.1 et le pack R.A.G.E 3.0 bêta 2 (l'Official Content Pack n'existe pas en 26.1) : une voiture posée avant l'enregistrement a ses données au début d'un replay et après un retour en arrière. NeoForge 26.1.2 en client de développement seulement. Forge 1.20.1 en client de développement seulement, le mod remappé par `-PdevMods`. Conduite et physique pendant un replay non vérifiées par un humain.
-- **More Player Models** (Noppes, build Forge pour 1.20.1) : l'apparence d'un joueur (proportions, parties ajoutées, modèle d'entité, skin par URL, nom, animation) est un NBT que le serveur envoie une fois, cinq secondes après le début du suivi, puis à chaque changement ; chaque message nomme son joueur par UUID. Ils sont enregistrés tels quels, et ceux du joueur enregistré (le serveur renvoie à un joueur sa propre apparence) sont écrits pour son acteur. Les instantanés et points de reprise écrivent l'apparence et l'objet dans le dos de chaque joueur, celle de l'acteur à chaque apparition. Sur un serveur sans le mod, aucun paquet ne porte d'apparence (chaque client lit ses fichiers et le service web du mod) : pendant une capture, les apparences et les animations du joueur enregistré sont écrites quand elles changent. Pendant un replay, les demandes du mod au serveur du replay sont bloquées, son éditeur reste fermé, son service web n'est pas interrogé, et une apparence enregistrée qui nomme l'UUID de celui qui regarde est ignorée, car le mod l'enregistrerait comme la sienne. Les parties ajoutées par le mod et l'objet dans le dos suivent les parties du corps masquées ; l'armure masquée marche comme sur un joueur vanilla. Lu dans le jar du build 1.20.1.20240409 (Forge, le même fichier que charge NeoForge 47.1) ; chaque classe, membre et cible de mixin a été contrôlé contre ce jar avec les classes de Forge et de NeoForge 1.20.1. Pas encore testé en jeu. Aucun build officiel en 1.21.1 ni en 26.1.2 : désactivé là-bas.
+- **More Player Models** (Noppes, build Forge pour 1.20.1) : l'apparence d'un joueur (proportions, parties ajoutées, modèle d'entité, skin par URL, nom, animation) est un NBT que le serveur envoie une fois, cinq secondes après le début du suivi, puis à chaque changement ; chaque message nomme son joueur par UUID. Ils sont enregistrés tels quels, et ceux du joueur enregistré (le serveur renvoie à un joueur sa propre apparence) sont écrits pour son acteur. Les instantanés et points de reprise écrivent l'apparence et l'objet dans le dos de chaque joueur, celle de l'acteur à chaque apparition. Sur un serveur sans le mod, aucun paquet ne porte d'apparence (chaque client lit ses fichiers et le service web du mod) : pendant une capture, les apparences et les animations du joueur enregistré sont écrites quand elles changent. Pendant un replay, les demandes du mod au serveur du replay sont bloquées, son éditeur reste fermé, son service web n'est pas interrogé, et une apparence enregistrée qui nomme l'UUID de celui qui regarde est ignorée, car le mod l'enregistrerait comme la sienne. Les parties ajoutées par le mod et l'objet dans le dos suivent les parties du corps masquées ; l'armure masquée marche comme sur un joueur vanilla. Lu dans le jar du build 1.20.1.20240409 (Forge, le même fichier que charge NeoForge 47.1) ; chaque classe, membre et cible de mixin a été contrôlé contre ce jar avec les classes de Forge et de NeoForge 1.20.1. Pas encore testé en jeu. Aucun build officiel pour Fabric, 1.21.1 ni 26.1.2 : désactivé là-bas.
 
-Limites connues des cibles : sur tout Fabric, le HUD propre ne peut pas masquer les HUD des autres mods en 1.20.1 et
-1.21.1, pas de modificateurs de touches, pas de bouton de réglages sans Mod Menu. Sur Forge 1.21.1 et 26.1.2,
-l'option d'ombre du texte n'a pas d'effet. En 1.20.1, la pause et le ralenti sont reconstruits sans gestionnaire de
-tick rate vanilla (ils passent le test), les fichiers Ogg de plus de 2 canaux sont refusés, la timeline de l'éditeur n'a
-pas de défilement horizontal à la molette, et les écrans montrent de la terre au lieu du panorama. En 26.1.2, la garde
-du tampon de sections est retirée, la règle du rayon de chunks d'apparition est abandonnée, et les animations
-d'apparition de GeckoLib ne se jouent probablement pas dans les replays. Un enregistrement ne s'ouvre que sur la version
-de Minecraft et le loader où il a été fait. Les animations GeckoLib déclenchées avant le début d'un enregistrement ou
-la cible d'un saut ne sont pas restaurées, et la phase des boucles peut différer après un saut en arrière.
+### Armure masquée (toutes les cibles)
 
-Limites connues : un bloc modifié dans le tick exact où un enregistrement démarre en cours de partie peut
-manquer ; en export, une vidéo WaterFrames peut avoir quelques images de retard ; les trains de Create dans un
-enregistrement démarré en cours de partie ne sont pas testés ; Drop the Beam lit morceaux, vidéos et images
-dans ses caches locaux, un replay regardé sur un autre ordinateur qui ne les a pas reste muet ou vide, et sa
-musique est coupée hors x1 ; les LOD de Distant Horizons sont ceux présents sur le disque à l'ouverture du
-replay (pas ceux du moment enregistré), absents pour les anciens enregistrements, ceux d'un autre ordinateur et
-les dimensions de mods absentes ; chaque ouverture copie une fois la base de chaque dimension enregistrée, et les
-premières secondes d'un export peuvent montrer les LOD apparaître (augmenter `export.warmupFrames`) ; les
-actions ParCool courtes (saut d'obstacle, roulade, esquive) coupées par un saut dans le temps ne reprennent pas,
-et ses animations peuvent continuer pendant la pause (non vérifié) ; une attaque Better Combat dans laquelle tombe
-un saut dans le temps repart de son début ; une animation Epic Fight reprise par un instantané ou un saut dans le temps démarre sans fondu d'entrée, les compétences qui ne changent que l'état du client ne sont pas rejouées, et un doublement des sons d'attaque du joueur enregistré n'est pas exclu (non vérifié) ; en 1.20.1, une animation Epic Fight est un numéro qui dépend des addons et des datapacks : un enregistrement ne se rejoue bien qu'avec la même version d'Epic Fight, les mêmes addons et les mêmes datapacks ; la forme Morph d'un joueur que le client n'avait jamais affiché avant le début de l'enregistrement n'apparaît qu'à la réponse du serveur ; les PNJ Custom NPCs d'un enregistrement antérieur à cette version n'ont pas leur apparence, et un skin donné par URL est retéléchargé à la lecture ; More Player Models n'a pas de build officiel en 1.21.1 ni en 26.1.2, rien n'y est donc activé, et les portages non officiels ne sont pas pris en charge (leurs paquets sont rejoués tels quels, et une apparence envoyée au joueur enregistré sous son propre UUID s'applique à celui qui regarde, ce qu'un tel portage enregistre comme son apparence : lu dans le code d'un portage, non testé) ; en 1.20.1, un joueur dessiné comme une autre entité ignore les parties du corps et l'armure masquées, une partie qui couvre les deux bras ou les deux jambes ne part que si les deux sont masqués, les bulles de discussion et les clignements suivent le temps réel, un skin donné par URL est retéléchargé à la lecture, votre propre personnage dans l'enregistrement d'un autre montre votre apparence actuelle, et tant que l'apparence enregistrée d'un joueur n'est pas jouée (jusqu'à cinq secondes après son arrivée, comme sur un serveur) le mod montre la dernière qu'il lui connaît ; un emplacement d'armure masqué ne cache que la pièce vanilla : un skin d'Armourer's Workshop porté dessus reste visible, et l'option `hidePlayerArmor` comme les interrupteurs d'armure de l'éditeur ne visent que les joueurs et les acteurs, pas les PNJ de Custom NPCs ni les autres mobs ; les paquets d'un mod absent à la lecture sont ignorés (une ligne
-`Skipping recorded ... packets` par type).
+Les interrupteurs « Armor shown » de l'éditeur cachent le casque, le plastron, les jambières ou les bottes d'un joueur
+enregistré (onglet **Entités**) ou d'un acteur (écran de l'acteur), pièce par pièce ; le réglage `hidePlayerArmor`
+cache les quatre sur tous les joueurs, acteurs compris. Un casque masqué emporte aussi une citrouille ou une tête de
+mob portée à sa place, un plastron masqué les élytres. Seul le dessin change, dans le replay et dans les vidéos
+exportées : l'entité garde son équipement, rien ne change hors d'un replay en cours, la caméra du replay n'est jamais
+touchée, et les projets sauvés avant cette option gardent leur armure.
+
+Les points d'accroche du rendu sont des mixins optionnels (`require = 0`) sur les couches vanilla d'armure, d'élytres
+et d'objet porté sur la tête, écrits pour les signatures de chaque version : celles de vanilla en 1.20.1 et 1.21.1
+(plus la surcharge propre à NeoForge sur NeoForge 1.21.1), et les nouvelles couches à état de rendu en 26.1.2. Toutes
+les cibles compilent ; les vérifications du test automatique sont écrites (masque, pièces sautées, joueur caméra,
+réglage global) mais n'ont pas tourné, et rien n'a encore été regardé en jeu. Un point d'accroche qui ne s'applique
+pas échoue sans bruit : l'armure reste alors simplement visible.
+
+Limites :
+
+- Les mobs, les PNJ de Custom NPCs et les autres entités qui ne sont pas des joueurs ne sont pas couverts : les
+  interrupteurs n'apparaissent que pour les joueurs, et le réglage ne vise que les joueurs et les acteurs.
+- Armourer's Workshop dessine lui-même ses skins (garde-robe et armures à skin), d'après sa propre liste
+  d'emplacements : un emplacement masqué ne cache que la pièce vanilla, et un skin d'Armourer's Workshop porté dessus
+  reste visible.
+- Modèles d'Epic Fight (joueurs en mode combat) : l'armure et les objets tenus suivent les emplacements et les bras
+  masqués, sur NeoForge 1.21.1 et Forge 1.20.1.
+- More Player Models (1.20.1) : l'armure masquée marche comme sur un joueur vanilla, sauf sur un joueur dessiné comme
+  une autre entité (un modèle d'entité), qui garde son armure.
+- Une armure qu'un mod dessine avec sa propre couche au lieu de la couche d'armure vanilla n'est pas couverte.
+
+### Limites connues
+
+- Un bloc modifié dans le tick exact où un enregistrement démarre en cours de partie peut manquer : le paquet est
+  capté avant le début mais traité par le client après l'instantané.
+- WaterFrames en export : les sauts de WaterMedia sont asynchrones, une vidéo peut donc avoir quelques images de
+  retard sur le temps exporté lors d'un export rapide.
+- Les trains de Create dans un enregistrement démarré en cours de partie dépendent des paquets du réseau ferroviaire
+  conservés ; ce chemin n'est pas testé.
+- Sable : en solo, la première pose d'un sous-niveau peut être enregistrée un tick avant son début de suivi (la pose
+  est prise sur le fil du serveur, le début de suivi sur la connexion) ; Sable écrit alors une erreur « non-existent
+  sub-level » dans le journal. Les hélices d'Aeronautics tournent au tick de leur entité de bloc, une fois par tick
+  client : au-delà de x1, elles tournent moins vite qu'à l'enregistrement. Sable ajoute un octet à certains paquets
+  de mouvement d'entité : un enregistrement fait avec Sable demande Sable pour être relu, et inversement.
+- ParCool : les actions du joueur enregistré viennent de l'écho du serveur, un enregistrement sur un serveur sans
+  ParCool n'en a donc aucune (ParCool doit de toute façon être des deux côtés). Les actions courtes (saut d'obstacle,
+  roulade, esquive) coupées par un saut dans le temps ne reprennent pas ; seules les actions durables sont écrites
+  dans les points de reprise. ParCool anime les joueurs avec son propre rendu, pas avec la bibliothèque d'animation
+  du joueur : ses animations peuvent continuer pendant la pause du replay (non vérifié).
+- Better Combat : une attaque dans laquelle tombe un saut dans le temps repart de son début (l'animation d'attaque
+  n'a pas de tick de départ d'où reprendre). Les enregistrements faits avant cette version n'ont pas les attaques du
+  joueur enregistré.
+- Epic Fight : les animations d'action écrites par un instantané ou déplacées par un saut dans le temps démarrent sans
+  fondu d'entrée. Les compétences du joueur enregistré qui ne changent que l'état du client (aucune animation
+  envoyée) ne sont pas rejouées, et son acteur n'a pas de livre de compétences. Les sons et particules des
+  animations partent des animations rejouées côté client, comme pour tout joueur suivi ; un doublement des sons
+  d'attaque du joueur enregistré (aussi enregistrés comme sons locaux) n'est pas exclu (non vérifié). Les données
+  d'armes et de mobs viennent des datapacks du monde du replay, qui doivent être ceux de l'enregistrement. Les
+  enregistrements faits avant cette version n'ont pas les animations du joueur enregistré. Sur Forge 1.20.1, une
+  animation est un numéro sur le réseau, donné par l'ordre d'enregistrement d'Epic Fight et les datapacks : un
+  enregistrement ne se rejoue bien qu'avec la même version d'Epic Fight, les mêmes addons et les mêmes datapacks.
+  Là, quand le joueur enregistré coupe le verrouillage de l'orientation du modèle, ce n'est pas copié pour son acteur
+  (le gestionnaire d'Epic Fight pour ce message tombe dans un changement de mode sans mode) : l'acteur garde sa
+  dernière orientation jusqu'à la suivante.
+- Armure masquée : voir « Armure masquée (toutes les cibles) » plus haut.
+- Morph : la forme d'un joueur n'est connue qu'une fois que son client l'a demandée (la première fois qu'il affiche
+  ce joueur) : un joueur jamais vu par le client enregistré avant le début de l'enregistrement n'est rejoué dans sa
+  forme qu'à partir de la réponse du serveur. Le sélecteur de formes et le HUD de biomasse du joueur enregistré ne
+  sont pas rejoués.
+- Custom NPCs : un enregistrement fait avant cette version n'a pas l'apparence des PNJ (les paquets d'apparition ont
+  été enregistrés sans elle). Les skins donnés par URL sont retéléchargés à la lecture : un client hors ligne ou un
+  lien mort montre le skin par défaut. Les bulles et lignes de discussion des PNJ sont rejouées telles
+  qu'enregistrées.
+- More Player Models : aucun build officiel n'existe pour Fabric, 1.21.1 ni 26.1.2, rien n'y est donc activé. Les
+  portages non officiels ne sont pas pris en charge : leurs paquets sont rejoués tels quels, et une apparence envoyée
+  au joueur enregistré sous son propre UUID s'applique à celui qui regarde, ce qu'un tel portage enregistre comme sa
+  propre apparence (lu dans le code d'un portage, non exécuté). En 1.20.1, un joueur dessiné comme une autre entité
+  (un modèle d'entité) ignore les parties du corps et l'armure masquées. Une partie qui couvre les deux bras ou les
+  deux jambes ne part que si les deux sont masqués. Les bulles de discussion et les clignements d'yeux suivent le
+  temps réel, pas l'horloge du replay. Un skin donné par URL est retéléchargé à la lecture. Votre propre personnage
+  dans l'enregistrement d'un autre montre votre apparence actuelle. Tant que l'apparence enregistrée d'un joueur n'est
+  pas jouée (jusqu'à cinq secondes après son arrivée, comme sur un serveur en direct), le mod montre la dernière qu'il
+  lui a vue. Un enregistrement fait avant cette version n'a pas d'apparences dans ses instantanés : elles s'affichent
+  quand leurs paquets sont joués, et un saut dans le temps les perd.
+- Armourer's Workshop : chaque instantané et point de reprise contient tous les skins que le client détient ou qu'une
+  entité enregistrée porte, ce qui grossit les enregistrements quand beaucoup de skins sont chargés. Sur un serveur,
+  un skin porté que le client n'a jamais chargé est demandé à l'instantané et enregistré à l'arrivée de la réponse.
+  Les enregistrements solo faits avec la 1.0.9 ne contiennent que les skins chargés par le client à leur début ; ceux
+  faits avant la 1.0.9 n'ont aucun skin écrit à leur début.
+- Un enregistrement fait avec un mod absent à la lecture se lit sans les paquets de ce mod (une ligne
+  `Skipping recorded ... packets` par type dans le journal).
+- Drop the Beam : les morceaux, vidéos et images viennent des caches locaux (`dropthebeam/song-cache`, `video-cache`,
+  `image-cache`) ; un replay regardé sur un autre ordinateur qui ne les a pas reste muet ou vide, faute de serveur
+  pour les envoyer. Un replay enregistré avant cette intégration n'a que les vrais pongs comme horloge (un toutes les
+  2 s, en retard d'un demi aller-retour). La musique est coupée aux vitesses autres que x1.
+- Distant Horizons : les LOD affichés sont ceux présents sur le disque à l'ouverture du replay, pas ceux du moment
+  enregistré (un terrain changé depuis apparaît changé au loin). Les enregistrements faits avant cette version, ou
+  sur un autre ordinateur, n'ont pas de base de LOD à lire et se lisent sans LOD. Une dimension que le monde du replay
+  n'a pas (dimension d'un mod absent) n'a pas de LOD. Ouvrir un replay copie une fois la base de chaque dimension
+  enregistrée (le temps et les écritures disque grandissent avec sa taille ; `distantHorizonsMaxCopyMb` la plafonne).
+  Le tampon de replay instantané ne note que la dimension où se trouve le joueur quand le clip est sauvé. Les LOD se
+  chargent depuis la copie en arrière-plan : les premières secondes d'un export peuvent les montrer apparaître
+  (augmenter `export.warmupFrames`).
+
+### Limites connues des cibles
+
+- Tout Fabric : le HUD propre ne peut pas masquer les HUD des autres mods en 1.20.1 et 1.21.1. Pas de modificateurs
+  de touches. Pas de bouton de réglages sans Mod Menu.
+- Forge 1.21.1 et 26.1.2 : l'option d'ombre du texte n'a pas d'effet, le champ de texte de Forge n'ayant pas cette
+  option.
+- 1.20.1 : la pause et le ralenti sont reconstruits sans gestionnaire de tick rate vanilla (ils passent le test
+  automatique). Les fichiers audio Ogg de plus de 2 canaux sont refusés. La timeline de l'éditeur n'a pas de
+  défilement horizontal à la molette. Les écrans montrent de la terre au lieu du panorama.
+- 26.1.2 : la garde du tampon de sections est retirée, la règle du rayon de chunks d'apparition est abandonnée, et
+  les animations d'apparition de GeckoLib ne se jouent probablement pas dans les replays.
+- Un enregistrement ne s'ouvre que sur la version de Minecraft et le loader où il a été fait.
+- GeckoLib : les animations déclenchées avant le début d'un enregistrement ou la cible d'un saut ne sont pas
+  restaurées, et la phase des boucles au repos peut différer après un saut en arrière.
+- Iris et Entity Culling : les exports avec shader packs demandent encore l'œil d'une personne. Entity Culling coupé
+  peut ralentir les replays avec beaucoup d'entités.
