@@ -34,6 +34,7 @@ public final class JRConfig {
     public static final ConfigFile.IntValue EXPORT_CRF;
     public static final ConfigFile.IntValue EXPORT_WARMUP_FRAMES;
     public static final ConfigFile.EnumValue<ExportResolution> EXPORT_RESOLUTION;
+    public static final ConfigFile.BoolValue EXPORT_RANGE_IN_NAME;
     public static final ConfigFile.EnumValue<EditorMode> EDITOR_MODE;
 
     /** How much of the replay editor is shown. */
@@ -108,6 +109,9 @@ public final class JRConfig {
         EXPORT_RESOLUTION = export.enumeration("resolution", ExportResolution.WINDOW,
                 "Size of exported videos. WINDOW keeps the window size; the others render at that size" + "\n"
                         + "whatever the window, or are scaled by FFmpeg when the graphics card cannot render that large.");
+        EXPORT_RANGE_IN_NAME = export.bool("rangeInFileName", true,
+                "End the file name of an export with the part of the replay it holds (Boss_fight_00m10s-00m20s.mp4, with" + "\n"
+                        + "hours for replays of an hour or more). Off keeps the old names (Boss_fight.mp4).");
         ConfigFile.Section editor = SPEC.section("editor", "Replay editor.");
         EDITOR_MODE = editor.enumeration("mode", EditorMode.SIMPLE,
                 "SIMPLE shows the essentials of the replay editor with big controls; ADVANCED shows every tool." + "\n"
