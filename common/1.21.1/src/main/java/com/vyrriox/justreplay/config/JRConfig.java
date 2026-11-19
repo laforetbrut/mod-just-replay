@@ -27,6 +27,7 @@ public final class JRConfig {
     public static final ConfigFile.BoolValue CLEAN_HUD;
     public static final ConfigFile.BoolValue HIDE_PLAYER_ARMOR;
     public static final ConfigFile.IntValue PLAYBACK_VIEW_DISTANCE;
+    public static final ConfigFile.BoolValue WARN_MOD_CHANGES;
     public static final ConfigFile.BoolValue DISTANT_HORIZONS_LODS;
     public static final ConfigFile.IntValue DISTANT_HORIZONS_MAX_COPY_MB;
     public static final ConfigFile.StringValue FFMPEG_PATH;
@@ -85,6 +86,9 @@ public final class JRConfig {
         HIDE_PLAYER_ARMOR = playback.bool("hidePlayerArmor", false,
                 "Hide the armor of every player (helmet, chestplate, leggings, boots, elytra) while watching a replay" + "\n"
                         + "and in exported videos. The editor can also hide it on one player or one actor.");
+        WARN_MOD_CHANGES = playback.bool("warnModChanges", true,
+                "Before opening a replay, list the mods that are missing, were added or changed version since it was" + "\n"
+                        + "recorded, with a choice to open it anyway. A replay without a mod list opens directly.");
         PLAYBACK_VIEW_DISTANCE = playback.integer("viewDistance", 32, 8, 64,
                 "Chunks kept around the camera while watching a replay. Chunks the recording server unloaded" + "\n"
                         + "stay visible up to this distance instead of disappearing.");
