@@ -176,6 +176,7 @@ public final class ReplayCompat {
         DISTANT_HORIZONS.run("tick", DistantHorizonsCompat::tick);
         ENTITY_CULLING.run("tick", EntityCullingCompat::tick);
         IMMERSIVE_VEHICLES.run("tick", () -> ImmersiveVehiclesCompat.tick(mc));
+        ARMOURERS_WORKSHOP.run("hiddenArmor", () -> ArmourersHiddenArmor.tick(mc));
     }
 
     /** Called when the replay session closes. Runs for integrations that failed too: they put back what they changed. */

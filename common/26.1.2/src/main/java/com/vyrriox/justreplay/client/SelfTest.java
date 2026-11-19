@@ -1471,6 +1471,60 @@ public final class SelfTest {
             com.vyrriox.justreplay.config.JRConfig.HIDE_PLAYER_ARMOR.set(before);
         }
         log("hidden armor: global option mask {} -> {}", all, all == com.vyrriox.justreplay.editor.ArmorSlots.ALL ? "OK" : "FAIL");
+        checkHiddenArmourersSkins(mc, notch);
+    }
+
+    /**
+     * Armourer's Workshop, when it runs: the hidden helmet leaves the armor it collected for the player actor and the
+     * chestplate stays; the global option takes the chestplate too at the next refresh, without the actor ticking,
+     * and gives it back; the wardrobe collector is reached; wardrobe skins follow the slots they cover.
+     */
+    private static void checkHiddenArmourersSkins(Minecraft mc, Entity notch) {
+        if (!com.vyrriox.justreplay.compat.Integrations.ARMOURERS_WORKSHOP.on()
+                || !(notch instanceof net.minecraft.world.entity.LivingEntity living)) {
+            return;
+        }
+        try {
+            net.minecraft.world.item.ItemStack helmet = living.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD);
+            net.minecraft.world.item.ItemStack chest = living.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST);
+            java.util.List<net.minecraft.world.item.ItemStack> slots = com.vyrriox.justreplay.compat.ArmourersHiddenArmor.collectedArmor(notch, true);
+            boolean noHelmet = slots != null && !holds(slots, helmet);
+            boolean chestKept = slots != null && holds(slots, chest);
+            log("armourers hidden armor: collected {} without the helmet {} with the chestplate {} -> {}",
+                    slots == null ? "nothing" : slots.size() + " pieces", noHelmet, chestKept, noHelmet && chestKept ? "OK" : "FAIL");
+            boolean before = com.vyrriox.justreplay.config.JRConfig.HIDE_PLAYER_ARMOR.get();
+            boolean chestHidden;
+            try {
+                com.vyrriox.justreplay.config.JRConfig.HIDE_PLAYER_ARMOR.set(true);
+                com.vyrriox.justreplay.compat.ArmourersHiddenArmor.tick(mc);
+                java.util.List<net.minecraft.world.item.ItemStack> all = com.vyrriox.justreplay.compat.ArmourersHiddenArmor.collectedArmor(notch, false);
+                chestHidden = all != null && !holds(all, chest);
+            } finally {
+                com.vyrriox.justreplay.config.JRConfig.HIDE_PLAYER_ARMOR.set(before);
+            }
+            com.vyrriox.justreplay.compat.ArmourersHiddenArmor.tick(mc);
+            java.util.List<net.minecraft.world.item.ItemStack> back = com.vyrriox.justreplay.compat.ArmourersHiddenArmor.collectedArmor(notch, false);
+            boolean chestBack = back != null && holds(back, chest);
+            log("armourers hidden armor: global option takes the chestplate {} and gives it back {} -> {}",
+                    chestHidden, chestBack, chestHidden && chestBack ? "OK" : "FAIL");
+            String cover = com.vyrriox.justreplay.compat.ArmourersHiddenArmor.wardrobeCoverCheck();
+            log("armourers hidden armor: wardrobe skins for a hidden head then chest {} -> {}", cover,
+                    "hkkkkhk/khhkkhk".equals(cover) ? "OK" : "FAIL");
+            int calls = com.vyrriox.justreplay.compat.ArmourersHiddenArmor.wardrobeCalls();
+            log("armourers hidden armor: wardrobe collections seen {} -> {}", calls, calls > 0 ? "OK" : "FAIL");
+        } catch (Throwable t) {
+            log("armourers hidden armor: {} -> FAIL", t.toString());
+        }
+    }
+
+    /** True when {@code stacks} holds this very stack. */
+    private static boolean holds(java.util.List<net.minecraft.world.item.ItemStack> stacks, net.minecraft.world.item.ItemStack stack) {
+        for (net.minecraft.world.item.ItemStack s : stacks) {
+            if (s == stack) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** See {@link com.vyrriox.justreplay.format.RegistryIdsBackend#selfCheck}; the replay gets its own ids back after it. */
