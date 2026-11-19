@@ -61,7 +61,8 @@
     "EntityRendererNameTagMixin",
     "EntityRenderStateMixin",
     "EntityRendererStateLinkMixin",
-    "LivingEntityRendererHooksMixin"
+    "LivingEntityRendererHooksMixin",
+    "IntegratedServerHaltMixin"
   ],
   "injectors": {
     "defaultRequire": 0

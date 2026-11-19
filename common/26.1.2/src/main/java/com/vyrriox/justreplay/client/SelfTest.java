@@ -1054,7 +1054,16 @@ public final class SelfTest {
                 ReplaySession.current().project().speed = new com.vyrriox.justreplay.editor.SpeedTrack();
                 slowExport = null;
                 mc.level.disconnect(net.minecraft.network.chat.Component.empty());
+                // The host stops by itself as soon as its player leaves: leave once it has (10 s at most), which once
+                // froze the game on Fabric when a resource reload came in between. The client must not wait for it.
+                net.minecraft.client.server.IntegratedServer host = mc.getSingleplayerServer();
+                long until = System.currentTimeMillis() + 10_000L;
+                while (host != null && host.getRunningThread().isAlive() && System.currentTimeMillis() < until) {
+                    java.util.concurrent.locks.LockSupport.parkNanos(20_000_000L);
+                }
+                boolean hostStopped = host == null || !host.getRunningThread().isAlive();
                 mc.disconnect(new TitleScreen(), false);
+                log("left the replay once its host had stopped: {} -> {}", hostStopped, hostStopped ? "OK" : "FAIL");
                 go(16, 60);
             }
             case 16 -> {
