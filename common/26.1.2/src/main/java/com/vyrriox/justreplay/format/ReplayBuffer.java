@@ -339,6 +339,7 @@ public final class ReplayBuffer {
         Files.createDirectories(dir);
         meta.durationTicks = Math.max(0, lastTick - base);
         meta.startedAt -= meta.durationTicks * 50L;
+        meta.markers = RecordingMarkers.window(meta.markers, base, lastTick);
         ReplayStorage.writeMeta(dir, meta);
         if (registries != null) {
             RegistryIds.write(dir, registries);

@@ -42,6 +42,8 @@ public final class ReplayProject {
     /** Play the recorded voice chat and include it in video exports. */
     public boolean voices = true;
     public List<Marker> markers = new ArrayList<>();
+    /** True once the markers placed while recording ({@code meta.json}) were copied to {@link #markers}. */
+    public boolean recordingMarkersImported;
     public List<ActorData> actors = new ArrayList<>();
     /** Music and sound design tracks, mixed over the game sounds. */
     public List<AudioTrack> audioTracks = new ArrayList<>();
@@ -577,6 +579,27 @@ public final class ReplayProject {
         }
         sort();
         mergeCuts();
+    }
+
+    /**
+     * Copies the markers placed while recording to the timeline, the first time the replay opens; later opens keep
+     * what the editor made of them. True when the project changed.
+     */
+    public boolean importRecordingMarkers(List<com.vyrriox.justreplay.format.ReplayMeta.Marker> recorded) {
+        if (recordingMarkersImported) {
+            return false;
+        }
+        recordingMarkersImported = true;
+        if (recorded != null) {
+            for (com.vyrriox.justreplay.format.ReplayMeta.Marker marker : recorded) {
+                if (marker != null) {
+                    String name = marker.name == null || marker.name.isBlank() ? "Marker " + (markers.size() + 1) : marker.name;
+                    markers.add(new Marker(Math.max(0, marker.tick), name));
+                }
+            }
+            markers.sort(Comparator.comparingInt(m -> m.tick));
+        }
+        return true;
     }
 
     public void sort() {
