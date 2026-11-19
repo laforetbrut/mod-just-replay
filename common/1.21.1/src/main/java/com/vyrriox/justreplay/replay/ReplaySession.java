@@ -464,6 +464,7 @@ public final class ReplaySession {
             VideoExporter.cancel();
             s.voices.close();
             com.vyrriox.justreplay.compat.ReplayCompat.onReplayEnd();
+            ReplayPacks.close(Minecraft.getInstance());
             s.saveProject();
             current = null;
             pendingWorldCleanup = true;
@@ -512,6 +513,7 @@ public final class ReplaySession {
                         Component.translatable("justreplay.toast.registries_differ"),
                         differing.size() > 3 ? Component.literal(names + " +" + (differing.size() - 3)) : Component.literal(names));
             }
+            ReplayPacks.reset();
             s.playback.start(mc.getConnection());
             JustReplay.LOGGER.info("Replay playback started: {} ticks", s.playback.duration());
         }
@@ -519,6 +521,7 @@ public final class ReplaySession {
             return;
         }
         s.playback.tick(mc);
+        ReplayPacks.tick(mc);
         com.vyrriox.justreplay.compat.ReplayCompat.tick(mc, s);
         try {
             s.voices.tick(mc, s);
