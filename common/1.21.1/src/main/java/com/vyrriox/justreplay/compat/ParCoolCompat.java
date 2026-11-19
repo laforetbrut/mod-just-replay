@@ -58,7 +58,7 @@ public final class ParCoolCompat {
     }
 
     private static Reflect reflect() {
-        if (reflect != null || reflectFailed || !ReplayCompat.PARCOOL) {
+        if (reflect != null || reflectFailed || !Integrations.PARCOOL.on()) {
             return reflect;
         }
         try {
@@ -107,7 +107,7 @@ public final class ParCoolCompat {
         } catch (Throwable t) {
             reflectFailed = true;
             reflect = null;
-            ReplayCompat.warnOnce("parcool.reflect", "ParCool support disabled, its classes changed", t);
+            Integrations.PARCOOL.fail("reflect", t);
         }
         return reflect;
     }

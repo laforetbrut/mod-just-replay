@@ -89,7 +89,7 @@ public final class SableCompat {
         if (reflect != null || reflectFailed) {
             return reflect;
         }
-        if (!ReplayCompat.SABLE) {
+        if (!Integrations.SABLE.on()) {
             reflectFailed = true;
             return null;
         }
@@ -150,10 +150,10 @@ public final class SableCompat {
                     accessible(info.getDeclaredField("gameTick")),
                     accessible(info.getDeclaredField("stopped")));
             JustReplay.LOGGER.info("Sable detected: sub-level poses are recorded from every network path and sub-levels are"
-                    + " written into snapshots{}", ReplayCompat.AERONAUTICS ? " (Create Aeronautics present)" : "");
+                    + " written into snapshots{}", Integrations.AERONAUTICS.on() ? " (Create Aeronautics present)" : "");
         } catch (Throwable t) {
             reflectFailed = true;
-            ReplayCompat.warnOnce("sable.reflect", "Sable support disabled, its classes changed", t);
+            Integrations.SABLE.fail("reflect", t);
         }
         return reflect;
     }

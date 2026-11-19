@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.mixin.compat;
 
+import com.vyrriox.justreplay.compat.Integrations;
 import com.vyrriox.justreplay.compat.SableCompat;
 import io.netty.channel.ChannelHandlerContext;
 import org.spongepowered.asm.mixin.Mixin;
@@ -21,6 +22,13 @@ public abstract class SableUdpPoseMixin {
     @Inject(method = "channelRead0(Lio/netty/channel/ChannelHandlerContext;Ldev/ryanhcode/sable/network/udp/AddressedSableUDPPacket;)V",
             at = @At("HEAD"), require = 0, remap = false)
     private void justreplay$received(ChannelHandlerContext context, @Coerce Object message, CallbackInfo ci) {
-        SableCompat.onUdpReceived(message);
+        if (!Integrations.SABLE.on()) {
+            return;
+        }
+        try {
+            SableCompat.onUdpReceived(message);
+        } catch (Throwable t) {
+            Integrations.SABLE.fail("SableUDPChannelHandlerClient.channelRead0", t);
+        }
     }
 }

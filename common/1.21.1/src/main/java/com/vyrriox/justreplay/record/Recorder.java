@@ -356,7 +356,7 @@ public final class Recorder {
             spawnConnection = connection;
         }
         com.vyrriox.justreplay.compat.ReplayCompat.onLivePacket(packet, newConnection);
-        if (com.vyrriox.justreplay.compat.CreateCompat.isPersistent(packet)) {
+        if (com.vyrriox.justreplay.compat.ReplayCompat.isPersistentModPacket(packet)) {
             if (PERSISTENT.size() < MAX_PERSISTENT) {
                 PERSISTENT.add(packet);
             } else if (PERSISTENT.size() == MAX_PERSISTENT && FAILED_GLOBAL.add("persistent")) {
@@ -1289,7 +1289,8 @@ public final class Recorder {
         lastSwingTime = player.swingTime;
 
         // The server never sends a player its own emotes: they are written as another client receives them.
-        localEmotes.poll(player, actorUuid, respawned, packet -> write(listener, packet));
+        com.vyrriox.justreplay.compat.ReplayCompat.pollLocalEmotes(localEmotes, player, actorUuid, respawned,
+                packet -> write(listener, packet));
     }
 
     /** Base values and modifiers of the entity's syncable attributes, as the server sends them on spawn. */

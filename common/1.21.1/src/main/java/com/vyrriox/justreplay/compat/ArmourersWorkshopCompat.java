@@ -85,7 +85,7 @@ public final class ArmourersWorkshopCompat {
     }
 
     private static Reflect reflect() {
-        if (reflect != null || reflectFailed || !ReplayCompat.ARMOURERS_WORKSHOP) {
+        if (reflect != null || reflectFailed || !Integrations.ARMOURERS_WORKSHOP.on()) {
             return reflect;
         }
         try {
@@ -138,7 +138,7 @@ public final class ArmourersWorkshopCompat {
         } catch (Throwable t) {
             reflectFailed = true;
             reflect = null;
-            ReplayCompat.warnOnce("aw.reflect", "Armourer's Workshop support disabled, its classes changed", t);
+            Integrations.ARMOURERS_WORKSHOP.fail("reflect", t);
         }
         return reflect;
     }

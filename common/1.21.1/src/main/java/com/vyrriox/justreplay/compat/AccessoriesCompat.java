@@ -54,7 +54,7 @@ public final class AccessoriesCompat {
     }
 
     private static Reflect reflect() {
-        if (reflect != null || reflectFailed || !ReplayCompat.ACCESSORIES) {
+        if (reflect != null || reflectFailed || !Integrations.ACCESSORIES.on()) {
             return reflect;
         }
         try {
@@ -90,7 +90,7 @@ public final class AccessoriesCompat {
         } catch (Throwable t) {
             reflectFailed = true;
             reflect = null;
-            ReplayCompat.warnOnce("accessories.reflect", "Accessories support disabled, its classes changed", t);
+            Integrations.ACCESSORIES.fail("reflect", t);
         }
         return reflect;
     }

@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.mixin.compat;
 
+import com.vyrriox.justreplay.compat.Integrations;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -9,6 +10,7 @@ import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -39,9 +41,22 @@ public abstract class PehkuiPacketWriteMixin {
 
     @Inject(method = "write", at = @At("HEAD"), cancellable = true, require = 0, remap = false)
     private void justreplay$writeReceived(FriendlyByteBuf buf, CallbackInfo ci) {
-        if (!scales.isEmpty() || syncedScales.isEmpty()) {
+        if (!Integrations.PEHKUI.on() || !scales.isEmpty() || syncedScales.isEmpty()) {
             return;
         }
+        int start = buf.writerIndex();
+        try {
+            justreplay$writeSynced(buf);
+            ci.cancel();
+        } catch (Throwable t) {
+            // Pehkui's own write runs on what was there before.
+            buf.writerIndex(start);
+            Integrations.PEHKUI.fail("ScalePacket.write", t);
+        }
+    }
+
+    @Unique
+    private void justreplay$writeSynced(FriendlyByteBuf buf) {
         buf.writeVarInt(entityId);
         buf.writeInt(syncedScales.size());
         for (Map.Entry<ResourceLocation, CompoundTag> entry : syncedScales.entrySet()) {
@@ -65,6 +80,5 @@ public abstract class PehkuiPacketWriteMixin {
                 buf.writeUtf(tag.getString("easing"));
             }
         }
-        ci.cancel();
     }
 }

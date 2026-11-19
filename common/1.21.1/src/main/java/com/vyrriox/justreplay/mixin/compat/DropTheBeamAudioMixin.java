@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.mixin.compat;
 
+import com.vyrriox.justreplay.compat.Integrations;
 import com.vyrriox.justreplay.compat.DropTheBeamCompat;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
@@ -26,22 +27,44 @@ public abstract class DropTheBeamAudioMixin {
 
     @Inject(method = "feed", at = @At("HEAD"), cancellable = true, require = 0, remap = false)
     private static void justreplay$enterFeed(CallbackInfo ci) {
-        if (!DropTheBeamCompat.enterFeed()) {
-            ci.cancel();
+        if (!Integrations.DROP_THE_BEAM.on()) {
             return;
         }
-        if (DropTheBeamCompat.audioMuted()) {
-            pausedPass = true;
+        try {
+            if (!DropTheBeamCompat.enterFeed()) {
+                ci.cancel();
+                return;
+            }
+            if (DropTheBeamCompat.audioMuted()) {
+                pausedPass = true;
+            }
+        } catch (Throwable t) {
+            Integrations.DROP_THE_BEAM.fail("AudioOutput.feed", t);
         }
     }
 
     @Inject(method = "feed", at = @At("RETURN"), require = 0, remap = false)
     private static void justreplay$exitFeed(CallbackInfo ci) {
-        DropTheBeamCompat.exitFeed();
+        if (!Integrations.DROP_THE_BEAM.on()) {
+            return;
+        }
+        try {
+            DropTheBeamCompat.exitFeed();
+        } catch (Throwable t) {
+            Integrations.DROP_THE_BEAM.fail("AudioOutput.feed", t);
+        }
     }
 
     @ModifyVariable(method = "feed", at = @At("HEAD"), argsOnly = true, ordinal = 0, require = 0, remap = false)
     private static float justreplay$gameVolume(float category) {
-        return DropTheBeamCompat.liveCategory(category);
+        if (!Integrations.DROP_THE_BEAM.on()) {
+            return category;
+        }
+        try {
+            return DropTheBeamCompat.liveCategory(category);
+        } catch (Throwable t) {
+            Integrations.DROP_THE_BEAM.fail("AudioOutput.feed", t);
+            return category;
+        }
     }
 }

@@ -1,5 +1,8 @@
 package com.vyrriox.justreplay.gui;
 
+import com.vyrriox.justreplay.compat.CompatTargets;
+import com.vyrriox.justreplay.compat.Integration;
+import com.vyrriox.justreplay.compat.Integrations;
 import com.vyrriox.justreplay.config.ConfigFile;
 import com.vyrriox.justreplay.config.JRConfig;
 import com.vyrriox.justreplay.export.ExportResolution;
@@ -56,8 +59,12 @@ public class JRConfigScreen extends GlassScreen {
         ScrollArea area = new ScrollArea(this, boxX + 8, boxY + 28, boxW - 16, boxH - 28 - 36);
         Form f = new Form(area, boxW - 24);
         for (ConfigFile.Section section : JRConfig.SPEC.sections()) {
+            List<ConfigFile.Value<?>> shown = section.values().stream().filter(JRConfigScreen::isShown).toList();
+            if (shown.isEmpty()) {
+                continue;
+            }
             f.header(Component.translatable(LANG + section.name()), null);
-            for (ConfigFile.Value<?> value : section.values()) {
+            for (ConfigFile.Value<?> value : shown) {
                 addRow(f, value);
             }
             f.space(2);
@@ -73,8 +80,20 @@ public class JRConfigScreen extends GlassScreen {
         }).style(GlassButton.Style.PRIMARY));
     }
 
+    /** Integration switches are shown only for the mods installed: the others stay in the file. */
+    private static boolean isShown(ConfigFile.Value<?> value) {
+        if (JRConfig.COMPAT.get(value.key()) != value) {
+            return true;
+        }
+        Integration integration = Integrations.get(value.key());
+        return integration != null && Integrations.isFound(integration);
+    }
+
     private void addRow(Form f, ConfigFile.Value<?> value) {
-        Component label = Component.translatable(LANG + value.key());
+        // An integration switch is labelled with its mod's name.
+        Component label = JRConfig.COMPAT.get(value.key()) == value
+                ? Component.literal(CompatTargets.NAMES.getOrDefault(value.key(), value.key()))
+                : Component.translatable(LANG + value.key());
         Component tip = Component.literal(value.comment());
         if (value instanceof ConfigFile.BoolValue) {
             f.full(new GlassSwitch(label, () -> (Boolean) draft.get(value), () -> draft.put(value, !(Boolean) draft.get(value))).tip(tip));
