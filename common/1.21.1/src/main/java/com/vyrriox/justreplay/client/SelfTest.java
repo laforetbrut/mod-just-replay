@@ -450,6 +450,11 @@ public final class SelfTest {
                 if (t == 50) {
                     Mods.recordExposureCapture();
                 }
+                if ((t == 60 || t == 150) && mc.screen == null) {
+                    // Through the key, as a player would: two markers 90 ticks apart, both inside the buffer clip.
+                    net.minecraft.client.KeyMapping.click(((com.vyrriox.justreplay.mixin.KeyMappingAccessor) JRKeys.RECORDING_MARKER).justreplay$getKey());
+                    log("recording marker key pressed at recording tick {}", t);
+                }
                 if (t == 120 && Mods.loaded("irons_spellbooks")) {
                     p.connection.sendCommand("cast @s irons_spellbooks:fortify 1");
                 }
@@ -498,6 +503,7 @@ public final class SelfTest {
             }
             case 6 -> {
                 ReplaySession s = ReplaySession.current();
+                checkRecordingMarkers(s);
                 logWorld(mc, s, "playing");
                 log("mods while playing: {}", Mods.state(mc, s));
                 Mods.checkCurios(mc, s, "at start");
@@ -1290,6 +1296,15 @@ public final class SelfTest {
             log("buffer clip {}: packets={} (saved {}) lastTick={} duration={} checkpoints={} first={} voice={}", clip.getFileName(),
                     packets, saved.packets(), lastTick, ReplayStorage.readMeta(clip).durationTicks,
                     java.util.Arrays.toString(com.vyrriox.justreplay.format.Checkpoints.list(clip)), firstType, saved.voiceFrames());
+            // Markers placed at recording ticks 60 and 150, saved at 200: the last one sits 50 ticks before the end.
+            com.vyrriox.justreplay.format.ReplayMeta clipMeta = ReplayStorage.readMeta(clip);
+            java.util.List<com.vyrriox.justreplay.format.ReplayMeta.Marker> marks = clipMeta.markers == null ? java.util.List.of() : clipMeta.markers;
+            com.vyrriox.justreplay.format.ReplayMeta.Marker last = marks.isEmpty() ? null : marks.get(marks.size() - 1);
+            boolean lastOk = last != null && "Marker 2".equals(last.name) && Math.abs(clipMeta.durationTicks - last.tick - 50) <= 3;
+            boolean spacingOk = marks.size() < 2 || Math.abs(marks.get(1).tick - marks.get(0).tick - 90) <= 1;
+            log("recording markers in the buffer clip: {} at {} of {} ticks -> {}", marks.size(),
+                    marks.stream().map(m -> m.name + "@" + m.tick).toList(), clipMeta.durationTicks,
+                    lastOk && spacingOk && marks.size() <= 2 ? "OK" : "FAIL");
         } catch (Throwable t) {
             JustReplay.LOGGER.error("SELFTEST FAIL buffer clip", t);
             clip = null;
@@ -1311,6 +1326,16 @@ public final class SelfTest {
      * Hidden armor: the player actor's helmet is hidden and its chestplate kept, the armor layer skipped at least one
      * piece while the actors were drawn, the camera player is never touched, and the global option hides every slot.
      */
+    /** The two markers placed with the recording marker key arrive on the timeline at the first opening. */
+    private static void checkRecordingMarkers(ReplaySession s) {
+        java.util.List<ReplayProject.Marker> marks = s.project().markers;
+        boolean names = marks.size() == 2 && "Marker 1".equals(marks.get(0).name) && "Marker 2".equals(marks.get(1).name);
+        boolean ticks = names && marks.get(0).tick >= 59 && marks.get(0).tick <= 64
+                && Math.abs(marks.get(1).tick - marks.get(0).tick - 90) <= 1;
+        log("recording markers on the timeline: {} -> {}", marks.stream().map(m -> m.name + "@" + m.tick).toList(),
+                names && ticks && s.project().recordingMarkersImported ? "OK" : "FAIL");
+    }
+
     /**
      * Opens the replay with a mod that is not installed written into its list: the window that lists changed mods
      * must show it among the missing ones, then "Open anyway" opens the replay.

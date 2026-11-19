@@ -966,5 +966,11 @@
   "justreplay.mods_changed.version": "%s: %s -> %s",
   "justreplay.mods_changed.dont_warn": "Don't warn again for this replay",
   "justreplay.mods_changed.dont_warn.tip": "Saved with this replay. The warning can be turned off for every replay in the settings.",
-  "justreplay.mods_changed.open": "Open anyway"
+  "justreplay.mods_changed.open": "Open anyway",
+  "key.justreplay.recording_marker": "Place a marker while recording",
+  "justreplay.toast.marker": "Marker %s",
+  "justreplay.toast.marker.at": "At %s in the recording",
+  "justreplay.toast.marker.buffer": "Kept with the last minutes",
+  "justreplay.toast.marker_idle": "Nothing is recording",
+  "justreplay.toast.marker_idle.hint": "Press %s to record, or turn on the instant replay buffer"
 }
