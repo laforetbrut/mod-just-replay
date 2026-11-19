@@ -95,10 +95,14 @@ python3 tools/test_matrix.py --targets neoforge-1.21.1 --mods ~/instances/arcadi
 - Jars made for another loader are reported before the run.
 - `forge-1.20.1`: released 1.20.1 jars use other names than the development game. The mods go to `devmods/` and
   are remapped through `-PdevMods`; jars that are not mods (the Immersive Vehicles content packs) stay in
-  `mods/`.
+  `mods/`. A mod that names its mixin targets in SRG itself, without a refmap (Armourer's Workshop 3.4), still
+  stops that client at launch: test it with an installed game.
 - `neoforge-1.20.1`: its development client cannot remap released jars, so most mods will not load there. Test
   1.20.1 packs on `forge-1.20.1`, or with an installed game.
 - NeoForge and Forge 1.21.1 and 26.1.2 load released jars as they are. Fabric remaps them itself at launch.
+- `forge-1.21.1` and `forge-26.1.2` keep the game assets in `<home>/.minecraft/assets`. Where that folder cannot
+  be written (a sandbox), add `-P mcHome=<dir>` and put the assets of an earlier run in `<dir>/.minecraft/assets`
+  (a link to `~/.gradle/caches/neoformruntime/assets` will do).
 - For a whole matrix with mods, give a folder holding one subfolder per target (`neoforge-1.21.1/`,
   `forge-1.20.1/`...). A target without its subfolder runs without mods.
 - A pack may need another loader version: `-P neo_version=21.1.265` (Sable and Create Aeronautics, for example)
@@ -209,11 +213,15 @@ python3 tools/test_matrix.py --targets neoforge-1.21.1 --mods ~/instances/arcadi
 - Les jars faits pour un autre loader sont signalés avant le lancement.
 - `forge-1.20.1` : les jars 1.20.1 publiés n'utilisent pas les mêmes noms que le jeu de développement. Les mods
   vont dans `devmods/` et sont remappés par `-PdevMods` ; les jars qui ne sont pas des mods (les packs de contenu
-  d'Immersive Vehicles) restent dans `mods/`.
+  d'Immersive Vehicles) restent dans `mods/`. Un mod qui nomme lui-même ses cibles de mixin en SRG, sans refmap
+  (Armourer's Workshop 3.4), arrête quand même ce client au lancement : teste-le avec un jeu installé.
 - `neoforge-1.20.1` : son client de développement ne sait pas remapper les jars publiés, donc la plupart des mods
   n'y chargeront pas. Teste les packs 1.20.1 sur `forge-1.20.1`, ou avec un jeu installé.
 - NeoForge et Forge 1.21.1 et 26.1.2 chargent les jars publiés tels quels. Fabric les remappe lui-même au
   lancement.
+- `forge-1.21.1` et `forge-26.1.2` gardent les assets du jeu dans `<home>/.minecraft/assets`. Là où ce dossier
+  n'est pas inscriptible (bac à sable), ajoute `-P mcHome=<dossier>` et mets les assets d'un lancement précédent
+  dans `<dossier>/.minecraft/assets` (un lien vers `~/.gradle/caches/neoformruntime/assets` suffit).
 - Pour une matrice complète avec des mods, donne un dossier qui contient un sous-dossier par cible
   (`neoforge-1.21.1/`, `forge-1.20.1/`...). Une cible sans son sous-dossier tourne sans mods.
 - Un pack peut demander une autre version du loader : `-P neo_version=21.1.265` (Sable et Create Aeronautics,

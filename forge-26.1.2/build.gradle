@@ -53,6 +53,11 @@ minecraft {
             if (project.hasProperty('gameDir')) {
                 workingDir = file(project.property('gameDir'))
             }
+            // Slime Launcher keeps the game assets in <user.home>/.minecraft/assets: -PmcHome=<dir> gives the dev game
+            // another home, on a machine where that folder cannot be written.
+            if (project.hasProperty('mcHome')) {
+                systemProperty 'user.home', file(project.property('mcHome')).absolutePath
+            }
             if (project.hasProperty('selftest')) {
                 systemProperty 'justreplay.selftest', 'true'
                 jvmArgs '-Xmx8G'
