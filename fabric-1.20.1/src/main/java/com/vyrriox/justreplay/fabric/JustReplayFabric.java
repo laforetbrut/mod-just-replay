@@ -34,6 +34,8 @@ public final class JustReplayFabric implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+        // First: the version, loader and integrations line that crash logs are read with.
+        com.vyrriox.justreplay.compat.Integrations.logStartup();
         for (Class<?> type : PRELOADED) {
             try {
                 Class.forName(type.getName(), true, type.getClassLoader());
