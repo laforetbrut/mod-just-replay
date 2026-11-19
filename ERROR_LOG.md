@@ -269,3 +269,17 @@
 **Root cause:** Lists made by List.of throw on contains(null); the repair code of the World tab settings checked membership before checking for null, so a project with "weather": null could not be loaded and the replay did not open
 **Fix:** Check null first in WorldSettings.normalize (weather, fog, particles) and in particleHidden, in the three common folders; WorldVisualsTest covers it
 **Prevention:** Never call contains on a List.of or Set.of with a value read from JSON without a null check; add a null case to the unit test of every normalize method
+
+## [2026-11-19 17:00] — Merged branches gave two self test steps the same numbers
+**Context:** Merging the local branches of tasks 471 (replay naming window) and 474 (Flashback gaps) into one branch, task 475
+**Error:** case 70, 71 and 72 twice in the switch (step) of SelfTest.java in the three common folders (javac: duplicate case label); git merged both without a conflict
+**Root cause:** Both branches started from develop and took the first free numbers after 62 for their new steps; the hunks did not overlap, so git saw no conflict
+**Fix:** The naming window steps moved to 80, 81 and 82 in the three versions; the case labels and the go() transitions were listed to check that no step is duplicated or unreachable
+**Prevention:** After merging branches that add self test steps, list the case labels of switch (step) in each SelfTest.java and follow go()/next() from step 0 before building; give each new feature its own block of ten step numbers
+
+## [2026-11-19 17:10] — Temp folder full after copying the loader folders to /tmp
+**Context:** Comparing changed files with develop during task 475: extracted common/ from develop and copied the nine loader folders next to it in /tmp
+**Error:** No space left on device: the /tmp volume had 0 MB free and the command output was lost
+**Root cause:** /tmp is a 3.9 GB tmpfs held in memory on this machine, and the loader folders carry their build and run folders, several GB together
+**Fix:** Removed the copy (2.2 GB free again) and compared single files with git show develop:<path>
+**Prevention:** Never copy loader folders (build/, run*/) to /tmp; compare with git show <ref>:<path>, or git archive only the paths needed
