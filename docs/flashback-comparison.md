@@ -34,11 +34,12 @@ Just Replay's exposure to them, prioritised gaps, and the gaps picked for the ne
   multi-caméra avec piste de coupes et transitions, effets vidéo et LUT, textes et images dans le monde, éditeur
   audio multipiste, annuler/rétablir, mode Simple, tampon « dernières minutes », tâches de scène automatisées.
 - Just Replay couvre NeoForge et Forge en natif et Minecraft 1.20.1 ; Flashback est Fabric seul, 1.21 à 26.3.
-- Flashback a plus d'options autour de la lecture et de l'export : vitesse et timelapse en keyframes, gel, filtres
-  de rendu (particules, types d'entités), vision nocturne et brouillard, formats d'export (GIF, WebM, WebP, PNG,
+- Les cinq manques retenus plus bas sont faits (branche `feat/implement-flashback-priority-gaps`, non publiée) :
+  pack de ressources du serveur, avertissement des mods changés, vitesse, timelapse et gel, repères pendant
+  l'enregistrement, vision nocturne, brouillard, particules, types d'entités masqués et contour.
+- Flashback garde plus d'options autour de la lecture et de l'export : couleur du brouillard et ciel, formats d'export (GIF, WebM, WebP, PNG,
   EXR, profondeur), suréchantillonnage, fond transparent, projections 360° et orthographique, encodeurs matériels,
-  scènes multiples, fusion de replays, repères pendant l'enregistrement, pack de ressources du serveur, une douzaine
-  de langues.
+  scènes multiples, fusion de replays, une douzaine de langues.
 
 ### Tableau des fonctionnalités
 
@@ -54,12 +55,12 @@ Just Replay's exposure to them, prioritised gaps, and the gaps picked for the ne
 | Chunks mis en cache par Bobby | inclus [0.3.0](https://modrinth.com/mod/flashback/version/0.3.0), écrits dans le replay [0.39.2](https://modrinth.com/mod/flashback/version/0.39.2) | `captureExtraChunks` : `JR/record/ChunkCapture.java` ; intégration `JR/mixin/compat/BobbyMixin.java` activée en NeoForge et Fabric 1.21.1 (README) | égal |
 | Distant Horizons | [0.10.0](https://modrinth.com/mod/flashback/version/0.10.0) (DH 2.3.0+) | copie temporaire de la base LOD : `JR/compat/DistantHorizonsCompat.java`, NeoForge et Fabric 1.21.1 (README) | égal |
 | Simple Voice Chat enregistré | [0.4.0](https://modrinth.com/mod/flashback/version/0.4.0) | `JR/voice/VoiceRecorder.java`, `JR/voice/plugin/JustReplayVoicechatPlugin.java` (API publique seule) | égal |
-| Repères posés pendant l'enregistrement | `/flashback mark` [0.4.0](https://modrinth.com/mod/flashback/version/0.4.0), 4 touches réglables [0.37.0](https://modrinth.com/mod/flashback/version/0.37.0) | repères seulement dans le replay (touche M) : `JR/client/JustReplayClient.java` (`JRKeys.MARKER`) | JR moins bien |
+| Repères posés pendant l'enregistrement | `/flashback mark` [0.4.0](https://modrinth.com/mod/flashback/version/0.4.0), 4 touches réglables [0.37.0](https://modrinth.com/mod/flashback/version/0.37.0) | touche « Repère d'enregistrement » (F6) pendant un enregistrement et avec le tampon, repères dans `meta.json` puis sur la timeline à la première ouverture : `JR/client/JRKeys.java` (`RECORDING_MARKER`), `JR/record/Recorder.java`, `JR/format/RecordingMarkers.java` ; touche M dans le replay | égal |
 | Position du joueur enregistrée plus souvent que 20 fois par seconde (vue à la première personne fluide) | [0.4.0](https://modrinth.com/mod/flashback/version/0.4.0), [0.7.0](https://modrinth.com/mod/flashback/version/0.7.0) | une pose par tick, aucune capture par image dans `JR/record/Recorder.java` | absent de JR |
 | Barre d'objets du joueur enregistrée et affichée en vue subjective | [0.4.0](https://modrinth.com/mod/flashback/version/0.4.0), [0.7.0](https://modrinth.com/mod/flashback/version/0.7.0) | HUD masqué pendant la lecture (`cleanHud`) : `JR/config/JRConfig.java` | absent de JR |
 | Récupération après un plantage | [0.7.0](https://modrinth.com/mod/flashback/version/0.7.0) | flux vidé toutes les 30 s, `meta.json` chaque minute, flux tronqué relu jusqu'au dégât : `JR/record/Recorder.java`, `JR/format/ReplayStorage.java` (`readStream`) | égal |
 | Refuser d'enregistrer ou avertir avec un mod connu pour casser | [0.5.0](https://modrinth.com/mod/flashback/version/0.5.0), [0.15.0](https://modrinth.com/mod/flashback/version/0.15.0) (Farsight) | pas de liste noire ; une intégration qui échoue se coupe (branche `fix/harden-compat-layer-crashes`, non fusionnée) | égal (autre approche) |
-| Avertir quand les mods ou registres ont changé depuis l'enregistrement | [0.36.0](https://modrinth.com/mod/flashback/version/0.36.0), liste des mods changés au journal [0.39.9](https://modrinth.com/mod/flashback/version/0.39.9) | la liste `modid@version` est écrite (`JR/format/ReplayMeta.java` `mods`, `JR/record/Recorder.java`) mais jamais comparée ; seuls la version du jeu et le chargeur sont vérifiés : `JR/replay/VersionCheck.java` | JR moins bien |
+| Avertir quand les mods ou registres ont changé depuis l'enregistrement | [0.36.0](https://modrinth.com/mod/flashback/version/0.36.0), liste des mods changés au journal [0.39.9](https://modrinth.com/mod/flashback/version/0.39.9) | fenêtre des mods manquants, ajoutés et mis à jour avant l'ouverture, même liste au journal, case « Ne plus avertir pour ce replay » : `JR/format/ModDiff.java`, `JR/gui/ModsChangedScreen.java`, `JR/replay/ReplaySession.java` ; version du jeu et chargeur : `JR/replay/VersionCheck.java` | égal |
 | Ignorer des charges utiles choisies | option avancée [0.39.6](https://modrinth.com/mod/flashback/version/0.39.6) | filtre interne fixe `JR/replay/PacketFilter.java` ; paquet illisible sauté et journalisé : `JR/replay/Playback.java` | JR moins bien (pas réglable) |
 
 #### Gestion des replays
@@ -85,10 +86,10 @@ Just Replay's exposure to them, prioritised gaps, and the gaps picked for the ne
 | Réglages de déplacement de la caméra libre | fenêtre « Movement » [0.5.0](https://modrinth.com/mod/flashback/version/0.5.0) | vol spectateur du jeu, sans réglage propre : `JR/replay/Playback.java` | JR moins bien |
 | Météo forcée | [0.11.0](https://modrinth.com/mod/flashback/version/0.11.0) | onglet Monde, avec keyframes de fondu : `JR/gui/WorldPanel.java`, `JR/replay/WorldOverride.java` | JR mieux |
 | Heure du jour | keyframe [0.32.0](https://modrinth.com/mod/flashback/version/0.32.0) | keyframes, gel de l'heure, phase de lune : `JR/editor/WorldSettings.java`, `JR/gui/WorldPanel.java` | JR mieux |
-| Brouillard (couleur, coupure), ciel coupé ou d'une couleur | [0.5.0](https://modrinth.com/mod/flashback/version/0.5.0), [0.6.0](https://modrinth.com/mod/flashback/version/0.6.0) | non : `JR/gui/WorldPanel.java`, `JR/editor/WorldSettings.java` (météo et heure seulement) | absent de JR |
-| Vision nocturne forcée | [0.8.0](https://modrinth.com/mod/flashback/version/0.8.0) | non : `JR/gui/WorldPanel.java` | absent de JR |
-| Filtre de rendu par type d'entité ou de particule, rayon de balise | [0.18.0](https://modrinth.com/mod/flashback/version/0.18.0), [0.39.1](https://modrinth.com/mod/flashback/version/0.39.1) | masquage entité par entité seulement : `JR/gui/EntitiesPanel.java` | absent de JR |
-| Pack de ressources du serveur dans le replay | appliqué, option pour le couper [0.36.0](https://modrinth.com/mod/flashback/version/0.36.0) | paquets de pack jetés à la lecture : `JR/replay/PacketFilter.java` (`DROPPED`), dans les trois versions | JR moins bien |
+| Brouillard (couleur, coupure), ciel coupé ou d'une couleur | [0.5.0](https://modrinth.com/mod/flashback/version/0.5.0), [0.6.0](https://modrinth.com/mod/flashback/version/0.6.0) | brouillard normal, réduit ou coupé dans l'onglet Monde : `JR/editor/WorldSettings.java` (`fog`), `JR/mixin/VisualFogMixin.java` ; ni couleur du brouillard ni ciel coupé | JR moins bien |
+| Vision nocturne forcée | [0.8.0](https://modrinth.com/mod/flashback/version/0.8.0) | « Vision nocturne » dans l'onglet Monde, pleine lumière sans teinte : `JR/editor/Visuals.java`, `JR/mixin/VisualLightMixin.java` | égal |
+| Filtre de rendu par type d'entité ou de particule, rayon de balise | [0.18.0](https://modrinth.com/mod/flashback/version/0.18.0), [0.39.1](https://modrinth.com/mod/flashback/version/0.39.1) | types d'entités masqués (onglet Entités) et particules toutes, aucune ou par type avec recherche (onglet Monde) : `JR/mixin/EntityEditRenderMixin.java`, `JR/mixin/VisualParticlesMixin.java`, `JR/gui/TypeList.java` ; pas de rayon de balise | égal |
+| Pack de ressources du serveur dans le replay | appliqué, option pour le couper [0.36.0](https://modrinth.com/mod/flashback/version/0.36.0) | packs poussés avant ou pendant l'enregistrement appliqués depuis le cache du jeu, téléchargés avec `serverResourcePacks=DOWNLOAD`, coupés avec `OFF`, retirés à la fermeture : `JR/replay/ReplayPacks.java`, `JR/format/ServerPackState.java`, `JR/record/Recorder.java` | égal |
 | Blocs modifiés à la main pendant une pause, gardés dans une piste | [0.33.0](https://modrinth.com/mod/flashback/version/0.33.0) | non : `JR/editor/ReplayProject.java` (aucune piste de blocs) | absent de JR |
 | Graine aléatoire remise à zéro pour des rendus identiques | [0.35.2](https://modrinth.com/mod/flashback/version/0.35.2) | non trouvé dans `JR/replay/Playback.java` | absent de JR |
 | Commandes dans le replay (/hide, /show, /tp, /flashback pause) | [0.30.0](https://modrinth.com/mod/flashback/version/0.30.0), [0.35.2](https://modrinth.com/mod/flashback/version/0.35.2) | touches et panneaux seulement : `JR/client/JRKeys.java` | absent de JR (faible intérêt) |
@@ -103,7 +104,7 @@ Just Replay's exposure to them, prioritised gaps, and the gaps picked for the ne
 | Volume des sons d'une entité | absent ([notes](https://modrinth.com/mod/flashback/changelog)) | 0 à 400 % ou muet : `JR/gui/EntitiesPanel.java` | absent de Flashback |
 | Couper la voix d'un joueur | [0.39.1](https://modrinth.com/mod/flashback/version/0.39.1) | toutes les voix d'un coup (`voices`) : `JR/editor/ReplayProject.java` | JR moins bien |
 | Entendre depuis une entité (source audio) | [0.3.0](https://modrinth.com/mod/flashback/version/0.3.0) | non : aucun réglage d'écoute dans `JR/gui/EntitiesPanel.java` ni `JR/editor/audio/AudioMixer.java` | absent de JR |
-| Contour lumineux forcé à l'export | [0.20.0](https://modrinth.com/mod/flashback/version/0.20.0) | seulement l'entité sélectionnée dans l'éditeur : `JR/mixin/EntityEditGlowMixin.java` | absent de JR |
+| Contour lumineux forcé à l'export | [0.20.0](https://modrinth.com/mod/flashback/version/0.20.0) | « Contour lumineux » par entité, couleur d'équipe, aussi à l'export : `JR/mixin/EntityEditGlowMixin.java`, `JR/editor/EntityEdits.java` | égal |
 | Masquer l'équipement | [0.39.1](https://modrinth.com/mod/flashback/version/0.39.1) | pièce par pièce, élytres comprises : `JR/editor/ArmorSlots.java` (1.21.1 ; 1.20.1 et 26.1.2 sur la branche `feat/port-hide-armor-option`, non fusionnée) | égal |
 | Masquer des parties du modèle (cape, couches de skin) | [0.33.0](https://modrinth.com/mod/flashback/version/0.33.0), [0.39.1](https://modrinth.com/mod/flashback/version/0.39.1) | tête, corps, bras, jambes, couches de skin : `JR/editor/BodyParts.java`, `JR/mixin/PlayerBodyPartsMixin.java` ; cape non trouvée | égal |
 | Changer le skin, skin depuis un fichier | [0.9.0](https://modrinth.com/mod/flashback/version/0.9.0), [0.17.0](https://modrinth.com/mod/flashback/version/0.17.0) | fichiers PNG, changements datés, sauver le skin affiché : `JR/editor/SkinLibrary.java`, `JR/gui/SkinChangesSection.java`, `JR/editor/SkinSaver.java` | JR mieux |
@@ -121,8 +122,8 @@ Just Replay's exposure to them, prioritised gaps, and the gaps picked for the ne
 | Orbite autour d'un point | keyframe d'orbite [0.30.0](https://modrinth.com/mod/flashback/version/0.30.0) | orbite autour d'une entité suivie seulement : `JR/editor/CameraRig.java` | JR moins bien |
 | Tremblement de caméra | [0.13.0](https://modrinth.com/mod/flashback/version/0.13.0) | intensité et vitesse par caméra : `JR/editor/CameraRig.java` | égal |
 | Champ de vision et roulis | [galerie](https://modrinth.com/mod/flashback/gallery), touches de roulis [0.40.0](https://modrinth.com/mod/flashback/version/0.40.0) | par keyframe : `JR/editor/ReplayProject.java` (`CameraKeyframe.fov`), README | égal |
-| Vitesse, ralenti, accéléré (keyframes) et timelapse | [0.2.0](https://modrinth.com/mod/flashback/version/0.2.0), [0.3.0](https://modrinth.com/mod/flashback/version/0.3.0) | vitesse en lecture seulement, aucune piste de vitesse dans `JR/editor/ReplayProject.java` ni dans l'export | absent de JR |
-| Gel de l'image (keyframe Freeze) | [0.14.0](https://modrinth.com/mod/flashback/version/0.14.0) | gel de l'heure du jour seulement : `JR/gui/WorldPanel.java` | absent de JR |
+| Vitesse, ralenti, accéléré (keyframes) et timelapse | [0.2.0](https://modrinth.com/mod/flashback/version/0.2.0), [0.3.0](https://modrinth.com/mod/flashback/version/0.3.0) | piste « Vitesse » : clés x0.1 à x8 tenues ou en rampe, timelapses, suivie par l'aperçu et l'export : `JR/editor/SpeedTrack.java`, `JR/editor/TimeMap.java`, `JR/gui/SpeedPanel.java`, `JR/export/VideoExporter.java` | égal |
+| Gel de l'image (keyframe Freeze) | [0.14.0](https://modrinth.com/mod/flashback/version/0.14.0) | gels de la piste de vitesse, en secondes de vidéo : `JR/editor/SpeedTrack.java` ; la caméra s'arrête avec l'image | JR moins bien |
 | Plusieurs scènes (plans) dans un même replay | [0.13.0](https://modrinth.com/mod/flashback/version/0.13.0) | un seul `project.json` par replay : `JR/editor/ReplayProject.java` | absent de JR |
 | Pistes renommées, rangées, colorées | [0.13.0](https://modrinth.com/mod/flashback/version/0.13.0) | caméras et pistes audio nommées : `JR/gui/CameraPanel.java`, `JR/gui/AudioPanel.java` ; pas de couleur | JR moins bien |
 | Projection orthographique, cube, équirectangulaire (360°) | [0.40.0](https://modrinth.com/mod/flashback/version/0.40.0) | non : `JR/editor/CameraController.java` | absent de JR |
@@ -242,11 +243,11 @@ fois, dans `common/1.20.1`, `common/1.21.1` et `common/26.1.2`.
 
 | # | Manque | Gain | Effort | Pourquoi ce rang |
 |---|---|---|---|---|
-| 1 | Pack de ressources du serveur rejoué | élevé | moyen | tout replay fait sur un serveur à pack (textures, modèles, sons) s'affiche faux aujourd'hui |
-| 2 | Avertissement des mods changés à l'ouverture | élevé | petit | les données existent déjà (`meta.mods`) ; explique d'avance plantages et contenus manquants |
-| 3 | Vitesse, ralenti, timelapse et gel en keyframes dans l'export | élevé | gros | la grosse fonction cinéma qui manque face à Flashback |
-| 4 | Repères pendant l'enregistrement | moyen | petit | retrouver un moment fort d'une longue session sans tout revoir |
-| 5 | Visuels : vision nocturne, brouillard, particules et types d'entités masqués, contour forcé | moyen | moyen | plans de nuit, plans propres sans particules ni mobs parasites |
+| 1 | Pack de ressources du serveur rejoué (fait) | élevé | moyen | tout replay fait sur un serveur à pack (textures, modèles, sons) s'affiche faux aujourd'hui |
+| 2 | Avertissement des mods changés à l'ouverture (fait) | élevé | petit | les données existent déjà (`meta.mods`) ; explique d'avance plantages et contenus manquants |
+| 3 | Vitesse, ralenti, timelapse et gel en keyframes dans l'export (fait) | élevé | gros | la grosse fonction cinéma qui manque face à Flashback |
+| 4 | Repères pendant l'enregistrement (fait) | moyen | petit | retrouver un moment fort d'une longue session sans tout revoir |
+| 5 | Visuels : vision nocturne, brouillard, particules et types d'entités masqués, contour forcé (fait) | moyen | moyen | plans de nuit, plans propres sans particules ni mobs parasites |
 | 6 | Formats d'export : suite PNG dans l'écran, WebM, GIF, suréchantillonnage | moyen | moyen | sortie directe pour les pages de mods et les monteurs |
 | 7 | Encodeurs matériels (NVENC, AMF, QSV) | moyen | moyen | exports beaucoup plus rapides |
 | 8 | Points d'entrée et de sortie manuels pour l'export | moyen | petit | exporter un bout sans retoucher le chemin de caméra |
@@ -269,6 +270,11 @@ Les cinq premiers manques, dans cet ordre. Chacun vaut pour les neuf cibles (Neo
 1.21.1 et 26.1.2), avec la logique dans `common/<mc>/` et rien dans la colle des chargeurs sauf mention. Chacun doit
 passer le build des neuf cibles, une ligne du self-test et des tests unitaires Java pur quand une partie s'y prête.
 
+**Statut (2026-11-19)** : les cinq sont faits dans les trois versions, donc les neuf cibles, sur la branche
+`feat/implement-flashback-priority-gaps` (non publiée). Les tests unitaires Java pur passent ; les cas du self-test
+sont écrits mais pas encore lancés en jeu. Les textes de l'interface sont en anglais seulement, comme le reste du
+mod (pas de `fr_fr.json`). Chaque fonction ci-dessous a sa ligne « Fait » avec ce qui diffère de la demande.
+
 #### 1. Pack de ressources du serveur rejoué
 
 - **Constat** : les paquets de pack de ressources sont jetés à la lecture (`JR/replay/PacketFilter.java`,
@@ -287,6 +293,18 @@ passer le build des neuf cibles, une ligne du self-test et des tests unitaires J
   et les versions récentes : les relever dans les sources de chaque version avant d'écrire le code.
 - **Preuve** : self-test qui enregistre un pack poussé par le serveur intégré, le retrouve à la lecture et vérifie
   qu'il est actif ; build des neuf cibles.
+- **Fait** : `JR/replay/ReplayPacks.java` (lecture), `JR/format/ServerPackState.java` (ensemble des packs, testé),
+  `JR/record/Recorder.java` (suivi des paquets du serveur réel, y compris pendant la configuration). L'ensemble des
+  packs actifs est écrit comme des paquets (retrait de tout, puis un ajout par pack) après la connexion, au début d'un
+  enregistrement lancé en cours de partie et dans chaque point de reprise : reculer ou sauter reconstruit le même
+  ensemble, et les ressources ne se rechargent que s'il change vraiment. Cache : `downloads/<id>/<sha1>` en 1.21.1 et
+  26.1.2, `server-resource-packs/<sha1 de l'adresse>` en 1.20.1, où le fichier est en plus comparé à l'empreinte du
+  pack (une adresse peut servir un pack plus récent). En 1.20.1 un serveur n'a qu'un pack : un nouveau remplace
+  l'ancien. Le mode `DOWNLOAD` passe par le téléchargement du jeu (en 1.20.1 avec son écran de progression) et ne
+  marque jamais le pack comme obligatoire, pour qu'un échec ne ferme pas le replay. Un export met en pause la capture
+  pendant un rechargement : l'écran de chargement n'entre pas dans la vidéo. Limite : un pack refusé par le joueur
+  pendant l'enregistrement est quand même appliqué s'il est dans le cache (en pratique il n'y est pas, puisqu'il
+  n'a jamais été téléchargé).
 
 #### 2. Avertissement des mods changés à l'ouverture
 
@@ -301,6 +319,11 @@ passer le build des neuf cibles, une ligne du self-test et des tests unitaires J
   réutilise `JR/gui/ConfirmDialog.java`.
 - **Preuve** : tests unitaires de la comparaison (ajout, retrait, version changée, mods ignorés, liste vide) ;
   self-test qui ouvre un replay dont `meta.json` cite un faux mod et vérifie la fenêtre puis l'ouverture.
+- **Fait** : `JR/format/ModDiff.java` (comparaison, testée), `JR/gui/ModsChangedScreen.java` (liste défilante, mods
+  manquants en premier), appel dans `JR/replay/ReplaySession.java` avant le chargement. Ne comptent pas : Just Replay,
+  Minecraft, Java, NeoForge, Forge, Fabric Loader, MixinExtras et les modules de Fabric API (Fabric API elle-même
+  compte). La case écrit `ignoreModChanges` dans `meta.json` ; le réglage `playback.warnModChanges` coupe
+  l'avertissement pour tous les replays.
 
 #### 3. Vitesse, ralenti, timelapse et gel en keyframes dans l'export
 
@@ -319,6 +342,18 @@ passer le build des neuf cibles, une ligne du self-test et des tests unitaires J
   replay est du Java pur, testée.
 - **Preuve** : tests unitaires de la table (rampes, paliers, timelapse, gel) ; self-test qui exporte 2 s à x0.5 et
   vérifie le nombre d'images ; build des neuf cibles.
+- **Fait** : `JR/editor/SpeedTrack.java` (clés, rampes, timelapses, gels, plage des sons) et `JR/editor/TimeMap.java`
+  (temps de sortie de chaque tick et inverse, testés), section « Speed » de l'onglet Effets et piste de la timeline
+  (`JR/gui/SpeedPanel.java`, mode Avancé), longueur de la vidéo dans l'écran d'export. L'aperçu suit la piste
+  (`JR/replay/Playback.java`, vitesse choisie fois vitesse de la piste, gel tenu en temps réel) et l'export aussi
+  (`JR/export/VideoExporter.java`). Écarts avec la demande : pendant un gel la caméra s'arrête avec l'image (ses clés
+  sont en ticks du replay ; une caméra qui continue pendant un gel va avec le mode « caméra en temps réel », laissé
+  pour plus tard) ; les textes, images et effets suivent l'horloge du replay comme les caméras, ils durent donc plus
+  longtemps dans un ralenti ; la musique des pistes audio garde sa vitesse à l'export et démarre là où l'image
+  atteint son tick (arrondi au tick, 50 ms), mais dans l'aperçu elle suit la vitesse en changeant de hauteur, comme
+  avec les boutons de vitesse. Sons du jeu et voix coupés pendant un gel et hors de la plage réglable (x0.5 à x2 par
+  défaut), dans l'aperçu comme à l'export. 1.20.1 règle la vitesse par `common/1.20.1/src/main/java/com/vyrriox/justreplay/replay/TimeControl.java`,
+  1.21.1 et 26.1.2 par le gestionnaire de tick du jeu.
 
 #### 4. Repères pendant l'enregistrement
 
@@ -331,6 +366,10 @@ passer le build des neuf cibles, une ligne du self-test et des tests unitaires J
 - **Versions** : les neuf cibles ; la touche passe par `JR/client/JRKeys.java` et `JR/platform/KeyScope.java`.
 - **Preuve** : test unitaire du décalage des repères d'un clip du tampon ; self-test qui pose deux repères en
   enregistrant et les retrouve dans le projet ouvert.
+- **Fait** : touche F6 (`RECORDING_MARKER`, libre dans le jeu de base, à côté de F7 et F8), petit message « Marker 3 »
+  avec le temps de l'enregistrement ; `JR/record/Recorder.java` écrit chaque repère dans `meta.json` tout de suite,
+  `JR/format/RecordingMarkers.java` (testé) garde ceux de la fenêtre d'un clip du tampon, décalés ; le projet les
+  copie une seule fois (`recordingMarkersImported`). Les noms restent « Marker N », comme ceux de la touche M.
 
 #### 5. Visuels du monde et filtre de rendu
 
@@ -347,3 +386,14 @@ passer le build des neuf cibles, une ligne du self-test et des tests unitaires J
   brouillard du pack n'est pas cassé.
 - **Preuve** : self-test qui coupe les particules et masque un type, puis compte les particules et entités
   rendues ; captures en jeu à regarder par le propriétaire pour la vision nocturne et le brouillard.
+- **Fait** : réglages dans `JR/editor/WorldSettings.java` et `JR/editor/ReplayProject.java` (`hiddenEntityTypes`,
+  `glow` par entité), requêtes dans `JR/editor/Visuals.java` et `JR/editor/EntityEdits.java`, accroches
+  `JR/mixin/VisualFogMixin.java`, `JR/mixin/VisualLightMixin.java`, `JR/mixin/VisualParticlesMixin.java`. La vision
+  nocturne pousse la luminosité de la lightmap bien au-delà du réglage du jeu (lumière pleine et neutre) ; le
+  brouillard réduit garde la moitié lointaine du fondu et repousse les brouillards de biome jusqu'à la distance de
+  vue ; les éclats de blocs cassés suivent le type `minecraft:block`. 26.1.2 a ses propres accroches : données de
+  brouillard rendues par le jeu, état de la lightmap et effets de blocs du niveau
+  (`JR/mixin/VisualBlockParticlesMixin.java`). Les entités d'un type masqué gardent leurs sons ; ni couleur de
+  brouillard, ni ciel coupé, ni rayon de balise. Avec Iris, le brouillard et la lumière dépendent du pack de shaders
+  (pas vérifié). Le self-test vérifie les particules, le type masqué et le contour, la lightmap en 1.20.1 et 1.21.1,
+  sa luminosité en 26.1.2 et le brouillard coupé ; la capture est pour l'œil du propriétaire.

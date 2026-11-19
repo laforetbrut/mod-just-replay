@@ -3,13 +3,29 @@
 ## [Unreleased]
 
 ### Added
+- **Server resource packs**: replays recorded on a server with a resource pack finally look like the server did, straight from the game's cache. `serverResourcePacks` can also download a missing pack, or switch them off.
+- **Changed mods warning**: a replay recorded with other mods tells you which ones are missing, added or updated before it opens. Open it anyway, cancel, or tick "Don't warn again for this replay" (`warnModChanges`).
+- **Speed track**: slow motion, fast forward, smooth ramps, timelapses and freeze frames in the Effects tab and on the timeline (Advanced mode). Previews and exports follow it; game sounds and voices go quiet outside x0.5 to x2 (adjustable).
+- **Markers while recording**: F6 drops a marker while recording or with the instant replay buffer on. They show up on the timeline when you open the replay.
+- **World visuals**: night vision, reduced or no fog, and particles all, none or by type in the World tab; hide every entity of a type and give an entity a glowing outline in the Entities tab. Exports show them too.
 - **Hide armor** (Minecraft 1.21.1): switch off the helmet, chestplate, leggings or boots of a recorded player or an actor, one by one. The elytra go with the chestplate, a pumpkin or a head with the helmet. Only the replay and the video change, and older projects keep their armor. The new `hidePlayerArmor` option strips every player at once.
+
+### Fixed
+- A hand edited project with an empty weather no longer stops the replay from opening.
 
 ### Changed
 - **Create Aeronautics, Sable, Create Propulsion**: checked together with Create 6.0.10 on NeoForge 1.21.1. The game loads, and recording, replays and seeks pass the self test. See `docs/COMPATIBILITY.md`.
 
 ### Ajouts
+- **Packs de ressources du serveur** : un replay enregistré sur un serveur à pack ressemble enfin au serveur, direct depuis le cache du jeu. `serverResourcePacks` peut aussi télécharger un pack manquant, ou les couper.
+- **Avertissement des mods changés** : un replay enregistré avec d'autres mods te dit lesquels manquent, ont été ajoutés ou mis à jour avant de s'ouvrir. Tu l'ouvres quand même, tu annules, ou tu coches « Don't warn again for this replay » (`warnModChanges`).
+- **Piste de vitesse** : ralenti, accéléré, rampes douces, timelapses et gels de l'image dans l'onglet Effects et sur la timeline (mode Avancé). L'aperçu et les exports la suivent ; les sons du jeu et les voix se taisent hors de x0,5 à x2 (réglable).
+- **Repères pendant l'enregistrement** : F6 pose un repère pendant un enregistrement ou avec le tampon des dernières minutes. Ils arrivent sur la timeline à l'ouverture du replay.
+- **Visuels du monde** : vision nocturne, brouillard réduit ou coupé, et particules toutes, aucune ou par type dans l'onglet Monde ; masquer toutes les entités d'un type et donner un contour lumineux à une entité dans l'onglet Entités. Les exports les montrent aussi.
 - **Masquer l'armure** (Minecraft 1.21.1) : coupe le casque, le plastron, les jambières ou les bottes d'un joueur enregistré ou d'un acteur, pièce par pièce. Les élytres partent avec le plastron, une citrouille ou une tête avec le casque. Seuls le replay et la vidéo changent, et les anciens projets gardent leur armure. La nouvelle option `hidePlayerArmor` déshabille tous les joueurs d'un coup.
+
+### Corrections
+- Un projet retouché à la main avec une météo vide ne bloque plus l'ouverture du replay.
 
 ### Modifications
 - **Create Aeronautics, Sable, Create Propulsion** : vérifiés ensemble avec Create 6.0.10 sur NeoForge 1.21.1. Le jeu charge, et l'enregistrement, les replays et les sauts passent le test automatique. Voir `docs/COMPATIBILITY.md`.

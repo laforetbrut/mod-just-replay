@@ -35,10 +35,18 @@ known limits of each target.
   blocks, entities and effects come back in the replay. Start and stop with **F8** or from the pause menu,
   or enable auto recording in the config. The recording player is saved too (position, look, pose,
   equipment, swings, scale and other attributes).
+- **Markers while recording**: press **F6** while recording, or with the instant replay buffer on, to drop a
+  marker on a big moment. Markers land on the timeline the first time the replay opens, clips of the buffer
+  keep theirs.
+- **Server resource packs**: packs a server pushed (before or during the recording) are applied when the replay
+  plays, from the game's cache of server packs, and removed when it closes. `serverResourcePacks` can also
+  download a missing pack, or turn them off.
 - **Playback**: free spectator camera, play and pause, speed from x0.1 to x8, seek forward and backward,
   jump to the recording player's point of view. Pause and speed go through the vanilla tick rate (rebuilt by the
   mod on 1.20.1), so every
   entity and modded renderer follows the replay clock.
+- **Changed mods warning**: a replay recorded with other mods lists the missing ones first, then the added and
+  updated ones, before it opens, with "Open anyway" and "Don't warn again for this replay" (`warnModChanges`).
 - **Editor** (key **G**): timeline with markers, camera keyframes and actor keyframes, drag keyframes to
   retime them, smooth Catmull-Rom camera path with roll and field of view.
 - **Timeline tools**: insert or remove time at the play head to shift every later edit (the recording does
@@ -80,6 +88,10 @@ known limits of each target.
   letterbox 2.39:1 / 1.85:1 / 2:1 / 4:3, LUT from `.minecraft/justreplay/luts/`), global or per camera, with
   keyframes on every parameter and ready-made looks (Cinematic, Vintage, Noir, Warm, Cold). Fade in and out at
   the start and end of the export. Rendered on the GPU after shader packs, in the preview and in exports.
+- **Speed track**: slow motion and fast forward keys (x0.1 to x8, held or ramping smoothly), timelapses (a
+  stretch of the replay played in a chosen number of seconds) and freeze frames, in the **Effects** tab and on
+  the timeline (Advanced mode). The preview and exports follow it; game sounds and voices go quiet outside
+  x0.5 to x2 (adjustable) and during a freeze, and music of the audio tracks keeps its own speed in exports.
 - **Texts and images in the world**: the **Overlays** tab (Simple and Advanced) adds titles, labels and
   stickers that live in the 3D world. Anchor them to the recording player, an actor or any recorded entity
   (they follow it smoothly), to a block face, or to a fixed position, by aiming with the crosshair. They face
@@ -93,10 +105,12 @@ known limits of each target.
   thunder) and the time of day (slider and dawn, noon, dusk, night presets) on top of the recording. The
   Advanced mode adds keyframes at the play head so a day passes or a storm fades in during a shot, freezes
   the time and picks the moon phase. Previews and exports show the same sky, light, rain and sounds, shader
-  packs included. Off by default: the recorded time and weather are kept.
+  packs included. Off by default: the recorded time and weather are kept. The same tab adds night vision
+  (full, neutral light), reduced or no fog, and particles all, none or chosen by type.
 - **Edit recorded entities**: the **Entities** tab hides a recorded player or mob (for the whole replay or
   before or after the play head), moves it to a new spot with the crosshair, and sets the volume of its sounds
-  (0 to 400%, or muted), in playback and in video exports.
+  (0 to 400%, or muted), in playback and in video exports. It also hides every entity of a type (vanilla or
+  modded, their sounds stay) and gives an entity a glowing outline in its team color, shown in exports too.
 - **Hide armor** (Minecraft 1.21.1): "Armor shown" switches hide the helmet, chestplate (with the elytra),
   leggings or boots of a recorded player (**Entities** tab) or an actor (actor screen). The "Hide player armor in
   replays" setting (`hidePlayerArmor`) hides the armor of every player. The game itself is never changed.
@@ -110,6 +124,7 @@ known limits of each target.
 |---|---|
 | F8 | Start / stop recording |
 | F7 | Save the last minutes (instant replay, enable `replayBuffer` in the settings) |
+| F6 | Drop a marker while recording |
 | unbound | Record the next minutes, then stop |
 | G | Replay editor |
 | J | Play / pause |
@@ -236,9 +251,18 @@ lu, et les limites connues de chaque cible.
   blocs, entités et effets moddés reviennent dans le replay. Démarrer et arrêter avec **F8** ou depuis le
   menu pause, ou activer l'enregistrement automatique dans la config. Le joueur qui enregistre est aussi
   sauvegardé (position, regard, posture, équipement, coups, taille et autres attributs).
+- **Repères pendant l'enregistrement** : **F6** pendant un enregistrement, ou avec le tampon des dernières
+  minutes, pose un repère sur un moment fort. Les repères arrivent sur la timeline à la première ouverture du
+  replay, et les clips du tampon gardent les leurs.
+- **Packs de ressources du serveur** : les packs poussés par un serveur (avant ou pendant l'enregistrement) sont
+  appliqués à la lecture, depuis le cache des packs de serveur du jeu, et retirés à la fermeture.
+  `serverResourcePacks` peut aussi télécharger un pack manquant, ou les couper.
 - **Lecture** : caméra libre en spectateur, lecture et pause, vitesse de x0,1 à x8, saut en avant et en
   arrière, retour au point de vue du joueur enregistré. La pause et la vitesse passent par le tick rate
   vanilla (reconstruit par le mod en 1.20.1), donc toutes les entités et les rendus des mods suivent l'horloge du replay.
+- **Avertissement des mods changés** : un replay enregistré avec d'autres mods liste d'abord les mods manquants,
+  puis les ajoutés et les mis à jour, avant de s'ouvrir, avec « Open anyway » et « Don't warn again for this
+  replay » (`warnModChanges`).
 - **Éditeur** (touche **G**) : timeline avec marqueurs, keyframes de caméra et d'acteurs, keyframes
   déplaçables à la souris, chemin de caméra lissé (Catmull-Rom) avec roulis et champ de vision.
 - **Outils de timeline** : insérer ou retirer du temps à la tête de lecture pour décaler tout le montage qui
@@ -291,6 +315,10 @@ lu, et les limites connues de chaque cible.
   globale ou par caméra, avec des images clés sur chaque paramètre et des looks prêts à l'emploi (Cinematic,
   Vintage, Noir, Warm, Cold). Fondu d'ouverture et de fermeture de l'export. Rendus sur le GPU après les shader
   packs, dans l'aperçu comme dans les exports.
+- **Piste de vitesse** : clés de ralenti et d'accéléré (x0,1 à x8, tenues ou en rampe douce), timelapses (un
+  morceau du replay joué en un nombre de secondes choisi) et gels de l'image, dans l'onglet **Effects** et sur la
+  timeline (mode Avancé). L'aperçu et les exports la suivent ; les sons du jeu et les voix se taisent hors de
+  x0,5 à x2 (réglable) et pendant un gel, et la musique des pistes audio garde sa vitesse à l'export.
 - **Textes et images dans le monde** : l'onglet **Overlays** (modes Simple et Avancé) ajoute des titres, des
   étiquettes et des stickers qui vivent dans le monde en 3D. Les ancrer au joueur enregistré, à un acteur ou à
   n'importe quelle entité enregistrée (ils la suivent en douceur), à la face d'un bloc ou à une position fixe,
@@ -307,10 +335,12 @@ lu, et les limites connues de chaque cible.
   Le mode Avancé ajoute des keyframes à la tête de lecture pour faire passer une journée ou monter un orage
   pendant un plan, fige l'heure et choisit la phase de la lune. Les aperçus et les exports montrent le même
   ciel, la même lumière, la même pluie et les mêmes sons, shaders compris. Désactivé par défaut : l'heure et
-  la météo enregistrées sont conservées.
+  la météo enregistrées sont conservées. Le même onglet ajoute la vision nocturne (lumière pleine et neutre),
+  le brouillard réduit ou coupé, et les particules toutes, aucune ou choisies par type.
 - **Modifier les entités enregistrées** : l'onglet **Entités** masque un joueur ou un mob enregistré (pour tout
   le replay, ou avant ou après la tête de lecture), le déplace au viseur et règle le volume de ses sons (0 à 400 %,
-  ou coupés), en lecture et dans les exports vidéo.
+  ou coupés), en lecture et dans les exports vidéo. Il masque aussi toutes les entités d'un type (vanilla ou
+  moddé, leurs sons restent) et donne à une entité un contour lumineux de sa couleur d'équipe, visible à l'export.
 - **Masquer l'armure** (Minecraft 1.21.1) : les interrupteurs « Armor shown » cachent le casque, le plastron (avec
   les élytres), les jambières ou les bottes d'un joueur enregistré (onglet **Entités**) ou d'un acteur (écran de
   l'acteur). Le réglage « Hide player armor in replays » (`hidePlayerArmor`) cache l'armure de tous les joueurs.
