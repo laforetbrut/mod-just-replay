@@ -41,6 +41,8 @@ public final class SelfTest {
 
     private static int step;
     private static Entity hiddenMob;
+    /** The slow motion export of the speed track check. */
+    private static VideoExporter slowExport;
     private static Entity movedMob;
     private static int skippedBefore;
     private static int offsetBefore;
@@ -994,9 +996,35 @@ public final class SelfTest {
                         localAnvil, replaySteps, recorderSteps, localBell > 0 && localAnvil > 0 && recorderSteps > 0 ? "OK" : "FAIL");
                 log("export frames showing overlays: {} ({} overlays in the project)",
                         com.vyrriox.justreplay.editor.overlay.OverlayRenderer.exportFrames(), ReplaySession.current().project().overlays.size());
+                go(72, 5);
+            }
+            case 72 -> {
+                // Speed track: two replay seconds at x0.5 make four seconds of video, 241 frames at 60 fps.
+                ReplaySession s = ReplaySession.current();
+                s.project().speed = new com.vyrriox.justreplay.editor.SpeedTrack();
+                s.project().speed.setKey(0, 0.5F);
+                Files.deleteIfExists(ReplayStorage.exportRoot().resolve("selftest_slow.mp4"));
+                var error = VideoExporter.start(s, 20, 60, "selftest_slow");
+                slowExport = VideoExporter.current();
+                log("slow motion export start error={}", error == null ? "none" : error.getString());
+                next(1);
+            }
+            case 73 -> {
+                if (!VideoExporter.isActive()) {
+                    next(100);
+                }
+            }
+            case 74 -> {
+                int frames = slowExport == null ? -1 : slowExport.frames();
+                double seconds = slowExport == null ? -1 : slowExport.videoSeconds();
+                Path slow = ReplayStorage.exportRoot().resolve("selftest_slow.mp4");
+                log("slow motion export: {} frames for 40 ticks at x0.5 (expected 241), {} s of video, file {} -> {}", frames, seconds,
+                        Files.exists(slow), frames == 241 && Math.abs(seconds - 4.0) < 1.0E-6 && Files.exists(slow) ? "OK" : "FAIL");
+                ReplaySession.current().project().speed = new com.vyrriox.justreplay.editor.SpeedTrack();
+                slowExport = null;
                 mc.level.disconnect(net.minecraft.network.chat.Component.empty());
                 mc.disconnect(new TitleScreen(), false);
-                next(60);
+                go(16, 60);
             }
             case 16 -> {
                 if (atMenu(mc)) {

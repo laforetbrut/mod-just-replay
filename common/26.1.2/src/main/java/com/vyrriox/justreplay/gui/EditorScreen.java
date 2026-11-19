@@ -102,7 +102,10 @@ public class EditorScreen extends GlassScreen {
             new SidebarTab("actors", "justreplay.editor.tab.actors", Icon.PERSON, false, true, EditorScreen::buildActors),
             new SidebarTab("scene", "justreplay.editor.tab.scene", Icon.FLAG, false, true, EditorScreen::buildScene),
             new SidebarTab("audio", "justreplay.editor.tab.audio", Icon.SPEAKER, false, true, (s, f) -> s.audioPanel.build(f)),
-            new SidebarTab("effects", "justreplay.editor.tab.effects", Icon.BOLT, false, true, (s, f) -> s.effectsPanel.build(f)),
+            new SidebarTab("effects", "justreplay.editor.tab.effects", Icon.BOLT, false, true, (s, f) -> {
+                s.effectsPanel.build(f);
+                s.speedPanel.build(f);
+            }),
             new SidebarTab("export", "justreplay.editor.tab.export", Icon.FILM, true, true, EditorScreen::buildExportTab)));
 
     /** Adds (or replaces) a sidebar tab, before the tab {@code beforeId}, or last when it is null or unknown. */
@@ -153,6 +156,7 @@ public class EditorScreen extends GlassScreen {
     private final AudioPanel audioPanel;
     // Video effects: the filter stack tab.
     private final EffectsPanel effectsPanel;
+    private final SpeedPanel speedPanel;
     private final WorldPanel worldPanel;
     // Recorded entities: the Entities tab.
     private final EntitiesPanel entitiesPanel;
@@ -204,6 +208,7 @@ public class EditorScreen extends GlassScreen {
         this.audioPanel = new AudioPanel(this, session, audioLanes);
         this.timeline.audio = audioLanes;
         this.effectsPanel = new EffectsPanel(this, session);
+        this.speedPanel = new SpeedPanel(this, session);
         this.worldPanel = new WorldPanel(this, session);
         this.entitiesPanel = new EntitiesPanel(this, session);
         this.overlaysPanel = new OverlaysPanel(this, session);
@@ -1504,6 +1509,14 @@ public class EditorScreen extends GlassScreen {
                         }
                     }
                 }
+                case SPEED -> {
+                    int tick = SpeedPanel.hit(timeline, project.speed, mx);
+                    if (tick >= 0) {
+                        session.playback().seek(tick);
+                        refresh();
+                        return true;
+                    }
+                }
                 default -> {
                 }
             }
@@ -1914,6 +1927,12 @@ public class EditorScreen extends GlassScreen {
                         deferTooltip(Component.literal(marker.name + "  " + Timeline.formatTicks(marker.tick)), mouseX, mouseY);
                         return;
                     }
+                }
+            }
+            case SPEED -> {
+                Component tip = SpeedPanel.tooltip(timeline, project.speed, mouseX);
+                if (tip != null) {
+                    deferTooltip(tip, mouseX, mouseY);
                 }
             }
             default -> {

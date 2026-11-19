@@ -103,6 +103,9 @@ public class ExportScreen extends GlassScreen {
 
         f.space(2);
         f.text(this::rangeLine, Theme.TEXT);
+        if (!session.project().speed.isEmpty()) {
+            f.text(this::videoLengthLine, Theme.TEXT_DIM);
+        }
         f.full(new GlassButton(Component.translatable("justreplay.export.still"), b -> saveStill()).icon(Icon.CAMERA)
                 .tip(Component.translatable("justreplay.export.still.tip")));
         f.text(() -> error, Theme.DANGER);
@@ -171,6 +174,16 @@ public class ExportScreen extends GlassScreen {
         return ticks == null ? Component.translatable("justreplay.export.error.nothing")
                 : Component.translatable(session.project().cuts.isEmpty() ? "justreplay.export.range" : "justreplay.export.range.cuts",
                 Timeline.formatTicks(ticks[0]), Timeline.formatTicks(ticks[1]));
+    }
+
+    /** Length of the video under the speed track, against the length of the replay it shows. */
+    private Component videoLengthLine() {
+        int[] ticks = range();
+        if (ticks == null) {
+            return null;
+        }
+        double seconds = com.vyrriox.justreplay.editor.TimeMap.of(session.project().speed, ticks[0], ticks[1]).durationSeconds();
+        return Component.translatable("justreplay.speed.video_length", Timeline.formatTicks(seconds * 20.0), Timeline.formatTicks(ticks[1] - ticks[0]));
     }
 
     private Component sizeLine() {
