@@ -108,8 +108,8 @@ icon = "star"
   icon = "sparkle"
   name.en = "Effects"
   name.fr = "Effets"
-  text.en = "transitions, colour grading, vignette, letterbox, all with keyframes."
-  text.fr = "transitions, étalonnage, vignette, bandes cinéma, le tout avec images clés."
+  text.en = "transitions, colour grading, letterbox, slow motion, timelapses and freeze frames, all with keyframes."
+  text.fr = "transitions, étalonnage, bandes cinéma, ralentis, timelapses et arrêts sur image, le tout avec images clés."
 
   [[section.item]]
   icon = "pin"
