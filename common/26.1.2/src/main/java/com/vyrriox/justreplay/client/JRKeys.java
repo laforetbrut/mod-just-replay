@@ -22,6 +22,9 @@ public final class JRKeys {
     /** Starts a recording that stops by itself after the configured minutes; unbound by default. */
     public static final KeyMapping RECORD_NEXT = ClientPlatform.get().keyMapping("key.justreplay.record_next", KeyScope.IN_GAME,
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, CATEGORY);
+    /** Places a marker in the running recording and in the instant replay buffer; F6, next to F7 and F8, free in vanilla. */
+    public static final KeyMapping RECORDING_MARKER = ClientPlatform.get().keyMapping("key.justreplay.recording_marker", KeyScope.IN_GAME,
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_F6, CATEGORY);
     public static final KeyMapping EDITOR = key("editor", GLFW.GLFW_KEY_G);
     public static final KeyMapping PLAY_PAUSE = key("play_pause", GLFW.GLFW_KEY_J);
     public static final KeyMapping SEEK_BACK = key("seek_back", GLFW.GLFW_KEY_LEFT);
@@ -53,7 +56,8 @@ public final class JRKeys {
 
     public static void register(java.util.function.Consumer<KeyMapping> registrar) {
         for (KeyMapping key : new KeyMapping[]{RECORD, EDITOR, PLAY_PAUSE, SEEK_BACK, SEEK_FORWARD, SPEED_UP, SPEED_DOWN,
-                CAMERA_KEYFRAME, CAMERA_PATH, MARKER, TOGGLE_HUD, RECORDER_VIEW, STOP_SPECTATING, SAVE_BUFFER, RECORD_NEXT}) {
+                CAMERA_KEYFRAME, CAMERA_PATH, MARKER, TOGGLE_HUD, RECORDER_VIEW, STOP_SPECTATING, SAVE_BUFFER, RECORD_NEXT,
+                RECORDING_MARKER}) {
             registrar.accept(key);
         }
         for (KeyMapping key : CUT_TO) {

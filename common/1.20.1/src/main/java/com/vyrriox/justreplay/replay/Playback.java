@@ -61,6 +61,12 @@ public final class Playback {
     private int seekCount;
     /** Tick {@link #playTo} pauses on, or -1. */
     private int pauseAt = -1;
+    /** Speed track of the project, followed by previews (exports run their own clock), or null. */
+    private java.util.function.Supplier<com.vyrriox.justreplay.editor.SpeedTrack> speedTrack;
+    /** Client ticks left on a freeze of the speed track. */
+    private int holdTicks;
+    /** Tick of the last freeze held, so a freeze is held once each time the cursor reaches it. */
+    private int heldTick = -1;
 
     public Playback(PacketStream packets, int durationTicks) {
         this.packets = packets;
@@ -125,6 +131,44 @@ public final class Playback {
         speedIndex = Math.max(0, Math.min(SPEEDS.length - 1, index));
     }
 
+    /** The speed track previews follow; exports drive the clock themselves. */
+    public void setSpeedTrack(java.util.function.Supplier<com.vyrriox.justreplay.editor.SpeedTrack> track) {
+        this.speedTrack = track;
+    }
+
+    private com.vyrriox.justreplay.editor.SpeedTrack activeTrack() {
+        if (speedTrack == null || com.vyrriox.justreplay.export.VideoExporter.isActive()) {
+            return null;
+        }
+        com.vyrriox.justreplay.editor.SpeedTrack track = speedTrack.get();
+        return track == null || track.isEmpty() ? null : track;
+    }
+
+    /** Speed factor of the speed track at the cursor (1 without one), 0 while a freeze holds the picture. */
+    public float trackSpeed() {
+        if (holdTicks > 0) {
+            return 0.0F;
+        }
+        com.vyrriox.justreplay.editor.SpeedTrack track = activeTrack();
+        return track == null ? 1.0F : (float) track.speedAt(cursor);
+    }
+
+    /** The speed the replay runs at now: the chosen speed times the speed track's. */
+    public float effectiveSpeed() {
+        return speed() * trackSpeed();
+    }
+
+    /** True while a freeze of the speed track holds the picture. */
+    public boolean isHolding() {
+        return holdTicks > 0;
+    }
+
+    /** False when the speed track silences the game sounds and voices now (too slow, too fast or frozen). */
+    public boolean trackSoundsAudible() {
+        com.vyrriox.justreplay.editor.SpeedTrack track = activeTrack();
+        return track == null || track.soundsAt(trackSpeed(), holdTicks > 0);
+    }
+
     /** Builds the codec from the replay connection and plays the first tick. */
     public void start(ClientPacketListener listener) {
         codec = PacketCodec.of(listener);
@@ -140,11 +184,15 @@ public final class Playback {
         }
         lastStep = 0;
         if (!paused && !mc.isPaused()) {
-            if (cursor < duration) {
+            if (holdTicks > 0) {
+                // A freeze of the speed track: the picture stays, real time goes on.
+                holdTicks--;
+            } else if (cursor < duration) {
                 // The client never ticks faster than 20 TPS: above x1, several recorded ticks run per client tick.
-                speedAccumulator += Math.max(1.0F, speed());
+                speedAccumulator += Math.max(1.0F, effectiveSpeed());
                 int steps = (int) speedAccumulator;
                 speedAccumulator -= steps;
+                com.vyrriox.justreplay.editor.SpeedTrack track = activeTrack();
                 for (int i = 0; i < steps && cursor < duration; i++) {
                     cursor++;
                     flushTo(cursor);
@@ -152,6 +200,13 @@ public final class Playback {
                     if (pauseAt >= 0 && cursor >= pauseAt) {
                         paused = true;
                         pauseAt = -1;
+                        break;
+                    }
+                    double freeze = track == null ? 0.0 : track.freezeAt(cursor);
+                    if (freeze > 0.0 && heldTick != cursor) {
+                        heldTick = cursor;
+                        holdTicks = Math.max(1, (int) Math.round(freeze * 20.0 / Math.max(0.1F, speed())));
+                        speedAccumulator = 0.0F;
                         break;
                     }
                 }
@@ -175,6 +230,8 @@ public final class Playback {
         target = Math.max(0, Math.min(duration, target));
         seekCount++;
         pauseAt = -1;
+        holdTicks = 0;
+        heldTick = -1;
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         Vec3 camPos = player != null ? player.position() : null;
@@ -195,6 +252,7 @@ public final class Playback {
                 }
             }
             if (!restored && backward) {
+                ReplayPacks.onWorldRebuild();
                 packets.rewind();
                 cursor = 0;
             }
@@ -233,6 +291,7 @@ public final class Playback {
         if (snapshot.isEmpty()) {
             return false;
         }
+        ReplayPacks.onWorldRebuild();
         for (RecordedPacket recorded : snapshot) {
             handle(mc, recorded);
         }
@@ -330,6 +389,9 @@ public final class Playback {
         }
         if (recorded.tick() < skippingTo && PacketFilter.isTransient(packet)) {
             // Sounds and effects of skipped time would all fire at once.
+            return;
+        }
+        if (ReplayPacks.consume(packet)) {
             return;
         }
         if (PacketFilter.shouldDrop(packet)) {
@@ -463,7 +525,9 @@ public final class Playback {
         if (mc.level == null || mc.getConnection() == null) {
             return;
         }
-        TimeControl.apply(mc.level, TimeControl.DEFAULT_RATE * Math.min(1.0F, speed()), paused);
+        // A freeze holds the world like a pause while the client keeps ticking at full rate to count it.
+        float rate = holdTicks > 0 ? TimeControl.DEFAULT_RATE : TimeControl.DEFAULT_RATE * Math.min(1.0F, Math.max(0.05F, effectiveSpeed()));
+        TimeControl.apply(mc.level, rate, paused || holdTicks > 0);
     }
 
     private void logOnce(Class<?> type, String message) {

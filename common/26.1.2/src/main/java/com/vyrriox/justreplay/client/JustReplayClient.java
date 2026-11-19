@@ -309,6 +309,24 @@ public final class JustReplayClient {
         }));
     }
 
+    /** The recording marker key: a marker in the running recording and the buffer, shown by a small toast. */
+    private static void placeRecordingMarker() {
+        if (ReplaySession.current() != null) {
+            return;
+        }
+        Recorder.Marked marked = Recorder.addMarker();
+        if (marked == null) {
+            GlassToast.show(Icon.FLAG, Theme.TEXT_MUTED, Component.translatable("justreplay.toast.marker_idle"),
+                    Component.translatable("justreplay.toast.marker_idle.hint", JRKeys.RECORD.getTranslatedKeyMessage()));
+            return;
+        }
+        GlassToast.show(Icon.FLAG, com.vyrriox.justreplay.gui.Timeline.MARKER_COLOR,
+                Component.translatable("justreplay.toast.marker", marked.number()),
+                marked.recordingTick() >= 0
+                        ? Component.translatable("justreplay.toast.marker.at", com.vyrriox.justreplay.format.RecordingMarkers.clock(marked.recordingTick()))
+                        : Component.translatable("justreplay.toast.marker.buffer"));
+    }
+
     /** Starts a recording of the configured length, or stops the running recording. */
     private static void toggleTimedRecording() {
         if (ReplaySession.current() != null) {
@@ -339,6 +357,9 @@ public final class JustReplayClient {
         }
         while (JRKeys.RECORD_NEXT.consumeClick()) {
             toggleTimedRecording();
+        }
+        while (JRKeys.RECORDING_MARKER.consumeClick()) {
+            placeRecordingMarker();
         }
         if (Recorder.recordingFailed()) {
             Path failed = Recorder.stop();

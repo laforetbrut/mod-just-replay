@@ -262,3 +262,10 @@
 **Root cause:** The tested classes log through SLF4J; the game's Log4j configuration on the test classpath writes logs/ in the working folder, which is the project folder by default
 **Fix:** In each build.gradle, the test task runs in build/test-run: workingDir = layout.buildDirectory.dir('test-run').get().asFile, doFirst { testRun.mkdirs() }
 **Prevention:** Give every JUnit test task of a mod project a working folder under build/ so the game's logging never writes into the project
+
+## [2026-11-19 15:13] — List.of contains(null) crashed the project repair
+**Context:** Unit test of WorldSettings.normalize with a hand edited project (fog, particles or weather set to null)
+**Error:** java.lang.NullPointerException in WorldSettings.normalize: WEATHERS.contains(weather) with weather == null
+**Root cause:** Lists made by List.of throw on contains(null); the repair code of the World tab settings checked membership before checking for null, so a project with "weather": null could not be loaded and the replay did not open
+**Fix:** Check null first in WorldSettings.normalize (weather, fog, particles) and in particleHidden, in the three common folders; WorldVisualsTest covers it
+**Prevention:** Never call contains on a List.of or Set.of with a value read from JSON without a null check; add a null case to the unit test of every normalize method

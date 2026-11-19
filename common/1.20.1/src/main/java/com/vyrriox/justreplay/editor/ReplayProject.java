@@ -42,6 +42,8 @@ public final class ReplayProject {
     /** Play the recorded voice chat and include it in video exports. */
     public boolean voices = true;
     public List<Marker> markers = new ArrayList<>();
+    /** True once the markers placed while recording ({@code meta.json}) were copied to {@link #markers}. */
+    public boolean recordingMarkersImported;
     public List<ActorData> actors = new ArrayList<>();
     /** Music and sound design tracks, mixed over the game sounds. */
     public List<AudioTrack> audioTracks = new ArrayList<>();
@@ -75,6 +77,10 @@ public final class ReplayProject {
     public WorldSettings world = new WorldSettings();
     /** Edits of entities that were recorded (hidden, moved, sound volume), by entity UUID. */
     public List<EntityEdit> entityEdits = new ArrayList<>();
+    /** Entity type ids (such as {@code minecraft:zombie}) whose recorded entities are not drawn. */
+    public List<String> hiddenEntityTypes = new ArrayList<>();
+    /** Speed keys, timelapses and freezes of previews and exported videos. */
+    public SpeedTrack speed = new SpeedTrack();
 
     /**
      * Edit of one recorded entity. Hidden from {@code hideFrom} to {@code hideTo} (-1: the end of the replay);
@@ -104,6 +110,8 @@ public final class ReplayProject {
         public List<SkinChange> skinChanges = new ArrayList<>();
         /** Uniform render scale around the feet, 0.05 to 10; 1 leaves the entity unchanged. */
         public float scale = 1.0F;
+        /** Outlined through walls in its team color, in previews, playback and exports. */
+        public boolean glow;
 
         public EntityEdit() {
         }
@@ -120,7 +128,7 @@ public final class ReplayProject {
         /** True when the edit changes nothing and can be dropped. */
         public boolean isEmpty() {
             return !hidden && offsets.isEmpty() && !muted && !hideSkinLayers && hiddenParts == 0 && hiddenArmor == 0 && skinChanges.isEmpty() && Math.abs(soundGain - 1.0F) < 0.001F
-                    && Math.abs(scale - 1.0F) < 0.001F;
+                    && Math.abs(scale - 1.0F) < 0.001F && !glow;
         }
 
         public void normalize() {
@@ -512,6 +520,9 @@ public final class ReplayProject {
         if (overlays == null) overlays = new ArrayList<>();
         if (world == null) world = new WorldSettings();
         world.normalize();
+        hiddenEntityTypes = WorldSettings.cleanIds(hiddenEntityTypes);
+        if (speed == null) speed = new SpeedTrack();
+        speed.normalize();
         if (entityEdits == null) entityEdits = new ArrayList<>();
         entityEdits.removeIf(e -> e == null || e.uuid == null || e.uuid.isBlank());
         for (EntityEdit edit : entityEdits) {
@@ -587,6 +598,38 @@ public final class ReplayProject {
         }
         sort();
         mergeCuts();
+    }
+
+    /**
+     * Copies the markers placed while recording to the timeline, the first time the replay opens; later opens keep
+     * what the editor made of them. True when the project changed.
+     */
+    public boolean importRecordingMarkers(List<com.vyrriox.justreplay.format.ReplayMeta.Marker> recorded) {
+        if (recordingMarkersImported) {
+            return false;
+        }
+        recordingMarkersImported = true;
+        if (recorded != null) {
+            for (com.vyrriox.justreplay.format.ReplayMeta.Marker marker : recorded) {
+                if (marker != null) {
+                    String name = marker.name == null || marker.name.isBlank() ? "Marker " + (markers.size() + 1) : marker.name;
+                    markers.add(new Marker(Math.max(0, marker.tick), name));
+                }
+            }
+            markers.sort(Comparator.comparingInt(m -> m.tick));
+        }
+        return true;
+    }
+
+    /** Hides or shows every recorded entity of a type; the list stays sorted and without duplicates. */
+    public void toggleHiddenType(String typeId) {
+        if (typeId == null || typeId.isBlank()) {
+            return;
+        }
+        if (!hiddenEntityTypes.remove(typeId)) {
+            hiddenEntityTypes.add(typeId);
+        }
+        hiddenEntityTypes = WorldSettings.cleanIds(hiddenEntityTypes);
     }
 
     public void sort() {

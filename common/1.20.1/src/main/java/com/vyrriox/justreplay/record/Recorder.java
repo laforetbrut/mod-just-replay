@@ -171,6 +171,8 @@ public final class Recorder {
     private volatile int levelEpoch;
     private volatile Recording recording;
     private volatile ReplayBuffer buffer;
+    /** Markers placed with the recording marker key, in capture ticks. Client thread. */
+    private final List<ReplayMeta.Marker> markers = new ArrayList<>();
     /** Registry ids of the connection, saved with buffer clips. */
     private volatile byte[] registryIds;
 
@@ -260,6 +262,46 @@ public final class Recorder {
         c.capture(packet);
     }
 
+    /** A marker just placed: its number and its tick in the running recording, or -1 when only the buffer runs. */
+    public record Marked(int number, int recordingTick) {
+    }
+
+    /**
+     * Places a marker at the current tick of the running recording (written to its {@code meta.json} at once) and of
+     * the instant replay buffer (kept with the clips it saves). Null when neither runs. Client thread.
+     */
+    public static Marked addMarker() {
+        Recorder c = capture;
+        if (c == null || c.stopped || ReplaySession.current() != null) {
+            return null;
+        }
+        Recording r = c.recording;
+        ReplayBuffer b = c.buffer;
+        if (r == null && b == null) {
+            return null;
+        }
+        int now = c.tick;
+        // Numbered within what the marker lands in: the recording, else the buffer's window.
+        int from = r != null ? r.startTick : now - b.windowTicks();
+        int number = com.vyrriox.justreplay.format.RecordingMarkers.countFrom(c.markers, from) + 1;
+        String name = "Marker " + number;
+        c.markers.add(new ReplayMeta.Marker(now, name));
+        // Older markers are out of every output: neither the recording nor the buffer's window reaches them.
+        int keepFrom = Math.min(r != null ? r.startTick : Integer.MAX_VALUE, b != null ? now - b.windowTicks() : Integer.MAX_VALUE);
+        c.markers.removeIf(m -> m.tick < keepFrom);
+        int recordingTick = -1;
+        if (r != null) {
+            recordingTick = Math.max(0, now - r.startTick);
+            // A new list rather than a change to the one the writer thread may be saving.
+            List<ReplayMeta.Marker> next = new ArrayList<>(r.meta.markers == null ? List.of() : r.meta.markers);
+            next.add(new ReplayMeta.Marker(recordingTick, name));
+            r.meta.markers = next;
+            r.writer.execute(() -> ReplayStorage.writeMeta(r.dir, r.meta));
+        }
+        JustReplay.LOGGER.info("{} placed at capture tick {} (recording tick {})", name, now, recordingTick);
+        return new Marked(number, recordingTick);
+    }
+
     /** Tick of the running recording (0 at its start), or 0. */
     public int tick() {
         Recording r = recording;
@@ -343,11 +385,34 @@ public final class Recorder {
         }
         if (!ReplaySession.isReplayConnection(connection)) {
             trackSpawns(connection, packet);
+            trackServerPack(connection, packet);
         }
         Recorder c = capture;
         if (c != null && c.connection == connection) {
             c.capture(packet);
         }
+    }
+
+    // ---------------------------------------------------------------- server resource pack
+
+    /** The resource pack the server of {@link #livePackConnection} sent last (1.20.1 servers have one at most). */
+    private static volatile net.minecraft.network.protocol.game.ClientboundResourcePackPacket livePack;
+    private static volatile Connection livePackConnection;
+
+    private static void trackServerPack(Connection connection, Packet<?> packet) {
+        if (packet instanceof net.minecraft.network.protocol.game.ClientboundResourcePackPacket pack) {
+            livePackConnection = connection;
+            livePack = pack;
+        }
+    }
+
+    /** The live server's pack as a packet, written at the start of a recording and in checkpoints; empty without one. */
+    private static List<Packet<?>> serverPackPackets(Connection connection) {
+        net.minecraft.network.protocol.game.ClientboundResourcePackPacket pack = livePack;
+        if (pack == null || livePackConnection != connection) {
+            return List.of();
+        }
+        return List.of(new net.minecraft.network.protocol.game.ClientboundResourcePackPacket(pack.getUrl(), pack.getHash(), pack.isRequired(), null));
     }
 
     // ---------------------------------------------------------------- spawn cache
@@ -788,6 +853,8 @@ public final class Recorder {
             Path dir = uniqueDir(stamp + "_buffer");
             ReplayMeta meta = newMeta(c.connection, c.actorUuid, stamp);
             meta.startedAt = System.currentTimeMillis();
+            // In capture ticks here; the buffer keeps those of the saved window, moved to the clip's ticks.
+            meta.markers = new ArrayList<>(c.markers);
             return b.save(dir, meta, c.registryIds);
         } catch (Throwable t) {
             return CompletableFuture.failedFuture(t);
@@ -1416,6 +1483,9 @@ public final class Recorder {
             write(listener, new ClientboundGameEventPacket(ClientboundGameEventPacket.THUNDER_LEVEL_CHANGE, level.getThunderLevel(1.0F)), sink);
         }
 
+        for (Packet<?> pack : serverPackPackets(listener.getConnection())) {
+            write(listener, pack, sink);
+        }
         write(listener, new ClientboundSetChunkCacheRadiusPacket(lastChunkRadius), sink);
         write(listener, new ClientboundSetChunkCacheCenterPacket(player.chunkPosition().x, player.chunkPosition().z), sink);
         com.vyrriox.justreplay.compat.ReplayCompat.writeDefinitions(packet -> write(listener, packet, sink));

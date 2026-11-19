@@ -41,6 +41,8 @@ public final class SelfTest {
 
     private static int step;
     private static Entity hiddenMob;
+    /** The slow motion export of the speed track check. */
+    private static VideoExporter slowExport;
     private static Entity movedMob;
     private static int skippedBefore;
     private static int offsetBefore;
@@ -313,6 +315,7 @@ public final class SelfTest {
             // showing none has no reader, and the two reads of a check would see a single jump back and no rise.
             geckoClock();
         }
+        pollServerPack(mc);
         if (wait > 0) {
             wait--;
             return;
@@ -359,6 +362,7 @@ public final class SelfTest {
                     }
                     if (mc.screen == null) {
                         log("in world at {}", p.position());
+                        pushServerPack(mc);
                         Mods.summonAircraft(p);
                         Mods.placeVehicle(mc, p, 8, 6);
                         Mods.seedRing(mc);
@@ -458,6 +462,11 @@ public final class SelfTest {
                 if (t == 50) {
                     Mods.recordExposureCapture();
                 }
+                if ((t == 60 || t == 150) && mc.screen == null) {
+                    // Through the key, as a player would: two markers 90 ticks apart, both inside the buffer clip.
+                    net.minecraft.client.KeyMapping.click(((com.vyrriox.justreplay.mixin.KeyMappingAccessor) JRKeys.RECORDING_MARKER).justreplay$getKey());
+                    log("recording marker key pressed at recording tick {}", t);
+                }
                 if (t == 120 && Mods.loaded("irons_spellbooks")) {
                     p.connection.sendCommand("cast @s irons_spellbooks:fortify 1");
                 }
@@ -492,7 +501,7 @@ public final class SelfTest {
             case 4 -> {
                 if (atMenu(mc)) {
                     Mods.checkCulling("before the replay", true);
-                    ReplaySession.open(replay, mc.screen);
+                    openThroughModWarning(mc, replay);
                     log("replay opening");
                     next(40);
                 }
@@ -506,6 +515,7 @@ public final class SelfTest {
             }
             case 6 -> {
                 ReplaySession s = ReplaySession.current();
+                checkRecordingMarkers(s);
                 logWorld(mc, s, "playing");
                 log("mods while playing: {}", Mods.state(mc, s));
                 Mods.checkCurios(mc, s, "at start");
@@ -974,6 +984,28 @@ public final class SelfTest {
                 s.project().entityEdits.clear();
                 hiddenMob = null;
                 movedMob = null;
+                go(70, 5);
+            }
+            case 70 -> {
+                checkVisuals(mc, ReplaySession.current());
+                go(71, 20);
+            }
+            case 71 -> {
+                ReplaySession s = ReplaySession.current();
+                int skipped = com.vyrriox.justreplay.editor.EntityEdits.skippedRenders() - skippedBefore;
+                log("visuals: entities of the hidden type {} skipped {} renders -> {}", s.project().hiddenEntityTypes, skipped,
+                        hiddenMob == null || skipped > 0 ? "OK" : "FAIL");
+                // Night vision, no fog and the outline: for the owner to look at.
+                shot(mc, "visuals-night-vision-no-fog-outline");
+                com.vyrriox.justreplay.editor.WorldSettings w = s.project().world;
+                w.nightVision = false;
+                w.fog = com.vyrriox.justreplay.editor.WorldSettings.FOG_NORMAL;
+                w.particles = com.vyrriox.justreplay.editor.WorldSettings.PARTICLES_ALL;
+                w.hiddenParticles.clear();
+                s.project().hiddenEntityTypes.clear();
+                s.project().entityEdits.clear();
+                hiddenMob = null;
+                movedMob = null;
                 go(13, 5);
             }
             case 13 -> {
@@ -1019,9 +1051,35 @@ public final class SelfTest {
                         localAnvil, replaySteps, recorderSteps, localBell > 0 && localAnvil > 0 && recorderSteps > 0 ? "OK" : "FAIL");
                 log("export frames showing overlays: {} ({} overlays in the project)",
                         com.vyrriox.justreplay.editor.overlay.OverlayRenderer.exportFrames(), ReplaySession.current().project().overlays.size());
+                go(72, 5);
+            }
+            case 72 -> {
+                // Speed track: two replay seconds at x0.5 make four seconds of video, 241 frames at 60 fps.
+                ReplaySession s = ReplaySession.current();
+                s.project().speed = new com.vyrriox.justreplay.editor.SpeedTrack();
+                s.project().speed.setKey(0, 0.5F);
+                Files.deleteIfExists(ReplayStorage.exportRoot().resolve("selftest_slow.mp4"));
+                var error = VideoExporter.start(s, 20, 60, "selftest_slow");
+                slowExport = VideoExporter.current();
+                log("slow motion export start error={}", error == null ? "none" : error.getString());
+                next(1);
+            }
+            case 73 -> {
+                if (!VideoExporter.isActive()) {
+                    next(100);
+                }
+            }
+            case 74 -> {
+                int frames = slowExport == null ? -1 : slowExport.frames();
+                double seconds = slowExport == null ? -1 : slowExport.videoSeconds();
+                Path slow = ReplayStorage.exportRoot().resolve("selftest_slow.mp4");
+                log("slow motion export: {} frames for 40 ticks at x0.5 (expected 241), {} s of video, file {} -> {}", frames, seconds,
+                        Files.exists(slow), frames == 241 && Math.abs(seconds - 4.0) < 1.0E-6 && Files.exists(slow) ? "OK" : "FAIL");
+                ReplaySession.current().project().speed = new com.vyrriox.justreplay.editor.SpeedTrack();
+                slowExport = null;
                 mc.level.disconnect();
                 mc.disconnect(new TitleScreen());
-                next(60);
+                go(16, 60);
             }
             case 16 -> {
                 if (atMenu(mc)) {
@@ -1032,21 +1090,21 @@ public final class SelfTest {
                     }
                     // The clip is named through the window a player gets, then opened under its new name.
                     offerRename();
-                    go(70, 10);
+                    go(80, 10);
                 }
             }
-            case 70 -> {
+            case 80 -> {
                 renameWait = 0;
-                go(typeRename(mc) ? 71 : 72, 2);
+                go(typeRename(mc) ? 81 : 82, 2);
             }
-            case 71 -> {
+            case 81 -> {
                 if (ReplayNaming.renaming() && ++renameWait < 200) {
                     return;
                 }
                 checkRename();
-                go(72, 5);
+                go(82, 5);
             }
-            case 72 -> {
+            case 82 -> {
                 if (atMenu(mc)) {
                     ReplaySession.open(clip, mc.screen);
                     log("buffer clip opening");
@@ -1385,6 +1443,15 @@ public final class SelfTest {
             log("buffer clip {}: packets={} (saved {}) lastTick={} duration={} checkpoints={} first={} voice={}", clip.getFileName(),
                     packets, saved.packets(), lastTick, ReplayStorage.readMeta(clip).durationTicks,
                     java.util.Arrays.toString(com.vyrriox.justreplay.format.Checkpoints.list(clip)), firstType, saved.voiceFrames());
+            // Markers placed at recording ticks 60 and 150, saved at 200: the last one sits 50 ticks before the end.
+            com.vyrriox.justreplay.format.ReplayMeta clipMeta = ReplayStorage.readMeta(clip);
+            java.util.List<com.vyrriox.justreplay.format.ReplayMeta.Marker> marks = clipMeta.markers == null ? java.util.List.of() : clipMeta.markers;
+            com.vyrriox.justreplay.format.ReplayMeta.Marker last = marks.isEmpty() ? null : marks.get(marks.size() - 1);
+            boolean lastOk = last != null && "Marker 2".equals(last.name) && Math.abs(clipMeta.durationTicks - last.tick - 50) <= 3;
+            boolean spacingOk = marks.size() < 2 || Math.abs(marks.get(1).tick - marks.get(0).tick - 90) <= 1;
+            log("recording markers in the buffer clip: {} at {} of {} ticks -> {}", marks.size(),
+                    marks.stream().map(m -> m.name + "@" + m.tick).toList(), clipMeta.durationTicks,
+                    lastOk && spacingOk && marks.size() <= 2 ? "OK" : "FAIL");
         } catch (Throwable t) {
             JustReplay.LOGGER.error("SELFTEST FAIL buffer clip", t);
             clip = null;
@@ -1404,6 +1471,179 @@ public final class SelfTest {
      * Hidden armor: the player actor's helmet is hidden and its chestplate kept, the armor layer skipped at least one
      * piece while the actors were drawn, the camera player is never touched, and the global option hides every slot.
      */
+    private static final java.util.UUID SERVER_PACK_ID = java.util.UUID.nameUUIDFromBytes("justreplay:selftest-pack".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    private static final String SERVER_PACK_KEY = "justreplay.selftest.server_pack";
+    /** 0 before the push, 1 pushed, 2 checked in the replay. */
+    private static int serverPackState;
+    private static int serverPackTicks;
+
+    /**
+     * Before the recording: a small pack (one translation) in the game's cache of server packs, then the integrated
+     * server pushes it. The prompt the game shows for it is closed: the recording player never loads it, the replay must.
+     */
+    private static void pushServerPack(Minecraft mc) {
+        try {
+            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+            try (java.util.zip.ZipOutputStream zip = new java.util.zip.ZipOutputStream(bytes)) {
+                int format = net.minecraft.SharedConstants.getCurrentVersion().getPackVersion(net.minecraft.server.packs.PackType.CLIENT_RESOURCES);
+                zip.putNextEntry(new java.util.zip.ZipEntry("pack.mcmeta"));
+                zip.write(("{\"pack\": {\"pack_format\": " + format + ", \"description\": \"Just Replay self test\"}}")
+                        .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                zip.closeEntry();
+                zip.putNextEntry(new java.util.zip.ZipEntry("assets/justreplay/lang/en_us.json"));
+                zip.write(("{\"" + SERVER_PACK_KEY + "\": \"applied\"}").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                zip.closeEntry();
+            }
+            byte[] data = bytes.toByteArray();
+            String sha1 = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-1").digest(data));
+            Path file = mc.gameDirectory.toPath().resolve("downloads").resolve(SERVER_PACK_ID.toString()).resolve(sha1);
+            Files.createDirectories(file.getParent());
+            Files.write(file, data);
+            net.minecraft.server.MinecraftServer server = mc.getSingleplayerServer();
+            server.execute(() -> server.getPlayerList().getPlayers().forEach(player -> player.connection.send(
+                    new net.minecraft.network.protocol.common.ClientboundResourcePackPushPacket(SERVER_PACK_ID,
+                            "http://127.0.0.1:9/justreplay-selftest-pack.zip", sha1, false, java.util.Optional.empty()))));
+            com.vyrriox.justreplay.config.JRConfig.SERVER_RESOURCE_PACKS.set(com.vyrriox.justreplay.config.JRConfig.ServerResourcePacks.CACHED);
+            serverPackState = 1;
+            log("server resource pack pushed by the integrated server ({} bytes, cached as {})", data.length, sha1);
+        } catch (Exception e) {
+            log("server resource pack: cannot prepare it ({}) -> FAIL", e.toString());
+            serverPackState = 2;
+        }
+    }
+
+    /** Closes the pack prompt of the live game, then waits in the replay until the pack's translation is there. */
+    private static void pollServerPack(Minecraft mc) {
+        if (serverPackState != 1) {
+            return;
+        }
+        if (!ReplaySession.isRunning()) {
+            if (mc.screen instanceof net.minecraft.client.gui.screens.ConfirmScreen) {
+                log("server resource pack prompt closed without loading the pack");
+                mc.setScreen(null);
+            }
+            return;
+        }
+        boolean applied = com.vyrriox.justreplay.replay.ReplayPacks.applied().stream().anyMatch(pack -> pack.id().equals(SERVER_PACK_ID));
+        boolean loaded = "applied".equals(net.minecraft.client.resources.language.I18n.get(SERVER_PACK_KEY));
+        if (applied && loaded && mc.getOverlay() == null) {
+            serverPackState = 2;
+            log("server resource pack in the replay: applied from the cache, translation loaded after {} ticks -> OK", serverPackTicks);
+        } else if (++serverPackTicks > 1200) {
+            serverPackState = 2;
+            log("server resource pack in the replay: applied {} translation loaded {} overlay {} -> FAIL", applied, loaded, mc.getOverlay());
+        }
+    }
+
+    /**
+     * World tab and Entities tab visuals: a chosen particle type is not created while another is, "None" creates
+     * nothing, a recorded mob gets an outline, every entity of another recorded mob's type is hidden (counted over
+     * the next ticks), then night vision and no fog for the picture.
+     */
+    private static void checkVisuals(Minecraft mc, ReplaySession s) {
+        com.vyrriox.justreplay.editor.WorldSettings w = s.project().world;
+        Vec3 at = mc.player.position().add(0, 1.5, 0);
+        w.particles = com.vyrriox.justreplay.editor.WorldSettings.PARTICLES_CHOSEN;
+        w.hiddenParticles = new java.util.ArrayList<>(java.util.List.of("minecraft:flame"));
+        int hiddenBefore = com.vyrriox.justreplay.editor.Visuals.hiddenParticles();
+        boolean flameHidden = mc.particleEngine.createParticle(net.minecraft.core.particles.ParticleTypes.FLAME, at.x, at.y, at.z, 0, 0, 0) == null;
+        boolean smokeShown = mc.particleEngine.createParticle(net.minecraft.core.particles.ParticleTypes.SMOKE, at.x, at.y, at.z, 0, 0, 0) != null;
+        w.particles = com.vyrriox.justreplay.editor.WorldSettings.PARTICLES_NONE;
+        boolean noneHidden = mc.particleEngine.createParticle(net.minecraft.core.particles.ParticleTypes.SMOKE, at.x, at.y, at.z, 0, 0, 0) == null;
+        int counted = com.vyrriox.justreplay.editor.Visuals.hiddenParticles() - hiddenBefore;
+        log("visuals: chosen type hidden {} other type shown {} none hides all {} counted {} -> {}", flameHidden, smokeShown, noneHidden,
+                counted, flameHidden && smokeShown && noneHidden && counted >= 2 ? "OK" : "FAIL");
+        w.particles = com.vyrriox.justreplay.editor.WorldSettings.PARTICLES_ALL;
+        Entity typed = null;
+        Entity outlined = null;
+        for (Entity e : mc.level.entitiesForRendering()) {
+            if (e == mc.player || com.vyrriox.justreplay.editor.ActorManager.isActorEntity(e)
+                    || !(e instanceof net.minecraft.world.entity.LivingEntity) || e instanceof net.minecraft.world.entity.player.Player) {
+                continue;
+            }
+            if (typed == null) {
+                typed = e;
+            } else if (outlined == null && e.getType() != typed.getType()) {
+                outlined = e;
+            }
+        }
+        if (outlined != null) {
+            ReplayProject.EntityEdit glow = new ReplayProject.EntityEdit(outlined.getUUID().toString(), "test outline");
+            glow.glow = true;
+            s.project().entityEdits.add(glow);
+            boolean glows = mc.shouldEntityAppearGlowing(outlined);
+            log("visuals: outline on {} -> {}", outlined.getType().getDescriptionId(), glows ? "OK" : "FAIL");
+        } else {
+            log("visuals: outline skipped, no second recorded mob type");
+        }
+        hiddenMob = typed;
+        if (typed != null) {
+            s.project().toggleHiddenType(com.vyrriox.justreplay.editor.EntityEdits.typeId(typed));
+        }
+        skippedBefore = com.vyrriox.justreplay.editor.EntityEdits.skippedRenders();
+        // Night vision: the darkest cell of the lightmap (no block light, no sky light) turns white.
+        int dark = darkestLight(mc);
+        w.nightVision = true;
+        int lit = darkestLight(mc);
+        log("visuals: night vision lightmap darkest cell {} -> {} -> {}", Integer.toHexString(dark), Integer.toHexString(lit),
+                (lit & 0xFF) >= 250 && ((lit >> 8) & 0xFF) >= 250 && ((lit >> 16) & 0xFF) >= 250 ? "OK" : "FAIL");
+        // No fog: the terrain fog the game sets is pushed past any view distance.
+        w.fog = com.vyrriox.justreplay.editor.WorldSettings.FOG_OFF;
+        net.minecraft.client.renderer.FogRenderer.setupFog(mc.gameRenderer.getMainCamera(), net.minecraft.client.renderer.FogRenderer.FogMode.FOG_TERRAIN,
+                mc.gameRenderer.getRenderDistance(), false, 1.0F);
+        float start = com.mojang.blaze3d.systems.RenderSystem.getShaderFogStart();
+        log("visuals: fog off starts at {} -> {}", start, start >= com.vyrriox.justreplay.editor.WorldSettings.NO_FOG ? "OK" : "FAIL");
+    }
+
+    /** Recomputes the lightmap and reads its darkest cell, as ABGR. */
+    private static int darkestLight(Minecraft mc) {
+        net.minecraft.client.renderer.LightTexture light = mc.gameRenderer.lightTexture();
+        ((com.vyrriox.justreplay.mixin.LightTextureAccessor) light).justreplay$setUpdateLightTexture(true);
+        light.updateLightTexture(1.0F);
+        return ((com.vyrriox.justreplay.mixin.LightTextureAccessor) light).justreplay$lightPixels().getPixelRGBA(0, 0);
+    }
+
+    /** The two markers placed with the recording marker key arrive on the timeline at the first opening. */
+    private static void checkRecordingMarkers(ReplaySession s) {
+        java.util.List<ReplayProject.Marker> marks = s.project().markers;
+        boolean names = marks.size() == 2 && "Marker 1".equals(marks.get(0).name) && "Marker 2".equals(marks.get(1).name);
+        boolean ticks = names && marks.get(0).tick >= 59 && marks.get(0).tick <= 64
+                && Math.abs(marks.get(1).tick - marks.get(0).tick - 90) <= 1;
+        log("recording markers on the timeline: {} -> {}", marks.stream().map(m -> m.name + "@" + m.tick).toList(),
+                names && ticks && s.project().recordingMarkersImported ? "OK" : "FAIL");
+    }
+
+    /**
+     * Opens the replay with a mod that is not installed written into its list: the window that lists changed mods
+     * must show it among the missing ones, then "Open anyway" opens the replay.
+     */
+    private static void openThroughModWarning(Minecraft mc, Path dir) {
+        com.vyrriox.justreplay.format.ReplayMeta meta = ReplayStorage.readMeta(dir);
+        if (meta == null) {
+            log("mods changed window: no meta.json -> FAIL");
+            ReplaySession.open(dir, mc.screen);
+            return;
+        }
+        meta.mods.add("justreplay_selftest_missing@1.0");
+        ReplayStorage.writeMeta(dir, meta);
+        boolean warn = com.vyrriox.justreplay.config.JRConfig.WARN_MOD_CHANGES.get();
+        com.vyrriox.justreplay.config.JRConfig.WARN_MOD_CHANGES.set(true);
+        try {
+            ReplaySession.open(dir, mc.screen);
+        } finally {
+            com.vyrriox.justreplay.config.JRConfig.WARN_MOD_CHANGES.set(warn);
+        }
+        if (mc.screen instanceof com.vyrriox.justreplay.gui.ModsChangedScreen window) {
+            boolean listed = !window.mods().missing().isEmpty()
+                    && "justreplay_selftest_missing".equals(window.mods().missing().get(0).id());
+            log("mods changed window: shown, fake mod listed first {} ({} differences) -> {}", listed, window.mods().size(),
+                    listed ? "OK" : "FAIL");
+            window.openAnyway();
+        } else {
+            log("mods changed window: not shown, screen {} -> FAIL", mc.screen == null ? null : mc.screen.getClass().getSimpleName());
+        }
+    }
+
     private static void checkHiddenArmor(Minecraft mc, ReplaySession s) {
         Entity notch = null;
         for (ReplayProject.ActorData a : s.project().actors) {

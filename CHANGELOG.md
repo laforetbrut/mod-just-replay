@@ -12,8 +12,16 @@
 - **Startup line**: the log now says at startup which Just Replay, loader and integrations are running. Handy for reading crash reports.
 - **Name your replays**: stop a recording (F8, F7, the pause menu buttons, a timed recording, leaving a world) and a window asks for a name, filled with the date and time. Enter or Rename renames it, Esc or Skip keeps the date. The folder gets a name Windows and Linux accept and never takes another replay's, a ` (2)` is added instead. Don't want it? Turn off `nameOnSave`.
 - **Exported range in the name**: export 0:10 to 0:20 of a replay and you get `myreplay_00m10s-00m20s.mp4`, with hours for replays of an hour or more. The end toast and the log say it too, with duration, resolution, fps and path. Turn `rangeInFileName` off to keep the old names. Exports still never overwrite a file, and scene jobs keep their exact names.
+- **Server resource packs**: replays recorded on a server with a resource pack finally look like the server did, straight from the game's cache. `serverResourcePacks` can also download a missing pack, or switch them off.
+- **Changed mods warning**: a replay recorded with other mods tells you which ones are missing, added or updated before it opens. Open it anyway, cancel, or tick "Don't warn again for this replay" (`warnModChanges`).
+- **Speed track**: slow motion, fast forward, smooth ramps, timelapses and freeze frames in the Effects tab and on the timeline (Advanced mode). Previews and exports follow it; game sounds and voices go quiet outside x0.5 to x2 (adjustable).
+- **Markers while recording**: F6 drops a marker while recording or with the instant replay buffer on. They show up on the timeline when you open the replay.
+- **World visuals**: night vision, reduced or no fog, and particles all, none or by type in the World tab; hide every entity of a type and give an entity a glowing outline in the Entities tab. Exports show them too.
 
 Heads up: none of this has been tried in game yet. Every target builds and each integration was checked against the mod's own jar, so tell me if something looks off.
+
+### Fixed
+- A hand edited project with an empty weather no longer stops the replay from opening.
 
 ### Changed
 - **Self test**: checks hidden armor on every target, and More Player Models looks on Forge 1.20.1 (with `-PdevMods`).
@@ -36,8 +44,16 @@ Heads up: none of this has been tried in game yet. Every target builds and each 
 - **Ligne de démarrage** : le log dit au démarrage quelle version de Just Replay, quel loader et quelles intégrations tournent. Pratique pour lire un rapport de crash.
 - **Nommer ses replays** : arrête un enregistrement (F8, F7, les boutons du menu pause, un enregistrement minuté, en quittant un monde) et une fenêtre demande un nom, prérempli avec la date et l'heure. Entrée ou Rename le renomme, Échap ou Skip garde la date. Le dossier prend un nom accepté par Windows et Linux et ne prend jamais celui d'un autre replay, un ` (2)` est ajouté à la place. Pas envie ? Coupe `nameOnSave`.
 - **Plage exportée dans le nom** : exporte de 0:10 à 0:20 d'un replay et tu obtiens `monreplay_00m10s-00m20s.mp4`, avec les heures pour un replay d'une heure ou plus. Le message de fin et le log le disent aussi, avec durée, résolution, fps et chemin. Coupe `rangeInFileName` pour garder les anciens noms. Un export n'écrase toujours aucun fichier, et les tâches de scène gardent leur nom exact.
+- **Packs de ressources du serveur** : un replay enregistré sur un serveur à pack ressemble enfin au serveur, direct depuis le cache du jeu. `serverResourcePacks` peut aussi télécharger un pack manquant, ou les couper.
+- **Avertissement des mods changés** : un replay enregistré avec d'autres mods te dit lesquels manquent, ont été ajoutés ou mis à jour avant de s'ouvrir. Tu l'ouvres quand même, tu annules, ou tu coches « Don't warn again for this replay » (`warnModChanges`).
+- **Piste de vitesse** : ralenti, accéléré, rampes douces, timelapses et gels de l'image dans l'onglet Effects et sur la timeline (mode Avancé). L'aperçu et les exports la suivent ; les sons du jeu et les voix se taisent hors de x0,5 à x2 (réglable).
+- **Repères pendant l'enregistrement** : F6 pose un repère pendant un enregistrement ou avec le tampon des dernières minutes. Ils arrivent sur la timeline à l'ouverture du replay.
+- **Visuels du monde** : vision nocturne, brouillard réduit ou coupé, et particules toutes, aucune ou par type dans l'onglet Monde ; masquer toutes les entités d'un type et donner un contour lumineux à une entité dans l'onglet Entités. Les exports les montrent aussi.
 
 Attention : rien de tout ça n'a encore été essayé en jeu. Toutes les cibles compilent et chaque intégration a été vérifiée contre le jar du mod lui-même, alors dis-moi si quelque chose cloche.
+
+### Corrections
+- Un projet retouché à la main avec une météo vide ne bloque plus l'ouverture du replay.
 
 ### Modifications
 - **Test automatique** : vérifie l'armure masquée sur toutes les cibles, et les apparences de More Player Models sur Forge 1.20.1 (avec `-PdevMods`).

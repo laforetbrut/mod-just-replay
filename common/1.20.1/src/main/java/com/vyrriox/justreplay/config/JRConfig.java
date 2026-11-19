@@ -33,6 +33,8 @@ public final class JRConfig {
     public static final ConfigFile.BoolValue CLEAN_HUD;
     public static final ConfigFile.BoolValue HIDE_PLAYER_ARMOR;
     public static final ConfigFile.IntValue PLAYBACK_VIEW_DISTANCE;
+    public static final ConfigFile.BoolValue WARN_MOD_CHANGES;
+    public static final ConfigFile.EnumValue<ServerResourcePacks> SERVER_RESOURCE_PACKS;
     public static final ConfigFile.BoolValue DISTANT_HORIZONS_LODS;
     public static final ConfigFile.IntValue DISTANT_HORIZONS_MAX_COPY_MB;
     public static final ConfigFile.StringValue FFMPEG_PATH;
@@ -51,6 +53,16 @@ public final class JRConfig {
         SIMPLE,
         /** Every tool: several cameras, cuts, blends, keyframe editing, models, voices. */
         ADVANCED
+    }
+
+    /** What playback does with the resource packs the recorded server sent. */
+    public enum ServerResourcePacks {
+        /** Applies the packs found in the game's cache of server packs, the ones downloaded while playing there. */
+        CACHED,
+        /** As CACHED, and downloads the missing ones from the address the server gave. */
+        DOWNLOAD,
+        /** Never applies them: the replay looks like the recording player's own packs. */
+        OFF
     }
 
     static {
@@ -100,6 +112,13 @@ public final class JRConfig {
         PLAYBACK_VIEW_DISTANCE = playback.integer("viewDistance", 32, 8, 64,
                 "Chunks kept around the camera while watching a replay. Chunks the recording server unloaded" + "\n"
                         + "stay visible up to this distance instead of disappearing.");
+        WARN_MOD_CHANGES = playback.bool("warnModChanges", true,
+                "Before opening a replay, list the mods that are missing, were added or changed version since it was" + "\n"
+                        + "recorded, with a choice to open it anyway. A replay without a mod list opens directly.");
+        SERVER_RESOURCE_PACKS = playback.enumeration("serverResourcePacks", ServerResourcePacks.CACHED,
+                "Resource pack the recorded server sent (textures, models, sounds). CACHED applies the ones found in the" + "\n"
+                        + "game's cache of server packs, which holds the packs downloaded while playing there; DOWNLOAD also" + "\n"
+                        + "downloads the missing ones from the server's address; OFF never applies them. They are removed when the replay closes.");
         DISTANT_HORIZONS_LODS = playback.bool("distantHorizonsLods", true,
                 "With Distant Horizons installed, show the distant terrain (LODs) of the recorded world in replays and" + "\n"
                         + "exported videos. The recorded world's LOD database is copied to a temporary folder when the replay opens and" + "\n"

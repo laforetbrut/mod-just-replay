@@ -58,7 +58,13 @@ cd neoforge-1.21.1
 
 On Windows use `gradlew.bat`. The jar is written to `build/libs/` and named `justreplay-<loader>-<mcversion>-<version>.jar`, for example `justreplay-forge-1.20.1-1.1.0.jar`.
 
-The build also runs the unit tests of `common/<mcversion>/src/test` (JUnit 5): the integration guard, the integration switches of the config, the skipped packets counter, the cleaning of replay names, the renaming of replay folders and the names of video exports (the exported range and the final file name). They only use classes without game code and start no game; `./gradlew test` runs them alone, the report is in `build/reports/tests/test/`.
+The build also runs the unit tests of `common/<mcversion>/src/test` (JUnit 5). They only use classes without game code and start no game; `./gradlew test` runs them alone, the report is in `build/reports/tests/test/`. They cover:
+
+- the integration guard, the integration switches of the config and the skipped packets counter;
+- the cleaning of replay names and the renaming of replay folders;
+- the names of video exports (the exported range and the final file name);
+- the changed mods warning, the markers placed while recording and the server resource packs of a replay;
+- the light, fog and particle settings, and the speed track (video time of each replay tick).
 
 - **Use `--no-build-cache` for a jar you will ship or run in production.** A cache hit once produced a Forge 1.20.1 jar without its refmap (see `ERROR_LOG.md`, now also guarded in that project). After such a build, check that the refmap is in the jar.
 - Install the jar of `build/libs/`. NeoForge 1.20.1 and the Fabric projects of 1.20.1 and 1.21.1 write a development jar elsewhere, which only works in development runs.
@@ -182,7 +188,13 @@ cd neoforge-1.21.1
 
 Sous Windows, utiliser `gradlew.bat`. Le jar est écrit dans `build/libs/` sous le nom `justreplay-<loader>-<mcversion>-<version>.jar`, par exemple `justreplay-forge-1.20.1-1.1.0.jar`.
 
-Le build lance aussi les tests unitaires de `common/<mcversion>/src/test` (JUnit 5) : la garde des intégrations, les interrupteurs d'intégration de la config, le compteur de paquets ignorés, le nettoyage des noms de replay, le renommage des dossiers de replay et les noms des exports vidéo (la plage exportée et le nom final du fichier). Ils n'utilisent que des classes sans code du jeu et ne lancent aucun jeu ; `./gradlew test` les lance seuls, le rapport est dans `build/reports/tests/test/`.
+Le build lance aussi les tests unitaires de `common/<mcversion>/src/test` (JUnit 5). Ils n'utilisent que des classes sans code du jeu et ne lancent aucun jeu ; `./gradlew test` les lance seuls, le rapport est dans `build/reports/tests/test/`. Ils couvrent :
+
+- la garde des intégrations, les interrupteurs d'intégration de la config et le compteur de paquets ignorés ;
+- le nettoyage des noms de replay et le renommage des dossiers de replay ;
+- les noms des exports vidéo (la plage exportée et le nom final du fichier) ;
+- l'avertissement des mods changés, les repères posés pendant l'enregistrement et les packs de ressources du serveur d'un replay ;
+- les réglages de lumière, de brouillard et de particules, et la piste de vitesse (temps vidéo de chaque tick du replay).
 
 - **Utiliser `--no-build-cache` pour un jar à publier ou à lancer en production.** Une reprise du cache a déjà produit un jar Forge 1.20.1 sans sa refmap (voir `ERROR_LOG.md`, ce projet est maintenant aussi protégé). Après un tel build, vérifier que la refmap est dans le jar.
 - Installer le jar de `build/libs/`. NeoForge 1.20.1 et les projets Fabric de 1.20.1 et 1.21.1 écrivent ailleurs un jar de développement, qui ne marche qu'en développement.

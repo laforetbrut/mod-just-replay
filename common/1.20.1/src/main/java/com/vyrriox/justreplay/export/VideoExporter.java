@@ -98,6 +98,8 @@ public final class VideoExporter {
     private boolean timerPrepared;
     private int frames;
     private final ExportAudio audio;
+    /** Video time of the exported ticks under the project's speed track, copied when the export starts. */
+    private final com.vyrriox.justreplay.editor.TimeMap timeMap;
     private final boolean pngSequence;
     private final java.util.concurrent.CompletableFuture<Boolean> completion = new java.util.concurrent.CompletableFuture<>();
     /** For a still: the PNG the first frame is moved to once the one frame export is done. */
@@ -133,7 +135,9 @@ public final class VideoExporter {
         this.captureCursor = startTick + 1;
         this.previousHideGui = previousHideGui;
         this.previousPauseOnLostFocus = previousPauseOnLostFocus;
+        this.timeMap = com.vyrriox.justreplay.editor.TimeMap.of(session.project().speed.copy(), startTick, endTick);
         this.audio = new ExportAudio(fps);
+        this.audio.useTimeMap(timeMap);
         this.writerThread = new Thread(this::pump, "JustReplay export");
         this.writerThread.setDaemon(true);
     }
@@ -168,8 +172,13 @@ public final class VideoExporter {
     }
 
     public float progress() {
-        long total = (long) (endTick - startTick) * fps / 20 + 1;
+        long total = timeMap.identity() ? (long) (endTick - startTick) * fps / 20 + 1 : timeMap.frames(fps);
         return Math.min(1.0F, (float) frames / Math.max(1L, total));
+    }
+
+    /** Length of the video being made, in seconds: the exported ticks under the speed track. */
+    public double videoSeconds() {
+        return timeMap.durationSeconds();
     }
 
     /** The video file, or the folder of a PNG sequence. */
@@ -358,6 +367,17 @@ public final class VideoExporter {
                 return TimerStep.HOLD;
             }
             default -> {
+                if (!timeMap.identity()) {
+                    // Frame n shows the replay tick the speed track puts at n / fps seconds of video; a freeze issues
+                    // no tick and keeps the same fraction, a timelapse issues several ticks per frame.
+                    double shown = timeMap.tickAt(frames / (double) fps) - startTick;
+                    double before = frames == 0 ? shown : timeMap.tickAt((frames - 1) / (double) fps) - startTick;
+                    long whole = (long) Math.floor(shown + 1.0E-9);
+                    int ticks = (int) Math.max(0, whole - ticksIssued);
+                    ticksIssued = Math.max(ticksIssued, whole);
+                    timerPrepared = true;
+                    return new TimerStep(ticks, (float) Math.max(0.0, shown - before), (float) Math.max(0.0, shown - whole));
+                }
                 // Frame n shows startTick + n * 20 / fps; computed from the frame number so it never drifts, and
                 // idempotent so a frame that could not be captured is simply rendered again.
                 long video = (long) frames * 20;
@@ -419,7 +439,8 @@ public final class VideoExporter {
         Camera camera = mc.gameRenderer.getMainCamera();
         audio.onFrame(camera.getPosition().x, camera.getPosition().y, camera.getPosition().z, camera.getYRot());
         Playback playback = session.playback();
-        boolean reachedEnd = (long) (frames - 1) * 20 >= (long) (endTick - startTick) * fps;
+        boolean reachedEnd = timeMap.identity() ? (long) (frames - 1) * 20 >= (long) (endTick - startTick) * fps
+                : frames >= timeMap.frames(fps);
         if (reachedEnd || playback.isPaused() && playback.cursor() >= playback.duration()) {
             finish(true);
         }

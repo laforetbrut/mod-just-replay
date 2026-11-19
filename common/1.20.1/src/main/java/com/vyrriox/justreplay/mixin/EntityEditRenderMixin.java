@@ -43,6 +43,12 @@ public abstract class EntityEditRenderMixin {
             cir.setReturnValue(true);
             return;
         }
+        if (EntityEdits.typeHidden(entity)) {
+            // Every entity of this type is hidden by the project.
+            EntityEdits.countSkipped();
+            cir.setReturnValue(false);
+            return;
+        }
         com.vyrriox.justreplay.editor.ReplayProject.EntityEdit edit = EntityEdits.editOf(entity);
         if (edit == null) {
             return;
@@ -69,6 +75,11 @@ public abstract class EntityEditRenderMixin {
                 ci.cancel();
                 justreplay$drawScaled(entity, x, y, z, rotationYaw, partialTicks, poseStack, buffer, packedLight, actorScale);
             }
+            return;
+        }
+        if (EntityEdits.typeHidden(entity)) {
+            EntityEdits.countSkipped();
+            ci.cancel();
             return;
         }
         com.vyrriox.justreplay.editor.ReplayProject.EntityEdit edit = EntityEdits.editOf(entity);
