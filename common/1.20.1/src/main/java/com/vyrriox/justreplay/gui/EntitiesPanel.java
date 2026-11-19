@@ -203,6 +203,18 @@ final class EntitiesPanel {
         if (near.isEmpty()) {
             f.paragraph(tc("justreplay.entities.none"), Theme.TEXT_MUTED);
         }
+        f.header(tc("justreplay.entities.hidden_types"), Icon.EYE_OFF);
+        java.util.List<String> types = new java.util.ArrayList<>();
+        for (net.minecraft.resources.ResourceLocation id : net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.keySet()) {
+            types.add(id.toString());
+        }
+        java.util.function.Function<String, String> typeName = id -> net.minecraft.world.entity.EntityType.byString(id)
+                .map(t -> t.getDescription().getString()).orElse(id);
+        types.sort(Comparator.comparing(typeName));
+        TypeList.build(screen, f, "entities", types, typeName, session.project().hiddenEntityTypes, id -> {
+            session.project().toggleHiddenType(id);
+            save();
+        });
         // Edited entities that are not loaded here stay reachable.
         boolean header = false;
         for (ReplayProject.EntityEdit edit : session.project().entityEdits) {
@@ -302,6 +314,20 @@ final class EntitiesPanel {
         f.put(new GlassButton(tc("justreplay.entities.move.reset"), b -> change(e -> e.offsets.clear()))
                 .icon(Icon.TRASH).tip(tc("justreplay.entities.move.reset.tip")), 1, 2);
         f.next();
+
+        f.full(new GlassSwitch(tc("justreplay.entities.glow"), () -> {
+            ReplayProject.EntityEdit e = edit(false);
+            return e != null && e.glow;
+        }, () -> change(e -> e.glow = !e.glow)).icon(Icon.TARGET).tip(tc("justreplay.entities.glow.tip")));
+        if (entity != null) {
+            String type = EntityEdits.typeId(entity);
+            Component typeName = entity.getType().getDescription();
+            f.full(new GlassSwitch(Component.translatable("justreplay.entities.hide_type", typeName),
+                    () -> session.project().hiddenEntityTypes.contains(type), () -> {
+                session.project().toggleHiddenType(type);
+                save();
+            }).icon(Icon.EYE_OFF).tip(tc("justreplay.entities.hide_type.tip")));
+        }
 
         f.full(new Stepper(tc("justreplay.entities.volume"), () -> {
             ReplayProject.EntityEdit e = edit(false);
