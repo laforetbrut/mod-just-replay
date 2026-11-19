@@ -169,13 +169,6 @@ public class ExportScreen extends GlassScreen {
         return session.project().exportRange(session.playback().duration());
     }
 
-    private Component rangeLine() {
-        int[] ticks = range();
-        return ticks == null ? Component.translatable("justreplay.export.error.nothing")
-                : Component.translatable(session.project().cuts.isEmpty() ? "justreplay.export.range" : "justreplay.export.range.cuts",
-                Timeline.formatTicks(ticks[0]), Timeline.formatTicks(ticks[1]));
-    }
-
     /** Length of the video under the speed track, against the length of the replay it shows. */
     private Component videoLengthLine() {
         int[] ticks = range();
@@ -184,6 +177,13 @@ public class ExportScreen extends GlassScreen {
         }
         double seconds = com.vyrriox.justreplay.editor.TimeMap.of(session.project().speed, ticks[0], ticks[1]).durationSeconds();
         return Component.translatable("justreplay.speed.video_length", Timeline.formatTicks(seconds * 20.0), Timeline.formatTicks(ticks[1] - ticks[0]));
+    }
+
+    private Component rangeLine() {
+        int[] ticks = range();
+        return ticks == null ? Component.translatable("justreplay.export.error.nothing")
+                : Component.translatable(session.project().cuts.isEmpty() ? "justreplay.export.range" : "justreplay.export.range.cuts",
+                Timeline.formatTicks(ticks[0]), Timeline.formatTicks(ticks[1]));
     }
 
     private Component sizeLine() {
