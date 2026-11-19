@@ -5,7 +5,6 @@ import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.CharacterEvent;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.vyrriox.justreplay.mixin.KeyMappingAccessor;
-import com.vyrriox.justreplay.JustReplay;
 import com.vyrriox.justreplay.client.JRKeys;
 import com.vyrriox.justreplay.config.JRConfig;
 import com.vyrriox.justreplay.config.JRConfig.EditorMode;
@@ -23,7 +22,6 @@ import com.vyrriox.justreplay.gui.ui.Form;
 import com.vyrriox.justreplay.gui.ui.GlassButton;
 import com.vyrriox.justreplay.gui.ui.GlassScreen;
 import com.vyrriox.justreplay.gui.ui.GlassSwitch;
-import com.vyrriox.justreplay.gui.ui.GlassToast;
 import com.vyrriox.justreplay.gui.ui.Icon;
 import com.vyrriox.justreplay.gui.ui.ListPopup;
 import com.vyrriox.justreplay.gui.ui.ListRow;
@@ -1278,7 +1276,6 @@ public class EditorScreen extends GlassScreen {
         }
     }
 
-    /** Adds an actor and lets the user place it in the world; cancelling the placement removes it again. */
     /** Copies the selected actor with everything it does, one block aside, and selects the copy. */
     private void duplicateActor() {
         ReplayProject.ActorData source = selectedActor;
@@ -1347,6 +1344,7 @@ public class EditorScreen extends GlassScreen {
         }
     }
 
+    /** Adds an actor and lets the user place it in the world; cancelling the placement removes it again. */
     private void addActor(ReplayProject.ActorData actor) {
         session.project().actors.add(actor);
         selectedActor = actor;

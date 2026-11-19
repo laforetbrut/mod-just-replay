@@ -1678,7 +1678,6 @@ public final class SelfTest {
         log("hidden armor: global option mask {} -> {}", all, all == com.vyrriox.justreplay.editor.ArmorSlots.ALL ? "OK" : "FAIL");
     }
 
-    /** Optional mods of the test pack: content placed before the recording and their replay state. */
     /** See {@link com.vyrriox.justreplay.format.RegistryIdsBackend#selfCheck}; the replay gets its own ids back after it. */
     private static void checkRegistryCompletion(ReplaySession s) {
         try {
@@ -1692,6 +1691,7 @@ public final class SelfTest {
         }
     }
 
+    /** Optional mods of the test pack: content placed before the recording and their replay state. */
     private static final class Mods {
         private Mods() {
         }

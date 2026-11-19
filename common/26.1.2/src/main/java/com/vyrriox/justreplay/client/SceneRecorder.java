@@ -141,7 +141,6 @@ public final class SceneRecorder {
         }
     }
 
-    /** Runs commands as the player of the integrated server, with operator rights. */
     /**
      * Runs commands on the integrated server as an operator. Returns the server game time they ran at, set once they
      * did (-1 until then, and for good without a server or commands).

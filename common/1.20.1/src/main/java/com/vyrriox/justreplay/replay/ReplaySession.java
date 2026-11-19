@@ -5,7 +5,6 @@ import com.vyrriox.justreplay.mixin.ConnectionAccessor;
 import com.vyrriox.justreplay.editor.ActorManager;
 import com.vyrriox.justreplay.editor.ReplayProject;
 import com.vyrriox.justreplay.export.VideoExporter;
-import com.vyrriox.justreplay.format.RecordedPacket;
 import com.vyrriox.justreplay.format.ReplayMeta;
 import com.vyrriox.justreplay.format.ReplayStorage;
 import net.minecraft.client.Minecraft;

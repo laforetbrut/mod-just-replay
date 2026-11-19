@@ -1,6 +1,5 @@
 package com.vyrriox.justreplay.compat;
 
-import com.vyrriox.justreplay.JustReplay;
 import io.netty.buffer.Unpooled;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.FriendlyByteBuf;

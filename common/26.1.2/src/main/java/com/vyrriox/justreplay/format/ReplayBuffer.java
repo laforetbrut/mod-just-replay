@@ -50,8 +50,10 @@ public final class ReplayBuffer {
     public record Saved(Path dir, int durationTicks, int packets, int checkpoints, int voiceFrames) {
     }
 
-    /** Hard cap of the memory held, whatever happens (a world change loop that never lets a checkpoint finish...). */
-    /** Safety cap for very long windows; the oldest part is dropped first when it is reached. */
+    /**
+     * Hard cap of the memory held, whatever happens (very long windows, a world change loop that never lets a
+     * checkpoint finish...): the oldest part is dropped first when it is reached.
+     */
     private static final long MAX_BYTES = 1024L << 20;
     private static final long LOG_INTERVAL_MS = 60_000L;
 

@@ -56,7 +56,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.gamerules.GameRules;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
@@ -353,7 +352,6 @@ public final class Recorder {
 
     // ---------------------------------------------------------------- network thread
 
-    /** Called by the connection mixin for every packet the client receives, before it is handled. */
     /** Received packet types the recorder could not look at, logged once each. */
     private static final Set<String> RECEIVE_FAILED = ConcurrentHashMap.newKeySet();
 
@@ -368,6 +366,7 @@ public final class Recorder {
         }
     }
 
+    /** Called by the connection mixin for every packet the client receives, before it is handled. */
     public static void onPacketReceived(Connection connection, Packet<?> packet) {
         if (packet instanceof ClientboundLoginPacket login) {
             lastLogin = login;
@@ -448,8 +447,6 @@ public final class Recorder {
     /** Original spawn packets (with their bundle: NeoForge spawn data, entity data, attributes...) per entity id. */
     private static final java.util.Map<Integer, List<Packet<?>>> SPAWNS = new ConcurrentHashMap<>();
     private static volatile Connection spawnConnection;
-
-    private static final Set<String> FAILED_GLOBAL = ConcurrentHashMap.newKeySet();
 
     private static void trackSpawns(Connection connection, Packet<?> packet) {
         boolean newConnection = connection != spawnConnection;

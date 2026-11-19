@@ -353,18 +353,21 @@ public final class Recorder {
 
     // ---------------------------------------------------------------- network thread
 
-    /** Called by the connection mixin for every packet the client receives, before it is handled. */
+    /** Received packet types the recorder could not look at, logged once each. */
+    private static final Set<String> RECEIVE_FAILED = ConcurrentHashMap.newKeySet();
+
     /**
      * A received packet the recorder could not look at: logged once per type, the game handles the packet as usual (an
      * error here would otherwise reach the network thread and close the connection).
      */
     public static void onReceiveError(Packet<?> packet, Throwable t) {
         String type = PacketCodec.typeName(packet);
-        if (FAILED_GLOBAL.add("receive " + type)) {
+        if (RECEIVE_FAILED.add(type)) {
             JustReplay.LOGGER.warn("Just Replay could not record a received {} packet, the game handles it as usual: {}", type, t.toString(), t);
         }
     }
 
+    /** Called by the connection mixin for every packet the client receives, before it is handled. */
     public static void onPacketReceived(Connection connection, Packet<?> packet) {
         if (packet instanceof ClientboundLoginPacket login) {
             lastLogin = login;

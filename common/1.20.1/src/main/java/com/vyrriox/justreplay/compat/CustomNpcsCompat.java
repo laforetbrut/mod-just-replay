@@ -1,6 +1,5 @@
 package com.vyrriox.justreplay.compat;
 
-import com.vyrriox.justreplay.JustReplay;
 import com.vyrriox.justreplay.platform.Platform;
 import com.vyrriox.justreplay.record.Payloads;
 import io.netty.buffer.Unpooled;

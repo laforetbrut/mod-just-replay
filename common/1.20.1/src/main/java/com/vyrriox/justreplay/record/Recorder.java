@@ -345,7 +345,6 @@ public final class Recorder {
 
     // ---------------------------------------------------------------- network thread
 
-    /** Called by the connection mixin for every packet the client receives, before it is handled. */
     /** Received packet types the recorder could not look at, logged once each. */
     private static final Set<String> RECEIVE_FAILED = ConcurrentHashMap.newKeySet();
 
@@ -360,6 +359,7 @@ public final class Recorder {
         }
     }
 
+    /** Called by the connection mixin for every packet the client receives, before it is handled. */
     public static void onPacketReceived(Connection connection, Packet<?> packet) {
         if (packet instanceof ClientboundLoginPacket login) {
             lastLogin = login;

@@ -223,10 +223,6 @@ public final class ActorAnimator {
         }
     }
 
-    /**
-     * Dance of a humanoid actor, after vanilla posed it: the beat phase comes from the replay time of the frame, so
-     * the motion is smooth between ticks and stays on the beat in exports. Arm gestures still win over the arms.
-     */
     /** A custom emote played by an actor: the emote, the replay tick it starts at and its speed. */
     private record CustomEmote(EmoteLibrary.Emote emote, int start, double speed, int clipFrom, int clipTo) {
     }
@@ -287,6 +283,10 @@ public final class ActorAnimator {
         return id;
     }
 
+    /**
+     * Dance of a humanoid actor, after vanilla posed it: the beat phase comes from the replay time of the frame, so
+     * the motion is smooth between ticks and stays on the beat in exports. Arm gestures still win over the arms.
+     */
     public static void applyDance(Entity entity, net.minecraft.client.model.HumanoidModel<?> model) {
         if (!ActorManager.isActorEntity(entity)) {
             return;

@@ -160,11 +160,6 @@ public final class VideoExporter {
         return current;
     }
 
-    /** True while the game clock must follow the export instead of the wall clock. */
-    public static boolean isFixedStep() {
-        return current != null;
-    }
-
     /** Clock step of the frame about to be rendered, or null when no export is running. */
     public static TimerStep nextTimerStep() {
         VideoExporter e = current;
