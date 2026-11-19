@@ -234,3 +234,10 @@
 **Root cause:** Team-Arcadia/images grew past 50 MB (156 MB), so jsDelivr refuses every file of the repository it has not cached, any commit pin included
 **Fix:** images_base moved to GitHub Pages (https://team-arcadia.github.io/images/mods/justreplay/curseforge/, on, branch main); page rebuilt, only the host changed; check_page.py --online nothing to report, widths 0 mismatches on 39 images
 **Prevention:** Never pin page images on jsDelivr again: Pages serves main, so rebuild the page (widths) in the same task as any push of new pictures
+
+## [2026-11-19 15:13] — List.of contains(null) crashed the project repair
+**Context:** Unit test of WorldSettings.normalize with a hand edited project (fog, particles or weather set to null)
+**Error:** java.lang.NullPointerException in WorldSettings.normalize: WEATHERS.contains(weather) with weather == null
+**Root cause:** Lists made by List.of throw on contains(null); the repair code of the World tab settings checked membership before checking for null, so a project with "weather": null could not be loaded and the replay did not open
+**Fix:** Check null first in WorldSettings.normalize (weather, fog, particles) and in particleHidden, in the three common folders; WorldVisualsTest covers it
+**Prevention:** Never call contains on a List.of or Set.of with a value read from JSON without a null check; add a null case to the unit test of every normalize method
