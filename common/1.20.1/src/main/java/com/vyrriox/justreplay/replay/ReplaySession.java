@@ -82,6 +82,8 @@ public final class ReplaySession {
         this.meta = meta;
         this.project = project;
         this.playback = new Playback(packets, meta.durationTicks);
+        // Read through the session: undo replaces the fields of the project, never the project itself.
+        this.playback.setSpeedTrack(() -> this.project.speed);
         this.lastState = ReplayStorage.GSON.toJson(project);
         this.actors = new ActorManager(this);
         this.voices = new com.vyrriox.justreplay.voice.VoicePlayer(dir);
