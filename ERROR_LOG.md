@@ -360,3 +360,10 @@
 **Root cause:** Step 2 starts the recording then waits next(5); step 3 first runs at recording tick 6, so its if (t == 5) block (Mods.place, first look read) was dead code on every version
 **Fix:** Run that block once from tick 5 on: if (t >= 5 && !startPlaced) with a static flag, in the three SelfTest.java
 **Prevention:** In a self-test step driven by the recorder tick, never test t == N for the first ticks of a step; use t >= N with a once flag, and log a line from the block so its absence shows
+
+## [2026-11-20 11:58] — CI Forge 1.21.1 fails to provision JDK 8
+**Context:** CI of pull request 24 and of the tag v1.2.0 (build job forge-1.21.1, ForgeGradle 7)
+**Error:** Failed to provision JDK 8 / JavaProvisionerException: Failed to provision Disco download: OpenJDK8U-jdk_x64_linux_hotspot_8u514b01.tar.gz
+**Root cause:** ForgeGradle 7 downloads a JDK 8 through the Disco API on a fresh runner; the download fails now and then on the runner network. Not in the code: the same commit builds locally and on the rerun.
+**Fix:** gh run rerun <run id> --failed: the job passed on the rerun both times.
+**Prevention:** A forge-1.21.1 or forge-26.1.2 CI job red on 'Failed to provision JDK 8' is rerun, never fixed in the code and never a reason to retag.
