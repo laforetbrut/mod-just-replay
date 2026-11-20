@@ -62,6 +62,11 @@ public final class ClientHooks {
         return JustReplayClient.hidesGuiLayer(replayLayer, chatLayer);
     }
 
+    /** Before the camera of the frame is worked out, ahead of the frame hooks (26.1 extracts the frame first). */
+    public static void onCameraUpdate(float partialTick) {
+        JustReplayClient.onCameraUpdate(partialTick);
+    }
+
     public static void onFramePre(float partialTick) {
         JustReplayClient.onRenderFramePre(partialTick);
     }
