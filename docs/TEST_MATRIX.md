@@ -57,6 +57,12 @@ Everything goes to `build/test-matrix/<date>/`, and `build/test-matrix/latest-re
 - `report.md` and `report.json`: per target the build, the unit tests, the self test verdict, the PASS and FAIL
   counts, the time and the game log, then every FAIL line, crash report and time out;
 - `selftest-<target>.txt`: every check of the target, one per line, `PASS` or `FAIL` first;
+- in `report.md`, per target: the startup line of the game log (`Just Replay ... Integrations on: ...`), the
+  number of integration warnings (`integration of Just Replay failed in`) and every `Replay: N packets skipped`
+  or `Recording: N packets skipped` line. The self test turns Simple Voice Chat off at startup and writes an
+  unreadable packet into its recording, so a normal run shows one warning, `failed: Simple Voice Chat (in self test
+  forced failure)` in the startup line and `packet #16383 could not be read` in the skipped lines (see
+  `-PselftestFailCompat` in `docs/BUILDING.md`). `--parse` prints them too;
 - `gradle-build-<target>.log` and `gradle-run-<target>.log`: the whole Gradle output.
 
 A line counts when it holds a verdict (`-> OK`, `OK`, `PASS`, `FAIL`; a line with two checks is FAIL if one
@@ -175,6 +181,13 @@ Tout va dans `build/test-matrix/<date>/`, et `build/test-matrix/latest-report.md
 - `report.md` et `report.json` : par cible le build, les tests unitaires, le verdict du test, le nombre de PASS
   et de FAIL, la durée et le journal du jeu, puis chaque ligne FAIL, rapport de crash et dépassement de délai ;
 - `selftest-<cible>.txt` : chaque vérification de la cible, une par ligne, précédée de `PASS` ou `FAIL` ;
+- dans `report.md`, par cible : la ligne de démarrage du log du jeu (`Just Replay ... Integrations on: ...`), le
+  nombre d'avertissements d'intégration (`integration of Just Replay failed in`) et chaque ligne
+  `Replay: N packets skipped` ou `Recording: N packets skipped`. Le test automatique coupe Simple Voice Chat au
+  démarrage et écrit un paquet illisible dans son enregistrement : une passe normale montre donc un avertissement,
+  `failed: Simple Voice Chat (in self test forced failure)` dans la ligne de démarrage et
+  `packet #16383 could not be read` dans les lignes de paquets ignorés (voir `-PselftestFailCompat` dans
+  `docs/BUILDING.md`). `--parse` les affiche aussi ;
 - `gradle-build-<cible>.log` et `gradle-run-<cible>.log` : toute la sortie de Gradle.
 
 Une ligne compte quand elle porte un verdict (`-> OK`, `OK`, `PASS`, `FAIL` ; une ligne qui contient deux

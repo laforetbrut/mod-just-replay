@@ -22,6 +22,7 @@ Heads up: the automatic self test passes on every target, Armourer's Workshop in
 
 ### Changed
 - **Self test**: checks hidden armor on every target, Armourer's Workshop skins of hidden slots when the mod is there, and More Player Models looks on Forge 1.20.1 (with `-PdevMods`).
+- **Self test**: now tries to break the compat safety net on purpose. It turns one integration off at startup (`-PselftestFailCompat`, Simple Voice Chat by default) and slips an unreadable packet into its recording: one warning, the startup line says it failed, the packet shows up in `Replay: N packets skipped`, and the replay keeps rolling. The test matrix report lists those lines for every target.
 - **Create Aeronautics, Sable, Create Propulsion**: checked together with Create 6.0.10 on NeoForge 1.21.1. The game loads, and recording, replays and seeks pass the self test. See `docs/COMPATIBILITY.md`.
 - **Building from source**: `./gradlew build` also runs the unit tests of `common/<mc>/src/test`, and the target branches carry them. See `docs/BUILDING.md`.
 - **Test matrix**: `tools/test_matrix.py` builds and self tests every target one after the other, with one report, also with the mods of a modpack. See `docs/TEST_MATRIX.md`.
@@ -55,6 +56,7 @@ Attention : le test automatique passe sur toutes les cibles, Armourer's Workshop
 
 ### Modifications
 - **Test automatique** : vérifie l'armure masquée sur toutes les cibles, les skins d'Armourer's Workshop des emplacements masqués quand le mod est là, et les apparences de More Player Models sur Forge 1.20.1 (avec `-PdevMods`).
+- **Test automatique** : il essaie maintenant de casser exprès le filet de sécurité compat. Il coupe une intégration au démarrage (`-PselftestFailCompat`, Simple Voice Chat par défaut) et glisse un paquet illisible dans son enregistrement : un seul avertissement, la ligne de démarrage la donne en échec, le paquet apparaît dans `Replay: N packets skipped`, et le replay continue de tourner. Le rapport de la matrice de tests relève ces lignes pour chaque cible.
 - **Create Aeronautics, Sable, Create Propulsion** : vérifiés ensemble avec Create 6.0.10 sur NeoForge 1.21.1. Le jeu charge, et l'enregistrement, les replays et les sauts passent le test automatique. Voir `docs/COMPATIBILITY.md`.
 - **Compiler le mod** : `./gradlew build` lance aussi les tests unitaires de `common/<mc>/src/test`, et les branches de cible les embarquent. Voir `docs/BUILDING.md`.
 - **Matrice de tests** : `tools/test_matrix.py` compile et teste toutes les cibles l'une après l'autre, avec un seul rapport, aussi avec les mods d'un modpack. Voir `docs/TEST_MATRIX.md`.

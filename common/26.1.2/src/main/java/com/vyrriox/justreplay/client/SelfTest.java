@@ -80,6 +80,17 @@ public final class SelfTest {
     private static int localAnvil;
     private static int replaySteps;
     private static int recorderSteps;
+    /**
+     * A recorded packet no client can read: packet id 16383, far past the last packet of the game. Written into the
+     * recording, it must come back in the replay's skipped count as "could not be read", the replay going on.
+     */
+    private static final byte[] UNREADABLE = {(byte) 0xFF, (byte) 0x7F, 0x4A, 0x52, 0x00, 0x2A};
+    private static final String UNREADABLE_TYPE = "packet #16383";
+    private static boolean unreadableWritten;
+    /** Hook calls made on the integration forced off during the replay, how many of them ran, and the cursor then. */
+    private static int forcedCalls;
+    private static int forcedRan;
+    private static int forcedCursor = -1;
 
     /** Counts, during a replay, the sounds the self test made for its own player while recording. */
     public static void onSound(net.minecraft.client.resources.sounds.SoundInstance sound) {
@@ -341,6 +352,7 @@ public final class SelfTest {
             case 0 -> {
                 saveUserConfig();
                 if (atMenu(mc)) {
+                    checkForcedFailureAtStartup();
                     // Instant replay from the login on, with a short window so the clip starts at a buffer checkpoint.
                     System.setProperty("justreplay.bufferWindowTicks", "160");
                     com.vyrriox.justreplay.config.JRConfig.REPLAY_BUFFER.set(true);
@@ -447,6 +459,12 @@ public final class SelfTest {
                     mc.level.levelEvent(p, 1030, p.blockPosition(), 0);
                     log("local effects played at recording tick 30: a bell sound and an anvil level event");
                 }
+                if (t >= 70 && !unreadableWritten) {
+                    // A packet no client can read, as one of a mod that changed since would come back.
+                    unreadableWritten = Recorder.recordRawForSelfTest(UNREADABLE);
+                    log("unreadable packet ({}) written into the recording at tick {} -> {}", UNREADABLE_TYPE, t,
+                            unreadableWritten ? "OK" : "FAIL");
+                }
                 if (t == 100) {
                     p.connection.sendCommand("setblock ~ ~3 ~ minecraft:diamond_block");
                 }
@@ -552,6 +570,8 @@ public final class SelfTest {
                 Mods.checkImmersivePaintings("after forward seek");
                 Mods.checkCulling("after a toggle key press", false);
                 Mods.checkCullingEntities(mc);
+                checkUnreadableCounted(s);
+                fireForcedFailureHooks(s);
                 shot(mc, "2-seek150");
                 clockGecko = geckoClock();
                 clockEntity = com.vyrriox.justreplay.compat.ReplayCompat.lastGeckoEntityFrameTime();
@@ -564,6 +584,7 @@ public final class SelfTest {
                 Mods.checkCurios(mc, s, "after backward seek");
                 Mods.checkJadeAircraft(mc, "after backward seek");
                 Mods.checkVehicles(mc, "after backward seek");
+                checkForcedFailureDuringReplay(s);
                 shot(mc, "3-seek20");
                 Mods.faceVehicle(mc);
                 checkClockBackSeek(clockGecko, geckoClock(), clockEntity, com.vyrriox.justreplay.compat.ReplayCompat.lastGeckoEntityFrameTime());
@@ -1053,6 +1074,7 @@ public final class SelfTest {
                         frames == 241 && Math.abs(seconds - 4.0) < 1.0E-6 && written ? "OK" : "FAIL");
                 ReplaySession.current().project().speed = new com.vyrriox.justreplay.editor.SpeedTrack();
                 slowExport = null;
+                checkSkippedLine(ReplaySession.current());
                 mc.level.disconnect(net.minecraft.network.chat.Component.empty());
                 // The host stops by itself as soon as its player leaves: leave once it has (10 s at most), which once
                 // froze the game on Fabric when a resource reload came in between. The client must not wait for it.
@@ -1677,6 +1699,87 @@ public final class SelfTest {
     }
 
     /** The two markers placed with the recording marker key arrive on the timeline at the first opening. */
+    /**
+     * Compat safety net, at startup: the integration {@code -Djustreplay.selftestFailCompat} names was turned off by its
+     * own guard before any of its hooks ran, with a single warning, and the startup line lists it as failed.
+     */
+    private static void checkForcedFailureAtStartup() {
+        String id = com.vyrriox.justreplay.compat.Integrations.forcedFailureId();
+        if (id == null) {
+            log("compat safety net: no integration forced off (-D{} unset or none), case skipped",
+                    com.vyrriox.justreplay.compat.Integration.FAIL_PROPERTY);
+            return;
+        }
+        com.vyrriox.justreplay.compat.Integration forced = com.vyrriox.justreplay.compat.Integrations.forcedFailure();
+        if (forced == null) {
+            log("compat safety net: Just Replay has no integration with {} on this version -> FAIL", id);
+            return;
+        }
+        String line = com.vyrriox.justreplay.compat.Integrations.startupLine();
+        boolean listed = line.contains("; failed: " + forced.name() + " (in " + com.vyrriox.justreplay.compat.Integration.FORCED_HOOK + ");");
+        boolean off = !forced.on() && forced.state() == com.vyrriox.justreplay.compat.Integration.State.FAILED
+                && com.vyrriox.justreplay.compat.Integration.FORCED_HOOK.equals(forced.failedHook());
+        int warnings = com.vyrriox.justreplay.compat.Integrations.forcedFailureWarnings();
+        log("compat safety net: {} turned off at startup ({}), {} warning(s), listed as failed in the startup line {} -> {}",
+                forced.name(), forced.state().label(), warnings, listed, off && listed && warnings == 1 ? "OK" : "FAIL");
+    }
+
+    /**
+     * Compat safety net, during the replay: the hooks of the integration forced off fire as a broken one's would, on
+     * every kind of guard, many times. None may run, none may warn again.
+     */
+    private static void fireForcedFailureHooks(ReplaySession s) {
+        com.vyrriox.justreplay.compat.Integration forced = com.vyrriox.justreplay.compat.Integrations.forcedFailure();
+        if (forced == null) {
+            return;
+        }
+        int[] ran = {0};
+        for (int i = 0; i < 100; i++) {
+            forced.run("self test hook", () -> {
+                ran[0]++;
+                throw new IllegalStateException("self test hook");
+            });
+            if (forced.test("self test check", () -> ++ran[0] > 0)) {
+                ran[0]++;
+            }
+            forced.cleanup("self test cleanup", () -> {
+                throw new NoClassDefFoundError("justreplay/selftest/Missing");
+            });
+        }
+        forcedCalls = 300;
+        forcedRan = ran[0];
+        forcedCursor = s.playback().cursor();
+    }
+
+    /** Compat safety net, once the replay played on: still one warning, no hook ran, the cursor moved. */
+    private static void checkForcedFailureDuringReplay(ReplaySession s) {
+        com.vyrriox.justreplay.compat.Integration forced = com.vyrriox.justreplay.compat.Integrations.forcedFailure();
+        if (forced == null || forcedCursor < 0) {
+            return;
+        }
+        int warnings = com.vyrriox.justreplay.compat.Integrations.forcedFailureWarnings();
+        boolean playing = ReplaySession.isRunning() && s.playback().cursor() > 20;
+        log("compat safety net: {} hook calls on {} during the replay, {} ran, {} warning(s), replay playing on at tick {} -> {}",
+                forcedCalls, forced.name(), forcedRan, warnings, s.playback().cursor(),
+                forcedRan == 0 && warnings == 1 && !forced.on() && playing ? "OK" : "FAIL");
+    }
+
+    /** The unreadable packet of the recording was counted as such, and the replay played past it. */
+    private static void checkUnreadableCounted(ReplaySession s) {
+        long read = s.playback().skipped().countOf(com.vyrriox.justreplay.record.SkippedPackets.Stage.READ, UNREADABLE_TYPE);
+        int cursor = s.playback().cursor();
+        log("unreadable packet: {} x '{} could not be read' so far, replay playing on at tick {} -> {}", read, UNREADABLE_TYPE,
+                cursor, unreadableWritten && read >= 1 && cursor > 150 ? "OK" : "FAIL");
+    }
+
+    /** The line the end of the replay logs names the unreadable packet ("Replay: N packets skipped (...)"). */
+    private static void checkSkippedLine(ReplaySession s) {
+        String summary = s.playback().skipped().summary();
+        boolean listed = summary != null && summary.startsWith("Replay: ")
+                && summary.contains(" x " + UNREADABLE_TYPE + " " + com.vyrriox.justreplay.record.SkippedPackets.Stage.READ.label());
+        log("skipped packets line at the end of the replay: [{}] -> {}", summary, listed ? "OK" : "FAIL");
+    }
+
     private static void checkRecordingMarkers(ReplaySession s) {
         java.util.List<ReplayProject.Marker> marks = s.project().markers;
         boolean names = marks.size() == 2 && "Marker 1".equals(marks.get(0).name) && "Marker 2".equals(marks.get(1).name);

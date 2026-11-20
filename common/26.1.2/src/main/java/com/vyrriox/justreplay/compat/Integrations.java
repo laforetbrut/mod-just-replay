@@ -10,6 +10,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * The state of every integration of this Minecraft version, decided once from the mod list, {@link CompatTargets} and
@@ -21,6 +22,10 @@ import java.util.Set;
 public final class Integrations {
     /** Mod ids found installed, for the startup line and the settings screen. Filled by {@link #detectAll()}. */
     private static final Set<String> FOUND = new HashSet<>();
+    /** Mod id of the integration the self test turns off at startup ({@link Integration#FAIL_PROPERTY}), or null. */
+    private static final String FORCED_FAILURE = Integration.forcedFailureId(System.getProperty(Integration.FAIL_PROPERTY));
+    /** Warnings the integration forced off has written: the self test expects one, however often its hooks run. */
+    private static final AtomicInteger FORCED_WARNINGS = new AtomicInteger();
     /** Every integration by mod id, in the order of {@link CompatTargets#NAMES}. */
     private static final Map<String, Integration> ALL = detectAll();
 
@@ -47,6 +52,10 @@ public final class Integrations {
         for (Map.Entry<String, String> entry : CompatTargets.NAMES.entrySet()) {
             all.put(entry.getKey(), detect(entry.getKey(), entry.getValue()));
         }
+        if (FORCED_FAILURE != null && !all.containsKey(FORCED_FAILURE)) {
+            LoggerFactory.getLogger(Integrations.class).warn("-D{}={}: Just Replay has no integration with that mod on this "
+                    + "Minecraft version, nothing was turned off", Integration.FAIL_PROPERTY, FORCED_FAILURE);
+        }
         return Collections.unmodifiableMap(all);
     }
 
@@ -68,7 +77,17 @@ public final class Integrations {
                     name, t.toString());
             installed = false;
         }
-        return Integration.of(modId, name, installed, supported, enabled);
+        if (!modId.equals(FORCED_FAILURE)) {
+            return Integration.of(modId, name, installed, supported, enabled);
+        }
+        // Self test: counted as installed even when it is not, so that the startup line shows it failed. It fails
+        // before any of its hooks runs, through the same guard as they do.
+        FOUND.add(modId);
+        Integration integration = Integration.counted(modId, name, true, supported, enabled, FORCED_WARNINGS);
+        integration.run(Integration.FORCED_HOOK, () -> {
+            throw new IllegalStateException("forced by -D" + Integration.FAIL_PROPERTY + "=" + modId);
+        });
+        return integration;
     }
 
     private static boolean isInstalled(String modId) {
@@ -102,6 +121,21 @@ public final class Integrations {
         return FOUND.contains(integration.modId());
     }
 
+    /** The integration the self test turned off at startup, or null (see {@link Integration#FAIL_PROPERTY}). */
+    public static Integration forcedFailure() {
+        return FORCED_FAILURE == null ? null : ALL.get(FORCED_FAILURE);
+    }
+
+    /** The mod id {@link Integration#FAIL_PROPERTY} names, or null. */
+    public static String forcedFailureId() {
+        return FORCED_FAILURE;
+    }
+
+    /** Warnings the integration forced off has written so far. */
+    public static int forcedFailureWarnings() {
+        return FORCED_WARNINGS.get();
+    }
+
     /**
      * Writes one line at startup with this mod's version, the loader, the game and the state of each integration
      * found, so that a crash log tells at once what Just Replay was doing.
@@ -114,7 +148,7 @@ public final class Integrations {
         }
     }
 
-    static String startupLine() {
+    public static String startupLine() {
         Platform platform = Platform.get();
         String loader = platform.loaderName();
         String loaderId = "fabric".equals(loader) ? "fabricloader" : loader;

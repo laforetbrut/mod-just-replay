@@ -64,6 +64,9 @@ minecraft {
             }
             if (project.hasProperty('selftest')) {
                 property 'justreplay.selftest', 'true'
+                // Integration the self test turns off at startup to check the compat safety net (Simple Voice Chat by
+                // default, supported on every loader; none: no integration), see SelfTest.checkForcedFailureAtStartup.
+                property 'justreplay.selftestFailCompat', (project.findProperty('selftestFailCompat') ?: 'voicechat').toString()
                 // Immersive Vehicles car the self test places (an item id or its start), see SelfTest.Mods.vehicleItem.
                 property 'justreplay.selftestVehicle', project.findProperty('selftestVehicle') ?: ''
                 jvmArgs '-Xmx8G'

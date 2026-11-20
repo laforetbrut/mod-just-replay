@@ -154,6 +154,13 @@ Big modpacks mix versions nobody tested together, so every integration has a saf
   found, for example `Just Replay 1.1.2 on neoforge 21.1.221, Minecraft 1.21.1. Integrations on: Curios, Jade; off in
   the config: GeckoLib; installed but not supported on this loader: none; not installed: 26.` Read it first in a
   crash log.
+- The self test checks this net in game on every target. It turns one integration off at startup
+  (`-PselftestFailCompat`, Simple Voice Chat by default, counted as installed when it is not), fires its hooks
+  300 times during the replay, and writes an unreadable packet (`packet #16383`) into its recording. Expected: one
+  warning, `failed: Simple Voice Chat (in self test forced failure)` in the startup line,
+  `packet #16383 could not be read` in the `Replay: N packets skipped (...)` line, and the replay plays on.
+  Run on the nine targets on 2026-11-20: as expected everywhere (one warning per game, the packet counted 6 or 7
+  times in the main replay because of its seeks, once in the buffer clip).
 
 ### Known limits
 
@@ -598,6 +605,13 @@ Les gros modpacks mélangent des versions que personne n'a testées ensemble, al
   trouvée, par exemple `Just Replay 1.1.2 on neoforge 21.1.221, Minecraft 1.21.1. Integrations on: Curios, Jade; off
   in the config: GeckoLib; installed but not supported on this loader: none; not installed: 26.` C'est la première
   ligne à lire dans un log de crash.
+- Le test automatique vérifie ce filet en jeu sur toutes les cibles. Il coupe une intégration au démarrage
+  (`-PselftestFailCompat`, Simple Voice Chat par défaut, compté comme installé s'il ne l'est pas), déclenche ses
+  points d'accroche 300 fois pendant le replay, et écrit un paquet illisible (`packet #16383`) dans son
+  enregistrement. Attendu : un seul avertissement, `failed: Simple Voice Chat (in self test forced failure)` dans la
+  ligne de démarrage, `packet #16383 could not be read` dans la ligne `Replay: N packets skipped (...)`, et le replay
+  continue. Passé sur les neuf cibles le 2026-11-20 : conforme partout (un avertissement par jeu, le paquet compté 6
+  ou 7 fois dans le replay principal à cause de ses sauts, une fois dans le clip du tampon).
 
 ### Limites connues
 

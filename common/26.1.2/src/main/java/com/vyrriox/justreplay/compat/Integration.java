@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 
 /**
@@ -37,6 +38,15 @@ public final class Integration {
         }
     }
 
+    /**
+     * Development switch of the self test: {@code -Djustreplay.selftestFailCompat=<mod id>} turns that integration off
+     * at startup through its own guard, as if its first hook had failed, so that the self test sees the safety net work
+     * in game: one warning, the startup line, the replay going on.
+     */
+    public static final String FAIL_PROPERTY = "justreplay.selftestFailCompat";
+    /** The hook the forced failure is logged under. */
+    public static final String FORCED_HOOK = "self test forced failure";
+
     /** The logger of {@code JustReplay.LOGGER}, named here so that this class needs no game class. */
     private static final BiConsumer<String, Throwable> LOG =
             (message, error) -> LoggerFactory.getLogger("com.vyrriox.justreplay.JustReplay").warn(message, error);
@@ -60,8 +70,32 @@ public final class Integration {
 
     /** The integration with this mod, from what the loader and the config say about it. */
     public static Integration of(String modId, String name, boolean installed, boolean supported, boolean enabled) {
-        State state = !installed ? State.ABSENT : !supported ? State.UNSUPPORTED : !enabled ? State.OFF_IN_CONFIG : State.ON;
-        return new Integration(modId, name, state, LOG);
+        return new Integration(modId, name, stateOf(installed, supported, enabled), LOG);
+    }
+
+    /** As {@link #of}, also counting in {@code warnings} the warnings it writes: the self test expects a single one. */
+    public static Integration counted(String modId, String name, boolean installed, boolean supported, boolean enabled,
+                                      AtomicInteger warnings) {
+        return new Integration(modId, name, stateOf(installed, supported, enabled), (message, error) -> {
+            warnings.incrementAndGet();
+            LOG.accept(message, error);
+        });
+    }
+
+    private static State stateOf(boolean installed, boolean supported, boolean enabled) {
+        return !installed ? State.ABSENT : !supported ? State.UNSUPPORTED : !enabled ? State.OFF_IN_CONFIG : State.ON;
+    }
+
+    /**
+     * The mod id {@link #FAIL_PROPERTY} names, or null when it is not set, blank or {@code none}: the self test turns
+     * the integration with that mod off at startup.
+     */
+    public static String forcedFailureId(String value) {
+        if (value == null) {
+            return null;
+        }
+        String id = value.trim().toLowerCase(java.util.Locale.ROOT);
+        return id.isEmpty() || id.equals("none") || id.equals("false") ? null : id;
     }
 
     /** True while the hooks of this integration run. A volatile read: cheap enough for every packet or frame. */

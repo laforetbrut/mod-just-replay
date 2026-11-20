@@ -71,6 +71,9 @@ loom {
             }
             if (project.hasProperty('selftest')) {
                 vmArg '-Djustreplay.selftest=true'
+                // Integration the self test turns off at startup to check the compat safety net (Simple Voice Chat by
+                // default, supported on every loader; none: no integration), see SelfTest.checkForcedFailureAtStartup.
+                vmArg "-Djustreplay.selftestFailCompat=${project.findProperty('selftestFailCompat') ?: 'voicechat'}"
                 vmArg '-Xmx8G'
                 vmArg '-Djustreplay.checkpointTicks=60'
             }
@@ -99,7 +102,8 @@ tasks.register('runProductionSelftest', net.fabricmc.loom.task.prod.ClientProduc
     group = 'fabric'
     description = 'Runs the self test on the production jar with Fabric API.'
     runDir = layout.projectDirectory.dir('run-prod')
-    jvmArgs.addAll('-Djustreplay.selftest=true', '-Xmx4G', '-Djustreplay.checkpointTicks=60')
+    jvmArgs.addAll('-Djustreplay.selftest=true',
+            "-Djustreplay.selftestFailCompat=${project.findProperty('selftestFailCompat') ?: 'voicechat'}", '-Xmx4G', '-Djustreplay.checkpointTicks=60')
 }
 
 processResources {

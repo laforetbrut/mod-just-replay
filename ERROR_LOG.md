@@ -332,3 +332,10 @@
 **Root cause:** pumpLookups started each due lookup inside its iterator loop. A lookup whose future was already complete (failed at once) ran its whenComplete callback on the render thread, and Minecraft.execute ran complete() right away, which queued the retry into the list being walked.
 **Fix:** pumpLookups collects the due lookups, ends the walk, then starts them (commit after 'fix: a failed actor skin lookup could crash the replay'), in the three versions.
 **Prevention:** Never start work that may complete synchronously while iterating the queue it can modify; collect first, act after the loop.
+
+## [2026-11-20 03:30] — NeoForge 1.20.1 startup line without the loader version
+**Context:** Reading the startup line of each target in the self test matrix of the compat safety net
+**Error:** Just Replay 1.1.2 on neoforge, Minecraft 1.20.1. Integrations on: ... (no loader version, the eight other targets have one)
+**Root cause:** Integrations.startupLine looks the loader version up under the loader name; NeoForge 1.20.1 still lists itself under the mod id forge, so no mod neoforge is found
+**Fix:** common/1.20.1 Integrations.startupLine falls back to the forge mod version when the loader is neoforge (now: on neoforge 47.1.106)
+**Prevention:** On 1.20.1 NeoForge is the mod id forge: never look it up as neoforge (mods.toml, mod list, Modrinth tags already follow this)

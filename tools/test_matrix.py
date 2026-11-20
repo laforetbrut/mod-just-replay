@@ -297,14 +297,28 @@ def wait_until_free(wait_seconds, ignore_servers, say):
 # ---------------------------------------------------------------- self test log
 
 VERDICT = re.compile(r"\b(OK|PASS|FAIL)\b")
+STARTUP = re.compile(r"(Just Replay \S+ on .*\. Integrations on: .*)$")
+SKIPPED = re.compile(r"((?:Replay|Recording): \d+ packets? skipped \(.*\))$")
+INTEGRATION_FAILED = "integration of Just Replay failed in"
 
 
 def parse_selftest(lines):
     """PASS and FAIL lines of a self test log. A line counts as FAIL when it holds a FAIL verdict (some lines carry
     two checks), as PASS when it holds only OK or PASS verdicts; other SELFTEST lines are information."""
-    result = {"pass": [], "fail": [], "info": 0, "done": False, "aborted": None}
+    result = {"pass": [], "fail": [], "info": 0, "done": False, "aborted": None,
+              "startup": None, "skipped": [], "integration_warnings": 0}
     for raw in lines:
         if "SELFTEST " not in raw:
+            # What the compat safety net says outside the self test lines: the startup line, the packets each
+            # recording and replay skipped, and the warnings of integrations that turned themselves off.
+            found = STARTUP.search(raw)
+            if found and result["startup"] is None:
+                result["startup"] = found.group(1)
+            found = SKIPPED.search(raw)
+            if found:
+                result["skipped"].append(found.group(1))
+            if INTEGRATION_FAILED in raw:
+                result["integration_warnings"] += 1
             continue
         message = raw[raw.index("SELFTEST ") + len("SELFTEST "):].rstrip()
         if message == "DONE":
@@ -350,16 +364,30 @@ def self_check():
         "[12:00:07] [Render thread/INFO] [JustReplay/]: SELFTEST DONE"]
     aborted = good[:2] + ["[12:00:08] [Render thread/ERROR] [JustReplay/]: SELFTEST FAIL at step 7: timed out"]
     unfinished = good[:3]
+    net = ["[11:59:00] [main/INFO] [com.vyrriox.justreplay.JustReplay/]: Just Replay 1.1.2 on fabric 0.16.9, Minecraft "
+           "1.21.1. Integrations on: none; off in the config: none; installed but not supported on this loader: none; "
+           "failed: Simple Voice Chat (in self test forced failure); not installed: 17.",
+           "[11:59:00] [main/WARN] [com.vyrriox.justreplay.JustReplay/]: The Simple Voice Chat integration of Just Replay "
+           "failed in self test forced failure and is off until the game restarts; Simple Voice Chat itself keeps working.",
+           "[12:00:09] [Render thread/WARN] [com.vyrriox.justreplay.JustReplay/]: Replay: 2 packets skipped "
+           "(2 x packet #16383 could not be read)"] + good
     checks = [
         ("good log", parse_selftest(good), "PASS", 3, 0),
         ("two failed checks", parse_selftest(bad), "FAIL", 1, 2),
         ("aborted run", parse_selftest(aborted), "FAIL", 1, 1),
         ("game closed before DONE", parse_selftest(unfinished), "INCOMPLETE", 2, 0),
         ("no SELFTEST line", parse_selftest(["[12:00:00] [main/INFO] [minecraft/]: Loading"]), "INCOMPLETE", 0, 0),
+        ("startup line and skipped packets", parse_selftest(net), "PASS", 3, 0),
     ]
     wrong = 0
     for name, got, verdict, passes, fails in checks:
         ok = got["verdict"] == verdict and len(got["pass"]) == passes and len(got["fail"]) == fails
+        if name == "startup line and skipped packets":
+            ok = ok and got["startup"] is not None and "failed: Simple Voice Chat" in got["startup"] \
+                and got["skipped"] == ["Replay: 2 packets skipped (2 x packet #16383 could not be read)"] \
+                and got["integration_warnings"] == 1
+        elif name == "good log":
+            ok = ok and got["startup"] is None and not got["skipped"] and got["integration_warnings"] == 0
         wrong += not ok
         print(f"{'ok  ' if ok else 'BAD '} {name}: {got['verdict']} ({len(got['pass'])} PASS, {len(got['fail'])} FAIL),"
               f" expected {verdict} ({passes} PASS, {fails} FAIL)")
@@ -594,6 +622,16 @@ def write_report(report_dir, started, results, options):
             lines += [f"- {note}" for note in r.get("notes", [])]
             lines += [f"- FAIL {line}" for line in (r.get("selftest") or {}).get("fail", [])]
             lines.append("")
+    logged = [r for r in results if r.get("selftest")]
+    if logged:
+        lines += ["", "## Startup line, skipped packets, integration warnings", ""]
+        for r in logged:
+            st = r["selftest"]
+            lines.append(f"### {r['target']}")
+            lines.append(f"- startup: `{st.get('startup') or 'not found'}`")
+            lines.append(f"- integration warnings (\"{INTEGRATION_FAILED}\"): {st.get('integration_warnings', 0)}")
+            lines += [f"- skipped: `{line}`" for line in st.get("skipped", [])] or ["- skipped: no line"]
+            lines.append("")
     lines += ["", "Every PASS and FAIL line: `selftest-<target>.txt` in this folder; Gradle output: `gradle-*.log`.", ""]
     text = "\n".join(lines)
     with open(os.path.join(report_dir, "report.md"), "w", encoding="utf-8") as f:
@@ -814,6 +852,10 @@ def main(argv=None):
             print("PASS ", line)
         for line in parsed["fail"]:
             print("FAIL ", line)
+        print("startup:", parsed["startup"] or "not found")
+        print(f"integration warnings: {parsed['integration_warnings']}")
+        for line in parsed["skipped"]:
+            print("skipped:", line)
         print(f"{parsed['verdict']}: {len(parsed['pass'])} PASS, {len(parsed['fail'])} FAIL, {parsed['info']} other "
               f"SELFTEST lines" + ("" if parsed["done"] else ", no SELFTEST DONE"))
         return EXIT_OK if parsed["verdict"] == "PASS" else EXIT_FAILED

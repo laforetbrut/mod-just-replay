@@ -49,6 +49,9 @@ neoForge {
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
             if (project.hasProperty('selftest')) {
                 systemProperty 'justreplay.selftest', 'true'
+                // Integration the self test turns off at startup to check the compat safety net (Simple Voice Chat by
+                // default, supported on every loader; none: no integration), see SelfTest.checkForcedFailureAtStartup.
+                systemProperty 'justreplay.selftestFailCompat', (project.findProperty('selftestFailCompat') ?: 'voicechat').toString()
                 // Immersive Vehicles car the self test places (an item id or its start), see SelfTest.Mods.vehicleItem.
                 systemProperty 'justreplay.selftestVehicle', project.findProperty('selftestVehicle') ?: ''
                 jvmArgument '-Xmx8G'
