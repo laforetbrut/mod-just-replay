@@ -22,6 +22,13 @@ if (commonDir.isDirectory()) {
     sourceSets.main.resources.srcDir(new File(commonDir, 'resources'))
 }
 
+// Unit tests of the shared code (classes without game code), run by ./gradlew build. On the per-target branches they
+// are merged into src/test, so this block does nothing there.
+def commonTestDir = file("../common/${minecraft_version}/src/test/java")
+if (commonTestDir.isDirectory()) {
+    sourceSets.test.java.srcDir(commonTestDir)
+}
+
 sourceSets.main.resources {
     exclude('**/*.bbmodel.license')
 }
@@ -44,6 +51,11 @@ minecraft {
         register('client') {
             if (project.hasProperty('gameDir')) {
                 workingDir = file(project.property('gameDir'))
+            }
+            // Slime Launcher keeps the game assets in <user.home>/.minecraft/assets: -PmcHome=<dir> gives the dev game
+            // another home, on a machine where that folder cannot be written.
+            if (project.hasProperty('mcHome')) {
+                systemProperty 'user.home', file(project.property('mcHome')).absolutePath
             }
             if (project.hasProperty('selftest')) {
                 systemProperty 'justreplay.selftest', 'true'
@@ -86,6 +98,8 @@ repositories {
 }
 
 dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.2'
     implementation minecraft.dependency("net.minecraftforge:forge:${minecraft_version}-${forge_version}")
 
     // Simple Voice Chat API (the version bundled with voicechat 1.21.1-2.6.22); optional at runtime.
@@ -143,4 +157,12 @@ idea {
         downloadSources = true
         downloadJavadoc = true
     }
+}
+
+tasks.named('test', Test).configure {
+    useJUnitPlatform()
+    // The game's logging writes a logs folder where the tests run: keep it in build.
+    def testRun = layout.buildDirectory.dir('test-run').get().asFile
+    workingDir = testRun
+    doFirst { testRun.mkdirs() }
 }

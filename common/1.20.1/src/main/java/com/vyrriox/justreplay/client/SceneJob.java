@@ -302,7 +302,8 @@ final class SceneJob {
                 }
                 mc.setScreen(null);
                 session.setCameraPath(true);
-                Component error = VideoExporter.start(session, e.start(), e.end(), e.name(), e.settings());
+                // A job names its exports itself: no range is added to the file name.
+                Component error = VideoExporter.start(session, e.start(), e.end(), e.name(), e.settings(), false);
                 if (error != null) {
                     fail("the export could not start: {}", error.getString());
                     return;

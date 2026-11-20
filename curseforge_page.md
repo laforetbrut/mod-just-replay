@@ -24,9 +24,9 @@
 <p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/montage.gif" alt="Shots of a festival clip made with Just Replay: the stage and its lights, 400 dancing players, the DJ" width="800"></p>
 <p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/users.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Actors:</strong></span> any skin or PNG skin, any mob, Blockbench models; seated, walking or following.</p>
 <p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/note.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Dances on the beat:</strong></span> ten styles, from bounce to hakken, locked to the tempo of your music.</p>
-<p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/sparkle.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Effects:</strong></span> transitions, colour grading, vignette, letterbox, all with keyframes.</p>
+<p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/sparkle.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Effects:</strong></span> transitions, colour grading, letterbox, slow motion, timelapses and freeze frames, all with keyframes.</p>
 <p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/pin.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Texts and images:</strong></span> titles and stickers anchored to an entity, a block or a point of the world.</p>
-<p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/bolt.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Works with your mods:</strong></span> Iris, Distant Horizons, Create, Voice Chat, Emotecraft, WaterFrames, Drop the Beam, Immersive Vehicles.</p>
+<p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/bolt.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Works with your mods:</strong></span> Iris, Distant Horizons, Create, Voice Chat, Emotecraft, WaterFrames, Drop the Beam, Immersive Vehicles, More Player Models, Epic Fight, Armourer's Workshop, Custom NPCs.</p>
 </div>
 
 <div align="center" style="text-align:center">
@@ -61,9 +61,9 @@
 <h3><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/title-films-fr.gif" alt="De Vrais Films" width="800"></h3>
 <p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/users.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Acteurs&nbsp;:</strong></span> tout skin ou fichier PNG, tout mob, modèles Blockbench&nbsp;; assis, en marche ou en suivi.</p>
 <p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/note.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Danses en rythme&nbsp;:</strong></span> dix styles, du rebond au hakken, calés sur le tempo de votre musique.</p>
-<p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/sparkle.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Effets&nbsp;:</strong></span> transitions, étalonnage, vignette, bandes cinéma, le tout avec images clés.</p>
+<p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/sparkle.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Effets&nbsp;:</strong></span> transitions, étalonnage, bandes cinéma, ralentis, timelapses et arrêts sur image, le tout avec images clés.</p>
 <p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/pin.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Textes et images&nbsp;:</strong></span> titres et stickers ancrés à une entité, un bloc ou un point du monde.</p>
-<p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/bolt.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Avec vos mods&nbsp;:</strong></span> Iris, Distant Horizons, Create, Voice Chat, Emotecraft, WaterFrames, Drop the Beam, Immersive Vehicles.</p>
+<p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/bolt.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Avec vos mods&nbsp;:</strong></span> Iris, Distant Horizons, Create, Voice Chat, Emotecraft, WaterFrames, Drop the Beam, Immersive Vehicles, More Player Models, Epic Fight, Armourer's Workshop, Custom NPCs.</p>
 </div>
 
 <div align="center" style="text-align:center">

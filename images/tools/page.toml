@@ -108,8 +108,8 @@ icon = "star"
   icon = "sparkle"
   name.en = "Effects"
   name.fr = "Effets"
-  text.en = "transitions, colour grading, vignette, letterbox, all with keyframes."
-  text.fr = "transitions, étalonnage, vignette, bandes cinéma, le tout avec images clés."
+  text.en = "transitions, colour grading, letterbox, slow motion, timelapses and freeze frames, all with keyframes."
+  text.fr = "transitions, étalonnage, bandes cinéma, ralentis, timelapses et arrêts sur image, le tout avec images clés."
 
   [[section.item]]
   icon = "pin"
@@ -122,8 +122,8 @@ icon = "star"
   icon = "bolt"
   name.en = "Works with your mods"
   name.fr = "Avec vos mods"
-  text.en = "Iris, Distant Horizons, Create, Voice Chat, Emotecraft, WaterFrames, Drop the Beam, Immersive Vehicles."
-  text.fr = "Iris, Distant Horizons, Create, Voice Chat, Emotecraft, WaterFrames, Drop the Beam, Immersive Vehicles."
+  text.en = "Iris, Distant Horizons, Create, Voice Chat, Emotecraft, WaterFrames, Drop the Beam, Immersive Vehicles, More Player Models, Epic Fight, Armourer's Workshop, Custom NPCs."
+  text.fr = "Iris, Distant Horizons, Create, Voice Chat, Emotecraft, WaterFrames, Drop the Beam, Immersive Vehicles, More Player Models, Epic Fight, Armourer's Workshop, Custom NPCs."
 
 [[section]]
 id = "start"

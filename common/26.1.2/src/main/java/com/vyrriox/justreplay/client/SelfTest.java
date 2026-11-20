@@ -41,16 +41,29 @@ public final class SelfTest {
 
     private static int step;
     private static Entity hiddenMob;
+    /** The slow motion export of the speed track check. */
+    private static VideoExporter slowExport;
+    private static int slowWait;
     private static Entity movedMob;
     private static int skippedBefore;
     private static int offsetBefore;
+    private static int armorSkippedBefore;
+    private static int armorLayerSkippedBefore;
     private static int wait;
     private static int settle;
     private static int speedStart;
     private static Path replay;
+    /** File the export step writes: its name carries the exported range unless the config keeps the old names. */
+    private static Path exportFile;
     /** Start position of the recording, around which the modded test content is placed. */
     private static net.minecraft.core.BlockPos modsBase;
     private static Path clip;
+    /** Rename check: the name typed in the naming window, the folder it gives and a replay already in that folder. */
+    private static final String RENAME_TYPED = "Self test: clip?";
+    private static final String RENAME_FOLDER = "Self test_ clip_";
+    private static Path renameDecoy;
+    private static String renameDefault;
+    private static int renameWait;
     private static java.util.concurrent.CompletableFuture<com.vyrriox.justreplay.format.ReplayBuffer.Saved> clipSave;
     /** Blocks the placement steps seat and lay actors on: stairs and the head of a bed. */
     private static net.minecraft.core.BlockPos stairPos;
@@ -310,6 +323,7 @@ public final class SelfTest {
             // showing none has no reader, and the two reads of a check would see a single jump back and no rise.
             geckoClock();
         }
+        pollServerPack(mc);
         if (wait > 0) {
             wait--;
             return;
@@ -356,6 +370,7 @@ public final class SelfTest {
                     }
                     if (mc.screen == null) {
                         log("in world at {}", p.position());
+                        pushServerPack(mc);
                         stopDayCycle(mc);
                         Mods.placeVehicle(mc, p, 8, 6);
                         next(60);
@@ -435,6 +450,11 @@ public final class SelfTest {
                 if (t == 100) {
                     p.connection.sendCommand("setblock ~ ~3 ~ minecraft:diamond_block");
                 }
+                if ((t == 60 || t == 150) && mc.screen == null) {
+                    // Through the key, as a player would: two markers 90 ticks apart, both inside the buffer clip.
+                    net.minecraft.client.KeyMapping.click(((com.vyrriox.justreplay.mixin.KeyMappingAccessor) JRKeys.RECORDING_MARKER).justreplay$getKey());
+                    log("recording marker key pressed at recording tick {}", t);
+                }
                 if (t % 40 == 0 && Recorder.capturing() != null) {
                     log("recording cost: {}", Recorder.capturing().lastCost());
                 }
@@ -466,7 +486,7 @@ public final class SelfTest {
             case 4 -> {
                 if (atMenu(mc)) {
                     Mods.checkCulling("before the replay", true);
-                    ReplaySession.open(replay, mc.screen);
+                    openThroughModWarning(mc, replay);
                     log("replay opening");
                     next(40);
                 }
@@ -480,6 +500,7 @@ public final class SelfTest {
             }
             case 6 -> {
                 ReplaySession s = ReplaySession.current();
+                checkRecordingMarkers(s);
                 logWorld(mc, s, "playing");
                 log("mods while playing: {}", Mods.state(mc, s));
                 Mods.checkCurios(mc, s, "at start");
@@ -571,6 +592,12 @@ public final class SelfTest {
                 ReplayProject.ActorData player = new ReplayProject.ActorData();
                 player.name = "Notch";
                 player.mainHand = "minecraft:diamond_sword";
+                // Hidden helmet, visible chestplate: checked once the actors are drawn.
+                player.head = "minecraft:diamond_helmet";
+                player.chest = "minecraft:iron_chestplate";
+                player.hiddenArmor = com.vyrriox.justreplay.editor.ArmorSlots.HEAD;
+                armorSkippedBefore = com.vyrriox.justreplay.editor.ArmorSlots.skipped();
+                armorLayerSkippedBefore = com.vyrriox.justreplay.editor.ArmorSlots.armorLayerSkipped();
                 player.keyframes.add(new ReplayProject.ActorKeyframe(20, c.x + 2, c.y, c.z + 2, 90, 0));
                 player.keyframes.add(new ReplayProject.ActorKeyframe(120, c.x + 8, c.y, c.z + 2, 90, 0));
                 ReplayProject.ActorData zombie = new ReplayProject.ActorData();
@@ -629,6 +656,7 @@ public final class SelfTest {
                     }
                 }
                 shot(mc, "4-path-actors");
+                checkHiddenArmor(mc, s);
                 // Every curve and timing must give a usable camera state; the free camera then shows the 3D path.
                 for (String curve : new String[]{"CATMULL_ROM", "BEZIER", "LINEAR"}) {
                     for (String timing : new String[]{"CONSTANT_SPEED", "KEYFRAMES"}) {
@@ -928,19 +956,49 @@ public final class SelfTest {
                 s.project().entityEdits.clear();
                 hiddenMob = null;
                 movedMob = null;
+                go(70, 5);
+            }
+            case 70 -> {
+                checkVisuals(mc, ReplaySession.current());
+                go(71, 20);
+            }
+            case 71 -> {
+                ReplaySession s = ReplaySession.current();
+                int skipped = com.vyrriox.justreplay.editor.EntityEdits.skippedRenders() - skippedBefore;
+                log("visuals: entities of the hidden type {} skipped {} renders -> {}", s.project().hiddenEntityTypes, skipped,
+                        hiddenMob == null || skipped > 0 ? "OK" : "FAIL");
+                // Night vision, no fog and the outline: for the owner to look at.
+                shot(mc, "visuals-night-vision-no-fog-outline");
+                com.vyrriox.justreplay.editor.WorldSettings w = s.project().world;
+                w.nightVision = false;
+                w.fog = com.vyrriox.justreplay.editor.WorldSettings.FOG_NORMAL;
+                w.particles = com.vyrriox.justreplay.editor.WorldSettings.PARTICLES_ALL;
+                w.hiddenParticles.clear();
+                s.project().hiddenEntityTypes.clear();
+                s.project().entityEdits.clear();
+                hiddenMob = null;
+                movedMob = null;
                 go(13, 5);
             }
             case 13 -> {
                 mc.setScreen(null);
                 ReplaySession s = ReplaySession.current();
                 s.setCameraPath(false);
-                Files.deleteIfExists(ReplayStorage.exportRoot().resolve("selftest.mp4"));
+                // Ticks 20 to 80 are 0:01 to 0:04. A file left by an earlier run would push this export to _2.
+                exportFile = ReplayStorage.exportRoot().resolve(com.vyrriox.justreplay.config.JRConfig.EXPORT_RANGE_IN_NAME.get()
+                        ? "selftest_00m01s-00m04s.mp4" : "selftest.mp4");
+                Files.deleteIfExists(exportFile);
                 com.vyrriox.justreplay.config.JRConfig.EXPORT_CRF.set(18);
                 com.vyrriox.justreplay.config.JRConfig.EXPORT_FPS.set(60);
                 com.vyrriox.justreplay.config.JRConfig.EXPORT_RESOLUTION.set(com.vyrriox.justreplay.export.ExportResolution.FULL_HD_1080);
                 com.vyrriox.justreplay.editor.overlay.OverlayRenderer.resetExportFrames();
                 var error = VideoExporter.start(s, 20, 80, "selftest");
                 log("export start error={}", error == null ? "none" : error.getString());
+                if (error == null) {
+                    Path output = VideoExporter.current().output();
+                    log("export file name {} (expected {}): {}", output.getFileName(), exportFile.getFileName(),
+                            output.equals(exportFile) ? "OK" : "FAIL");
+                }
                 next(1);
             }
             case 14 -> {
@@ -950,10 +1008,10 @@ public final class SelfTest {
                 }
             }
             case 15 -> {
-                Path mp4 = ReplayStorage.exportRoot().resolve("selftest.mp4");
+                Path mp4 = exportFile;
                 log("export file exists={} size={}", Files.exists(mp4), Files.exists(mp4) ? Files.size(mp4) : 0);
                 log("export audio clips mixed={} (expected 2), audio mux log={}", com.vyrriox.justreplay.export.ExportAudio.lastMixedClips(),
-                        Files.exists(ReplayStorage.exportRoot().resolve("selftest.mp4.audio.log")));
+                        Files.exists(mp4.resolveSibling(mp4.getFileName() + ".audio.log")));
                 log("mods after export: {}", Mods.state(mc, ReplaySession.current()));
                 if (exportClockFirst < 0) {
                     log("clock export: no sample while the export ran FAIL");
@@ -964,9 +1022,49 @@ public final class SelfTest {
                         localAnvil, replaySteps, recorderSteps, localBell > 0 && localAnvil > 0 && recorderSteps > 0 ? "OK" : "FAIL");
                 log("export frames showing overlays: {} ({} overlays in the project)",
                         com.vyrriox.justreplay.editor.overlay.OverlayRenderer.exportFrames(), ReplaySession.current().project().overlays.size());
+                go(72, 5);
+            }
+            case 72 -> {
+                // Speed track: two replay seconds at x0.5 make four seconds of video, 241 frames at 60 fps.
+                ReplaySession s = ReplaySession.current();
+                s.project().speed = new com.vyrriox.justreplay.editor.SpeedTrack();
+                s.project().speed.setKey(0, 0.5F);
+                Files.deleteIfExists(ReplayStorage.exportRoot().resolve("selftest_slow.mp4"));
+                // The exact name whatever rangeInFileName says, as SceneJob does.
+                slowWait = 0;
+                var error = VideoExporter.start(s, 20, 60, "selftest_slow", VideoExporter.Settings.fromConfig(), false);
+                slowExport = VideoExporter.current();
+                log("slow motion export start error={}", error == null ? "none" : error.getString());
+                next(1);
+            }
+            case 73 -> {
+                // The file is written once the finisher thread has let FFmpeg end and mixed the sound: a minute at most.
+                if (!VideoExporter.isActive() && (slowExport == null || slowExport.completion().isDone() || ++slowWait > 1200)) {
+                    next(1);
+                }
+            }
+            case 74 -> {
+                int frames = slowExport == null ? -1 : slowExport.frames();
+                double seconds = slowExport == null ? -1 : slowExport.videoSeconds();
+                Path slow = slowExport == null ? null : slowExport.output();
+                boolean written = slow != null && Files.exists(slow);
+                log("slow motion export: {} frames for 40 ticks at x0.5 (expected 241), {} s of video, file {} written {} -> {}", frames,
+                        seconds, slow == null ? "none" : slow.getFileName(), written,
+                        frames == 241 && Math.abs(seconds - 4.0) < 1.0E-6 && written ? "OK" : "FAIL");
+                ReplaySession.current().project().speed = new com.vyrriox.justreplay.editor.SpeedTrack();
+                slowExport = null;
                 mc.level.disconnect(net.minecraft.network.chat.Component.empty());
+                // The host stops by itself as soon as its player leaves: leave once it has (10 s at most), which once
+                // froze the game on Fabric when a resource reload came in between. The client must not wait for it.
+                net.minecraft.client.server.IntegratedServer host = mc.getSingleplayerServer();
+                long until = System.currentTimeMillis() + 10_000L;
+                while (host != null && host.getRunningThread().isAlive() && System.currentTimeMillis() < until) {
+                    java.util.concurrent.locks.LockSupport.parkNanos(20_000_000L);
+                }
+                boolean hostStopped = host == null || !host.getRunningThread().isAlive();
                 mc.disconnect(new TitleScreen(), false);
-                next(60);
+                log("left the replay once its host had stopped: {} -> {}", hostStopped, hostStopped ? "OK" : "FAIL");
+                go(16, 60);
             }
             case 16 -> {
                 if (atMenu(mc)) {
@@ -975,9 +1073,27 @@ public final class SelfTest {
                         step = 19;
                         return;
                     }
+                    // The clip is named through the window a player gets, then opened under its new name.
+                    offerRename();
+                    go(80, 10);
+                }
+            }
+            case 80 -> {
+                renameWait = 0;
+                go(typeRename(mc) ? 81 : 82, 2);
+            }
+            case 81 -> {
+                if (ReplayNaming.renaming() && ++renameWait < 200) {
+                    return;
+                }
+                checkRename();
+                go(82, 5);
+            }
+            case 82 -> {
+                if (atMenu(mc)) {
                     ReplaySession.open(clip, mc.screen);
                     log("buffer clip opening");
-                    next(40);
+                    go(17, 40);
                 }
             }
             case 17 -> {
@@ -1233,6 +1349,67 @@ public final class SelfTest {
         log("audio clips in project: {} on {} tracks", clips, s.project().audioTracks.size());
     }
 
+    /**
+     * Rename check, first part: a replay already holds the folder the new name gives, then the saved clip waits for
+     * the naming window as a recording the player stops does.
+     */
+    private static void offerRename() throws java.io.IOException {
+        renameDefault = ReplayStorage.readMeta(clip).name;
+        renameDecoy = clip.resolveSibling(RENAME_FOLDER);
+        // Left by an earlier run of the test.
+        ReplayStorage.deleteRecursively(renameDecoy);
+        ReplayStorage.deleteRecursively(clip.resolveSibling(RENAME_FOLDER + " (2)"));
+        Files.createDirectories(renameDecoy);
+        Files.writeString(renameDecoy.resolve("decoy.txt"), "decoy");
+        ReplayNaming.queue(clip);
+        log("rename: clip {} waits for its name, saved as '{}'", clip.getFileName(), renameDefault);
+    }
+
+    /**
+     * Rename check, second part: the window opened by itself on the menu with the saved name selected; a name is
+     * typed over it and Enter closes it. False when the window never opened.
+     */
+    private static boolean typeRename(Minecraft mc) throws java.io.IOException {
+        com.vyrriox.justreplay.gui.TextInputScreen window = ReplayNaming.window();
+        boolean open = window != null && mc.screen == window;
+        log("rename: window opened with the saved name '{}' -> {}", open ? window.value() : String.valueOf(mc.screen),
+                open && renameDefault.equals(window.value()) ? "OK" : "FAIL");
+        if (!open) {
+            ReplayStorage.deleteRecursively(renameDecoy);
+            return false;
+        }
+        // The saved name is selected: the first letter typed replaces it, as for a player.
+        for (char c : RENAME_TYPED.toCharArray()) {
+            window.charTyped(new net.minecraft.client.input.CharacterEvent(c));
+        }
+        log("rename: typed over the saved name '{}' -> {}", window.value(), RENAME_TYPED.equals(window.value()) ? "OK" : "FAIL");
+        window.keyPressed(new net.minecraft.client.input.KeyEvent(257, 0, 0));
+        log("rename: Enter closes the window -> {}", mc.screen != window ? "OK" : "FAIL");
+        return true;
+    }
+
+    /**
+     * Rename check, last part: the clip moved to the folder after the decoy's, the list shows the typed name with
+     * the same number, and the replay that had the folder first is untouched. The clip is then opened from there.
+     */
+    private static void checkRename() throws java.io.IOException {
+        log("rename: done in the background -> {}", ReplayNaming.renaming() ? "FAIL" : "OK");
+        Path renamed = clip.resolveSibling(RENAME_FOLDER + " (2)");
+        boolean moved = Files.isRegularFile(renamed.resolve(ReplayStorage.STREAM)) && !Files.exists(clip);
+        log("rename: folder {} -> {} -> {}", clip.getFileName(), renamed.getFileName(), moved ? "OK" : "FAIL");
+        String shown = ReplayStorage.readMeta(moved ? renamed : clip).name;
+        log("rename: shown name '{}' -> {}", shown, (RENAME_TYPED + " (2)").equals(shown) ? "OK" : "FAIL");
+        Path decoyFile = renameDecoy.resolve("decoy.txt");
+        boolean kept = Files.isRegularFile(decoyFile) && "decoy".equals(Files.readString(decoyFile));
+        log("rename: the replay already in {} is untouched -> {}", renameDecoy.getFileName(), kept ? "OK" : "FAIL");
+        boolean listed = ReplayStorage.list().stream().anyMatch(e -> e.dir().equals(renamed) && shown.equals(e.meta().name));
+        log("rename: the replay list shows it -> {}", listed ? "OK" : "FAIL");
+        ReplayStorage.deleteRecursively(renameDecoy);
+        if (moved) {
+            clip = renamed;
+        }
+    }
+
     /** Checks the saved instant replay opens like any replay: stream, first packet, checkpoints, duration. */
     private static void verifyClip(Minecraft mc) {
         try {
@@ -1251,6 +1428,15 @@ public final class SelfTest {
             log("buffer clip {}: packets={} (saved {}) lastTick={} duration={} checkpoints={} first={} voice={}", clip.getFileName(),
                     packets, saved.packets(), lastTick, ReplayStorage.readMeta(clip).durationTicks,
                     java.util.Arrays.toString(com.vyrriox.justreplay.format.Checkpoints.list(clip)), firstType, saved.voiceFrames());
+            // Markers placed at recording ticks 60 and 150, saved at 200: the last one sits 50 ticks before the end.
+            com.vyrriox.justreplay.format.ReplayMeta clipMeta = ReplayStorage.readMeta(clip);
+            java.util.List<com.vyrriox.justreplay.format.ReplayMeta.Marker> marks = clipMeta.markers == null ? java.util.List.of() : clipMeta.markers;
+            com.vyrriox.justreplay.format.ReplayMeta.Marker last = marks.isEmpty() ? null : marks.get(marks.size() - 1);
+            boolean lastOk = last != null && "Marker 2".equals(last.name) && Math.abs(clipMeta.durationTicks - last.tick - 50) <= 3;
+            boolean spacingOk = marks.size() < 2 || Math.abs(marks.get(1).tick - marks.get(0).tick - 90) <= 1;
+            log("recording markers in the buffer clip: {} at {} of {} ticks -> {}", marks.size(),
+                    marks.stream().map(m -> m.name + "@" + m.tick).toList(), clipMeta.durationTicks,
+                    lastOk && spacingOk && marks.size() <= 2 ? "OK" : "FAIL");
         } catch (Throwable t) {
             JustReplay.LOGGER.error("SELFTEST FAIL buffer clip", t);
             clip = null;
@@ -1266,8 +1452,271 @@ public final class SelfTest {
         }
     }
 
-    /** Optional mods of the test pack: content placed before the recording and their replay state. */
+    /**
+     * Hidden armor: the player actor's helmet is hidden and its chestplate kept, the armor layer skipped at least one
+     * piece while the actors were drawn, the camera player is never touched, and the global option hides every slot.
+     */
+    private static void checkHiddenArmor(Minecraft mc, ReplaySession s) {
+        Entity notch = null;
+        for (ReplayProject.ActorData a : s.project().actors) {
+            if (a.isPlayer() && "Notch".equals(a.name)) {
+                notch = s.actors().entityOf(a);
+                break;
+            }
+        }
+        if (notch == null) {
+            log("hidden armor: player actor missing -> FAIL");
+            return;
+        }
+        int mask = com.vyrriox.justreplay.editor.ArmorSlots.hidden(notch);
+        boolean helmet = com.vyrriox.justreplay.editor.ArmorSlots.hides(notch, net.minecraft.world.entity.EquipmentSlot.HEAD);
+        boolean chest = com.vyrriox.justreplay.editor.ArmorSlots.hides(notch, net.minecraft.world.entity.EquipmentSlot.CHEST);
+        boolean worn = notch instanceof net.minecraft.world.entity.LivingEntity living
+                && !living.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).isEmpty();
+        int skipped = com.vyrriox.justreplay.editor.ArmorSlots.skipped() - armorSkippedBefore;
+        // The head item layer skips a hidden head on every frame by itself: the armor layer must have skipped too.
+        int layer = com.vyrriox.justreplay.editor.ArmorSlots.armorLayerSkipped() - armorLayerSkippedBefore;
+        log("hidden armor: actor mask {} helmet hidden {} chestplate hidden {} helmet still worn {} -> {}, pieces skipped {} of which"
+                        + " by the armor layer {} -> {}",
+                mask, helmet, chest, worn, mask == com.vyrriox.justreplay.editor.ArmorSlots.HEAD && helmet && !chest && worn ? "OK" : "FAIL",
+                skipped, layer, layer > 0 ? "OK" : "FAIL");
+        int camera = mc.player == null ? 0 : com.vyrriox.justreplay.editor.ArmorSlots.hidden(mc.player);
+        log("hidden armor: camera player mask {} -> {}", camera, camera == 0 ? "OK" : "FAIL");
+        boolean before = com.vyrriox.justreplay.config.JRConfig.HIDE_PLAYER_ARMOR.get();
+        int all;
+        try {
+            com.vyrriox.justreplay.config.JRConfig.HIDE_PLAYER_ARMOR.set(true);
+            all = com.vyrriox.justreplay.editor.ArmorSlots.hidden(notch);
+        } finally {
+            com.vyrriox.justreplay.config.JRConfig.HIDE_PLAYER_ARMOR.set(before);
+        }
+        log("hidden armor: global option mask {} -> {}", all, all == com.vyrriox.justreplay.editor.ArmorSlots.ALL ? "OK" : "FAIL");
+        checkHiddenArmourersSkins(mc, notch);
+    }
+
+    /**
+     * Armourer's Workshop, when it runs: the hidden helmet leaves the armor it collected for the player actor and the
+     * chestplate stays; the global option takes the chestplate too at the next refresh, without the actor ticking,
+     * and gives it back; the wardrobe collector is reached; wardrobe skins follow the slots they cover.
+     */
+    private static void checkHiddenArmourersSkins(Minecraft mc, Entity notch) {
+        if (!com.vyrriox.justreplay.compat.Integrations.ARMOURERS_WORKSHOP.on()
+                || !(notch instanceof net.minecraft.world.entity.LivingEntity living)) {
+            return;
+        }
+        try {
+            net.minecraft.world.item.ItemStack helmet = living.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD);
+            net.minecraft.world.item.ItemStack chest = living.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST);
+            java.util.List<net.minecraft.world.item.ItemStack> slots = com.vyrriox.justreplay.compat.ArmourersHiddenArmor.collectedArmor(notch, true);
+            boolean noHelmet = slots != null && !holds(slots, helmet);
+            boolean chestKept = slots != null && holds(slots, chest);
+            log("armourers hidden armor: collected {} without the helmet {} with the chestplate {} -> {}",
+                    slots == null ? "nothing" : slots.size() + " pieces", noHelmet, chestKept, noHelmet && chestKept ? "OK" : "FAIL");
+            boolean before = com.vyrriox.justreplay.config.JRConfig.HIDE_PLAYER_ARMOR.get();
+            boolean chestHidden;
+            try {
+                com.vyrriox.justreplay.config.JRConfig.HIDE_PLAYER_ARMOR.set(true);
+                com.vyrriox.justreplay.compat.ArmourersHiddenArmor.tick(mc);
+                java.util.List<net.minecraft.world.item.ItemStack> all = com.vyrriox.justreplay.compat.ArmourersHiddenArmor.collectedArmor(notch, false);
+                chestHidden = all != null && !holds(all, chest);
+            } finally {
+                com.vyrriox.justreplay.config.JRConfig.HIDE_PLAYER_ARMOR.set(before);
+            }
+            com.vyrriox.justreplay.compat.ArmourersHiddenArmor.tick(mc);
+            java.util.List<net.minecraft.world.item.ItemStack> back = com.vyrriox.justreplay.compat.ArmourersHiddenArmor.collectedArmor(notch, false);
+            boolean chestBack = back != null && holds(back, chest);
+            log("armourers hidden armor: global option takes the chestplate {} and gives it back {} -> {}",
+                    chestHidden, chestBack, chestHidden && chestBack ? "OK" : "FAIL");
+            String cover = com.vyrriox.justreplay.compat.ArmourersHiddenArmor.wardrobeCoverCheck();
+            log("armourers hidden armor: wardrobe skins for a hidden head then chest {} -> {}", cover,
+                    "hkkkkhk/khhkkhk".equals(cover) ? "OK" : "FAIL");
+            int calls = com.vyrriox.justreplay.compat.ArmourersHiddenArmor.wardrobeCalls();
+            log("armourers hidden armor: wardrobe collections seen {} -> {}", calls, calls > 0 ? "OK" : "FAIL");
+        } catch (Throwable t) {
+            log("armourers hidden armor: {} -> FAIL", t.toString());
+        }
+    }
+
+    /** True when {@code stacks} holds this very stack. */
+    private static boolean holds(java.util.List<net.minecraft.world.item.ItemStack> stacks, net.minecraft.world.item.ItemStack stack) {
+        for (net.minecraft.world.item.ItemStack s : stacks) {
+            if (s == stack) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** See {@link com.vyrriox.justreplay.format.RegistryIdsBackend#selfCheck}; the replay gets its own ids back after it. */
+    private static final java.util.UUID SERVER_PACK_ID = java.util.UUID.nameUUIDFromBytes("justreplay:selftest-pack".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    private static final String SERVER_PACK_KEY = "justreplay.selftest.server_pack";
+    /** 0 before the push, 1 pushed, 2 checked in the replay. */
+    private static int serverPackState;
+    private static int serverPackTicks;
+
+    /**
+     * Before the recording: a small pack (one translation) in the game's cache of server packs, then the integrated
+     * server pushes it. The prompt the game shows for it is closed: the recording player never loads it, the replay must.
+     */
+    private static void pushServerPack(Minecraft mc) {
+        try {
+            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+            try (java.util.zip.ZipOutputStream zip = new java.util.zip.ZipOutputStream(bytes)) {
+                // Formats from 65 on declare a range instead of a single number.
+                int format = net.minecraft.SharedConstants.getCurrentVersion().packVersion(net.minecraft.server.packs.PackType.CLIENT_RESOURCES).major();
+                zip.putNextEntry(new java.util.zip.ZipEntry("pack.mcmeta"));
+                zip.write(("{\"pack\": {\"min_format\": " + format + ", \"max_format\": " + format + ", \"description\": \"Just Replay self test\"}}")
+                        .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                zip.closeEntry();
+                zip.putNextEntry(new java.util.zip.ZipEntry("assets/justreplay/lang/en_us.json"));
+                zip.write(("{\"" + SERVER_PACK_KEY + "\": \"applied\"}").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                zip.closeEntry();
+            }
+            byte[] data = bytes.toByteArray();
+            String sha1 = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-1").digest(data));
+            Path file = mc.gameDirectory.toPath().resolve("downloads").resolve(SERVER_PACK_ID.toString()).resolve(sha1);
+            Files.createDirectories(file.getParent());
+            Files.write(file, data);
+            net.minecraft.server.MinecraftServer server = mc.getSingleplayerServer();
+            server.execute(() -> server.getPlayerList().getPlayers().forEach(player -> player.connection.send(
+                    new net.minecraft.network.protocol.common.ClientboundResourcePackPushPacket(SERVER_PACK_ID,
+                            "http://127.0.0.1:9/justreplay-selftest-pack.zip", sha1, false, java.util.Optional.empty()))));
+            com.vyrriox.justreplay.config.JRConfig.SERVER_RESOURCE_PACKS.set(com.vyrriox.justreplay.config.JRConfig.ServerResourcePacks.CACHED);
+            serverPackState = 1;
+            log("server resource pack pushed by the integrated server ({} bytes, cached as {})", data.length, sha1);
+        } catch (Exception e) {
+            log("server resource pack: cannot prepare it ({}) -> FAIL", e.toString());
+            serverPackState = 2;
+        }
+    }
+
+    /** Closes the pack prompt of the live game, then waits in the replay until the pack's translation is there. */
+    private static void pollServerPack(Minecraft mc) {
+        if (serverPackState != 1) {
+            return;
+        }
+        if (!ReplaySession.isRunning()) {
+            if (mc.screen instanceof net.minecraft.client.gui.screens.ConfirmScreen) {
+                log("server resource pack prompt closed without loading the pack");
+                mc.setScreen(null);
+            }
+            return;
+        }
+        boolean applied = com.vyrriox.justreplay.replay.ReplayPacks.applied().stream().anyMatch(pack -> pack.id().equals(SERVER_PACK_ID));
+        boolean loaded = "applied".equals(net.minecraft.client.resources.language.I18n.get(SERVER_PACK_KEY));
+        if (applied && loaded && mc.getOverlay() == null) {
+            serverPackState = 2;
+            log("server resource pack in the replay: applied from the cache, translation loaded after {} ticks -> OK", serverPackTicks);
+        } else if (++serverPackTicks > 1200) {
+            serverPackState = 2;
+            log("server resource pack in the replay: applied {} translation loaded {} overlay {} -> FAIL", applied, loaded, mc.getOverlay());
+        }
+    }
+
+    /**
+     * World tab and Entities tab visuals: a chosen particle type is not created while another is, "None" creates
+     * nothing, a recorded mob gets an outline, every entity of another recorded mob's type is hidden (counted over
+     * the next ticks), then night vision and no fog for the picture.
+     */
+    private static void checkVisuals(Minecraft mc, ReplaySession s) {
+        com.vyrriox.justreplay.editor.WorldSettings w = s.project().world;
+        Vec3 at = mc.player.position().add(0, 1.5, 0);
+        w.particles = com.vyrriox.justreplay.editor.WorldSettings.PARTICLES_CHOSEN;
+        w.hiddenParticles = new java.util.ArrayList<>(java.util.List.of("minecraft:flame"));
+        int hiddenBefore = com.vyrriox.justreplay.editor.Visuals.hiddenParticles();
+        boolean flameHidden = mc.particleEngine.createParticle(net.minecraft.core.particles.ParticleTypes.FLAME, at.x, at.y, at.z, 0, 0, 0) == null;
+        boolean smokeShown = mc.particleEngine.createParticle(net.minecraft.core.particles.ParticleTypes.SMOKE, at.x, at.y, at.z, 0, 0, 0) != null;
+        w.particles = com.vyrriox.justreplay.editor.WorldSettings.PARTICLES_NONE;
+        boolean noneHidden = mc.particleEngine.createParticle(net.minecraft.core.particles.ParticleTypes.SMOKE, at.x, at.y, at.z, 0, 0, 0) == null;
+        int counted = com.vyrriox.justreplay.editor.Visuals.hiddenParticles() - hiddenBefore;
+        log("visuals: chosen type hidden {} other type shown {} none hides all {} counted {} -> {}", flameHidden, smokeShown, noneHidden,
+                counted, flameHidden && smokeShown && noneHidden && counted >= 2 ? "OK" : "FAIL");
+        w.particles = com.vyrriox.justreplay.editor.WorldSettings.PARTICLES_ALL;
+        Entity typed = null;
+        Entity outlined = null;
+        for (Entity e : mc.level.entitiesForRendering()) {
+            if (e == mc.player || com.vyrriox.justreplay.editor.ActorManager.isActorEntity(e)
+                    || !(e instanceof net.minecraft.world.entity.LivingEntity) || e instanceof net.minecraft.world.entity.player.Player) {
+                continue;
+            }
+            if (typed == null) {
+                typed = e;
+            } else if (outlined == null && e.getType() != typed.getType()) {
+                outlined = e;
+            }
+        }
+        if (outlined != null) {
+            ReplayProject.EntityEdit glow = new ReplayProject.EntityEdit(outlined.getUUID().toString(), "test outline");
+            glow.glow = true;
+            s.project().entityEdits.add(glow);
+            boolean glows = mc.shouldEntityAppearGlowing(outlined);
+            log("visuals: outline on {} -> {}", outlined.getType().getDescriptionId(), glows ? "OK" : "FAIL");
+        } else {
+            log("visuals: outline skipped, no second recorded mob type");
+        }
+        hiddenMob = typed;
+        if (typed != null) {
+            s.project().toggleHiddenType(com.vyrriox.justreplay.editor.EntityEdits.typeId(typed));
+        }
+        skippedBefore = com.vyrriox.justreplay.editor.EntityEdits.skippedRenders();
+        // Night vision: the lightmap state of the frame gets the full brightness.
+        net.minecraft.client.renderer.LightmapRenderStateExtractor extractor =
+                ((com.vyrriox.justreplay.mixin.GameRendererVisualAccessor) mc.gameRenderer).justreplay$lightmapExtractor();
+        w.nightVision = true;
+        net.minecraft.client.renderer.state.LightmapRenderState light = new net.minecraft.client.renderer.state.LightmapRenderState();
+        extractor.extract(light, 1.0F);
+        log("visuals: night vision lightmap brightness {} -> {}", light.brightness,
+                light.brightness >= com.vyrriox.justreplay.editor.Visuals.FULL_BRIGHT ? "OK" : "FAIL");
+        // No fog: the fog of the frame is pushed past any view distance.
+        w.fog = com.vyrriox.justreplay.editor.WorldSettings.FOG_OFF;
+        net.minecraft.client.renderer.fog.FogData fog = ((com.vyrriox.justreplay.mixin.GameRendererVisualAccessor) mc.gameRenderer)
+                .justreplay$fogRenderer().setupFog(mc.gameRenderer.getMainCamera(), mc.options.getEffectiveRenderDistance(),
+                        mc.getDeltaTracker(), 0.0F, mc.level);
+        log("visuals: fog off starts at {} -> {}", fog.renderDistanceStart,
+                fog.renderDistanceStart >= com.vyrriox.justreplay.editor.WorldSettings.NO_FOG ? "OK" : "FAIL");
+    }
+
+    /** The two markers placed with the recording marker key arrive on the timeline at the first opening. */
+    private static void checkRecordingMarkers(ReplaySession s) {
+        java.util.List<ReplayProject.Marker> marks = s.project().markers;
+        boolean names = marks.size() == 2 && "Marker 1".equals(marks.get(0).name) && "Marker 2".equals(marks.get(1).name);
+        boolean ticks = names && marks.get(0).tick >= 59 && marks.get(0).tick <= 64
+                && Math.abs(marks.get(1).tick - marks.get(0).tick - 90) <= 1;
+        log("recording markers on the timeline: {} -> {}", marks.stream().map(m -> m.name + "@" + m.tick).toList(),
+                names && ticks && s.project().recordingMarkersImported ? "OK" : "FAIL");
+    }
+
+    /**
+     * Opens the replay with a mod that is not installed written into its list: the window that lists changed mods
+     * must show it among the missing ones, then "Open anyway" opens the replay.
+     */
+    private static void openThroughModWarning(Minecraft mc, Path dir) {
+        com.vyrriox.justreplay.format.ReplayMeta meta = ReplayStorage.readMeta(dir);
+        if (meta == null) {
+            log("mods changed window: no meta.json -> FAIL");
+            ReplaySession.open(dir, mc.screen);
+            return;
+        }
+        meta.mods.add("justreplay_selftest_missing@1.0");
+        ReplayStorage.writeMeta(dir, meta);
+        boolean warn = com.vyrriox.justreplay.config.JRConfig.WARN_MOD_CHANGES.get();
+        com.vyrriox.justreplay.config.JRConfig.WARN_MOD_CHANGES.set(true);
+        try {
+            ReplaySession.open(dir, mc.screen);
+        } finally {
+            com.vyrriox.justreplay.config.JRConfig.WARN_MOD_CHANGES.set(warn);
+        }
+        if (mc.screen instanceof com.vyrriox.justreplay.gui.ModsChangedScreen window) {
+            boolean listed = !window.mods().missing().isEmpty()
+                    && "justreplay_selftest_missing".equals(window.mods().missing().get(0).id());
+            log("mods changed window: shown, fake mod listed first {} ({} differences) -> {}", listed, window.mods().size(),
+                    listed ? "OK" : "FAIL");
+            window.openAnyway();
+        } else {
+            log("mods changed window: not shown, screen {} -> FAIL", mc.screen == null ? null : mc.screen.getClass().getSimpleName());
+        }
+    }
+
     private static void checkRegistryCompletion(ReplaySession s) {
         try {
             com.vyrriox.justreplay.platform.ClientPlatform.get().registryIds().selfCheck(SelfTest::log);
@@ -1280,6 +1729,7 @@ public final class SelfTest {
         }
     }
 
+    /** Optional mods of the test pack: content placed before the recording and their replay state. */
     private static final class Mods {
         private Mods() {
         }

@@ -35,7 +35,7 @@ public final class CuriosCompat {
     }
 
     private static Reflect reflect() {
-        if (reflect != null || reflectFailed || !ReplayCompat.CURIOS) {
+        if (reflect != null || reflectFailed || !Integrations.CURIOS.on()) {
             return reflect;
         }
         try {
@@ -53,7 +53,7 @@ public final class CuriosCompat {
         } catch (Throwable t) {
             reflectFailed = true;
             reflect = null;
-            ReplayCompat.warnOnce("curios.reflect", "Curios support disabled, its classes changed", t);
+            Integrations.CURIOS.fail("reflect", t);
         }
         return reflect;
     }

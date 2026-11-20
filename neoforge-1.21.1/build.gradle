@@ -25,6 +25,13 @@ if (commonDir.isDirectory()) {
     sourceSets.main.resources.srcDir(new File(commonDir, 'resources'))
 }
 
+// Unit tests of the shared code (classes without game code), run by ./gradlew build. On the per-target branches they
+// are merged into src/test, so this block does nothing there.
+def commonTestDir = file("../common/${minecraft_version}/src/test/java")
+if (commonTestDir.isDirectory()) {
+    sourceSets.test.java.srcDir(commonTestDir)
+}
+
 neoForge {
     version = project.neo_version
 
@@ -91,6 +98,8 @@ repositories {
 }
 
 dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.2'
     // Simple Voice Chat API (the version bundled with voicechat-neoforge 1.21.1-2.6.22); optional at runtime.
     compileOnly 'de.maxhenkel.voicechat:voicechat-api:2.6.20'
 }
@@ -126,4 +135,15 @@ idea {
         downloadSources = true
         downloadJavadoc = true
     }
+}
+
+// The tested classes use the libraries the game brings (Gson, SLF4J).
+neoForge.addModdingDependenciesTo(sourceSets.test)
+
+tasks.named('test', Test).configure {
+    useJUnitPlatform()
+    // The game's logging writes a logs folder where the tests run: keep it in build.
+    def testRun = layout.buildDirectory.dir('test-run').get().asFile
+    workingDir = testRun
+    doFirst { testRun.mkdirs() }
 }

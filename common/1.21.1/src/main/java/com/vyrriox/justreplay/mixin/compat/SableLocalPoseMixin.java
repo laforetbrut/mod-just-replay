@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.mixin.compat;
 
+import com.vyrriox.justreplay.compat.Integrations;
 import com.vyrriox.justreplay.compat.SableCompat;
 import net.minecraft.server.MinecraftServer;
 import org.spongepowered.asm.mixin.Final;
@@ -28,8 +29,15 @@ public abstract class SableLocalPoseMixin {
     @Inject(method = "sendUDPPacketLocal(Ldev/ryanhcode/sable/network/udp/SableUDPPacket;)V", at = @At("HEAD"),
             cancellable = true, require = 0, remap = false)
     private void justreplay$sendLocal(@Coerce Object packet, CallbackInfo ci) {
-        if (SableCompat.onLocalSend(server, packet)) {
-            ci.cancel();
+        if (!Integrations.SABLE.on()) {
+            return;
+        }
+        try {
+            if (SableCompat.onLocalSend(server, packet)) {
+                ci.cancel();
+            }
+        } catch (Throwable t) {
+            Integrations.SABLE.fail("SableUDPServer.sendUDPPacketLocal", t);
         }
     }
 }

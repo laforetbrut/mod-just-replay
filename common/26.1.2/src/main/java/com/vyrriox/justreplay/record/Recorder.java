@@ -56,7 +56,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.gamerules.GameRules;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
@@ -157,6 +156,8 @@ public final class Recorder {
     /** UUID of the recording player's own profile, the one its actor's UUID is derived from. */
     private final UUID localUuid;
     private final Set<Object> failedTypes = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    /** Packets that could not be encoded: skipped and counted, summed up in the log when the recording stops. */
+    private final SkippedPackets skipped = new SkippedPackets("Recording", JustReplay.LOGGER::warn);
     private final Consumer<byte[]> sink = this::accept;
     private volatile boolean stopped;
     private volatile int tick;
@@ -173,6 +174,8 @@ public final class Recorder {
     private volatile int levelEpoch;
     private volatile Recording recording;
     private volatile ReplayBuffer buffer;
+    /** Markers placed with the recording marker key, in capture ticks. Client thread. */
+    private final List<ReplayMeta.Marker> markers = new ArrayList<>();
     /** Registry ids of the connection, saved with buffer clips. */
     private volatile byte[] registryIds;
 
@@ -266,6 +269,46 @@ public final class Recorder {
         c.capture(packet);
     }
 
+    /** A marker just placed: its number and its tick in the running recording, or -1 when only the buffer runs. */
+    public record Marked(int number, int recordingTick) {
+    }
+
+    /**
+     * Places a marker at the current tick of the running recording (written to its {@code meta.json} at once) and of
+     * the instant replay buffer (kept with the clips it saves). Null when neither runs. Client thread.
+     */
+    public static Marked addMarker() {
+        Recorder c = capture;
+        if (c == null || c.stopped || ReplaySession.current() != null) {
+            return null;
+        }
+        Recording r = c.recording;
+        ReplayBuffer b = c.buffer;
+        if (r == null && b == null) {
+            return null;
+        }
+        int now = c.tick;
+        // Numbered within what the marker lands in: the recording, else the buffer's window.
+        int from = r != null ? r.startTick : now - b.windowTicks();
+        int number = com.vyrriox.justreplay.format.RecordingMarkers.countFrom(c.markers, from) + 1;
+        String name = "Marker " + number;
+        c.markers.add(new ReplayMeta.Marker(now, name));
+        // Older markers are out of every output: neither the recording nor the buffer's window reaches them.
+        int keepFrom = Math.min(r != null ? r.startTick : Integer.MAX_VALUE, b != null ? now - b.windowTicks() : Integer.MAX_VALUE);
+        c.markers.removeIf(m -> m.tick < keepFrom);
+        int recordingTick = -1;
+        if (r != null) {
+            recordingTick = Math.max(0, now - r.startTick);
+            // A new list rather than a change to the one the writer thread may be saving.
+            List<ReplayMeta.Marker> next = new ArrayList<>(r.meta.markers == null ? List.of() : r.meta.markers);
+            next.add(new ReplayMeta.Marker(recordingTick, name));
+            r.meta.markers = next;
+            r.writer.execute(() -> ReplayStorage.writeMeta(r.dir, r.meta));
+        }
+        JustReplay.LOGGER.info("{} placed at capture tick {} (recording tick {})", name, now, recordingTick);
+        return new Marked(number, recordingTick);
+    }
+
     /** Tick of the running recording (0 at its start), or 0. */
     public int tick() {
         Recording r = recording;
@@ -309,6 +352,20 @@ public final class Recorder {
 
     // ---------------------------------------------------------------- network thread
 
+    /** Received packet types the recorder could not look at, logged once each. */
+    private static final Set<String> RECEIVE_FAILED = ConcurrentHashMap.newKeySet();
+
+    /**
+     * A received packet the recorder could not look at: logged once per type, the game handles the packet as usual (an
+     * error here would otherwise reach the network thread and close the connection).
+     */
+    public static void onReceiveError(Packet<?> packet, Throwable t) {
+        String type = PacketCodec.typeName(packet);
+        if (RECEIVE_FAILED.add(type)) {
+            JustReplay.LOGGER.warn("Just Replay could not record a received {} packet, the game handles it as usual: {}", type, t.toString(), t);
+        }
+    }
+
     /** Called by the connection mixin for every packet the client receives, before it is handled. */
     public static void onPacketReceived(Connection connection, Packet<?> packet) {
         if (packet instanceof ClientboundLoginPacket login) {
@@ -327,11 +384,62 @@ public final class Recorder {
         }
         if (!ReplaySession.isReplayConnection(connection)) {
             trackSpawns(connection, packet);
+            trackServerPacks(connection, packet);
         }
         Recorder c = capture;
         if (c != null && c.connection == connection) {
             c.capture(packet);
+            if (packet instanceof ClientboundLoginPacket) {
+                // Packs pushed before the login (configuration phase) are not in the stream: the set follows it.
+                for (Packet<?> pack : serverPackPackets(connection)) {
+                    c.capture(pack);
+                }
+            }
         }
+    }
+
+    // ---------------------------------------------------------------- server resource packs
+
+    /** Resource packs the server of {@link #livePacksConnection} pushed and did not remove, in push order. */
+    private static final com.vyrriox.justreplay.format.ServerPackState LIVE_PACKS = new com.vyrriox.justreplay.format.ServerPackState();
+    private static Connection livePacksConnection;
+
+    /** Follows the resource pack packets of a live connection, in every phase (most packs come before the login). */
+    private static void trackServerPacks(Connection connection, Packet<?> packet) {
+        boolean push = packet instanceof net.minecraft.network.protocol.common.ClientboundResourcePackPushPacket;
+        boolean pop = packet instanceof net.minecraft.network.protocol.common.ClientboundResourcePackPopPacket;
+        if (!push && !pop) {
+            return;
+        }
+        synchronized (LIVE_PACKS) {
+            if (livePacksConnection != connection) {
+                LIVE_PACKS.clear();
+                livePacksConnection = connection;
+            }
+            if (packet instanceof net.minecraft.network.protocol.common.ClientboundResourcePackPushPacket p) {
+                LIVE_PACKS.push(new com.vyrriox.justreplay.format.ServerPackState.Pack(p.id(), p.url(), p.hash(), p.required()));
+            } else if (packet instanceof net.minecraft.network.protocol.common.ClientboundResourcePackPopPacket p) {
+                LIVE_PACKS.pop(p.id().orElse(null));
+            }
+        }
+    }
+
+    /**
+     * The whole pack set of a live connection as packets: a removal of every pack, then a push per pack. Written after
+     * the login, at the start of a recording and in checkpoints, so playback finds the same set at any tick.
+     */
+    private static List<Packet<?>> serverPackPackets(Connection connection) {
+        List<com.vyrriox.justreplay.format.ServerPackState.Pack> packs;
+        synchronized (LIVE_PACKS) {
+            packs = livePacksConnection == connection ? LIVE_PACKS.packs() : List.of();
+        }
+        List<Packet<?>> packets = new ArrayList<>();
+        packets.add(new net.minecraft.network.protocol.common.ClientboundResourcePackPopPacket(java.util.Optional.empty()));
+        for (com.vyrriox.justreplay.format.ServerPackState.Pack pack : packs) {
+            packets.add(new net.minecraft.network.protocol.common.ClientboundResourcePackPushPacket(pack.id(), pack.url(), pack.hash(),
+                    pack.required(), java.util.Optional.empty()));
+        }
+        return packets;
     }
 
     // ---------------------------------------------------------------- spawn cache
@@ -339,8 +447,6 @@ public final class Recorder {
     /** Original spawn packets (with their bundle: NeoForge spawn data, entity data, attributes...) per entity id. */
     private static final java.util.Map<Integer, List<Packet<?>>> SPAWNS = new ConcurrentHashMap<>();
     private static volatile Connection spawnConnection;
-
-    private static final Set<String> FAILED_GLOBAL = ConcurrentHashMap.newKeySet();
 
     private static void trackSpawns(Connection connection, Packet<?> packet) {
         boolean newConnection = connection != spawnConnection;
@@ -368,7 +474,16 @@ public final class Recorder {
         }
     }
 
+    /** Records one received packet. Nothing here may reach the connection: a packet that fails is skipped and counted. */
     private void capture(Packet<?> packet) {
+        try {
+            captureChecked(packet);
+        } catch (Throwable t) {
+            logUnrecordable(packet, t);
+        }
+    }
+
+    private void captureChecked(Packet<?> packet) {
         if (!(connection.getPacketListener() instanceof ClientPacketListener listener)) {
             return;
         }
@@ -435,14 +550,12 @@ public final class Recorder {
         return c;
     }
 
-    /** Logs once per packet type (custom payload id when it has one) a packet that cannot be encoded. */
+    /**
+     * Counts a packet that cannot be encoded, by type (custom payload id when it has one): the first of each type logs a
+     * warning, the stop of the recording a summary.
+     */
     private void logUnrecordable(Packet<?> packet, Throwable t) {
-        Object type = packet instanceof net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket custom
-                ? custom.payload().type().id() : packet.getClass();
-        if (failedTypes.add(type)) {
-            JustReplay.LOGGER.warn("Cannot record {}, it will be skipped: {}", type, t.toString(),
-                    t.getCause() != null ? t.getCause() : t);
-        }
+        skipped.fail(SkippedPackets.Stage.RECORD, PacketCodec.typeName(packet), t);
     }
 
     /** Hands an encoded packet to every output, at the current tick. */
@@ -763,6 +876,7 @@ public final class Recorder {
         }
         ReplayStorage.writeMeta(r.dir, r.meta);
         c.logDiscarded();
+        c.skipped.flush(JustReplay.LOGGER::warn);
         if (complete) {
             JustReplay.LOGGER.info("Recording saved to {} ({} ticks)", r.dir, r.meta.durationTicks);
         } else {
@@ -786,6 +900,8 @@ public final class Recorder {
             Path dir = uniqueDir(stamp + "_buffer");
             ReplayMeta meta = newMeta(c.connection, c.actorUuid, stamp);
             meta.startedAt = System.currentTimeMillis();
+            // In capture ticks here; the buffer keeps those of the saved window, moved to the clip's ticks.
+            meta.markers = new ArrayList<>(c.markers);
             String synced = c.connection.getPacketListener() instanceof ClientPacketListener listener
                     ? com.vyrriox.justreplay.format.SyncedRegistries.encode(listener.registryAccess()) : null;
             return b.save(dir, meta, c.registryIds).thenApply(saved -> {
@@ -1175,9 +1291,7 @@ public final class Recorder {
         try {
             c.encode(packet, out);
         } catch (Throwable t) {
-            if (failedTypes.add(packet.getClass())) {
-                JustReplay.LOGGER.warn("Cannot record synthetic packet {}: {}", packet.getClass().getName(), t.toString());
-            }
+            logUnrecordable(packet, t);
         }
     }
 
@@ -1275,7 +1389,8 @@ public final class Recorder {
         lastSwingTime = player.swingTime;
 
         // The server never sends a player its own emotes: they are written as another client receives them.
-        localEmotes.poll(player, actorUuid, respawned, packet -> write(listener, packet));
+        com.vyrriox.justreplay.compat.ReplayCompat.pollLocalEmotes(localEmotes, player, actorUuid, respawned,
+                packet -> write(listener, packet));
     }
 
     /** Base values and modifiers of the entity's syncable attributes, as the server sends them on spawn. */
@@ -1420,6 +1535,9 @@ public final class Recorder {
             write(listener, new ClientboundGameEventPacket(ClientboundGameEventPacket.THUNDER_LEVEL_CHANGE, level.getThunderLevel(1.0F)), sink);
         }
 
+        for (Packet<?> pack : serverPackPackets(listener.getConnection())) {
+            write(listener, pack, sink);
+        }
         write(listener, new ClientboundSetChunkCacheRadiusPacket(lastChunkRadius), sink);
         write(listener, new ClientboundSetChunkCacheCenterPacket(player.chunkPosition().x(), player.chunkPosition().z()), sink);
     }

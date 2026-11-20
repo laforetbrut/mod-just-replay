@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.mixin.compat;
 
+import com.vyrriox.justreplay.compat.Integrations;
 import com.vyrriox.justreplay.replay.ReplaySession;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
@@ -20,8 +21,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class BobbyMixin {
     @Inject(method = "isEnabled", at = @At("HEAD"), cancellable = true, require = 0, remap = false)
     private void justreplay$disableDuringReplay(CallbackInfoReturnable<Boolean> cir) {
-        if (ReplaySession.current() != null) {
-            cir.setReturnValue(false);
+        if (!Integrations.BOBBY.on()) {
+            return;
+        }
+        try {
+            if (ReplaySession.current() != null) {
+                cir.setReturnValue(false);
+            }
+        } catch (Throwable t) {
+            Integrations.BOBBY.fail("Bobby.isEnabled", t);
         }
     }
 }

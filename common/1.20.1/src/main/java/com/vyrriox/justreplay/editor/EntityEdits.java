@@ -81,6 +81,27 @@ public final class EntityEdits {
         return edit != null && edit.hiddenAt(time());
     }
 
+    /** True when the project hides every recorded entity of this one's type; actors and the camera never are. */
+    public static boolean typeHidden(Entity entity) {
+        ReplaySession s = active();
+        if (s == null || s.project().hiddenEntityTypes.isEmpty() || ActorManager.isActorEntity(entity)
+                || entity == Minecraft.getInstance().player) {
+            return false;
+        }
+        return s.project().hiddenEntityTypes.contains(typeId(entity));
+    }
+
+    /** Registry id of an entity's type, such as {@code minecraft:zombie}. */
+    public static String typeId(Entity entity) {
+        return net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).toString();
+    }
+
+    /** True when the project outlines this recorded entity, in its team color. */
+    public static boolean glows(Entity entity) {
+        ReplayProject.EntityEdit edit = editOf(entity);
+        return edit != null && edit.glow && !edit.hiddenAt(time());
+    }
+
     /** Offset at the current frame: x, y, z, yaw; null when the entity is not moved. */
     public static double[] offset(Entity entity) {
         ReplayProject.EntityEdit edit = editOf(entity);

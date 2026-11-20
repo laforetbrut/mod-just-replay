@@ -5,10 +5,12 @@
   "compatibilityLevel": "JAVA_21",
   "plugin": "com.vyrriox.justreplay.mixin.compat.CompatMixinPlugin",
   "client": [
+    "ArmourersEquipmentSlotsMixin",
     "ArmourersSendMixin",
     "ArmourersSkinEntryMixin",
     "ArmourersSkinLoaderMixin",
     "ArmourersSkinResponseMixin",
+    "ArmourersWardrobeSlotsMixin",
     "BobbyMixin",
     "GeckoLibClockMixin",
     "GeckoLibEntityAgeMixin",

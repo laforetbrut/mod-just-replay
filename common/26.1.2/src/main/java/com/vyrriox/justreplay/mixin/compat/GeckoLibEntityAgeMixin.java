@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.mixin.compat;
 
+import com.vyrriox.justreplay.compat.Integrations;
 import com.vyrriox.justreplay.compat.ReplayCompat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
@@ -20,12 +21,16 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class GeckoLibEntityAgeMixin {
     @Inject(method = "getAnimatableAge()D", at = @At("HEAD"), cancellable = true, require = 0, remap = false)
     private void justreplay$replayClock(CallbackInfoReturnable<Double> cir) {
-        if (!Minecraft.getInstance().isSameThread()) {
+        if (!Integrations.GECKOLIB.on() || !Minecraft.getInstance().isSameThread()) {
             return;
         }
-        double ticks = ReplayCompat.geckoEntityFrameTime(-1);
-        if (ticks >= 0) {
-            cir.setReturnValue(ticks);
+        try {
+            double ticks = ReplayCompat.geckoEntityFrameTime(-1);
+            if (ticks >= 0) {
+                cir.setReturnValue(ticks);
+            }
+        } catch (Throwable t) {
+            Integrations.GECKOLIB.fail("EntityRenderState.getAnimatableAge", t);
         }
     }
 }

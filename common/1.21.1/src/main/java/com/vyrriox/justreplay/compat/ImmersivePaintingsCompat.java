@@ -69,7 +69,7 @@ public final class ImmersivePaintingsCompat {
     }
 
     private static Reflect reflect() {
-        if (reflect != null || reflectFailed || !ReplayCompat.IMMERSIVE_PAINTINGS) {
+        if (reflect != null || reflectFailed || !Integrations.IMMERSIVE_PAINTINGS.on()) {
             return reflect;
         }
         try {
@@ -91,7 +91,7 @@ public final class ImmersivePaintingsCompat {
         } catch (Throwable t) {
             reflectFailed = true;
             reflect = null;
-            ReplayCompat.warnOnce("paintings.reflect", "Immersive Paintings support disabled, its classes changed", t);
+            Integrations.IMMERSIVE_PAINTINGS.fail("reflect", t);
         }
         return reflect;
     }

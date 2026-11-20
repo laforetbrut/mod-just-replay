@@ -46,6 +46,10 @@
     "EntityBoundSoundAccessor",
     "EntityEditRenderMixin",
     "EntityEditGlowMixin",
+    "VisualFogMixin",
+    "VisualLightMixin",
+    "VisualParticlesMixin",
+    "LightTextureAccessor",
     "SoundManagerStopMixin",
     "MinecraftHooksMixin",
     "MouseHandlerHooksMixin",
@@ -53,9 +57,10 @@
     "ClientLevelTickMixin",
     "EntityRideTickMixin",
     "EntityRendererNameTagMixin",
-    "LivingEntityRendererHooksMixin"
+    "LivingEntityRendererHooksMixin",
+    "IntegratedServerHaltMixin"
   ],
   "injectors": {
-    "defaultRequire": 1
+    "defaultRequire": 0
   }
 }

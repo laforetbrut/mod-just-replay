@@ -11,7 +11,6 @@ import net.minecraft.world.phys.AABB;
  * @author vyrriox
  */
 public final class LineBoxes {
-    /** Width of the placement tool lines, the thin line these tools drew before 26.1. */
     /** Width vanilla gives its own world lines at the current window size; these lines scaled with the window before 26.1 too. */
     public static float width() {
         return net.minecraft.client.Minecraft.getInstance().gameRenderer.getGameRenderState().windowRenderState.appropriateLineWidth;

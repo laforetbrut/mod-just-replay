@@ -3,16 +3,70 @@
 ## [Unreleased]
 
 ### Added
-- **Hide armor** (Minecraft 1.21.1): switch off the helmet, chestplate, leggings or boots of a recorded player or an actor, one by one. The elytra go with the chestplate, a pumpkin or a head with the helmet. Only the replay and the video change, and older projects keep their armor. The new `hidePlayerArmor` option strips every player at once.
+- **Hide armor**: switch off the helmet, chestplate, leggings or boots of a recorded player or an actor, one by one. The elytra go with the chestplate, a pumpkin or a head with the helmet. Only the replay and the video change, and older projects keep their armor. The new `hidePlayerArmor` option strips every player at once. It also works on the models Epic Fight draws and on Armourer's Workshop skins: wings go with the chestplate, a whole outfit as soon as one slot is hidden.
+- **More Player Models** on Forge and NeoForge 1.20.1: everyone keeps their look in replays, tails and ears included, yours on your actor, even after a seek. Works with or without the mod on the server, and watching a replay never touches your own look. MPM has no official build for 1.21.1 or 26.1.2, so it stays off there.
+- **Epic Fight** on Forge 1.20.1: battle mode, attacks and dodges play back like on NeoForge 1.21.1, yours on your actor, even if the recording starts mid-fight or you seek. Watch it with the same Epic Fight version and addons as the recording.
+- **Armourer's Workshop** on Forge, NeoForge and Fabric 1.20.1 and on NeoForge and Fabric 26.1.2: skins and wardrobes show up in replays, singleplayer included.
+- **Custom NPCs** (unofficial port) on Forge, NeoForge and Fabric 1.20.1 and on Fabric 1.21.1: NPCs keep their look, and your dialogs and menus stay out of the replay.
+- **Integration switches**: one switch per mod in the new `compat` section of the settings, also in the settings screen for the mods you have. Turn one off and Just Replay leaves that mod alone from the next start.
+- **Startup line**: the log now says at startup which Just Replay, loader and integrations are running. Handy for reading crash reports.
+- **Name your replays**: stop a recording (F8, F7, the pause menu buttons, a timed recording, leaving a world) and a window asks for a name, filled with the date and time. Enter or Rename renames it, Esc or Skip keeps the date. The folder gets a name Windows and Linux accept and never takes another replay's, a ` (2)` is added instead. Don't want it? Turn off `nameOnSave`.
+- **Exported range in the name**: export 0:10 to 0:20 of a replay and you get `myreplay_00m10s-00m20s.mp4`, with hours for replays of an hour or more. The end toast and the log say it too, with duration, resolution, fps and path. Turn `rangeInFileName` off to keep the old names. Exports still never overwrite a file, and scene jobs keep their exact names.
+- **Server resource packs**: replays recorded on a server with a resource pack finally look like the server did, straight from the game's cache. `serverResourcePacks` can also download a missing pack, or switch them off.
+- **Changed mods warning**: a replay recorded with other mods tells you which ones are missing, added or updated before it opens. Open it anyway, cancel, or tick "Don't warn again for this replay" (`warnModChanges`).
+- **Speed track**: slow motion, fast forward, smooth ramps, timelapses and freeze frames in the Effects tab and on the timeline (Advanced mode). Previews and exports follow it; game sounds and voices go quiet outside x0.5 to x2 (adjustable).
+- **Markers while recording**: F6 drops a marker while recording or with the instant replay buffer on. They show up on the timeline when you open the replay.
+- **World visuals**: night vision, reduced or no fog, and particles all, none or by type in the World tab; hide every entity of a type and give an entity a glowing outline in the Entities tab. Exports show them too.
+
+Heads up: the automatic self test passes on every target, Armourer's Workshop included where it loads, but nobody has played with this yet and the other mods above were only checked against their jars, so tell me if something looks off.
 
 ### Changed
+- **Self test**: checks hidden armor on every target, Armourer's Workshop skins of hidden slots when the mod is there, and More Player Models looks on Forge 1.20.1 (with `-PdevMods`).
 - **Create Aeronautics, Sable, Create Propulsion**: checked together with Create 6.0.10 on NeoForge 1.21.1. The game loads, and recording, replays and seeks pass the self test. See `docs/COMPATIBILITY.md`.
+- **Building from source**: `./gradlew build` also runs the unit tests of `common/<mc>/src/test`, and the target branches carry them. See `docs/BUILDING.md`.
+- **Test matrix**: `tools/test_matrix.py` builds and self tests every target one after the other, with one report, also with the mods of a modpack. See `docs/TEST_MATRIX.md`.
+
+### Fixed
+- **Big modpacks**: an integration whose mod changed (a method or class gone, a crash in its code) no longer takes the game down. It turns itself off until the next start with one warning in the log, and the rest keeps going.
+- **Mixins**: another mod that rewrote a method Just Replay hooks no longer stops the game at startup, only that feature is lost.
+- **Mod packets**: a packet that can't be recorded, read back or played is skipped and counted instead of breaking the recording or the replay. One line sums them up at the end.
+- **Export names**: a video named like a Windows device (CON, NUL, COM1...) or starting with a dot now gets a name that works everywhere.
+- **Hand edited projects**: an empty weather no longer stops the replay from opening.
+- **Leaving a replay on Fabric** no longer risks freezing the game while the replay world shuts down (likelier with a server resource pack in the replay).
+- **Actors named after a player**: a skin lookup that fails at once (profile service down) no longer crashes the game in a replay.
 
 ### Ajouts
-- **Masquer l'armure** (Minecraft 1.21.1) : coupe le casque, le plastron, les jambières ou les bottes d'un joueur enregistré ou d'un acteur, pièce par pièce. Les élytres partent avec le plastron, une citrouille ou une tête avec le casque. Seuls le replay et la vidéo changent, et les anciens projets gardent leur armure. La nouvelle option `hidePlayerArmor` déshabille tous les joueurs d'un coup.
+- **Masquer l'armure** : coupe le casque, le plastron, les jambières ou les bottes d'un joueur enregistré ou d'un acteur, pièce par pièce. Les élytres partent avec le plastron, une citrouille ou une tête avec le casque. Seuls le replay et la vidéo changent, et les anciens projets gardent leur armure. La nouvelle option `hidePlayerArmor` déshabille tous les joueurs d'un coup. Ça marche aussi sur les modèles dessinés par Epic Fight et sur les skins d'Armourer's Workshop : les ailes partent avec le plastron, une tenue complète dès qu'un emplacement est masqué.
+- **More Player Models** sur Forge et NeoForge 1.20.1 : chacun garde son apparence dans les replays, queues et oreilles comprises, la tienne sur ton acteur, même après un saut. Ça marche avec ou sans le mod sur le serveur, et regarder un replay ne touche jamais à ta propre apparence. MPM n'a pas de build officiel en 1.21.1 ni en 26.1.2, donc il reste éteint là-bas.
+- **Epic Fight** sur Forge 1.20.1 : le mode combat, les attaques et les esquives se rejouent comme sur NeoForge 1.21.1, les tiennes sur ton acteur, même si l'enregistrement commence en plein combat ou si tu sautes dans le temps. Regarde-le avec la même version d'Epic Fight et les mêmes addons qu'à l'enregistrement.
+- **Armourer's Workshop** sur Forge, NeoForge et Fabric 1.20.1 et sur NeoForge et Fabric 26.1.2 : les skins et les garde-robes s'affichent dans les replays, en solo aussi.
+- **Custom NPCs** (portage non officiel) sur Forge, NeoForge et Fabric 1.20.1 et sur Fabric 1.21.1 : les PNJ gardent leur apparence, et tes dialogues et menus restent hors du replay.
+- **Interrupteurs d'intégration** : un interrupteur par mod dans la nouvelle section `compat` des réglages, aussi dans l'écran des réglages pour les mods installés. Coupé, Just Replay laisse ce mod tranquille dès le prochain démarrage.
+- **Ligne de démarrage** : le log dit au démarrage quelle version de Just Replay, quel loader et quelles intégrations tournent. Pratique pour lire un rapport de crash.
+- **Nommer ses replays** : arrête un enregistrement (F8, F7, les boutons du menu pause, un enregistrement minuté, en quittant un monde) et une fenêtre demande un nom, prérempli avec la date et l'heure. Entrée ou Rename le renomme, Échap ou Skip garde la date. Le dossier prend un nom accepté par Windows et Linux et ne prend jamais celui d'un autre replay, un ` (2)` est ajouté à la place. Pas envie ? Coupe `nameOnSave`.
+- **Plage exportée dans le nom** : exporte de 0:10 à 0:20 d'un replay et tu obtiens `monreplay_00m10s-00m20s.mp4`, avec les heures pour un replay d'une heure ou plus. Le message de fin et le log le disent aussi, avec durée, résolution, fps et chemin. Coupe `rangeInFileName` pour garder les anciens noms. Un export n'écrase toujours aucun fichier, et les tâches de scène gardent leur nom exact.
+- **Packs de ressources du serveur** : un replay enregistré sur un serveur à pack ressemble enfin au serveur, direct depuis le cache du jeu. `serverResourcePacks` peut aussi télécharger un pack manquant, ou les couper.
+- **Avertissement des mods changés** : un replay enregistré avec d'autres mods te dit lesquels manquent, ont été ajoutés ou mis à jour avant de s'ouvrir. Tu l'ouvres quand même, tu annules, ou tu coches « Don't warn again for this replay » (`warnModChanges`).
+- **Piste de vitesse** : ralenti, accéléré, rampes douces, timelapses et gels de l'image dans l'onglet Effects et sur la timeline (mode Avancé). L'aperçu et les exports la suivent ; les sons du jeu et les voix se taisent hors de x0,5 à x2 (réglable).
+- **Repères pendant l'enregistrement** : F6 pose un repère pendant un enregistrement ou avec le tampon des dernières minutes. Ils arrivent sur la timeline à l'ouverture du replay.
+- **Visuels du monde** : vision nocturne, brouillard réduit ou coupé, et particules toutes, aucune ou par type dans l'onglet Monde ; masquer toutes les entités d'un type et donner un contour lumineux à une entité dans l'onglet Entités. Les exports les montrent aussi.
+
+Attention : le test automatique passe sur toutes les cibles, Armourer's Workshop compris là où il charge, mais personne n'y a encore joué et les autres mods plus haut n'ont été vérifiés que contre leur jar, alors dis-moi si quelque chose cloche.
 
 ### Modifications
+- **Test automatique** : vérifie l'armure masquée sur toutes les cibles, les skins d'Armourer's Workshop des emplacements masqués quand le mod est là, et les apparences de More Player Models sur Forge 1.20.1 (avec `-PdevMods`).
 - **Create Aeronautics, Sable, Create Propulsion** : vérifiés ensemble avec Create 6.0.10 sur NeoForge 1.21.1. Le jeu charge, et l'enregistrement, les replays et les sauts passent le test automatique. Voir `docs/COMPATIBILITY.md`.
+- **Compiler le mod** : `./gradlew build` lance aussi les tests unitaires de `common/<mc>/src/test`, et les branches de cible les embarquent. Voir `docs/BUILDING.md`.
+- **Matrice de tests** : `tools/test_matrix.py` compile et teste toutes les cibles l'une après l'autre, avec un seul rapport, aussi avec les mods d'un modpack. Voir `docs/TEST_MATRIX.md`.
+
+### Correctifs
+- **Gros modpacks** : une intégration dont le mod a changé (méthode ou classe disparue, plantage dans son code) ne fait plus planter le jeu. Elle se coupe jusqu'au prochain démarrage avec un seul avertissement dans le log, et le reste continue.
+- **Mixins** : un autre mod qui a réécrit une méthode accrochée par Just Replay n'empêche plus le jeu de démarrer, seule cette fonction est perdue.
+- **Paquets de mods** : un paquet impossible à enregistrer, relire ou rejouer est ignoré et compté au lieu de casser l'enregistrement ou le replay. Une ligne en fait le compte à la fin.
+- **Noms d'export** : une vidéo nommée comme un périphérique Windows (CON, NUL, COM1...) ou qui commence par un point reçoit maintenant un nom valable partout.
+- **Projets retouchés à la main** : une météo vide ne bloque plus l'ouverture du replay.
+- **Quitter un replay sur Fabric** ne risque plus de figer le jeu pendant que le monde du replay se ferme (plus probable avec un pack de ressources du serveur dans le replay).
+- **Acteurs au nom d'un joueur** : une recherche de skin qui échoue d'un coup (service de profils indisponible) ne fait plus planter le jeu pendant un replay.
 
 ---
 

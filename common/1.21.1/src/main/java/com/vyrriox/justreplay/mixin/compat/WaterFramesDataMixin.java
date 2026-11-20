@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.mixin.compat;
 
+import com.vyrriox.justreplay.compat.Integrations;
 import com.vyrriox.justreplay.compat.WaterFramesCompat;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -21,6 +22,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class WaterFramesDataMixin {
     @Inject(method = "load", at = @At("TAIL"), require = 0, remap = false)
     private void justreplay$loaded(CompoundTag tag, @Coerce BlockEntity tile, CallbackInfo ci) {
-        WaterFramesCompat.onDataChanged(tile);
+        if (!Integrations.WATERFRAMES.on()) {
+            return;
+        }
+        try {
+            WaterFramesCompat.onDataChanged(tile);
+        } catch (Throwable t) {
+            Integrations.WATERFRAMES.fail("DisplayData.load", t);
+        }
     }
 }

@@ -6,43 +6,29 @@ import com.vyrriox.justreplay.replay.Playback;
 import com.vyrriox.justreplay.replay.ReplaySession;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.protocol.Packet;
-import com.vyrriox.justreplay.platform.Platform;
 
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+
+// The integrations (CURIOS, SABLE...): ReplayCompat forwards each hook through the one it belongs to.
+import static com.vyrriox.justreplay.compat.Integrations.*;
 
 /**
  * Entry point of the optional mod integrations: the replay session, the playback and the recorder call these hooks,
  * which forward them to each integration whose mod is installed. Every integration reaches its mod by reflection
  * (or through optional mixins), so nothing here loads a class of a missing mod.
+ * <p>
+ * Each call into an integration goes through its {@link Integration} (see {@link Integrations}): it runs only while
+ * the integration is on, and any error it throws (a {@link LinkageError} from a changed mod included) turns that
+ * integration off for the rest of the game with one warning, instead of crashing the game, the recording or the
+ * replay. Hooks that put back what an integration changed in its mod still run after such a failure
+ * ({@link Integration#cleanup}).
  *
  * @author vyrriox
  */
 public final class ReplayCompat {
-    static final boolean WATERFRAMES = isLoaded("waterframes");
-    static final boolean EMOTECRAFT = isLoaded("emotecraft");
-    static final boolean DISTANT_HORIZONS = isLoaded("distanthorizons");
-    static final boolean DROP_THE_BEAM = isLoaded("dropthebeam");
-    static final boolean PARCOOL = isLoaded("parcool");
-    static final boolean BETTER_COMBAT = isLoaded("bettercombat");
-    static final boolean MORPH = isLoaded("morph");
-    static final boolean SABLE = isLoaded("sable");
-    static final boolean AERONAUTICS = isLoaded("aeronautics");
-    static final boolean SIMULATED = isLoaded("simulated");
-    static final boolean PEHKUI = isLoaded("pehkui");
-    static final boolean CUSTOM_NPCS = isLoaded("customnpcs");
-    static final boolean ARMOURERS_WORKSHOP = isLoaded("armourers_workshop");
-    static final boolean EPIC_FIGHT = isLoaded("epicfight");
-    static final boolean CURIOS = isLoaded("curios");
-    static final boolean ENTITY_CULLING = isLoaded("entityculling");
-    static final boolean IRONS_SPELLS = isLoaded("irons_spellbooks");
-    static final boolean EXPOSURE = isLoaded("exposure");
-    static final boolean ACCESSORIES = isLoaded("accessories");
-    static final boolean JADE = isLoaded("jade");
-    static final boolean IMMERSIVE_AIRCRAFT = isLoaded("immersive_aircraft");
-    static final boolean IMMERSIVE_PAINTINGS = isLoaded("immersive_paintings");
-    static final boolean IMMERSIVE_VEHICLES = isLoaded("mts");
     private static final Set<String> FAILED = Collections.synchronizedSet(new HashSet<>());
     private static double monotonicFrame = -1;
     private static double monotonicValue;
@@ -51,26 +37,19 @@ public final class ReplayCompat {
     private ReplayCompat() {
     }
 
-    private static boolean isLoaded(String modId) {
-        try {
-            if (!Platform.get().isModLoaded(modId)) {
-                return false;
-            }
-            if (!CompatTargets.isSupported(modId)) {
-                JustReplay.LOGGER.info("{} is installed but its integration is not supported on this target", modId);
-                return false;
-            }
-            return true;
-        } catch (Throwable t) {
-            return false;
-        }
-    }
-
     /** Logs an integration failure once per key, then the integration keeps going without that feature. */
     static void warnOnce(String key, String message, Throwable t) {
         if (FAILED.add(key)) {
             JustReplay.LOGGER.warn("{}: {}", message, t == null ? "" : t.toString());
         }
+    }
+
+    /**
+     * Logs once an error of a compat mixin that adjusts the game itself for a mod (the level renderer clock, the section
+     * draw guard): that adjustment is skipped and the game keeps its own behaviour.
+     */
+    public static void warnOnceGame(String hook, Throwable t) {
+        warnOnce("game." + hook, "Just Replay cannot adjust " + hook + " during replays, it keeps the game's behaviour", t);
     }
 
     // ---------------------------------------------------------------- replay clock
@@ -172,55 +151,35 @@ public final class ReplayCompat {
      * prepare what the replay world needs (Distant Horizons' recorded LODs).
      */
     public static void prepareReplay(com.vyrriox.justreplay.format.ReplayMeta meta) {
-        if (DISTANT_HORIZONS) {
-            try {
-                DistantHorizonsCompat.prepare(meta);
-            } catch (Throwable t) {
-                warnOnce("dh.prepare", "Cannot prepare the Distant Horizons LODs for the replay", t);
-            }
-        }
+        DISTANT_HORIZONS.run("prepare", () -> DistantHorizonsCompat.prepare(meta));
     }
 
     /** Called once the replay world has fully closed (its integrated server stopped), or after it failed to open. */
     public static void onReplayWorldClosed() {
-        if (DISTANT_HORIZONS) {
-            try {
-                DistantHorizonsCompat.onReplayWorldClosed();
-            } catch (Throwable t) {
-                warnOnce("dh.closed", "Cannot clean up the Distant Horizons replay data", t);
-            }
-        }
+        DISTANT_HORIZONS.cleanup("onReplayWorldClosed", DistantHorizonsCompat::onReplayWorldClosed);
     }
 
     /** Called once when replay playback starts. */
     public static void onReplayStart(Minecraft mc) {
-        if (DISTANT_HORIZONS) {
-            DistantHorizonsCompat.onReplayStart();
-        }
-        if (BETTER_COMBAT) {
-            BetterCombatCompat.onReplayStart();
-        }
-        if (ENTITY_CULLING) {
-            EntityCullingCompat.onReplayStart();
-        }
-        if (DROP_THE_BEAM) {
+        DISTANT_HORIZONS.run("onReplayStart", DistantHorizonsCompat::onReplayStart);
+        BETTER_COMBAT.run("onReplayStart", BetterCombatCompat::onReplayStart);
+        ENTITY_CULLING.run("onReplayStart", EntityCullingCompat::onReplayStart);
+        DROP_THE_BEAM.run("onReplayStart", () -> {
             ReplaySession session = ReplaySession.current();
             DropTheBeamCompat.onReplayStart(session != null ? session.dir() : null);
-        }
-        if (IRONS_SPELLS) {
-            IronsSpellsCompat.clearState();
-        }
+        });
+        IRONS_SPELLS.run("onReplayStart", IronsSpellsCompat::clearState);
     }
 
     /** Called every client tick, replay or not. */
     public static void clientTick(Minecraft mc) {
-        if (DISTANT_HORIZONS && !ReplaySession.isRunning()) {
-            DistantHorizonsCompat.recoverAfterInterruptedReplay();
+        if (DISTANT_HORIZONS.on() && !ReplaySession.isRunning()) {
+            DISTANT_HORIZONS.run("recoverAfterInterruptedReplay", DistantHorizonsCompat::recoverAfterInterruptedReplay);
         }
-        if (SABLE && !sableChecked) {
+        if (!sableChecked && SABLE.on()) {
             // Resolved once up front, so the detection line (or the failure) shows in the log at startup.
             sableChecked = true;
-            SableCompat.reflect();
+            SABLE.run("reflect", SableCompat::reflect);
         }
     }
 
@@ -228,140 +187,166 @@ public final class ReplayCompat {
 
     /** Called every client tick of a running replay, after the playback tick. */
     public static void tick(Minecraft mc, ReplaySession session) {
-        if (IMMERSIVE_VEHICLES) {
-            ImmersiveVehiclesCompat.tick(mc);
-        }
-        if (WATERFRAMES) {
-            try {
-                WaterFramesCompat.tick(mc, session.playback());
-            } catch (Throwable t) {
-                warnOnce("waterframes.tick", "WaterFrames sync failed", t);
-            }
-        }
-        if (DISTANT_HORIZONS) {
-            DistantHorizonsCompat.tick();
-        }
-        if (DROP_THE_BEAM) {
-            try {
-                DropTheBeamCompat.tick(mc, session);
-            } catch (Throwable t) {
-                warnOnce("dropthebeam.tick", "Drop the Beam sync failed", t);
-            }
-        }
-        if (EPIC_FIGHT) {
-            EpicFightCompat.applyPending();
-        }
-        if (ENTITY_CULLING) {
-            EntityCullingCompat.tick();
-        }
+        IMMERSIVE_VEHICLES.run("tick", () -> ImmersiveVehiclesCompat.tick(mc));
+        WATERFRAMES.run("tick", () -> WaterFramesCompat.tick(mc, session.playback()));
+        DISTANT_HORIZONS.run("tick", DistantHorizonsCompat::tick);
+        DROP_THE_BEAM.run("tick", () -> DropTheBeamCompat.tick(mc, session));
+        EPIC_FIGHT.run("applyPending", EpicFightCompat::applyPending);
+        ENTITY_CULLING.run("tick", EntityCullingCompat::tick);
+        ARMOURERS_WORKSHOP.run("hiddenArmor", () -> ArmourersHiddenArmor.tick(mc));
     }
 
-    /** Called when the replay session closes. */
+    /** Called when the replay session closes. Runs for integrations that failed too: they put back what they changed. */
     public static void onReplayEnd() {
         monotonicFrame = -1;
-        if (ENTITY_CULLING) {
-            EntityCullingCompat.onReplayEnd();
-        }
-        if (WATERFRAMES) {
-            WaterFramesCompat.clear();
-        }
-        if (DISTANT_HORIZONS) {
-            DistantHorizonsCompat.onReplayEnd();
-        }
-        if (DROP_THE_BEAM) {
-            DropTheBeamCompat.onReplayEnd();
-        }
-        if (ARMOURERS_WORKSHOP) {
-            ArmourersWorkshopCompat.onReplayEnd();
-        }
-        if (EPIC_FIGHT) {
-            EpicFightCompat.onReplayEnd();
-        }
-        if (IRONS_SPELLS) {
-            IronsSpellsCompat.clearState();
-        }
-        if (IMMERSIVE_VEHICLES) {
-            ImmersiveVehiclesCompat.onReplayEnd();
-        }
+        ENTITY_CULLING.cleanup("onReplayEnd", EntityCullingCompat::onReplayEnd);
+        WATERFRAMES.cleanup("onReplayEnd", WaterFramesCompat::clear);
+        DISTANT_HORIZONS.cleanup("onReplayEnd", DistantHorizonsCompat::onReplayEnd);
+        DROP_THE_BEAM.cleanup("onReplayEnd", DropTheBeamCompat::onReplayEnd);
+        ARMOURERS_WORKSHOP.cleanup("onReplayEnd", ArmourersWorkshopCompat::onReplayEnd);
+        EPIC_FIGHT.cleanup("onReplayEnd", EpicFightCompat::onReplayEnd);
+        IRONS_SPELLS.cleanup("onReplayEnd", IronsSpellsCompat::clearState);
+        IMMERSIVE_VEHICLES.cleanup("onReplayEnd", ImmersiveVehiclesCompat::onReplayEnd);
     }
 
     /** A seek is about to rebuild the replay world from a checkpoint or from the start of the stream. */
     public static void onWorldRebuild() {
-        if (IRONS_SPELLS) {
-            IronsSpellsCompat.clearState();
-        }
+        IRONS_SPELLS.run("onWorldRebuild", IronsSpellsCompat::clearState);
     }
 
     /**
      * A recorded packet about to be handled at its recorded tick (seeks included): true when an integration consumed
      * it and it must not reach the client (Drop the Beam's clock packets, which belong to the recording process).
+     * Called for every packet: no allocation.
      */
     public static boolean consumeRecorded(Packet<?> packet, int tick) {
-        if (EPIC_FIGHT) {
-            // The previous packet has been handled: its Epic Fight animation can be moved to its time.
-            EpicFightCompat.applyPending();
+        if (EPIC_FIGHT.on()) {
+            try {
+                // The previous packet has been handled: its Epic Fight animation can be moved to its time.
+                EpicFightCompat.applyPending();
+            } catch (Throwable t) {
+                EPIC_FIGHT.fail("applyPending", t);
+            }
         }
-        if (BETTER_COMBAT) {
-            BetterCombatCompat.onRecorded(packet);
+        if (BETTER_COMBAT.on()) {
+            try {
+                BetterCombatCompat.onRecorded(packet);
+            } catch (Throwable t) {
+                BETTER_COMBAT.fail("onRecorded", t);
+            }
         }
-        if (MORPH && MorphCompat.consumeRecorded(packet)) {
-            return true;
+        if (MORPH.on()) {
+            try {
+                if (MorphCompat.consumeRecorded(packet)) {
+                    return true;
+                }
+            } catch (Throwable t) {
+                MORPH.fail("consumeRecorded", t);
+            }
         }
-        return DROP_THE_BEAM && DropTheBeamCompat.consumeRecorded(packet, tick);
+        if (DROP_THE_BEAM.on()) {
+            try {
+                return DropTheBeamCompat.consumeRecorded(packet, tick);
+            } catch (Throwable t) {
+                DROP_THE_BEAM.fail("consumeRecorded", t);
+            }
+        }
+        return false;
     }
 
     /**
      * A recorded packet about to be handled, after the generic filters: returns the packet to handle in its place, or
-     * null to drop it (Sable payloads meant for the live player only, pose timing scaled to the playback speed).
+     * null to drop it (Sable payloads meant for the live player only, pose timing scaled to the playback speed). A
+     * failing integration leaves the packet as it was. Called for every packet: no allocation.
      */
     public static Packet<?> filterPlayback(Packet<?> packet) {
-        if (SABLE) {
-            packet = SableCompat.filterPlayback(packet, playback());
+        if (SABLE.on()) {
+            try {
+                packet = SableCompat.filterPlayback(packet, playback());
+            } catch (Throwable t) {
+                SABLE.fail("filterPlayback", t);
+            }
         }
-        if (CUSTOM_NPCS && packet != null) {
-            packet = CustomNpcsCompat.filterPlayback(packet);
+        if (packet != null && CUSTOM_NPCS.on()) {
+            try {
+                packet = CustomNpcsCompat.filterPlayback(packet);
+            } catch (Throwable t) {
+                CUSTOM_NPCS.fail("filterPlayback", t);
+            }
         }
-        if (EPIC_FIGHT && packet != null) {
-            packet = EpicFightCompat.filterPlayback(packet);
+        if (packet != null && EPIC_FIGHT.on()) {
+            try {
+                packet = EpicFightCompat.filterPlayback(packet);
+            } catch (Throwable t) {
+                EPIC_FIGHT.fail("filterPlayback", t);
+            }
         }
-        if (IRONS_SPELLS && packet != null) {
-            packet = IronsSpellsCompat.filterPlayback(packet);
+        if (packet != null && IRONS_SPELLS.on()) {
+            try {
+                packet = IronsSpellsCompat.filterPlayback(packet);
+            } catch (Throwable t) {
+                IRONS_SPELLS.fail("filterPlayback", t);
+            }
         }
-        if (EXPOSURE && packet != null) {
-            packet = ExposureCompat.filterPlayback(packet);
+        if (packet != null && EXPOSURE.on()) {
+            try {
+                packet = ExposureCompat.filterPlayback(packet);
+            } catch (Throwable t) {
+                EXPOSURE.fail("filterPlayback", t);
+            }
         }
-        if (ACCESSORIES && packet != null) {
-            packet = AccessoriesCompat.filterPlayback(packet);
+        if (packet != null && ACCESSORIES.on()) {
+            try {
+                packet = AccessoriesCompat.filterPlayback(packet);
+            } catch (Throwable t) {
+                ACCESSORIES.fail("filterPlayback", t);
+            }
         }
-        if (JADE && packet != null) {
-            packet = JadeCompat.filterPlayback(packet);
+        if (packet != null && JADE.on()) {
+            try {
+                packet = JadeCompat.filterPlayback(packet);
+            } catch (Throwable t) {
+                JADE.fail("filterPlayback", t);
+            }
         }
-        if (IMMERSIVE_PAINTINGS && packet != null) {
-            packet = ImmersivePaintingsCompat.filterPlayback(packet);
+        if (packet != null && IMMERSIVE_PAINTINGS.on()) {
+            try {
+                packet = ImmersivePaintingsCompat.filterPlayback(packet);
+            } catch (Throwable t) {
+                IMMERSIVE_PAINTINGS.fail("filterPlayback", t);
+            }
         }
         return packet;
     }
 
     /** True for a chunk of a mod's far away storage area that must stay loaded whatever the camera distance (Sable plots). */
     public static boolean isDetachedChunk(int x, int z) {
-        return SABLE && SableCompat.isPlotChunk(x, z);
+        if (!SABLE.on()) {
+            return false;
+        }
+        try {
+            return SableCompat.isPlotChunk(x, z);
+        } catch (Throwable t) {
+            SABLE.fail("isPlotChunk", t);
+            return false;
+        }
     }
 
     /** A packet the client is about to send to the replay host: true to drop it (requests of mods with no server there). */
     public static boolean blockServerbound(Packet<?> packet) {
-        return DROP_THE_BEAM && DropTheBeamCompat.blockServerbound(packet)
-                || PARCOOL && ParCoolCompat.blockServerbound(packet)
-                || BETTER_COMBAT && BetterCombatCompat.blockServerbound(packet)
-                || MORPH && MorphCompat.blockServerbound(packet)
-                || CUSTOM_NPCS && CustomNpcsCompat.blockServerbound(packet)
-                || EPIC_FIGHT && EpicFightCompat.blockServerbound(packet)
-                || IRONS_SPELLS && IronsSpellsCompat.blockServerbound(packet)
-                || EXPOSURE && ExposureCompat.blockServerbound(packet)
-                || ACCESSORIES && AccessoriesCompat.blockServerbound(packet)
-                || JADE && JadeCompat.blockServerbound(packet)
-                || IMMERSIVE_AIRCRAFT && ImmersiveAircraftCompat.blockServerbound(packet)
-                || IMMERSIVE_PAINTINGS && ImmersivePaintingsCompat.blockServerbound(packet)
-                || IMMERSIVE_VEHICLES && ImmersiveVehiclesCompat.blockServerbound(packet);
+        return DROP_THE_BEAM.on() && DROP_THE_BEAM.test("blockServerbound", () -> DropTheBeamCompat.blockServerbound(packet))
+                || PARCOOL.on() && PARCOOL.test("blockServerbound", () -> ParCoolCompat.blockServerbound(packet))
+                || BETTER_COMBAT.on() && BETTER_COMBAT.test("blockServerbound", () -> BetterCombatCompat.blockServerbound(packet))
+                || MORPH.on() && MORPH.test("blockServerbound", () -> MorphCompat.blockServerbound(packet))
+                || CUSTOM_NPCS.on() && CUSTOM_NPCS.test("blockServerbound", () -> CustomNpcsCompat.blockServerbound(packet))
+                || EPIC_FIGHT.on() && EPIC_FIGHT.test("blockServerbound", () -> EpicFightCompat.blockServerbound(packet))
+                || IRONS_SPELLS.on() && IRONS_SPELLS.test("blockServerbound", () -> IronsSpellsCompat.blockServerbound(packet))
+                || EXPOSURE.on() && EXPOSURE.test("blockServerbound", () -> ExposureCompat.blockServerbound(packet))
+                || ACCESSORIES.on() && ACCESSORIES.test("blockServerbound", () -> AccessoriesCompat.blockServerbound(packet))
+                || JADE.on() && JADE.test("blockServerbound", () -> JadeCompat.blockServerbound(packet))
+                || IMMERSIVE_AIRCRAFT.on() && IMMERSIVE_AIRCRAFT.test("blockServerbound", () -> ImmersiveAircraftCompat.blockServerbound(packet))
+                || IMMERSIVE_PAINTINGS.on() && IMMERSIVE_PAINTINGS.test("blockServerbound", () -> ImmersivePaintingsCompat.blockServerbound(packet))
+                || IMMERSIVE_VEHICLES.on() && IMMERSIVE_VEHICLES.test("blockServerbound", () -> ImmersiveVehiclesCompat.blockServerbound(packet));
     }
 
     // ---------------------------------------------------------------- recording hooks
@@ -372,8 +357,8 @@ public final class ReplayCompat {
      */
     public static void describeLevel(com.vyrriox.justreplay.format.ReplayMeta meta, net.minecraft.world.level.Level level,
                                      boolean force) {
-        if (DISTANT_HORIZONS) {
-            DistantHorizonsCompat.describe(meta, level, force);
+        if (DISTANT_HORIZONS.on()) {
+            DISTANT_HORIZONS.run("describe", () -> DistantHorizonsCompat.describe(meta, level, force));
         }
     }
 
@@ -382,18 +367,18 @@ public final class ReplayCompat {
      * back to its sender (Better Combat's attack animations).
      */
     public static void onLiveServerbound(Packet<?> packet) {
-        if (BETTER_COMBAT) {
+        if (BETTER_COMBAT.on()) {
             try {
                 BetterCombatCompat.onLiveServerbound(packet);
             } catch (Throwable t) {
-                warnOnce("bettercombat.serverbound", "Cannot record a Better Combat attack", t);
+                BETTER_COMBAT.fail("onLiveServerbound", t);
             }
         }
-        if (EPIC_FIGHT) {
+        if (EPIC_FIGHT.on()) {
             try {
                 EpicFightCompat.onLiveServerbound(packet);
             } catch (Throwable t) {
-                warnOnce("epicfight.serverbound", "Cannot record an Epic Fight request of the local player", t);
+                EPIC_FIGHT.fail("onLiveServerbound", t);
             }
         }
     }
@@ -402,28 +387,28 @@ public final class ReplayCompat {
      * A captured clientbound packet about to be written into the recording (network thread): returns the packet to
      * write in its place. ParCool echoes the recording player's own actions back to it under its real UUID; they are
      * written for its actor, as another client receives them. Morph forms naming the recording player's UUID name the
-     * actor's instead. The packet the client handles is never changed.
+     * actor's instead. The packet the client handles is never changed. Called for every packet: no allocation.
      */
     public static Packet<?> rewriteRecorded(Packet<?> packet, java.util.UUID localUuid, java.util.UUID actorUuid) {
-        if (PARCOOL) {
+        if (PARCOOL.on()) {
             try {
                 packet = ParCoolCompat.rewriteRecorded(packet, localUuid, actorUuid);
             } catch (Throwable t) {
-                warnOnce("parcool.rewrite", "Cannot record the local player's ParCool actions", t);
+                PARCOOL.fail("rewriteRecorded", t);
             }
         }
-        if (MORPH) {
+        if (MORPH.on()) {
             try {
                 packet = MorphCompat.rewriteRecorded(packet, localUuid, actorUuid);
             } catch (Throwable t) {
-                warnOnce("morph.rewrite", "Cannot record the local player's Morph forms for its actor", t);
+                MORPH.fail("rewriteRecorded", t);
             }
         }
-        if (IRONS_SPELLS) {
+        if (IRONS_SPELLS.on()) {
             try {
                 packet = IronsSpellsCompat.rewriteRecorded(packet, localUuid, actorUuid);
             } catch (Throwable t) {
-                warnOnce("irons.rewrite", "Cannot record the local player's Iron's Spellbooks casts for its actor", t);
+                IRONS_SPELLS.fail("rewriteRecorded", t);
             }
         }
         return packet;
@@ -431,14 +416,44 @@ public final class ReplayCompat {
 
     /** A live packet that is not written to the recording, because its replay would drop it anyway. */
     public static boolean skipRecording(Packet<?> packet) {
-        return IRONS_SPELLS && IronsSpellsCompat.isLocalOnly(packet);
+        if (!IRONS_SPELLS.on()) {
+            return false;
+        }
+        try {
+            return IronsSpellsCompat.isLocalOnly(packet);
+        } catch (Throwable t) {
+            IRONS_SPELLS.fail("isLocalOnly", t);
+            return false;
+        }
+    }
+
+    /**
+     * True for a mod packet a snapshot must write again because the server sends it only once per connection (Create's
+     * train network).
+     */
+    public static boolean isPersistentModPacket(Packet<?> packet) {
+        if (!CREATE.on()) {
+            return false;
+        }
+        try {
+            return CreateCompat.isPersistent(packet);
+        } catch (Throwable t) {
+            CREATE.fail("isPersistent", t);
+            return false;
+        }
+    }
+
+    /** Polls the local player's emote for a recorded tick (see {@link EmotecraftCompat.LocalEmotes}). */
+    public static void pollLocalEmotes(EmotecraftCompat.LocalEmotes emotes, net.minecraft.world.entity.Entity player,
+                                       java.util.UUID actor, boolean respawned, java.util.function.Consumer<Packet<?>> out) {
+        if (EMOTECRAFT.on()) {
+            EMOTECRAFT.run("pollLocalEmotes", () -> emotes.poll(player, actor, respawned, out));
+        }
     }
 
     /** Mod definitions the entity state depends on (snapshots and checkpoints), written before any entity. */
     public static void writeDefinitions(java.util.function.Consumer<Packet<?>> out) {
-        if (CURIOS) {
-            CuriosCompat.writeDefinitions(out);
-        }
+        CURIOS.run("writeDefinitions", () -> CuriosCompat.writeDefinitions(out));
     }
 
     /**
@@ -447,69 +462,51 @@ public final class ReplayCompat {
      */
     public static void writePlayerState(net.minecraft.world.entity.player.Player player, java.util.UUID target,
                                         java.util.function.Consumer<Packet<?>> out) {
-        EmotecraftCompat.writeCurrent(player, target, out);
-        if (PARCOOL) {
-            ParCoolCompat.writeCurrent(player, target, out);
-        }
-        if (MORPH) {
-            MorphCompat.writeCurrent(player, target, out);
-        }
-        if (PEHKUI) {
-            PehkuiCompat.writeCurrent(player, out);
-        }
-        if (ARMOURERS_WORKSHOP) {
-            ArmourersWorkshopCompat.writeCurrent(player, out);
-        }
-        if (EPIC_FIGHT) {
-            // Keyed by entity id, which the actor shares with the recording player.
-            EpicFightCompat.writeCurrent(player, out);
-        }
-        if (CURIOS) {
-            CuriosCompat.writeCurrent(player, out);
-        }
-        if (ACCESSORIES) {
-            AccessoriesCompat.writeCurrent(player, out);
-        }
-        if (IRONS_SPELLS) {
-            IronsSpellsCompat.writeCurrent(player, out);
-        }
+        EMOTECRAFT.run("writeCurrent", () -> EmotecraftCompat.writeCurrent(player, target, out));
+        PARCOOL.run("writeCurrent", () -> ParCoolCompat.writeCurrent(player, target, out));
+        MORPH.run("writeCurrent", () -> MorphCompat.writeCurrent(player, target, out));
+        PEHKUI.run("writeCurrent", () -> PehkuiCompat.writeCurrent(player, out));
+        ARMOURERS_WORKSHOP.run("writeCurrent", () -> ArmourersWorkshopCompat.writeCurrent(player, out));
+        // Keyed by entity id, which the actor shares with the recording player.
+        EPIC_FIGHT.run("writeCurrent", () -> EpicFightCompat.writeCurrent(player, out));
+        CURIOS.run("writeCurrent", () -> CuriosCompat.writeCurrent(player, out));
+        ACCESSORIES.run("writeCurrent", () -> AccessoriesCompat.writeCurrent(player, out));
+        IRONS_SPELLS.run("writeCurrent", () -> IronsSpellsCompat.writeCurrent(player, out));
     }
 
     /** Mod state of the non-player entities of a snapshot or checkpoint, written after they spawn (Pehkui scales). */
     public static void writeEntityState(Iterable<net.minecraft.world.entity.Entity> entities,
                                         java.util.function.Consumer<Packet<?>> out) {
-        if (PEHKUI) {
-            PehkuiCompat.writeEntities(entities, out);
-        }
+        PEHKUI.run("writeEntities", () -> PehkuiCompat.writeEntities(entities, out));
     }
 
     /** Mod state an entity other than a player carries now (snapshots and checkpoints), written after its spawn. */
     public static void writeEntityState(net.minecraft.world.entity.Entity entity, java.util.function.Consumer<Packet<?>> out) {
-        if (ARMOURERS_WORKSHOP) {
-            ArmourersWorkshopCompat.writeCurrent(entity, out);
+        if (ARMOURERS_WORKSHOP.on()) {
+            ARMOURERS_WORKSHOP.run("writeCurrent", () -> ArmourersWorkshopCompat.writeCurrent(entity, out));
         }
-        if (CURIOS) {
-            CuriosCompat.writeCurrent(entity, out);
+        if (CURIOS.on()) {
+            CURIOS.run("writeCurrent", () -> CuriosCompat.writeCurrent(entity, out));
         }
-        if (ACCESSORIES) {
-            AccessoriesCompat.writeCurrent(entity, out);
+        if (ACCESSORIES.on()) {
+            ACCESSORIES.run("writeCurrent", () -> AccessoriesCompat.writeCurrent(entity, out));
         }
-        if (IRONS_SPELLS) {
-            IronsSpellsCompat.writeCurrent(entity, out);
+        if (IRONS_SPELLS.on()) {
+            IRONS_SPELLS.run("writeCurrent", () -> IronsSpellsCompat.writeCurrent(entity, out));
         }
-        if (IMMERSIVE_AIRCRAFT) {
-            ImmersiveAircraftCompat.writeCurrent(entity, out);
+        if (IMMERSIVE_AIRCRAFT.on()) {
+            IMMERSIVE_AIRCRAFT.run("writeCurrent", () -> ImmersiveAircraftCompat.writeCurrent(entity, out));
         }
-        if (IMMERSIVE_VEHICLES) {
-            ImmersiveVehiclesCompat.writeCurrent(entity, out);
+        if (IMMERSIVE_VEHICLES.on()) {
+            IMMERSIVE_VEHICLES.run("writeCurrent", () -> ImmersiveVehiclesCompat.writeCurrent(entity, out));
         }
     }
 
     /** Mod state of the blocks of a chunk just written into a snapshot or checkpoint (Immersive Vehicles blocks). */
     public static void writeChunkState(net.minecraft.world.level.chunk.LevelChunk chunk,
                                        java.util.function.Consumer<Packet<?>> out) {
-        if (IMMERSIVE_VEHICLES) {
-            ImmersiveVehiclesCompat.writeChunk(chunk, out);
+        if (IMMERSIVE_VEHICLES.on()) {
+            IMMERSIVE_VEHICLES.run("writeChunk", () -> ImmersiveVehiclesCompat.writeChunk(chunk, out));
         }
     }
 
@@ -519,27 +516,13 @@ public final class ReplayCompat {
      */
     public static void writeActorForm(net.minecraft.world.entity.player.Player player, java.util.UUID target,
                                       java.util.function.Consumer<Packet<?>> out) {
-        if (MORPH) {
-            MorphCompat.writeCurrent(player, target, out);
-        }
-        if (PEHKUI) {
-            PehkuiCompat.writeCurrent(player, out);
-        }
-        if (ARMOURERS_WORKSHOP) {
-            ArmourersWorkshopCompat.writeCurrent(player, out);
-        }
-        if (EPIC_FIGHT) {
-            EpicFightCompat.writeCurrent(player, out);
-        }
-        if (CURIOS) {
-            CuriosCompat.writeCurrent(player, out);
-        }
-        if (ACCESSORIES) {
-            AccessoriesCompat.writeCurrent(player, out);
-        }
-        if (IRONS_SPELLS) {
-            IronsSpellsCompat.writeCurrent(player, out);
-        }
+        MORPH.run("writeCurrent", () -> MorphCompat.writeCurrent(player, target, out));
+        PEHKUI.run("writeCurrent", () -> PehkuiCompat.writeCurrent(player, out));
+        ARMOURERS_WORKSHOP.run("writeCurrent", () -> ArmourersWorkshopCompat.writeCurrent(player, out));
+        EPIC_FIGHT.run("writeCurrent", () -> EpicFightCompat.writeCurrent(player, out));
+        CURIOS.run("writeCurrent", () -> CuriosCompat.writeCurrent(player, out));
+        ACCESSORIES.run("writeCurrent", () -> AccessoriesCompat.writeCurrent(player, out));
+        IRONS_SPELLS.run("writeCurrent", () -> IronsSpellsCompat.writeCurrent(player, out));
     }
 
     /**
@@ -548,144 +531,170 @@ public final class ReplayCompat {
      */
     public static void writeEntityStates(net.minecraft.client.multiplayer.ClientLevel level,
                                          java.util.function.Consumer<Packet<?>> out) {
-        if (EPIC_FIGHT) {
-            EpicFightCompat.writeEntities(level, out);
-        }
+        EPIC_FIGHT.run("writeEntities", () -> EpicFightCompat.writeEntities(level, out));
     }
 
-    /** A clientbound packet of a live (recorded) connection, on the network thread; {@code newConnection} on its first. */
+    /**
+     * A clientbound packet of a live (recorded) connection, on the network thread; {@code newConnection} on its first.
+     * Called for every packet: no allocation.
+     */
     public static void onLivePacket(Packet<?> packet, boolean newConnection) {
-        if (!DROP_THE_BEAM) {
+        if (!DROP_THE_BEAM.on()) {
             return;
         }
-        if (newConnection) {
-            DropTheBeamCompat.clearCache();
+        try {
+            if (newConnection) {
+                DropTheBeamCompat.clearCache();
+            }
+            DropTheBeamCompat.track(packet);
+        } catch (Throwable t) {
+            DROP_THE_BEAM.fail("track", t);
         }
-        DropTheBeamCompat.track(packet);
     }
 
     /** Mod state a snapshot or checkpoint must write because the server sends it only on a change. */
     public static void writeSnapshot(java.util.function.Consumer<Packet<?>> out) {
-        if (ACCESSORIES) {
-            try {
-                // First: holders read without these definitions lose every stack, and players and entities follow.
-                AccessoriesCompat.writeSnapshot(out);
-            } catch (Throwable t) {
-                warnOnce("accessories.definitions", "Cannot write the Accessories slot definitions into the snapshot", t);
-            }
-        }
-        if (SABLE) {
-            try {
-                SableCompat.writeSnapshot(out);
-            } catch (Throwable t) {
-                warnOnce("sable.snapshot", "Cannot write the Sable sub-levels into the snapshot", t);
-            }
-        }
-        if (SIMULATED) {
-            try {
-                // After the sub-levels: the rope owner blocks must exist, in the world or in a plot.
-                SimulatedCompat.writeSnapshot(out);
-            } catch (Throwable t) {
-                warnOnce("simulated.snapshot", "Cannot write the Simulated ropes into the snapshot", t);
-            }
-        }
-        if (ARMOURERS_WORKSHOP) {
-            try {
-                ArmourersWorkshopCompat.writeSnapshot(out);
-            } catch (Throwable t) {
-                warnOnce("aw.snapshot", "Cannot write the Armourer's Workshop skins into the snapshot", t);
-            }
-        }
-        if (IMMERSIVE_PAINTINGS) {
-            try {
-                ImmersivePaintingsCompat.writeSnapshot(out);
-            } catch (Throwable t) {
-                warnOnce("paintings.snapshot", "Cannot write the Immersive Paintings images into the snapshot", t);
-            }
-        }
-        if (DROP_THE_BEAM) {
-            try {
-                DropTheBeamCompat.writeSnapshot(out);
-            } catch (Throwable t) {
-                warnOnce("dropthebeam.snapshot", "Cannot write the Drop the Beam state into the snapshot", t);
-            }
-        }
-        if (CUSTOM_NPCS) {
-            try {
-                CustomNpcsCompat.writeSnapshot(out);
-            } catch (Throwable t) {
-                warnOnce("customnpcs.snapshot", "Cannot write the Custom NPCs player skins into the snapshot", t);
-            }
-        }
-        if (EXPOSURE) {
-            try {
-                ExposureCompat.writeSnapshot(out);
-            } catch (Throwable t) {
-                warnOnce("exposure.snapshot", "Cannot write the Exposure photographs into the snapshot", t);
-            }
-        }
+        // First: holders read without these definitions lose every stack, and players and entities follow.
+        ACCESSORIES.run("writeSnapshot", () -> AccessoriesCompat.writeSnapshot(out));
+        SABLE.run("writeSnapshot", () -> SableCompat.writeSnapshot(out));
+        // After the sub-levels: the rope owner blocks must exist, in the world or in a plot.
+        SIMULATED.run("writeSnapshot", () -> SimulatedCompat.writeSnapshot(out));
+        ARMOURERS_WORKSHOP.run("writeSnapshot", () -> ArmourersWorkshopCompat.writeSnapshot(out));
+        IMMERSIVE_PAINTINGS.run("writeSnapshot", () -> ImmersivePaintingsCompat.writeSnapshot(out));
+        DROP_THE_BEAM.run("writeSnapshot", () -> DropTheBeamCompat.writeSnapshot(out));
+        CUSTOM_NPCS.run("writeSnapshot", () -> CustomNpcsCompat.writeSnapshot(out));
+        EXPOSURE.run("writeSnapshot", () -> ExposureCompat.writeSnapshot(out));
     }
 
-    /** The encoded bytes of a recorded packet, with what a mod appends to a vanilla packet restored (Custom NPCs looks). */
+    /**
+     * The encoded bytes of a recorded packet, with what a mod appends to a vanilla packet restored (Custom NPCs looks).
+     * Called for every packet: no allocation.
+     */
     public static byte[] patchEncoded(Packet<?> packet, byte[] bytes) {
-        return CUSTOM_NPCS ? CustomNpcsCompat.patchEncoded(packet, bytes) : bytes;
+        if (!CUSTOM_NPCS.on()) {
+            return bytes;
+        }
+        try {
+            return CustomNpcsCompat.patchEncoded(packet, bytes);
+        } catch (Throwable t) {
+            CUSTOM_NPCS.fail("patchEncoded", t);
+            return bytes;
+        }
     }
 
     /** A synthetic packet to record on this capture tick (a mod clock sample), or null. */
     public static Packet<?> recordTick(int captureTick) {
-        return DROP_THE_BEAM ? DropTheBeamCompat.sampleForTick(captureTick) : null;
+        if (!DROP_THE_BEAM.on()) {
+            return null;
+        }
+        try {
+            return DropTheBeamCompat.sampleForTick(captureTick);
+        } catch (Throwable t) {
+            DROP_THE_BEAM.fail("sampleForTick", t);
+            return null;
+        }
+    }
+
+    /** The song starts of the running replay (Drop the Beam), none when that integration is off. */
+    public static List<DropTheBeamCompat.SongStart> songStarts() {
+        if (!DROP_THE_BEAM.on()) {
+            return List.of();
+        }
+        try {
+            return DropTheBeamCompat.songStartTicks();
+        } catch (Throwable t) {
+            DROP_THE_BEAM.fail("songStartTicks", t);
+            return List.of();
+        }
+    }
+
+    // ---------------------------------------------------------------- editor hooks
+
+    /** Plays (or keeps in sync) an EMOTE action of an actor, see {@link EmotecraftCompat#applyActorEmote}. */
+    public static void applyActorEmote(net.minecraft.world.entity.Entity actor, String name, int actionTick, int clipFrom,
+                                       double speed, int cursor) {
+        if (EMOTECRAFT.on()) {
+            EMOTECRAFT.run("applyActorEmote", () -> EmotecraftCompat.applyActorEmote(actor, name, actionTick, clipFrom, speed, cursor));
+        }
+    }
+
+    /** Stops the emote of an actor, if it plays one. */
+    public static void stopActorEmote(net.minecraft.world.entity.Entity actor) {
+        if (EMOTECRAFT.on()) {
+            EMOTECRAFT.run("stopActorEmote", () -> EmotecraftCompat.stopActorEmote(actor));
+        }
     }
 
     // ---------------------------------------------------------------- export hooks
 
     /** An export starts (before its pre-roll). */
     public static void onExportStart() {
-        if (DROP_THE_BEAM) {
-            DropTheBeamCompat.beginExport();
-        }
+        DROP_THE_BEAM.run("beginExport", DropTheBeamCompat::beginExport);
     }
 
     /** An export ended, finished or not. */
     public static void onExportEnd() {
-        if (DROP_THE_BEAM) {
-            DropTheBeamCompat.endExport();
-        }
+        DROP_THE_BEAM.cleanup("endExport", DropTheBeamCompat::endExport);
     }
 
     /** A frame was captured: integrations with their own audio engine render its stretch into the export mix. */
     public static void onExportFrame(com.vyrriox.justreplay.export.ExportAudio audio, int frame, int fps, double x, double y, double z,
                                      float yaw, float partialTick) {
-        if (DROP_THE_BEAM) {
-            try {
-                DropTheBeamCompat.onExportFrame(audio, frame, fps, x, y, z, yaw, partialTick);
-            } catch (Throwable t) {
-                warnOnce("dropthebeam.export", "Cannot render Drop the Beam's audio for the export", t);
-            }
+        if (DROP_THE_BEAM.on()) {
+            DROP_THE_BEAM.run("onExportFrame", () -> DropTheBeamCompat.onExportFrame(audio, frame, fps, x, y, z, yaw, partialTick));
         }
     }
 
     /**
      * A recorded packet played during a seek, {@code late} ticks before the seek target. Returns the packet to handle
-     * in its place, or null to drop it (an emote that has already ended at the target).
+     * in its place, or null to drop it (an emote that has already ended at the target). A failing integration leaves
+     * the packet as it was. Called for every packet of a seek: no allocation.
      */
     public static Packet<?> adjustSkipped(Packet<?> packet, int late) {
-        if (EMOTECRAFT && late > 0) {
-            packet = EmotecraftCompat.adjustSkipped(packet, late);
+        if (late <= 0) {
+            return packet;
         }
-        if (BETTER_COMBAT && late > 0 && packet != null) {
-            packet = BetterCombatCompat.adjustSkipped(packet, late);
+        if (EMOTECRAFT.on()) {
+            try {
+                packet = EmotecraftCompat.adjustSkipped(packet, late);
+            } catch (Throwable t) {
+                EMOTECRAFT.fail("adjustSkipped", t);
+            }
         }
-        if (MORPH && late > 0 && packet != null) {
-            packet = MorphCompat.adjustSkipped(packet, late);
+        if (packet != null && BETTER_COMBAT.on()) {
+            try {
+                packet = BetterCombatCompat.adjustSkipped(packet, late);
+            } catch (Throwable t) {
+                BETTER_COMBAT.fail("adjustSkipped", t);
+            }
         }
-        if (PEHKUI && late > 0 && packet != null) {
-            packet = PehkuiCompat.adjustSkipped(packet, late);
+        if (packet != null && MORPH.on()) {
+            try {
+                packet = MorphCompat.adjustSkipped(packet, late);
+            } catch (Throwable t) {
+                MORPH.fail("adjustSkipped", t);
+            }
         }
-        if (EPIC_FIGHT && late > 0 && packet != null) {
-            packet = EpicFightCompat.adjustSkipped(packet, late);
+        if (packet != null && PEHKUI.on()) {
+            try {
+                packet = PehkuiCompat.adjustSkipped(packet, late);
+            } catch (Throwable t) {
+                PEHKUI.fail("adjustSkipped", t);
+            }
         }
-        if (IRONS_SPELLS && late > 0 && packet != null) {
-            packet = IronsSpellsCompat.adjustSkipped(packet, late);
+        if (packet != null && EPIC_FIGHT.on()) {
+            try {
+                packet = EpicFightCompat.adjustSkipped(packet, late);
+            } catch (Throwable t) {
+                EPIC_FIGHT.fail("adjustSkipped", t);
+            }
+        }
+        if (packet != null && IRONS_SPELLS.on()) {
+            try {
+                packet = IronsSpellsCompat.adjustSkipped(packet, late);
+            } catch (Throwable t) {
+                IRONS_SPELLS.fail("adjustSkipped", t);
+            }
         }
         return packet;
     }
@@ -696,19 +705,19 @@ public final class ReplayCompat {
 
         /** Before anything renders (mods read their clock while rendering): integration clocks move to this frame. */
         public static void onRenderFrameFirst(float partialTick) {
-            if (!DROP_THE_BEAM) {
+            if (!DROP_THE_BEAM.on()) {
                 return;
             }
             try {
                 DropTheBeamCompat.onFrame(partialTick);
             } catch (Throwable t) {
-                warnOnce("dropthebeam.frame", "Drop the Beam clock sync failed", t);
+                DROP_THE_BEAM.fail("onFrame", t);
             }
         }
 
         /** Exports render frames faster or slower than real time: in-world videos are moved to each frame's time. */
         public static void onRenderFrame(float partialTick) {
-            if (!WATERFRAMES || !VideoExporter.isActive()) {
+            if (!WATERFRAMES.on() || !VideoExporter.isActive()) {
                 return;
             }
             Playback playback = playback();
@@ -718,7 +727,7 @@ public final class ReplayCompat {
             try {
                 WaterFramesCompat.syncFrame(playback, partialTick);
             } catch (Throwable t) {
-                warnOnce("waterframes.frame", "WaterFrames export sync failed", t);
+                WATERFRAMES.fail("syncFrame", t);
             }
         }
     }

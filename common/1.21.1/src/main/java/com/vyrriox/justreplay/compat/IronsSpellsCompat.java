@@ -68,7 +68,7 @@ public final class IronsSpellsCompat {
     }
 
     private static Reflect reflect() {
-        if (reflect != null || reflectFailed || !ReplayCompat.IRONS_SPELLS) {
+        if (reflect != null || reflectFailed || !Integrations.IRONS_SPELLS.on()) {
             return reflect;
         }
         try {
@@ -102,7 +102,7 @@ public final class IronsSpellsCompat {
         } catch (Throwable t) {
             reflectFailed = true;
             reflect = null;
-            ReplayCompat.warnOnce("irons.reflect", "Iron's Spellbooks support disabled, its classes changed", t);
+            Integrations.IRONS_SPELLS.fail("reflect", t);
         }
         return reflect;
     }

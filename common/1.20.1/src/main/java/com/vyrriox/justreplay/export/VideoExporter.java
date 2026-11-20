@@ -79,6 +79,12 @@ public final class VideoExporter {
     private final Thread writerThread;
     private final int width;
     private final int height;
+    /** Size of the video; FFmpeg scales the rendered frames to it when the render size differs. */
+    private final int outWidth;
+    private final int outHeight;
+    /** Name and length in ticks of the replay, for the log and the messages. */
+    private final String replayName;
+    private final int replayDuration;
     private final boolean previousHideGui;
     private final boolean previousPauseOnLostFocus;
     private final int warmupFrames;
@@ -92,6 +98,8 @@ public final class VideoExporter {
     private boolean timerPrepared;
     private int frames;
     private final ExportAudio audio;
+    /** Video time of the exported ticks under the project's speed track, copied when the export starts. */
+    private final com.vyrriox.justreplay.editor.TimeMap timeMap;
     private final boolean pngSequence;
     private final java.util.concurrent.CompletableFuture<Boolean> completion = new java.util.concurrent.CompletableFuture<>();
     /** For a still: the PNG the first frame is moved to once the one frame export is done. */
@@ -108,7 +116,7 @@ public final class VideoExporter {
     }
 
     private VideoExporter(ReplaySession session, int startTick, int endTick, int fps, Path output, boolean pngSequence, Process process,
-                          int width, int height, boolean previousHideGui, boolean previousPauseOnLostFocus) {
+                          int width, int height, int outWidth, int outHeight, boolean previousHideGui, boolean previousPauseOnLostFocus) {
         this.session = session;
         this.startTick = startTick;
         this.endTick = endTick;
@@ -119,11 +127,17 @@ public final class VideoExporter {
         this.stdin = process.getOutputStream();
         this.width = width;
         this.height = height;
+        this.outWidth = outWidth;
+        this.outHeight = outHeight;
+        this.replayName = replayName(session);
+        this.replayDuration = session.playback().duration();
         this.warmupFrames = JRConfig.EXPORT_WARMUP_FRAMES.get();
         this.captureCursor = startTick + 1;
         this.previousHideGui = previousHideGui;
         this.previousPauseOnLostFocus = previousPauseOnLostFocus;
+        this.timeMap = com.vyrriox.justreplay.editor.TimeMap.of(session.project().speed.copy(), startTick, endTick);
         this.audio = new ExportAudio(fps);
+        this.audio.useTimeMap(timeMap);
         this.writerThread = new Thread(this::pump, "JustReplay export");
         this.writerThread.setDaemon(true);
     }
@@ -134,11 +148,6 @@ public final class VideoExporter {
 
     public static VideoExporter current() {
         return current;
-    }
-
-    /** True while the game clock must follow the export instead of the wall clock. */
-    public static boolean isFixedStep() {
-        return current != null;
     }
 
     /** Clock step of the frame about to be rendered, or null when no export is running. */
@@ -158,8 +167,13 @@ public final class VideoExporter {
     }
 
     public float progress() {
-        long total = (long) (endTick - startTick) * fps / 20 + 1;
+        long total = timeMap.identity() ? (long) (endTick - startTick) * fps / 20 + 1 : timeMap.frames(fps);
         return Math.min(1.0F, (float) frames / Math.max(1L, total));
+    }
+
+    /** Length of the video being made, in seconds: the exported ticks under the speed track. */
+    public double videoSeconds() {
+        return timeMap.durationSeconds();
     }
 
     /** The video file, or the folder of a PNG sequence. */
@@ -178,11 +192,11 @@ public final class VideoExporter {
     }
 
     /**
-     * Starts an export of the camera path between two ticks with the settings of the config file. Returns an error
-     * message, or null on success.
+     * Starts an export of the camera path between two ticks with the settings of the config file, the exported range
+     * in the file name unless the config keeps the old names. Returns an error message, or null on success.
      */
     public static Component start(ReplaySession session, int startTick, int endTick, String fileName) {
-        return start(session, startTick, endTick, fileName, Settings.fromConfig());
+        return start(session, startTick, endTick, fileName, Settings.fromConfig(), JRConfig.EXPORT_RANGE_IN_NAME.get());
     }
 
     /**
@@ -193,28 +207,25 @@ public final class VideoExporter {
     public static Component saveStill(ReplaySession session, int tick, String fileName, Settings settings) {
         int duration = session.playback().duration();
         int at = Math.max(0, Math.min(tick, duration - 1));
-        String safeName = fileName.replaceAll("[^A-Za-z0-9._-]", "_");
-        if (safeName.endsWith(".mp4")) {
-            safeName = safeName.substring(0, safeName.length() - 4);
-        }
-        if (safeName.isBlank()) {
-            safeName = "export";
-        }
-        String base = safeName + "_still_" + at;
-        Path target = ReplayStorage.exportRoot().resolve(base + ".png");
-        for (int n = 2; java.nio.file.Files.exists(target); n++) {
-            target = ReplayStorage.exportRoot().resolve(base + "_" + n + ".png");
-        }
+        String base = ExportNames.safeName(fileName) + "_still_" + at;
+        Path target = ExportNames.firstFree(ReplayStorage.exportRoot(), base, ".png");
         Settings png = new Settings(settings.fps(), settings.crf(), settings.resolution(), settings.width(), settings.height(), true);
-        Component error = start(session, at, at + 1, base + "_frames", png);
-        if (error == null && current != null) {
-            current.still = target;
-        }
-        return error;
+        return begin(session, at, at + 1, base + "_frames", png, target);
     }
 
-    /** Starts an export of the camera path between two ticks. Returns an error message, or null on success. */
-    public static Component start(ReplaySession session, int startTick, int endTick, String fileName, Settings settings) {
+    /**
+     * Starts an export of the camera path between two ticks. The file is named after {@code fileName}, followed by
+     * the exported range with {@code rangeInName} ({@code name_00m10s-00m20s.mp4}), and never overwrites an earlier
+     * export: a taken name gets {@code _2}, {@code _3}... Returns an error message, or null on success.
+     */
+    public static Component start(ReplaySession session, int startTick, int endTick, String fileName, Settings settings,
+                                  boolean rangeInName) {
+        String base = ExportNames.baseName(fileName, startTick, endTick, session.playback().duration(), rangeInName);
+        return begin(session, startTick, endTick, base, settings, null);
+    }
+
+    /** Starts an export to a safe base name; with a {@code still} path its only frame is moved there once done. */
+    private static Component begin(ReplaySession session, int startTick, int endTick, String base, Settings settings, Path still) {
         if (current != null) {
             return Component.translatable("justreplay.export.error.running");
         }
@@ -227,20 +238,8 @@ public final class VideoExporter {
         int windowHeight = target.height;
         int fps = settings.fps();
         boolean png = settings.pngSequence();
-        String safeName = fileName.replaceAll("[^A-Za-z0-9._-]", "_");
-        if (safeName.endsWith(".mp4")) {
-            safeName = safeName.substring(0, safeName.length() - 4);
-        }
-        if (safeName.isBlank()) {
-            safeName = "export";
-        }
-        // A PNG sequence is a folder named like the video would be, without the extension.
-        String extension = png ? "" : ".mp4";
-        Path output = ReplayStorage.exportRoot().resolve(safeName + extension);
-        for (int n = 2; java.nio.file.Files.exists(output); n++) {
-            // Never overwrite an earlier export.
-            output = ReplayStorage.exportRoot().resolve(safeName + "_" + n + extension);
-        }
+        // A PNG sequence is a folder named like the video would be, without the extension. Never overwrite an earlier export.
+        Path output = ExportNames.firstFree(ReplayStorage.exportRoot(), base, png ? "" : ".mp4");
         if (png) {
             try {
                 java.nio.file.Files.createDirectories(output);
@@ -300,7 +299,8 @@ public final class VideoExporter {
         mc.setScreen(null);
 
         VideoExporter exporter = new VideoExporter(session, startTick, endTick, fps, output, png, process, renderWidth, renderHeight,
-                previousHideGui, previousPauseOnLostFocus);
+                outWidth, outHeight, previousHideGui, previousPauseOnLostFocus);
+        exporter.still = still;
         Playback playback = session.playback();
         exporter.previousCursor = playback.cursor();
         exporter.previousSpeedIndex = playback.speedIndex();
@@ -309,9 +309,8 @@ public final class VideoExporter {
         playback.resetSpeed();
         playback.setPaused(false);
         playback.seek(Math.max(0, startTick + 1 - PRE_ROLL_TICKS));
-        JustReplay.LOGGER.info("Exporting ticks {}..{} at {} fps, rendered at {}x{}, output {}x{}{} to {}", startTick, endTick, fps,
-                renderWidth, renderHeight, outWidth, outHeight, renderWidth != outWidth || renderHeight != outHeight ? " (scaled by FFmpeg)" : "",
-                output);
+        JustReplay.LOGGER.info("{} started: {} (ticks {}..{}, rendered at {}x{}{})", still != null ? "Still" : "Export", exporter.describe(),
+                startTick, endTick, renderWidth, renderHeight, renderWidth != outWidth || renderHeight != outHeight ? ", scaled by FFmpeg" : "");
         return null;
     }
 
@@ -363,6 +362,17 @@ public final class VideoExporter {
                 return TimerStep.HOLD;
             }
             default -> {
+                if (!timeMap.identity()) {
+                    // Frame n shows the replay tick the speed track puts at n / fps seconds of video; a freeze issues
+                    // no tick and keeps the same fraction, a timelapse issues several ticks per frame.
+                    double shown = timeMap.tickAt(frames / (double) fps) - startTick;
+                    double before = frames == 0 ? shown : timeMap.tickAt((frames - 1) / (double) fps) - startTick;
+                    long whole = (long) Math.floor(shown + 1.0E-9);
+                    int ticks = (int) Math.max(0, whole - ticksIssued);
+                    ticksIssued = Math.max(ticksIssued, whole);
+                    timerPrepared = true;
+                    return new TimerStep(ticks, (float) Math.max(0.0, shown - before), (float) Math.max(0.0, shown - whole));
+                }
                 // Frame n shows startTick + n * 20 / fps; computed from the frame number so it never drifts, and
                 // idempotent so a frame that could not be captured is simply rendered again.
                 long video = (long) frames * 20;
@@ -424,7 +434,8 @@ public final class VideoExporter {
         Camera camera = mc.gameRenderer.getMainCamera();
         audio.onFrame(camera.getPosition().x, camera.getPosition().y, camera.getPosition().z, camera.getYRot());
         Playback playback = session.playback();
-        boolean reachedEnd = (long) (frames - 1) * 20 >= (long) (endTick - startTick) * fps;
+        boolean reachedEnd = timeMap.identity() ? (long) (frames - 1) * 20 >= (long) (endTick - startTick) * fps
+                : frames >= timeMap.frames(fps);
         if (reachedEnd || playback.isPaused() && playback.cursor() >= playback.duration()) {
             finish(true);
         }
@@ -545,21 +556,30 @@ public final class VideoExporter {
                 deleteOutput(output, pngSequence, !cancelled);
             }
             Path shown = still != null && success ? still : output;
+            // The message tells which part of the replay the video holds, as its file name does.
+            boolean hours = ExportNames.hours(endTick, replayDuration);
+            Component from = Component.literal(ExportNames.clock(startTick, hours));
+            Component to = Component.literal(ExportNames.clock(endTick, hours));
             mc.execute(() -> {
-                String title = switch (outcome) {
-                    case DONE -> still != null ? "justreplay.export.still.done" : "justreplay.export.done";
-                    case DONE_WITHOUT_SOUND -> "justreplay.export.done.nosound";
-                    case FAILED -> cancelled ? "justreplay.export.cancelled" : "justreplay.export.failed";
+                Component title = switch (outcome) {
+                    case DONE -> still != null ? Component.translatable("justreplay.export.still.done")
+                            : Component.translatable("justreplay.export.done", from, to);
+                    case DONE_WITHOUT_SOUND -> Component.translatable("justreplay.export.done.nosound", from, to);
+                    case FAILED -> Component.translatable(cancelled ? "justreplay.export.cancelled.range" : "justreplay.export.failed", from, to);
                 };
                 SystemToast.add(mc.getToasts(), SystemToast.SystemToastIds.PERIODIC_NOTIFICATION,
-                        Component.translatable(title), Component.literal(shown.getFileName().toString()));
+                        title, Component.literal(shown.getFileName().toString()));
                 if (still != null && success && mc.player != null) {
                     mc.player.displayClientMessage(Component.translatable("justreplay.export.still.saved", shown.toString()), false);
                 }
                 restorePlayback(success);
             });
-            JustReplay.LOGGER.info("Export {} ({} frames): {}", outcome == Outcome.DONE ? "finished"
-                    : success ? "finished without sound" : "failed", frames, output);
+            String ended = switch (outcome) {
+                case DONE -> "finished";
+                case DONE_WITHOUT_SOUND -> "finished without sound";
+                case FAILED -> cancelled ? "cancelled" : "failed";
+            };
+            JustReplay.LOGGER.info("{} {} ({} frames): {}", still != null ? "Still" : "Export", ended, frames, describe());
         } catch (Throwable t) {
             JustReplay.LOGGER.error("Cannot report the end of the export", t);
         } finally {
@@ -579,6 +599,18 @@ public final class VideoExporter {
         playback.setSpeedIndex(previousSpeedIndex);
         // A still goes back on the frame it was taken from.
         playback.seek(success ? startTick : previousCursor);
+    }
+
+    /** Replay, range, length, size, frame rate and file of this export, as the log gives them at its start and end. */
+    private String describe() {
+        return ExportNames.describe(replayName, startTick, endTick, replayDuration, outWidth, outHeight, fps,
+                String.valueOf(still != null ? still : output));
+    }
+
+    /** The name the replay list shows, or the replay folder name when it has none. */
+    private static String replayName(ReplaySession session) {
+        String name = session.meta().name;
+        return name == null || name.isBlank() ? String.valueOf(session.dir().getFileName()) : name;
     }
 
     private static void stopProcess(Process process) {

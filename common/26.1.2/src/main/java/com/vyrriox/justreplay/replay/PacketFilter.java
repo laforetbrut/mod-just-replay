@@ -64,6 +64,7 @@ public final class PacketFilter {
             ClientboundTransferPacket.class,
             ClientboundStoreCookiePacket.class,
             ClientboundCookieRequestPacket.class,
+            // Applied by ReplayPacks before this filter, never by the client (it would prompt or answer the server).
             ClientboundResourcePackPushPacket.class,
             ClientboundResourcePackPopPacket.class,
             ClientboundServerLinksPacket.class,
