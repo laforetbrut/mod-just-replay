@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+- **One core, now with the editor**: the editor project (cameras, keyframes, cuts, overlays, time shifts) and replay storage moved to `core/`, so they exist once instead of three times. Nothing changes in game.
+
+### Modifications
+- **Un seul cœur, éditeur compris** : le projet de l'éditeur (caméras, keyframes, coupes, overlays, décalages de temps) et le stockage des replays passent dans `core/`, une fois au lieu de trois. Rien ne change en jeu.
+
 ## [1.2.0] - 2026-11-20
 
 ### Added
