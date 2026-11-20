@@ -66,7 +66,7 @@ The build also runs the unit tests of `core/src/test` and `common/<mcversion>/sr
 
 - the integration guard, the integration switches of the config and the skipped packets counter;
 - the cleaning of replay names and the renaming of replay folders;
-- the names of video exports (the exported range and the final file name);
+- the names of video exports (the exported range and the final file name) and what the render veil shows (share done, time spent and left, GUI scale of the window);
 - the changed mods warning, the markers placed while recording and the server resource packs of a replay;
 - the light, fog and particle settings, and the speed track (video time of each replay tick);
 - the Armourer's Workshop wardrobe skins a hidden armor slot takes with it.
@@ -204,7 +204,7 @@ Le build lance aussi les tests unitaires de `core/src/test` et de `common/<mcver
 
 - la garde des intégrations, les interrupteurs d'intégration de la config et le compteur de paquets ignorés ;
 - le nettoyage des noms de replay et le renommage des dossiers de replay ;
-- les noms des exports vidéo (la plage exportée et le nom final du fichier) ;
+- les noms des exports vidéo (la plage exportée et le nom final du fichier) et ce que montre le voile de rendu (part faite, temps passé et restant, échelle d'interface de la fenêtre) ;
 - l'avertissement des mods changés, les repères posés pendant l'enregistrement et les packs de ressources du serveur d'un replay ;
 - les réglages de lumière, de brouillard et de particules, et la piste de vitesse (temps vidéo de chaque tick du replay) ;
 - les skins de garde-robe d'Armourer's Workshop qu'un emplacement d'armure masqué emporte avec lui.

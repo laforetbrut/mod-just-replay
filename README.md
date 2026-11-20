@@ -88,6 +88,8 @@ see [When an integration fails](docs/COMPATIBILITY.md#when-an-integration-fails)
   whatever the speed of the machine. The file name says which part of the replay it holds
   (`myreplay_00m10s-00m20s.mp4`, with hours for replays of an hour or more), and so do the end toast and the log;
   turn `rangeInFileName` off to keep the old names. An export never overwrites a file: a taken name gets `_2`, `_3`...
+  While it renders, a veil over the window shows the progress and the time left; the mouse and the keys are
+  locked (Esc cancels) so nothing moves the camera, and the veil never shows up in the video.
 - **Audio editor**: put OGG or WAV files in `.minecraft/justreplay/audio/` and place them on audio tracks
   from the **Audio** tab: move, trim, split (**S**), duplicate (**Ctrl + D**), fade, loop and change the speed
   of clips on the timeline, set track volume, mute and solo, and lower or mute the game sounds (with ducking
@@ -332,6 +334,8 @@ ignoré : voir [Quand une intégration échoue](docs/COMPATIBILITY.md#quand-une-
   (`monreplay_00m10s-00m20s.mp4`, avec les heures pour un replay d'une heure ou plus), comme le message de fin
   et le log ; `rangeInFileName` coupé garde les anciens noms. Un export n'écrase jamais un fichier : un nom pris
   reçoit `_2`, `_3`...
+  Pendant le rendu, un voile sur la fenêtre montre la progression et le temps restant ; souris et clavier sont
+  bloqués (Échap annule) pour que rien ne bouge la caméra, et le voile n'apparaît jamais dans la vidéo.
 - **Éditeur audio** : déposer des fichiers OGG ou WAV dans `.minecraft/justreplay/audio/` et les placer sur
   des pistes audio depuis l'onglet **Audio** : déplacer, rogner, scinder (**S**), dupliquer (**Ctrl + D**),
   ajouter des fondus, boucler et changer la vitesse des clips sur la timeline, régler le volume, le muet et le
