@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.2.0] - 2026-11-20
 
 ### Added
 - **Hide armor**: switch off the helmet, chestplate, leggings or boots of a recorded player or an actor, one by one. The elytra go with the chestplate, a pumpkin or a head with the helmet. Only the replay and the video change, and older projects keep their armor. The new `hidePlayerArmor` option strips every player at once. It also works on the models Epic Fight draws and on Armourer's Workshop skins: wings go with the chestplate, a whole outfit as soon as one slot is hidden.
