@@ -315,6 +315,8 @@ public final class SelfTest {
     }
 
     private static boolean vehiclePlacedLive;
+    /** The recording's first steps ran: the walking step may start a tick or two after recording tick 5. */
+    private static boolean startPlaced;
 
     /**
      * Called by the export right after a frame is captured, before the veil goes over it: the rendered camera must be
@@ -514,8 +516,9 @@ public final class SelfTest {
                 int t = Recorder.active() != null ? Recorder.active().tick() : 0;
                 // With Emotecraft the player stands still from tick 40 to 100 to wave (moving stops an emote).
                 boolean emoting = Mods.loaded("emotecraft") && t >= 40 && t < 100;
-                if (t == 5) {
+                if (t >= 5 && !startPlaced) {
                     // Placed once the recording runs: a block changed in the same tick as the start could be missed.
+                    startPlaced = true;
                     Mods.place(mc, p, modsBase);
                 }
                 if (t >= 10 && !vehiclePlacedLive) {

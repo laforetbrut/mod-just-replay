@@ -373,6 +373,8 @@ public final class SelfTest {
     }
 
     private static boolean vehiclePlacedLive;
+    /** The recording's first steps ran: the walking step may start a tick or two after recording tick 5. */
+    private static boolean startPlaced;
 
     /**
      * Called by the export right after a frame is captured, before the veil goes over it: the rendered camera must be
@@ -556,8 +558,9 @@ public final class SelfTest {
             case 3 -> {
                 // Walk in a circle for ~10 seconds, jumping and swinging.
                 int t = Recorder.active() != null ? Recorder.active().tick() : 0;
-                if (t == 5) {
+                if (t >= 5 && !startPlaced) {
                     // Placed once the recording runs: a block changed in the same tick as the start could be missed.
+                    startPlaced = true;
                     Mods.place(mc, p, modsBase);
                     lookBefore = Mods.look(p);
                 }
