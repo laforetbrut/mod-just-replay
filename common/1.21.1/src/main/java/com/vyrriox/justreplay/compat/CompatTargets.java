@@ -22,13 +22,16 @@ public final class CompatTargets {
 
     /**
      * Integrations read against their 1.21.1 build, per loader. Custom NPCs ({@code customnpcs}) is the unofficial port
-     * of its NeoForge build 20241226 and Fabric build 20260521: the same classes and packets on both loaders.
+     * of its NeoForge build 20241226 and Fabric build 20260521: the same classes and packets on both loaders. More
+     * Player Models ({@code moreplayermodels}) has no 1.21.1 build of its own: the integration follows the unofficial
+     * NeoForge port {@code kaan-mpm.jar} (version 1.21.1.20261109-cat-scale, nested in the kaanstyle bundle 1.0.15),
+     * checked against that jar, so it is on for NeoForge alone.
      */
     private static final Map<String, Set<String>> SUPPORTED = Map.of(
             "neoforge", Set.of("accessories", "aeronautics", "armourers_workshop", "bettercombat", "bobby", "create", "curios",
                     "customnpcs", "distanthorizons", "dropthebeam", "emotecraft", "entityculling", "epicfight", "exposure",
-                    "geckolib", "immersive_aircraft", "immersive_paintings", "irons_spellbooks", "iris", "jade", "morph",
-                    "mts", "parcool", "pehkui", PLAYER_ANIMATOR, "sable", "simulated", "waterframes"),
+                    "geckolib", "immersive_aircraft", "immersive_paintings", "irons_spellbooks", "iris", "jade",
+                    "moreplayermodels", "morph", "mts", "parcool", "pehkui", PLAYER_ANIMATOR, "sable", "simulated", "waterframes"),
             "fabric", Set.of("accessories", "armourers_workshop", "bettercombat", "bobby", "customnpcs", "distanthorizons",
                     "emotecraft", "entityculling", "exposure", "geckolib", "immersive_aircraft", "immersive_paintings", "iris",
                     "jade", "pehkui", PLAYER_ANIMATOR, "sable", "waterframes"),
@@ -60,6 +63,7 @@ public final class CompatTargets {
             "iris", "Iris",
             "irons_spellbooks", "Iron's Spells 'n Spellbooks",
             "jade", "Jade",
+            "moreplayermodels", "More Player Models",
             "morph", "Morph",
             "parcool", "ParCool",
             "pehkui", "Pehkui",
@@ -82,6 +86,7 @@ public final class CompatTargets {
             "GeckoLib", "geckolib",
             "Iris", "iris",
             "Jade", "jade",
+            "MorePlayerModels", "moreplayermodels",
             "Morph", "morph",
             "Pehkui", "pehkui",
             "PlayerAnim", PLAYER_ANIMATOR,

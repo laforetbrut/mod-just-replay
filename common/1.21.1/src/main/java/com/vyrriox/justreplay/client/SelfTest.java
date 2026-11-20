@@ -76,6 +76,17 @@ public final class SelfTest {
     private static com.vyrriox.justreplay.editor.ActorPlacement.Spot seatSpot;
     private static int fxStep;
     private static boolean curiosGiven;
+    /**
+     * More Player Models looks of the recording player: one before the recording (only its snapshot gives it to the
+     * actor), one sent to it at {@link #LOOK_CHANGE_TICK}, one at {@link #LOOK_THIRD_TICK} (saved by the mod as the
+     * viewer's own). The replay checks read the cursor away from both changes.
+     */
+    private static final int LOOK_CHANGE_TICK = 100;
+    private static final int LOOK_THIRD_TICK = 140;
+    private static String lookBefore;
+    private static String lookAfter;
+    private static String lookThird;
+    private static String cameraLook;
     private static int ringWaits;
     private static boolean ringRebuilt;
     private static volatile net.minecraft.world.item.Item accessoryGiven;
@@ -469,6 +480,8 @@ public final class SelfTest {
                         Mods.summonAircraft(p);
                         Mods.placeVehicle(mc, p, 8, 6);
                         Mods.seedRing(mc);
+                        // Worn well before the recording starts: only its snapshot can give it to the actor.
+                        Mods.setLook(p, "0.8");
                         next(60);
                     }
                 }
@@ -520,6 +533,23 @@ public final class SelfTest {
                     // Placed once the recording runs: a block changed in the same tick as the start could be missed.
                     startPlaced = true;
                     Mods.place(mc, p, modsBase);
+                    lookBefore = Mods.look(p);
+                    Mods.checkLookRetarget(p);
+                }
+                if (t == LOOK_CHANGE_TICK) {
+                    // The server answers the recording player under its own UUID: the recording must name its actor.
+                    Mods.setLook(p, "1.2");
+                }
+                if (t == LOOK_THIRD_TICK - 10) {
+                    lookAfter = Mods.look(p);
+                }
+                if (t == LOOK_THIRD_TICK) {
+                    // A third look, saved by the mod as the viewer's own: the camera must keep it through the replay.
+                    Mods.setLook(p, "0.9");
+                }
+                if (t == LOOK_THIRD_TICK + 50) {
+                    lookThird = Mods.look(p);
+                    Mods.checkRecordingLook();
                 }
                 if (t >= 10 && !vehiclePlacedLive) {
                     // A second car placed during the recording: its data comes from the recorded server answer.
@@ -629,6 +659,9 @@ public final class SelfTest {
                 logWorld(mc, s, "playing");
                 log("mods while playing: {}", Mods.state(mc, s));
                 Mods.checkCurios(mc, s, "at start");
+                cameraLook = Mods.look(mc.player);
+                Mods.checkLook(mc, s, "at start");
+                Mods.checkLookGuards(mc);
                 Mods.checkAccessories(mc, s, "at start");
                 Mods.checkJadeAircraft(mc, "at start");
                 Mods.checkVehicles(mc, "at start");
@@ -645,6 +678,7 @@ public final class SelfTest {
             case 7 -> {
                 ReplaySession s = ReplaySession.current();
                 log("mods 20 ticks later, still paused: {}", Mods.state(mc, s));
+                Mods.checkLook(mc, s, "after seek to 60");
                 shot(mc, "1b-paused60");
                 clockGecko = geckoClock();
                 clockIris = irisClock();
@@ -675,6 +709,7 @@ public final class SelfTest {
                 logWorld(mc, s, "after forward seek");
                 log("mods after forward seek: {}", Mods.state(mc, s));
                 Mods.checkCurios(mc, s, "after forward seek");
+                Mods.checkLook(mc, s, "after forward seek");
                 Mods.checkImmersivePaintings("after forward seek");
                 Mods.checkCulling("after a toggle key press", false);
                 Mods.checkCullingEntities(mc);
@@ -691,6 +726,7 @@ public final class SelfTest {
                 ReplaySession s = ReplaySession.current();
                 logWorld(mc, s, "after backward seek");
                 Mods.checkCurios(mc, s, "after backward seek");
+                Mods.checkLook(mc, s, "after backward seek");
                 Mods.checkAccessoriesAfterClear(mc, s);
                 Mods.checkJadeAircraft(mc, "after backward seek");
                 Mods.checkVehicles(mc, "after backward seek");
@@ -2220,6 +2256,94 @@ public final class SelfTest {
             }
             int worn = com.vyrriox.justreplay.compat.CuriosCompat.wornCount(s.findRecorder(mc));
             log("curios {}: worn stacks on the actor={} -> {}", label, worn, worn == 1 ? "OK" : "FAIL");
+        }
+
+        /** More Player Models: scales every part of the test player with the mod's own command; nothing when it is absent. */
+        static void setLook(LocalPlayer p, String scale) {
+            if (loaded("moreplayermodels")) {
+                p.connection.sendCommand("mpm scale @s " + scale);
+            }
+        }
+
+        /** The More Player Models look of a player, or null when the mod is absent. */
+        static String look(Entity entity) {
+            return loaded("moreplayermodels") && entity instanceof net.minecraft.world.entity.player.Player player
+                    ? com.vyrriox.justreplay.compat.MorePlayerModelsCompat.lookOf(player) : null;
+        }
+
+        /** The port's payloads are typed: a look payload of the recording player rewritten through its codec names the other UUID. */
+        static void checkLookRetarget(LocalPlayer p) {
+            if (loaded("moreplayermodels")) {
+                java.util.UUID other = java.util.UUID.nameUUIDFromBytes("justreplay-selftest-actor".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                java.util.UUID named = com.vyrriox.justreplay.compat.MorePlayerModelsCompat.retargetedLook(p, other);
+                log("more player models: look payload rewritten for another player names it={} -> {}", other.equals(named),
+                        other.equals(named) ? "OK" : "FAIL");
+            }
+        }
+
+        /** The looks must have changed while recording, or the replay checks below would pass on a default look. */
+        static void checkRecordingLook() {
+            if (loaded("moreplayermodels")) {
+                boolean changed = lookBefore != null && lookAfter != null && lookThird != null && !lookBefore.equals(lookAfter)
+                        && !lookAfter.equals(lookThird) && !lookBefore.equals(lookThird);
+                log("more player models while recording: look read={} changed at ticks {} and {}={} -> {}", lookBefore != null,
+                        LOOK_CHANGE_TICK, LOOK_THIRD_TICK, changed, changed ? "OK" : "FAIL");
+            }
+        }
+
+        /**
+         * More Player Models: the actor wears the look the recording player had at the cursor. The first one reaches the
+         * replay through the snapshot alone, the later ones were sent to the recording player under its own UUID. After
+         * the backward seek the mod holds a later look on disk for the actor, which must not replace the first one. The
+         * camera keeps the look it came with. Skipped when the mod is absent.
+         */
+        static void checkLook(Minecraft mc, ReplaySession s, String label) {
+            if (!loaded("moreplayermodels")) {
+                log("more player models {}: skipped, mod absent", label);
+                return;
+            }
+            int cursor = s.playback().cursor();
+            if (Math.abs(cursor - LOOK_CHANGE_TICK) < 15 || Math.abs(cursor - LOOK_THIRD_TICK) < 15) {
+                log("more player models {}: skipped, cursor {} too close to a change at {} or {}", label, cursor,
+                        LOOK_CHANGE_TICK, LOOK_THIRD_TICK);
+                return;
+            }
+            String which = cursor > LOOK_THIRD_TICK ? "third" : cursor > LOOK_CHANGE_TICK ? "second" : "first";
+            String expected = cursor > LOOK_THIRD_TICK ? lookThird : cursor > LOOK_CHANGE_TICK ? lookAfter : lookBefore;
+            String actor = look(s.findRecorder(mc));
+            boolean worn = expected != null && expected.equals(actor);
+            log("more player models {}: cursor {} actor wears the {} look={} -> {}", label, cursor, which, worn, worn ? "OK" : "FAIL");
+            String camera = look(mc.player);
+            boolean kept = cameraLook != null && cameraLook.equals(camera) && !cameraLook.equals(lookAfter);
+            log("more player models {}: camera keeps its own look={} -> {}", label, kept, kept ? "OK" : "FAIL");
+        }
+
+        /** More Player Models during a replay: no request reaches the host, the editor stays closed, the web service is not asked. */
+        static void checkLookGuards(Minecraft mc) {
+            if (!loaded("moreplayermodels")) {
+                return;
+            }
+            ClassLoader loader = mc.getClass().getClassLoader();
+            try {
+                Object update = Class.forName("noppes.mpm.packets.server.PacketPlayerDataUpdate", true, loader)
+                        .getConstructor(net.minecraft.nbt.CompoundTag.class).newInstance(new net.minecraft.nbt.CompoundTag());
+                boolean blocked = com.vyrriox.justreplay.compat.ReplayCompat.blockServerbound(
+                        new net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket(
+                                (net.minecraft.network.protocol.common.custom.CustomPacketPayload) update));
+                log("more player models: requests to the replay host blocked={} -> {}", blocked, blocked ? "OK" : "FAIL");
+            } catch (ReflectiveOperationException | LinkageError | ClassCastException e) {
+                log("more player models: cannot build a request of the mod ({}) -> FAIL", e.toString());
+            }
+            try {
+                net.minecraft.client.gui.screens.Screen editor = (net.minecraft.client.gui.screens.Screen) Class
+                        .forName("noppes.mpm.client.gui.GuiMPM", true, loader).getConstructor().newInstance();
+                boolean closed = JustReplayClient.cancelsScreen(editor);
+                log("more player models: editor kept closed={} -> {}", closed, closed ? "OK" : "FAIL");
+            } catch (ReflectiveOperationException | LinkageError e) {
+                log("more player models: cannot build the editor screen ({}) -> FAIL", e.toString());
+            }
+            Boolean quiet = com.vyrriox.justreplay.compat.MorePlayerModelsCompat.webSyncHeld();
+            log("more player models: web service left alone={} -> {}", quiet, Boolean.TRUE.equals(quiet) ? "OK" : "FAIL");
         }
 
         /** An accessory worn before the recording starts, put on by the integrated server; a logged skip when it cannot be. */

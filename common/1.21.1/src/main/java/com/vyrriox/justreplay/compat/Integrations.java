@@ -50,6 +50,7 @@ public final class Integrations {
     public static final Integration IRIS = ALL.get("iris");
     public static final Integration IRONS_SPELLS = ALL.get("irons_spellbooks");
     public static final Integration JADE = ALL.get("jade");
+    public static final Integration MORE_PLAYER_MODELS = ALL.get("moreplayermodels");
     public static final Integration MORPH = ALL.get("morph");
     public static final Integration PARCOOL = ALL.get("parcool");
     public static final Integration PEHKUI = ALL.get("pehkui");

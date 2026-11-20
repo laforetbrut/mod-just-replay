@@ -56,6 +56,9 @@ class CompatTargetsTest {
     void mixinOwnerReadsTheClassName() {
         assertEquals("geckolib", CompatTargets.mixinOwner("com.vyrriox.justreplay.mixin.compat.GeckoLibClockMixin"));
         assertNull(CompatTargets.mixinOwner("com.vyrriox.justreplay.mixin.compat.LevelRendererClockMixin"));
+        // Both start with "Mor": each prefix must find its own integration.
+        assertEquals("moreplayermodels", CompatTargets.mixinOwner("com.vyrriox.justreplay.mixin.compat.MorePlayerModelsPartsMixin"));
+        assertEquals("morph", CompatTargets.mixinOwner("com.vyrriox.justreplay.mixin.compat.MorphRenderMixin"));
     }
 
     @Test
