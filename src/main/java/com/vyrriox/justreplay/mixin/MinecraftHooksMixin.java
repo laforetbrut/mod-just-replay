@@ -15,7 +15,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * Screen opening and attack hooks. The attack points sit where the checks of the method have passed, so the hook only
+ * Screen opening, camera placement and attack hooks. The attack points sit where the checks of the method have passed, so the hook only
  * runs for a real attack: it also picks the entity a left click views the replay through.
  *
  * @author vyrriox
@@ -46,6 +46,16 @@ public abstract class MinecraftHooksMixin {
         if (opening != null && ClientHooks.cancelsScreenOpening(opening)) {
             ci.cancel();
         }
+    }
+
+    /**
+     * The camera path places the camera here, before the game works out the camera of the frame from it: the frame
+     * hooks of every loader only run once the frame is extracted.
+     */
+    @Inject(method = "renderFrame", at = @At(value = "INVOKE",
+            target = "Lnet/minecraft/client/renderer/GameRenderer;update(Lnet/minecraft/client/DeltaTracker;Z)V"))
+    private void justreplay$beforeCameraUpdate(boolean advanceGameTime, CallbackInfo ci) {
+        ClientHooks.onCameraUpdate(((Minecraft) (Object) this).getDeltaTracker().getGameTimeDeltaPartialTick(false));
     }
 
     @Inject(method = "startAttack", cancellable = true, at = @At(value = "INVOKE", ordinal = 0,

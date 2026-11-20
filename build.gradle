@@ -23,6 +23,22 @@ if (commonDir.isDirectory()) {
     sourceSets.main.resources.srcDir(new File(commonDir, 'resources'))
 }
 
+// Unit tests of the shared code (classes without game code), run by ./gradlew build. On the per-target branches they
+// are merged into src/test, so this block does nothing there.
+def commonTestDir = file("../common/${minecraft_version}/src/test/java")
+if (commonTestDir.isDirectory()) {
+    sourceSets.test.java.srcDir(commonTestDir)
+}
+
+// Plain Java shared by every target (no game, loader or common class) and its unit tests live once in ../core on the
+// main branch. On the per-target branches they are merged into src/main and src/test, so this block does nothing there.
+def coreDir = file("../core/src")
+if (coreDir.isDirectory()) {
+    sourceSets.main.java.srcDir(new File(coreDir, 'main/java'))
+    sourceSets.main.resources.srcDir(new File(coreDir, 'main/resources'))
+    sourceSets.test.java.srcDir(new File(coreDir, 'test/java'))
+}
+
 sourceSets.main.resources {
     exclude('**/*.bbmodel.license')
 }
@@ -36,6 +52,8 @@ repositories {
 }
 
 dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.2'
     minecraft "com.mojang:minecraft:${minecraft_version}"
     implementation "net.fabricmc:fabric-loader:${loader_version}"
     implementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
@@ -62,6 +80,9 @@ loom {
             }
             if (project.hasProperty('selftest')) {
                 vmArg '-Djustreplay.selftest=true'
+                // Integration the self test turns off at startup to check the compat safety net (Simple Voice Chat by
+                // default, supported on every loader; none: no integration), see SelfTest.checkForcedFailureAtStartup.
+                vmArg "-Djustreplay.selftestFailCompat=${project.findProperty('selftestFailCompat') ?: 'voicechat'}"
                 vmArg '-Xmx8G'
                 vmArg '-Djustreplay.checkpointTicks=60'
             }
@@ -90,7 +111,8 @@ tasks.register('runProductionSelftest', net.fabricmc.loom.task.prod.ClientProduc
     group = 'fabric'
     description = 'Runs the self test on the production jar with Fabric API.'
     runDir = layout.projectDirectory.dir('run-prod')
-    jvmArgs.addAll('-Djustreplay.selftest=true', '-Xmx4G', '-Djustreplay.checkpointTicks=60')
+    jvmArgs.addAll('-Djustreplay.selftest=true',
+            "-Djustreplay.selftestFailCompat=${project.findProperty('selftestFailCompat') ?: 'voicechat'}", '-Xmx4G', '-Djustreplay.checkpointTicks=60')
 }
 
 processResources {
@@ -136,4 +158,12 @@ tasks.named('jar', Jar).configure {
                 'Implementation-Vendor' : mod_authors
         ])
     }
+}
+
+tasks.named('test', Test).configure {
+    useJUnitPlatform()
+    // The game's logging writes a logs folder where the tests run: keep it in build.
+    def testRun = layout.buildDirectory.dir('test-run').get().asFile
+    workingDir = testRun
+    doFirst { testRun.mkdirs() }
 }

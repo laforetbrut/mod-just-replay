@@ -20,6 +20,7 @@ Questions, bugs and feature requests: [GitHub issues](https://github.com/laforet
   ./gradlew runClient -Pselftest
   ```
 
+- Plain Java that does not touch the game (formats, names, maths, config files) goes once in `core/src/main/java`, its tests in `core/src/test/java`: no import of Minecraft, a loader or a class of `common/`. `python3 tools/check_layers.py` checks it.
 - Code shared by the loaders of a Minecraft version goes in `common/<mcversion>/` and must not import a loader package. A change in common is compiled on every loader of that version.
 - An integration stays off in `CompatTargets.java` until it was read against the mod's build for that loader. State what was run and what was only read in `docs/COMPATIBILITY.md`.
 - Verify every mixin target against the real jar of the target before launching: a compile does not check them.
@@ -47,6 +48,7 @@ Questions, bugs et demandes : [tickets GitHub](https://github.com/laforetbrut/mo
   ./gradlew runClient -Pselftest
   ```
 
+- Le Java pur qui ne touche pas au jeu (formats, noms, calculs, fichiers de config) va une seule fois dans `core/src/main/java`, ses tests dans `core/src/test/java` : aucun import de Minecraft, d'un loader ou d'une classe de `common/`. `python3 tools/check_layers.py` le vérifie.
 - Le code partagé par les loaders d'une version de Minecraft va dans `common/<mcversion>/` et n'importe aucun package de loader. Un changement dans common se compile sur chaque loader de cette version.
 - Une intégration reste coupée dans `CompatTargets.java` tant qu'elle n'a pas été lue d'après le build du mod pour ce loader. Indiquer dans `docs/COMPATIBILITY.md` ce qui a été exécuté et ce qui a seulement été lu.
 - Vérifier chaque cible de mixin sur le vrai jar de la cible avant de lancer le jeu : la compilation ne les contrôle pas.
