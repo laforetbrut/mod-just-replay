@@ -1,6 +1,6 @@
 # Test matrix
 
-Just Replay 1.1.2 (mod id `justreplay`), author / auteur : vyrriox.
+Just Replay 1.2.0 (mod id `justreplay`), author / auteur : vyrriox.
 
 - [English](#english)
 - [Français](#français)

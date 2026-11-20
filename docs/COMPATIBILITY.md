@@ -2,7 +2,7 @@
 
 ## English
 
-Just Replay 1.1.2 runs on nine targets: Minecraft 1.20.1, 1.21.1 and 26.1.2 on NeoForge, Forge and Fabric.
+Just Replay 1.2.0 runs on nine targets: Minecraft 1.20.1, 1.21.1 and 26.1.2 on NeoForge, Forge and Fabric.
 
 ### Status per target
 
@@ -12,7 +12,7 @@ against the mod's build and is enabled in `CompatTargets.java`, nothing was run.
 an offline client outside a development environment, with no launcher.
 
 The self test of 1.1.2 passes with 0 failures on all nine targets, in a development client and with the production
-jar. The self test of the next version passes with 0 failures on all nine targets in a development client
+jar. The self test of 1.2.0 passes with 0 failures on all nine targets in a development client
 (2026-11-20), with Armourer's Workshop 3.4.0-beta.3 installed on NeoForge 1.21.1 and 26.1.2 and on Fabric 1.20.1,
 1.21.1 and 26.1.2. More Player Models looks passed it on NeoForge 1.21.1 (unofficial port) and Forge 1.20.1;
 the production jars have not run with it yet.
@@ -153,7 +153,7 @@ Big modpacks mix versions nobody tested together, so every integration has a saf
   or `Replay: N packets skipped (...)` line sums them up at the end.
 - The mixins tolerate a method another mod rewrote (`defaultRequire` 0): that hook is lost, the game starts.
 - At startup Just Replay logs one line with its version, the loader, Minecraft and the state of each integration
-  found, for example `Just Replay 1.1.2 on neoforge 21.1.221, Minecraft 1.21.1. Integrations on: Curios, Jade; off in
+  found, for example `Just Replay 1.2.0 on neoforge 21.1.221, Minecraft 1.21.1. Integrations on: Curios, Jade; off in
   the config: GeckoLib; installed but not supported on this loader: none; not installed: 26.` Read it first in a
   crash log.
 - The self test checks this net in game on every target. It turns one integration off at startup
@@ -291,7 +291,7 @@ in the exported HUD.
 
 ## Français
 
-Just Replay 1.1.2 tourne sur neuf cibles : Minecraft 1.20.1, 1.21.1 et 26.1.2 sur NeoForge, Forge et Fabric.
+Just Replay 1.2.0 tourne sur neuf cibles : Minecraft 1.20.1, 1.21.1 et 26.1.2 sur NeoForge, Forge et Fabric.
 
 ### État par cible
 
@@ -302,7 +302,7 @@ l'intégration a seulement été lue d'après le build du mod et qu'elle est act
 launcher.
 
 Le test automatique de la 1.1.2 passe avec 0 échec sur les neuf cibles, en client de développement et avec le jar de
-production. Celui de la prochaine version passe avec 0 échec sur les neuf cibles en client de développement
+production. Celui de la 1.2.0 passe avec 0 échec sur les neuf cibles en client de développement
 (20/11/2026), avec Armourer's Workshop 3.4.0-beta.3 installé sur NeoForge 1.21.1 et 26.1.2 et sur Fabric 1.20.1,
 1.21.1 et 26.1.2. Les apparences de More Player Models y passent sur NeoForge 1.21.1 (portage non officiel) et
 Forge 1.20.1 ; les jars de production n'ont pas encore tourné avec.
@@ -605,7 +605,7 @@ Les gros modpacks mélangent des versions que personne n'a testées ensemble, al
 - Les mixins tolèrent une méthode réécrite par un autre mod (`defaultRequire` 0) : ce point d'accroche est perdu, le
   jeu démarre.
 - Au démarrage, Just Replay écrit une ligne avec sa version, le loader, Minecraft et l'état de chaque intégration
-  trouvée, par exemple `Just Replay 1.1.2 on neoforge 21.1.221, Minecraft 1.21.1. Integrations on: Curios, Jade; off
+  trouvée, par exemple `Just Replay 1.2.0 on neoforge 21.1.221, Minecraft 1.21.1. Integrations on: Curios, Jade; off
   in the config: GeckoLib; installed but not supported on this loader: none; not installed: 26.` C'est la première
   ligne à lire dans un log de crash.
 - Le test automatique vérifie ce filet en jeu sur toutes les cibles. Il coupe une intégration au démarrage

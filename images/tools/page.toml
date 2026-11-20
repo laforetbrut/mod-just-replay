@@ -55,8 +55,8 @@ icon = "camera"
   icon = "camera"
   name.en = "Records everything"
   name.fr = "Enregistre tout"
-  text.en = "modded worlds included: <code>F8</code>, or keep the last minutes in memory and save with <code>F7</code>."
-  text.fr = "mondes moddés compris, avec <code>F8</code>, ou gardez les dernières minutes en mémoire et sauvez-les avec <code>F7</code>."
+  text.en = "modded worlds and server resource packs included: <code>F8</code>, or keep the last minutes in memory and save with <code>F7</code>, drop markers with <code>F6</code>."
+  text.fr = "mondes moddés et packs de ressources du serveur compris, avec <code>F8</code>, ou gardez les dernières minutes en mémoire et sauvez-les avec <code>F7</code>, posez des repères avec <code>F6</code>."
 
   [[section.item]]
   icon = "play"
@@ -94,8 +94,8 @@ icon = "star"
   icon = "users"
   name.en = "Actors"
   name.fr = "Acteurs"
-  text.en = "any skin or PNG skin, any mob, Blockbench models; seated, walking or following."
-  text.fr = "tout skin ou fichier PNG, tout mob, modèles Blockbench ; assis, en marche ou en suivi."
+  text.en = "any skin or PNG skin, any mob, Blockbench models; seated, walking or following, armor on or off."
+  text.fr = "tout skin ou fichier PNG, tout mob, modèles Blockbench ; assis, en marche ou en suivi, avec ou sans armure."
 
   [[section.item]]
   icon = "note"
