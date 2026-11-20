@@ -81,10 +81,16 @@ public final class SelfTest {
     private static com.vyrriox.justreplay.editor.ActorPlacement.Spot seatSpot;
     private static int fxStep;
     private static boolean curiosGiven;
-    /** More Player Models looks of the recording player: before the recording, then after its change at {@link #LOOK_CHANGE_TICK}. */
+    /**
+     * More Player Models looks of the recording player: one before the recording (only its snapshot gives it to the
+     * actor), one sent to it at {@link #LOOK_CHANGE_TICK}, one at {@link #LOOK_THIRD_TICK} (saved by the mod as the
+     * viewer's own). The replay checks read the cursor away from both changes.
+     */
     private static final int LOOK_CHANGE_TICK = 100;
+    private static final int LOOK_THIRD_TICK = 140;
     private static String lookBefore;
     private static String lookAfter;
+    private static String lookThird;
     private static String cameraLook;
     private static int ringWaits;
     private static boolean ringRebuilt;
@@ -373,6 +379,8 @@ public final class SelfTest {
     }
 
     private static boolean vehiclePlacedLive;
+    /** The recording's first steps ran: the walking step may start a tick or two after recording tick 5. */
+    private static boolean startPlaced;
 
     /**
      * Called by the export right after a frame is captured, before the veil goes over it: the rendered camera must be
@@ -556,8 +564,9 @@ public final class SelfTest {
             case 3 -> {
                 // Walk in a circle for ~10 seconds, jumping and swinging.
                 int t = Recorder.active() != null ? Recorder.active().tick() : 0;
-                if (t == 5) {
+                if (t >= 5 && !startPlaced) {
                     // Placed once the recording runs: a block changed in the same tick as the start could be missed.
+                    startPlaced = true;
                     Mods.place(mc, p, modsBase);
                     lookBefore = Mods.look(p);
                 }
@@ -565,13 +574,16 @@ public final class SelfTest {
                     // The server answers the recording player under its own UUID: the recording must name its actor.
                     Mods.setLook(p, "1.2");
                 }
-                if (t == LOOK_CHANGE_TICK + 50) {
+                if (t == LOOK_THIRD_TICK - 10) {
                     lookAfter = Mods.look(p);
-                    Mods.checkRecordingLook();
                 }
-                if (t == LOOK_CHANGE_TICK + 70) {
+                if (t == LOOK_THIRD_TICK) {
                     // A third look, saved by the mod as the viewer's own: the camera must keep it through the replay.
                     Mods.setLook(p, "0.9");
+                }
+                if (t == LOOK_THIRD_TICK + 50) {
+                    lookThird = Mods.look(p);
+                    Mods.checkRecordingLook();
                 }
                 if (t >= 10 && !vehiclePlacedLive) {
                     // A second car placed during the recording: its data comes from the recorded server answer.
@@ -676,6 +688,7 @@ public final class SelfTest {
             case 7 -> {
                 ReplaySession s = ReplaySession.current();
                 log("mods 20 ticks later, still paused: {}", Mods.state(mc, s));
+                Mods.checkLook(mc, s, "after seek to 60");
                 shot(mc, "1b-paused60");
                 startFreezeCheck(mc, p);
                 clockGecko = geckoClock();
@@ -2224,20 +2237,21 @@ public final class SelfTest {
                     ? com.vyrriox.justreplay.compat.MorePlayerModelsCompat.lookOf(player) : null;
         }
 
-        /** The look must have changed while recording, or the replay checks below would pass on a default look. */
+        /** The looks must have changed while recording, or the replay checks below would pass on a default look. */
         static void checkRecordingLook() {
             if (loaded("moreplayermodels")) {
-                boolean changed = lookBefore != null && lookAfter != null && !lookBefore.equals(lookAfter);
-                log("more player models while recording: look read={} changed at tick {}={} -> {}", lookBefore != null,
-                        LOOK_CHANGE_TICK, changed, changed ? "OK" : "FAIL");
+                boolean changed = lookBefore != null && lookAfter != null && lookThird != null && !lookBefore.equals(lookAfter)
+                        && !lookAfter.equals(lookThird) && !lookBefore.equals(lookThird);
+                log("more player models while recording: look read={} changed at ticks {} and {}={} -> {}", lookBefore != null,
+                        LOOK_CHANGE_TICK, LOOK_THIRD_TICK, changed, changed ? "OK" : "FAIL");
             }
         }
 
         /**
          * More Player Models: the actor wears the look the recording player had at the cursor. The first one reaches the
-         * replay through the snapshot alone, the second one was sent to the recording player under its own UUID. After
-         * the backward seek the mod holds the later look on disk for the actor, which must not replace the first one.
-         * The camera keeps the look it came with. Skipped when the mod is absent.
+         * replay through the snapshot alone, the later ones were sent to the recording player under its own UUID. After
+         * the backward seek the mod holds a later look on disk for the actor, which must not replace the first one. The
+         * camera keeps the look it came with. Skipped when the mod is absent.
          */
         static void checkLook(Minecraft mc, ReplaySession s, String label) {
             if (!loaded("moreplayermodels")) {
@@ -2245,15 +2259,16 @@ public final class SelfTest {
                 return;
             }
             int cursor = s.playback().cursor();
-            if (Math.abs(cursor - LOOK_CHANGE_TICK) < 15) {
-                log("more player models {}: skipped, cursor {} too close to the change at {}", label, cursor, LOOK_CHANGE_TICK);
+            if (Math.abs(cursor - LOOK_CHANGE_TICK) < 15 || Math.abs(cursor - LOOK_THIRD_TICK) < 15) {
+                log("more player models {}: skipped, cursor {} too close to a change at {} or {}", label, cursor,
+                        LOOK_CHANGE_TICK, LOOK_THIRD_TICK);
                 return;
             }
-            boolean changed = cursor > LOOK_CHANGE_TICK;
-            String expected = changed ? lookAfter : lookBefore;
+            String which = cursor > LOOK_THIRD_TICK ? "third" : cursor > LOOK_CHANGE_TICK ? "second" : "first";
+            String expected = cursor > LOOK_THIRD_TICK ? lookThird : cursor > LOOK_CHANGE_TICK ? lookAfter : lookBefore;
             String actor = look(s.findRecorder(mc));
-            log("more player models {}: cursor {} actor wears the {} look={} -> {}", label, cursor, changed ? "second" : "first",
-                    expected != null && expected.equals(actor), expected != null && expected.equals(actor) ? "OK" : "FAIL");
+            boolean worn = expected != null && expected.equals(actor);
+            log("more player models {}: cursor {} actor wears the {} look={} -> {}", label, cursor, which, worn, worn ? "OK" : "FAIL");
             String camera = look(mc.player);
             boolean kept = cameraLook != null && cameraLook.equals(camera) && !cameraLook.equals(lookAfter);
             log("more player models {}: camera keeps its own look={} -> {}", label, kept, kept ? "OK" : "FAIL");

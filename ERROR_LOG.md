@@ -353,3 +353,10 @@
 **Root cause:** layers.py runs git mv and git rm from the folder of each file with paths relative to the repository root, cannot move files never committed, and ignores full-name references to mod classes when it sorts classes into core
 **Fix:** Ran it with --versions set to an absolute path after committing the new files; tools/check_layers.py found the BbModel reference and catmullRom moved to the plain Splines class in core
 **Prevention:** Commit new files before layers.py --apply, give it absolute paths, then run python3 tools/check_layers.py and compile core alone with javac before trusting the move
+
+## [2026-11-20 07:24] — Self-test step at recording tick 5 never runs (t == 5 dead code)
+**Context:** More Player Models self-test on NeoForge 1.21.1 (kaan-mpm port), reading the first look right after the recording starts
+**Error:** SELFTEST more player models while recording: look read=false -> FAIL; actor wears the first look=false at cursor 20, 60 and 51
+**Root cause:** Step 2 starts the recording then waits next(5); step 3 first runs at recording tick 6, so its if (t == 5) block (Mods.place, first look read) was dead code on every version
+**Fix:** Run that block once from tick 5 on: if (t >= 5 && !startPlaced) with a static flag, in the three SelfTest.java
+**Prevention:** In a self-test step driven by the recorder tick, never test t == N for the first ticks of a step; use t >= N with a once flag, and log a line from the block so its absence shows

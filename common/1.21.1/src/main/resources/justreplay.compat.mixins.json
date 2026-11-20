@@ -25,6 +25,8 @@
     "IrisTimerMixin",
     "JadeTickMixin",
     "LevelRendererClockMixin",
+    "MorePlayerModelsLayerMixin",
+    "MorePlayerModelsPartsMixin",
     "MorphInfoTickMixin",
     "MorphRenderMixin",
     "PehkuiPacketWriteMixin",

@@ -138,8 +138,8 @@ public final class JustReplayClient {
         if (Playback.isDispatching()) {
             return true;
         }
-        if (ReplaySession.isRunning() && isPlayerOnlyScreen(screen)) {
-            // The camera is not a player of the recording: its inventory and progress mean nothing in a replay.
+        if (ReplaySession.isRunning() && (isPlayerOnlyScreen(screen) || com.vyrriox.justreplay.compat.ReplayCompat.blocksScreen(screen))) {
+            // The camera is not a player of the recording: its inventory, progress and look mean nothing in a replay.
             return true;
         }
         if (VideoExporter.isActive() && Minecraft.getInstance().level != null) {

@@ -169,6 +169,7 @@ public final class ReplayCompat {
             DropTheBeamCompat.onReplayStart(session != null ? session.dir() : null);
         });
         IRONS_SPELLS.run("onReplayStart", IronsSpellsCompat::clearState);
+        MORE_PLAYER_MODELS.run("holdWebSync", MorePlayerModelsCompat::holdWebSync);
     }
 
     /** Called every client tick, replay or not. */
@@ -194,6 +195,7 @@ public final class ReplayCompat {
         EPIC_FIGHT.run("applyPending", EpicFightCompat::applyPending);
         ENTITY_CULLING.run("tick", EntityCullingCompat::tick);
         ARMOURERS_WORKSHOP.run("hiddenArmor", () -> ArmourersHiddenArmor.tick(mc));
+        MORE_PLAYER_MODELS.run("holdWebSync", MorePlayerModelsCompat::holdWebSync);
     }
 
     /** Called when the replay session closes. Runs for integrations that failed too: they put back what they changed. */
@@ -207,6 +209,7 @@ public final class ReplayCompat {
         EPIC_FIGHT.cleanup("onReplayEnd", EpicFightCompat::onReplayEnd);
         IRONS_SPELLS.cleanup("onReplayEnd", IronsSpellsCompat::clearState);
         IMMERSIVE_VEHICLES.cleanup("onReplayEnd", ImmersiveVehiclesCompat::onReplayEnd);
+        MORE_PLAYER_MODELS.cleanup("onReplayEnd", MorePlayerModelsCompat::onReplayEnd);
     }
 
     /** A seek is about to rebuild the replay world from a checkpoint or from the start of the stream. */
@@ -256,8 +259,9 @@ public final class ReplayCompat {
 
     /**
      * A recorded packet about to be handled, after the generic filters: returns the packet to handle in its place, or
-     * null to drop it (Sable payloads meant for the live player only, pose timing scaled to the playback speed). A
-     * failing integration leaves the packet as it was. Called for every packet: no allocation.
+     * null to drop it (Sable payloads meant for the live player only, pose timing scaled to the playback speed, a More
+     * Player Models look that names the viewer's own UUID). A failing integration leaves the packet as it was. Called
+     * for every packet: no allocation.
      */
     public static Packet<?> filterPlayback(Packet<?> packet) {
         if (SABLE.on()) {
@@ -316,6 +320,13 @@ public final class ReplayCompat {
                 IMMERSIVE_PAINTINGS.fail("filterPlayback", t);
             }
         }
+        if (packet != null && MORE_PLAYER_MODELS.on()) {
+            try {
+                packet = MorePlayerModelsCompat.filterPlayback(packet);
+            } catch (Throwable t) {
+                MORE_PLAYER_MODELS.fail("filterPlayback", t);
+            }
+        }
         return packet;
     }
 
@@ -346,7 +357,13 @@ public final class ReplayCompat {
                 || JADE.on() && JADE.test("blockServerbound", () -> JadeCompat.blockServerbound(packet))
                 || IMMERSIVE_AIRCRAFT.on() && IMMERSIVE_AIRCRAFT.test("blockServerbound", () -> ImmersiveAircraftCompat.blockServerbound(packet))
                 || IMMERSIVE_PAINTINGS.on() && IMMERSIVE_PAINTINGS.test("blockServerbound", () -> ImmersivePaintingsCompat.blockServerbound(packet))
-                || IMMERSIVE_VEHICLES.on() && IMMERSIVE_VEHICLES.test("blockServerbound", () -> ImmersiveVehiclesCompat.blockServerbound(packet));
+                || IMMERSIVE_VEHICLES.on() && IMMERSIVE_VEHICLES.test("blockServerbound", () -> ImmersiveVehiclesCompat.blockServerbound(packet))
+                || MORE_PLAYER_MODELS.on() && MORE_PLAYER_MODELS.test("blockServerbound", () -> MorePlayerModelsCompat.blockServerbound(packet));
+    }
+
+    /** A screen a mod opens for the player itself, which a replay camera has no use for (the More Player Models editor). */
+    public static boolean blocksScreen(net.minecraft.client.gui.screens.Screen screen) {
+        return MORE_PLAYER_MODELS.on() && MORE_PLAYER_MODELS.test("isOwnScreen", () -> MorePlayerModelsCompat.isOwnScreen(screen));
     }
 
     // ---------------------------------------------------------------- recording hooks
@@ -387,7 +404,8 @@ public final class ReplayCompat {
      * A captured clientbound packet about to be written into the recording (network thread): returns the packet to
      * write in its place. ParCool echoes the recording player's own actions back to it under its real UUID; they are
      * written for its actor, as another client receives them. Morph forms naming the recording player's UUID name the
-     * actor's instead. The packet the client handles is never changed. Called for every packet: no allocation.
+     * actor's instead. More Player Models sends a player its own look under its real UUID; it is written for its actor.
+     * The packet the client handles is never changed. Called for every packet: no allocation.
      */
     public static Packet<?> rewriteRecorded(Packet<?> packet, java.util.UUID localUuid, java.util.UUID actorUuid) {
         if (PARCOOL.on()) {
@@ -411,7 +429,23 @@ public final class ReplayCompat {
                 IRONS_SPELLS.fail("rewriteRecorded", t);
             }
         }
+        if (MORE_PLAYER_MODELS.on()) {
+            try {
+                packet = MorePlayerModelsCompat.rewriteRecorded(packet, localUuid, actorUuid);
+            } catch (Throwable t) {
+                MORE_PLAYER_MODELS.fail("rewriteRecorded", t);
+            }
+        }
         return packet;
+    }
+
+    /**
+     * Mod state no packet carries, written as it changes: called every client tick of a capture, after the recording
+     * player's own state (More Player Models looks on a server without the mod).
+     */
+    public static void writeLiveChanges(Minecraft mc, net.minecraft.client.player.LocalPlayer player, java.util.UUID actorUuid,
+                                        java.util.function.Consumer<Packet<?>> out) {
+        MORE_PLAYER_MODELS.run("writeLiveChanges", () -> MorePlayerModelsCompat.writeLiveChanges(mc, player, actorUuid, out));
     }
 
     /** A live packet that is not written to the recording, because its replay would drop it anyway. */
@@ -465,6 +499,7 @@ public final class ReplayCompat {
         EMOTECRAFT.run("writeCurrent", () -> EmotecraftCompat.writeCurrent(player, target, out));
         PARCOOL.run("writeCurrent", () -> ParCoolCompat.writeCurrent(player, target, out));
         MORPH.run("writeCurrent", () -> MorphCompat.writeCurrent(player, target, out));
+        MORE_PLAYER_MODELS.run("writeCurrent", () -> MorePlayerModelsCompat.writeCurrent(player, target, out));
         PEHKUI.run("writeCurrent", () -> PehkuiCompat.writeCurrent(player, out));
         ARMOURERS_WORKSHOP.run("writeCurrent", () -> ArmourersWorkshopCompat.writeCurrent(player, out));
         // Keyed by entity id, which the actor shares with the recording player.
@@ -517,6 +552,7 @@ public final class ReplayCompat {
     public static void writeActorForm(net.minecraft.world.entity.player.Player player, java.util.UUID target,
                                       java.util.function.Consumer<Packet<?>> out) {
         MORPH.run("writeCurrent", () -> MorphCompat.writeCurrent(player, target, out));
+        MORE_PLAYER_MODELS.run("writeActorForm", () -> MorePlayerModelsCompat.writeActorForm(player, target, out));
         PEHKUI.run("writeCurrent", () -> PehkuiCompat.writeCurrent(player, out));
         ARMOURERS_WORKSHOP.run("writeCurrent", () -> ArmourersWorkshopCompat.writeCurrent(player, out));
         EPIC_FIGHT.run("writeCurrent", () -> EpicFightCompat.writeCurrent(player, out));

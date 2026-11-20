@@ -1421,6 +1421,9 @@ public final class Recorder {
         // The server never sends a player its own emotes: they are written as another client receives them.
         com.vyrriox.justreplay.compat.ReplayCompat.pollLocalEmotes(localEmotes, player, actorUuid, respawned,
                 packet -> write(listener, packet));
+
+        // Mod state of the recording player and of the players around it that no packet carries.
+        com.vyrriox.justreplay.compat.ReplayCompat.writeLiveChanges(mc, player, actorUuid, packet -> write(listener, packet));
     }
 
     /** Base values and modifiers of the entity's syncable attributes, as the server sends them on spawn. */

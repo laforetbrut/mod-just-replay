@@ -118,7 +118,7 @@ python3 tools/test_matrix.py --targets neoforge-1.21.1 --mods ~/instances/arcadi
 
 The startup line of the game log names the integrations that are on, off or not supported. The self test runs
 extra checks for some mods when they are there (Immersive Vehicles, Curios, Emotecraft, Better Combat, ParCool,
-Iron's Spells, More Player Models on 1.20.1...): their lines show in the report like the others. What a pass proves is listed in
+Iron's Spells, More Player Models on 1.20.1 and NeoForge 1.21.1...): their lines show in the report like the others. What a pass proves is listed in
 [COMPATIBILITY.md](COMPATIBILITY.md) (Run, Loaded, Read).
 
 ### Limits
@@ -244,7 +244,7 @@ python3 tools/test_matrix.py --targets neoforge-1.21.1 --mods ~/instances/arcadi
 
 La ligne de démarrage du journal du jeu nomme les intégrations actives, coupées ou non prises en charge. Le test
 fait des vérifications en plus pour certains mods quand ils sont là (Immersive Vehicles, Curios, Emotecraft,
-Better Combat, ParCool, Iron's Spells, More Player Models en 1.20.1...) : leurs lignes apparaissent dans le
+Better Combat, ParCool, Iron's Spells, More Player Models en 1.20.1 et NeoForge 1.21.1...) : leurs lignes apparaissent dans le
 rapport comme les autres. Ce qu'une réussite prouve est
 décrit dans [COMPATIBILITY.md](COMPATIBILITY.md) (Run, Loaded, Read).
 
