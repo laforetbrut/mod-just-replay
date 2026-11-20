@@ -105,7 +105,7 @@ public final class BbModel {
                 double[] p0 = eval(keys.get(Math.max(0, i - 1)).post, time);
                 double[] p3 = eval(keys.get(Math.min(n - 1, i + 2)).pre, time);
                 for (int c = 0; c < 3; c++) {
-                    out[c] = com.vyrriox.justreplay.editor.Interpolation.catmullRom(p0[c], a[c], b[c], p3[c], alpha);
+                    out[c] = com.vyrriox.justreplay.editor.Splines.catmullRom(p0[c], a[c], b[c], p3[c], alpha);
                 }
             } else {
                 for (int c = 0; c < 3; c++) {

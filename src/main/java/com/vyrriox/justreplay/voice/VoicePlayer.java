@@ -102,9 +102,9 @@ public final class VoicePlayer {
         int from = next;
         next = t.firstAfter(cursor);
         lastCursor = cursor;
-        float speed = playback.speed();
+        float speed = playback.effectiveSpeed();
         boolean audible = session.project().voices && !VideoExporter.isActive() && mc.level != null
-                && speed >= 0.5F && speed <= 2.0F && mc.options.getSoundSourceVolume(SoundSource.VOICE) > 0.0F
+                && speed >= 0.5F && speed <= 2.0F && playback.trackSoundsAudible() && mc.options.getSoundSourceVolume(SoundSource.VOICE) > 0.0F
                 && mc.options.getSoundSourceVolume(SoundSource.MASTER) > 0.0F;
         if (!audible) {
             stopAll(mc);
