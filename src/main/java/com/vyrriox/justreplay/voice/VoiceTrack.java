@@ -1,6 +1,6 @@
 package com.vyrriox.justreplay.voice;
 
-import com.vyrriox.justreplay.JustReplay;
+import com.vyrriox.justreplay.JustReplayCore;
 
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;
@@ -108,12 +108,12 @@ public final class VoiceTrack {
         List<Frame> frames = new ArrayList<>();
         try (DataInputStream in = new DataInputStream(new BufferedInputStream(new GZIPInputStream(Files.newInputStream(file), 1 << 16), 1 << 16))) {
             if (in.readInt() != MAGIC) {
-                JustReplay.LOGGER.warn("Ignoring {}: not a voice track", file);
+                JustReplayCore.LOGGER.warn("Ignoring {}: not a voice track", file);
                 return null;
             }
             int version = in.readInt();
             if (version > VERSION) {
-                JustReplay.LOGGER.warn("Ignoring {}: made by a newer version (format {})", file, version);
+                JustReplayCore.LOGGER.warn("Ignoring {}: made by a newer version (format {})", file, version);
                 return null;
             }
             while (true) {
@@ -143,7 +143,7 @@ public final class VoiceTrack {
                 frames.add(new Frame(tick, id, x, y, z, distance, codec, data));
             }
         } catch (IOException damaged) {
-            JustReplay.LOGGER.warn("Voice track {} is damaged ({}), keeping {} frames", file, damaged.toString(), frames.size());
+            JustReplayCore.LOGGER.warn("Voice track {} is damaged ({}), keeping {} frames", file, damaged.toString(), frames.size());
         }
         // Frames are written in arrival order; ticks never go back, but keep the order stable if they do.
         frames.sort(java.util.Comparator.comparingInt(Frame::tick));

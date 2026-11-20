@@ -47,6 +47,7 @@ public class ActorScreen extends GlassScreen {
     private boolean showName;
     private boolean skinLayers;
     private int hiddenParts;
+    private int hiddenArmor;
     /** Skin file of a player actor, empty for the skin of the account named by the name field. */
     private String skinFile;
     private boolean slim;
@@ -84,6 +85,7 @@ public class ActorScreen extends GlassScreen {
         this.showName = actor.showName;
         this.skinLayers = !actor.hideSkinLayers;
         this.hiddenParts = actor.hiddenParts;
+        this.hiddenArmor = actor.hiddenArmor;
         this.skinFile = actor.skin == null ? "" : actor.skin;
         this.slim = actor.slim;
         for (ReplayProject.SkinChange c : actor.skinChanges) {
@@ -292,6 +294,19 @@ public class ActorScreen extends GlassScreen {
         for (com.vyrriox.justreplay.editor.BodyParts.Part part : com.vyrriox.justreplay.editor.BodyParts.PARTS) {
             f.put(new GlassSwitch(Component.translatable("justreplay.bodyparts." + part.key()), () -> (hiddenParts & part.bit()) == 0,
                     () -> hiddenParts ^= part.bit()), column, 2);
+            if (++column == 2) {
+                f.next();
+                column = 0;
+            }
+        }
+        if (column != 0) {
+            f.next();
+        }
+        f.paragraph(Component.translatable("justreplay.armor.title"), Theme.TEXT_MUTED);
+        column = 0;
+        for (com.vyrriox.justreplay.editor.ArmorSlots.Slot slot : com.vyrriox.justreplay.editor.ArmorSlots.SLOTS) {
+            f.put(new GlassSwitch(Component.translatable("justreplay.armor." + slot.key()), () -> (hiddenArmor & slot.bit()) == 0,
+                    () -> hiddenArmor ^= slot.bit()).tip(slot.tip()), column, 2);
             if (++column == 2) {
                 f.next();
                 column = 0;
@@ -604,6 +619,7 @@ public class ActorScreen extends GlassScreen {
         actor.showName = showName;
         actor.hideSkinLayers = !skinLayers;
         actor.hiddenParts = hiddenParts;
+        actor.hiddenArmor = hiddenArmor;
         actor.skin = skinFile;
         actor.slim = slim;
         actor.skinChanges = new ArrayList<>(skinChanges);

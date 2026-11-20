@@ -1,10 +1,15 @@
 package com.vyrriox.justreplay.config;
 
+import com.vyrriox.justreplay.compat.CompatSwitches;
+import com.vyrriox.justreplay.compat.CompatTargets;
 import com.vyrriox.justreplay.export.ExportResolution;
 import com.vyrriox.justreplay.platform.Platform;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * Client configuration of Just Replay.
@@ -23,9 +28,13 @@ public final class JRConfig {
     public static final ConfigFile.BoolValue REPLAY_BUFFER;
     public static final ConfigFile.IntValue BUFFER_MINUTES;
     public static final ConfigFile.IntValue NEXT_MINUTES;
+    public static final ConfigFile.BoolValue NAME_ON_SAVE;
     public static final ConfigFile.IntValue SEEK_STEP_SECONDS;
     public static final ConfigFile.BoolValue CLEAN_HUD;
+    public static final ConfigFile.BoolValue HIDE_PLAYER_ARMOR;
     public static final ConfigFile.IntValue PLAYBACK_VIEW_DISTANCE;
+    public static final ConfigFile.BoolValue WARN_MOD_CHANGES;
+    public static final ConfigFile.EnumValue<ServerResourcePacks> SERVER_RESOURCE_PACKS;
     public static final ConfigFile.BoolValue DISTANT_HORIZONS_LODS;
     public static final ConfigFile.IntValue DISTANT_HORIZONS_MAX_COPY_MB;
     public static final ConfigFile.StringValue FFMPEG_PATH;
@@ -33,7 +42,10 @@ public final class JRConfig {
     public static final ConfigFile.IntValue EXPORT_CRF;
     public static final ConfigFile.IntValue EXPORT_WARMUP_FRAMES;
     public static final ConfigFile.EnumValue<ExportResolution> EXPORT_RESOLUTION;
+    public static final ConfigFile.BoolValue EXPORT_RANGE_IN_NAME;
     public static final ConfigFile.EnumValue<EditorMode> EDITOR_MODE;
+    /** One switch per integration, by mod id (see {@link CompatSwitches}, which reads them before the game starts). */
+    public static final Map<String, ConfigFile.BoolValue> COMPAT;
 
     /** How much of the replay editor is shown. */
     public enum EditorMode {
@@ -43,9 +55,19 @@ public final class JRConfig {
         ADVANCED
     }
 
+    /** What playback does with the resource packs the recorded server sent. */
+    public enum ServerResourcePacks {
+        /** Applies the packs found in the game's cache of server packs, the ones downloaded while playing there. */
+        CACHED,
+        /** As CACHED, and downloads the missing ones from the address the server gave. */
+        DOWNLOAD,
+        /** Never applies them: the replay looks like the recording player's own packs. */
+        OFF
+    }
+
     static {
         Path dir = Platform.get().configDir();
-        Path file = dir.resolve("justreplay-client.json");
+        Path file = dir.resolve(CompatSwitches.FILE_NAME);
         SPEC = new ConfigFile(file, "Just Replay client settings.");
         ConfigFile.Section recording = SPEC.section("recording", "Recording.");
         AUTO_RECORD_MULTIPLAYER = recording.bool("autoRecordMultiplayer", false,
@@ -75,15 +97,28 @@ public final class JRConfig {
                         + "cached chunks: about 150 to 300 MB for 2 hours. Lower it if your game is short on memory.");
         NEXT_MINUTES = recording.integer("nextMinutes", 5, 1, 240,
                 "Length of a recording started with the 'Record next minutes' key; it stops by itself.");
+        NAME_ON_SAVE = recording.bool("nameOnSave", true,
+                "Ask for a name when a recording stops or the last minutes are saved. The replay is saved under" + "\n"
+                        + "the date and time first; Esc or Skip keeps that name.");
         ConfigFile.Section playback = SPEC.section("playback", "Watching replays.");
         SEEK_STEP_SECONDS = playback.integer("seekStepSeconds", 5, 1, 600,
                 "Seconds skipped by the seek keys.");
         CLEAN_HUD = playback.bool("cleanHud", true,
                 "Hide the hotbar, health, crosshair and every HUD added by other mods while watching a replay." + "\n"
                         + "Chat, titles, boss bars, scoreboard and the tab list stay visible since they are part of the recording.");
+        HIDE_PLAYER_ARMOR = playback.bool("hidePlayerArmor", false,
+                "Hide the armor of every player (helmet, chestplate, leggings, boots, elytra) while watching a replay" + "\n"
+                        + "and in exported videos. The editor can also hide it on one player or one actor.");
         PLAYBACK_VIEW_DISTANCE = playback.integer("viewDistance", 32, 8, 64,
                 "Chunks kept around the camera while watching a replay. Chunks the recording server unloaded" + "\n"
                         + "stay visible up to this distance instead of disappearing.");
+        WARN_MOD_CHANGES = playback.bool("warnModChanges", true,
+                "Before opening a replay, list the mods that are missing, were added or changed version since it was" + "\n"
+                        + "recorded, with a choice to open it anyway. A replay without a mod list opens directly.");
+        SERVER_RESOURCE_PACKS = playback.enumeration("serverResourcePacks", ServerResourcePacks.CACHED,
+                "Resource pack the recorded server sent (textures, models, sounds). CACHED applies the ones found in the" + "\n"
+                        + "game's cache of server packs, which holds the packs downloaded while playing there; DOWNLOAD also" + "\n"
+                        + "downloads the missing ones from the server's address; OFF never applies them. They are removed when the replay closes.");
         DISTANT_HORIZONS_LODS = playback.bool("distantHorizonsLods", true,
                 "With Distant Horizons installed, show the distant terrain (LODs) of the recorded world in replays and" + "\n"
                         + "exported videos. The recorded world's LOD database is copied to a temporary folder when the replay opens and" + "\n"
@@ -104,10 +139,21 @@ public final class JRConfig {
         EXPORT_RESOLUTION = export.enumeration("resolution", ExportResolution.WINDOW,
                 "Size of exported videos. WINDOW keeps the window size; the others render at that size" + "\n"
                         + "whatever the window, or are scaled by FFmpeg when the graphics card cannot render that large.");
+        EXPORT_RANGE_IN_NAME = export.bool("rangeInFileName", true,
+                "End the file name of an export with the part of the replay it holds (Boss_fight_00m10s-00m20s.mp4, with" + "\n"
+                        + "hours for replays of an hour or more). Off keeps the old names (Boss_fight.mp4).");
         ConfigFile.Section editor = SPEC.section("editor", "Replay editor.");
         EDITOR_MODE = editor.enumeration("mode", EditorMode.SIMPLE,
                 "SIMPLE shows the essentials of the replay editor with big controls; ADVANCED shows every tool." + "\n"
                         + "Switching keeps all the work done in either mode.");
+        ConfigFile.Section compat = SPEC.section(CompatSwitches.SECTION,
+                "Integrations with other mods, one switch per mod id. An integration that fails turns itself off until the" + "\n"
+                        + "next start and says so in the log; set it to false here to keep it off. Changes apply at the next start.");
+        Map<String, ConfigFile.BoolValue> switches = new LinkedHashMap<>();
+        for (Map.Entry<String, String> mod : CompatTargets.NAMES.entrySet()) {
+            switches.put(mod.getKey(), compat.bool(mod.getKey(), true, mod.getValue() + " integration (applies at the next start)."));
+        }
+        COMPAT = Collections.unmodifiableMap(switches);
         boolean firstRun = !Files.exists(file);
         SPEC.load();
         Path legacy = dir.resolve("justreplay-client.toml");

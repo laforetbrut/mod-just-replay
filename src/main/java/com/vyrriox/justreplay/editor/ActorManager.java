@@ -52,6 +52,8 @@ public final class ActorManager {
     private static final java.util.Set<Integer> NO_SKIN_LAYERS = new java.util.HashSet<>();
     /** Body parts hidden on player actors, by entity id (see {@link BodyParts}). */
     private static final java.util.Map<Integer, Integer> HIDDEN_PARTS = new java.util.HashMap<>();
+    /** Armor slots hidden on actors, by entity id (see {@link ArmorSlots}). */
+    private static final java.util.Map<Integer, Integer> HIDDEN_ARMOR = new java.util.HashMap<>();
     private final Map<String, Integer> ids = new HashMap<>();
     /** Actor data by entity id, kept live so the render scale follows edits without a respawn. */
     private static final Map<Integer, ReplayProject.ActorData> SCALED = new HashMap<>();
@@ -179,6 +181,12 @@ public final class ActorManager {
     /** Body parts hidden on a player actor (see {@link BodyParts}). */
     public static int hiddenParts(Entity entity) {
         Integer mask = HIDDEN_PARTS.get(entity.getId());
+        return mask == null ? 0 : mask;
+    }
+
+    /** Armor slots hidden on an actor (see {@link ArmorSlots}). */
+    public static int hiddenArmor(Entity entity) {
+        Integer mask = HIDDEN_ARMOR.get(entity.getId());
         return mask == null ? 0 : mask;
     }
 
@@ -358,6 +366,11 @@ public final class ActorManager {
         } else {
             HIDDEN_PARTS.remove(entity.getId());
         }
+        if ((actor.hiddenArmor & ArmorSlots.ALL) != 0) {
+            HIDDEN_ARMOR.put(entity.getId(), actor.hiddenArmor & ArmorSlots.ALL);
+        } else {
+            HIDDEN_ARMOR.remove(entity.getId());
+        }
         if (actor.isPlayer() && actor.hideSkinLayers) {
             NO_SKIN_LAYERS.add(entity.getId());
         } else {
@@ -445,9 +458,9 @@ public final class ActorManager {
             return;
         }
         long now = Util.getMillis();
-        int started = 0;
+        List<Lookup> due = new java.util.ArrayList<>();
         Iterator<Lookup> it = lookupQueue.iterator();
-        while (it.hasNext() && started < LOOKUPS_PER_TICK) {
+        while (it.hasNext() && due.size() < LOOKUPS_PER_TICK) {
             Lookup lookup = it.next();
             if (lookups.get(lookup.actorId) != lookup) {
                 // The actor was refreshed or removed meanwhile.
@@ -458,9 +471,11 @@ public final class ActorManager {
                 continue;
             }
             it.remove();
-            start(lookup);
-            started++;
+            due.add(lookup);
         }
+        // Started once the queue is no longer walked: a lookup that fails at once completes right here and queues its
+        // retry.
+        due.forEach(this::start);
     }
 
     private void start(Lookup lookup) {
