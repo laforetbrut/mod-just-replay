@@ -51,6 +51,7 @@ public final class JustReplayClient {
         Recorder.clientTickAll(mc);
         ReplaySession.clientTick(mc);
         handleKeys(mc);
+        ReplayNaming.tick(mc);
         SelfTest.tick(mc);
         SceneRecorder.tick(mc);
         com.vyrriox.justreplay.compat.ReplayCompat.clientTick(mc);
@@ -82,6 +83,7 @@ public final class JustReplayClient {
         Path saved = Recorder.endCapture();
         if (saved != null) {
             toast(Recorder.lastStopIncomplete() ? "justreplay.toast.incomplete" : "justreplay.toast.saved", saved.getFileName().toString());
+            offerName(saved);
         }
     }
 
@@ -103,15 +105,35 @@ public final class JustReplayClient {
         return Minecraft.getInstance().screen instanceof EditorScreen && chatLayer;
     }
 
+    /** True once the camera path was applied to this frame before its camera was worked out. */
+    private static boolean cameraPlaced;
+
+    /**
+     * Just before the game works out the camera of the frame. 26.1 extracts the whole frame before the frame hooks
+     * run, so a camera placed there showed one frame late, and with the mouse turn of the frame on top of it.
+     */
+    public static void onCameraUpdate(float partialTick) {
+        placeCamera(partialTick);
+        cameraPlaced = true;
+    }
+
     public static void onRenderFramePre(float partialTick) {
         com.vyrriox.justreplay.replay.SectionRepair.beforeFrame(Minecraft.getInstance());
+        if (!cameraPlaced) {
+            // The early hook did not run (another mod changed the frame loop): late is better than never.
+            placeCamera(partialTick);
+        }
+        cameraPlaced = false;
+        com.vyrriox.justreplay.replay.WorldOverride.onRenderFrame(partialTick);
+    }
+
+    private static void placeCamera(float partialTick) {
         ReplaySession session = ReplaySession.current();
         if (session != null && session.spectate().isActive() && session.isCameraPathActive()) {
             // A camera path or an export started this tick: never render it from a spectated entity.
             session.spectate().stop(Minecraft.getInstance());
         }
         CameraController.onRenderFrame(partialTick);
-        com.vyrriox.justreplay.replay.WorldOverride.onRenderFrame(partialTick);
     }
 
     public static void onRenderFramePost(float partialTick) {
@@ -237,6 +259,7 @@ public final class JustReplayClient {
             Path saved = Recorder.stop();
             if (saved != null) {
                 toast(Recorder.lastStopIncomplete() ? "justreplay.toast.incomplete" : "justreplay.toast.saved", saved.getFileName().toString());
+                offerName(saved);
             }
         } else if (Recorder.startManual()) {
             toast("justreplay.toast.started", "");
@@ -266,6 +289,16 @@ public final class JustReplayClient {
         GlassToast.show(icon, accent, Component.translatable(key), detail.isEmpty() ? null : Component.literal(detail));
     }
 
+    /**
+     * Offers the naming window for a recording that just stopped. Not when its files are incomplete (disk error or
+     * timeout): something may still be writing into its folder.
+     */
+    private static void offerName(Path saved) {
+        if (!Recorder.lastStopIncomplete()) {
+            ReplayNaming.offer(saved);
+        }
+    }
+
     private static boolean savingBuffer;
 
     /** Saves the instant replay buffer off the client thread; the toast follows when the files are written. */
@@ -292,7 +325,26 @@ public final class JustReplayClient {
                     : String.format(java.util.Locale.ROOT, "%.1f", minutes);
             toast(Component.translatable("justreplay.toast.buffer_saved", length),
                     Component.literal(saved.dir().getFileName().toString()));
+            ReplayNaming.offer(saved.dir());
         }));
+    }
+
+    /** The recording marker key: a marker in the running recording and the buffer, shown by a small toast. */
+    private static void placeRecordingMarker() {
+        if (ReplaySession.current() != null) {
+            return;
+        }
+        Recorder.Marked marked = Recorder.addMarker();
+        if (marked == null) {
+            GlassToast.show(Icon.FLAG, Theme.TEXT_MUTED, Component.translatable("justreplay.toast.marker_idle"),
+                    Component.translatable("justreplay.toast.marker_idle.hint", JRKeys.RECORD.getTranslatedKeyMessage()));
+            return;
+        }
+        GlassToast.show(Icon.FLAG, com.vyrriox.justreplay.gui.Timeline.MARKER_COLOR,
+                Component.translatable("justreplay.toast.marker", marked.number()),
+                marked.recordingTick() >= 0
+                        ? Component.translatable("justreplay.toast.marker.at", com.vyrriox.justreplay.format.RecordingMarkers.clock(marked.recordingTick()))
+                        : Component.translatable("justreplay.toast.marker.buffer"));
     }
 
     /** Starts a recording of the configured length, or stops the running recording. */
@@ -326,6 +378,9 @@ public final class JustReplayClient {
         while (JRKeys.RECORD_NEXT.consumeClick()) {
             toggleTimedRecording();
         }
+        while (JRKeys.RECORDING_MARKER.consumeClick()) {
+            placeRecordingMarker();
+        }
         if (Recorder.recordingFailed()) {
             Path failed = Recorder.stop();
             toast("justreplay.toast.disk_failed", failed == null ? "" : failed.getFileName().toString());
@@ -335,6 +390,7 @@ public final class JustReplayClient {
             Path saved = Recorder.stop();
             if (saved != null) {
                 toast(Recorder.lastStopIncomplete() ? "justreplay.toast.incomplete" : "justreplay.toast.next_done", saved.getFileName().toString());
+                offerName(saved);
             }
         }
         ReplaySession session = ReplaySession.current();

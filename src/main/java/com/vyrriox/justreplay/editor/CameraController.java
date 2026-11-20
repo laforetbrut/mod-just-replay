@@ -22,7 +22,7 @@ public final class CameraController {
     /** Replay time shown by the current frame, in ticks. */
     public static double frameTime(ReplaySession session, float partialTick) {
         Playback playback = session.playback();
-        if (playback.isPaused()) {
+        if (playback.isPaused() || playback.isHolding()) {
             return playback.cursor();
         }
         int step = Math.max(1, playback.lastStep());

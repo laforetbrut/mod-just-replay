@@ -50,6 +50,8 @@ final class NeoForgeClient {
 
     static void init(IEventBus modBus, ModContainer container) {
         container.registerExtensionPoint(IConfigScreenFactory.class, (mod, parent) -> new com.vyrriox.justreplay.gui.JRConfigScreen(parent));
+        // First: the version, loader and integrations line that crash logs are read with.
+        com.vyrriox.justreplay.compat.Integrations.logStartup();
         for (Class<?> type : PRELOADED) {
             initialize(type);
         }

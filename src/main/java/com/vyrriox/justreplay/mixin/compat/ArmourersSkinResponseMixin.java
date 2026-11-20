@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.mixin.compat;
 
+import com.vyrriox.justreplay.compat.Integrations;
 import com.vyrriox.justreplay.compat.ArmourersWorkshopCompat;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
@@ -20,6 +21,13 @@ public abstract class ArmourersSkinResponseMixin {
     @Inject(method = "accept",
             at = @At("HEAD"), require = 0, remap = false)
     private void justreplay$fillReplayCache(CallbackInfo ci) {
-        ArmourersWorkshopCompat.onSkinResponse(this);
+        if (!Integrations.ARMOURERS_WORKSHOP.on()) {
+            return;
+        }
+        try {
+            ArmourersWorkshopCompat.onSkinResponse(this);
+        } catch (Throwable t) {
+            Integrations.ARMOURERS_WORKSHOP.fail("ResponseSkinPacket.accept", t);
+        }
     }
 }

@@ -45,4 +45,25 @@ public final class ReplayMeta {
      * Null outside scene jobs and in recordings made before this field existed.
      */
     public Integer sceneCommandsTick;
+    /** Set by "Don't warn again for this replay": opening it no longer lists the mods changed since the recording. */
+    public boolean ignoreModChanges;
+    /**
+     * Markers placed with the recording marker key while recording, in replay ticks. They become timeline markers
+     * the first time the replay is opened. Empty in recordings made before this field existed.
+     */
+    public List<Marker> markers = new ArrayList<>();
+
+    /** A marker placed while recording. */
+    public static final class Marker {
+        public int tick;
+        public String name = "";
+
+        public Marker() {
+        }
+
+        public Marker(int tick, String name) {
+            this.tick = tick;
+            this.name = name;
+        }
+    }
 }
