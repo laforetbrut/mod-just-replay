@@ -1,6 +1,6 @@
 package com.vyrriox.justreplay.compat;
 
-import com.vyrriox.justreplay.editor.ArmorSlots;
+import com.vyrriox.justreplay.editor.ArmorBits;
 
 /**
  * Which armor slots of a replay each Armourer's Workshop wardrobe slot follows, by the name of its slot type
@@ -15,17 +15,17 @@ public final class ArmourersArmorCover {
     private ArmourersArmorCover() {
     }
 
-    /** Armor slots ({@link ArmorSlots} bits) a wardrobe slot type covers, 0 for one that is not armor. */
+    /** Armor slots ({@link ArmorBits}) a wardrobe slot type covers, 0 for one that is not armor. */
     public static int coveredSlots(String slotType) {
         if (slotType == null) {
             return 0;
         }
         return switch (slotType) {
-            case "HEAD" -> ArmorSlots.HEAD;
-            case "CHEST", "WINGS" -> ArmorSlots.CHEST;
-            case "LEGS" -> ArmorSlots.LEGS;
-            case "FEET" -> ArmorSlots.FEET;
-            case "OUTFIT" -> ArmorSlots.ALL;
+            case "HEAD" -> ArmorBits.HEAD;
+            case "CHEST", "WINGS" -> ArmorBits.CHEST;
+            case "LEGS" -> ArmorBits.LEGS;
+            case "FEET" -> ArmorBits.FEET;
+            case "OUTFIT" -> ArmorBits.ALL;
             default -> 0;
         };
     }

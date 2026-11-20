@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.compat;
 
+import com.vyrriox.justreplay.JustReplayCore;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
@@ -135,7 +136,7 @@ public final class Integration {
             failedHook = hook;
             warn.accept("The " + name + " integration of Just Replay failed in " + hook + " and is off until the game restarts; "
                     + name + " itself keeps working. If this happens at every start, set compat." + modId + " to false in "
-                    + "config/" + CompatSwitches.FILE_NAME + ". Cause: " + error, error);
+                    + "config/" + JustReplayCore.CLIENT_CONFIG_FILE + ". Cause: " + error, error);
         }
     }
 

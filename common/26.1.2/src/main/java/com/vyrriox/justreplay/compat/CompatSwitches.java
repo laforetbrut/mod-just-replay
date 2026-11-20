@@ -4,6 +4,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.stream.JsonReader;
+import com.vyrriox.justreplay.JustReplayCore;
 import com.vyrriox.justreplay.platform.EarlyMods;
 import org.slf4j.LoggerFactory;
 
@@ -24,7 +25,7 @@ import java.util.Map;
  */
 public final class CompatSwitches {
     /** The client config file, in the loader's config folder. */
-    public static final String FILE_NAME = "justreplay-client.json";
+    public static final String FILE_NAME = JustReplayCore.CLIENT_CONFIG_FILE;
     /** Section of the client config that holds the switches. */
     public static final String SECTION = "compat";
 
