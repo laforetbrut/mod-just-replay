@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.mixin.compat;
 
+import com.vyrriox.justreplay.compat.Integrations;
 import com.vyrriox.justreplay.compat.EmotecraftCompat;
 import com.vyrriox.justreplay.compat.ReplayCompat;
 import org.spongepowered.asm.mixin.Mixin;
@@ -23,17 +24,32 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class PlayerAnimKeyframeMixin {
     @ModifyVariable(method = "setupAnim(F)V", at = @At("HEAD"), argsOnly = true, require = 0, remap = false)
     private float justreplay$holdWhilePaused(float tickDelta) {
-        float clocked = EmotecraftCompat.clockDelta(this);
-        if (!Float.isNaN(clocked)) {
-            return clocked;
+        if (!Integrations.PLAYER_ANIMATOR.on()) {
+            return tickDelta;
         }
-        return ReplayCompat.isReplayPaused() ? 0.0F : tickDelta;
+        try {
+            float clocked = EmotecraftCompat.clockDelta(this);
+            if (!Float.isNaN(clocked)) {
+                return clocked;
+            }
+            return ReplayCompat.isReplayPaused() ? 0.0F : tickDelta;
+        } catch (Throwable t) {
+            Integrations.PLAYER_ANIMATOR.fail("KeyframeAnimationPlayer.setupAnim", t);
+            return tickDelta;
+        }
     }
 
     @Inject(method = "tick()V", at = @At("HEAD"), cancellable = true, require = 0, remap = false)
     private void justreplay$followActorClock(CallbackInfo ci) {
-        if (EmotecraftCompat.isClocked(this)) {
-            ci.cancel();
+        if (!Integrations.PLAYER_ANIMATOR.on()) {
+            return;
+        }
+        try {
+            if (EmotecraftCompat.isClocked(this)) {
+                ci.cancel();
+            }
+        } catch (Throwable t) {
+            Integrations.PLAYER_ANIMATOR.fail("KeyframeAnimationPlayer.tick", t);
         }
     }
 }

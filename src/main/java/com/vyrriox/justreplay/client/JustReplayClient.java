@@ -51,6 +51,7 @@ public final class JustReplayClient {
         Recorder.clientTickAll(mc);
         ReplaySession.clientTick(mc);
         handleKeys(mc);
+        ReplayNaming.tick(mc);
         SelfTest.tick(mc);
         SceneRecorder.tick(mc);
         com.vyrriox.justreplay.compat.ReplayCompat.clientTick(mc);
@@ -82,6 +83,7 @@ public final class JustReplayClient {
         Path saved = Recorder.endCapture();
         if (saved != null) {
             toast(Recorder.lastStopIncomplete() ? "justreplay.toast.incomplete" : "justreplay.toast.saved", saved.getFileName().toString());
+            offerName(saved);
         }
     }
 
@@ -136,8 +138,8 @@ public final class JustReplayClient {
         if (Playback.isDispatching()) {
             return true;
         }
-        if (ReplaySession.isRunning() && isPlayerOnlyScreen(screen)) {
-            // The camera is not a player of the recording: its inventory and progress mean nothing in a replay.
+        if (ReplaySession.isRunning() && (isPlayerOnlyScreen(screen) || com.vyrriox.justreplay.compat.ReplayCompat.blocksScreen(screen))) {
+            // The camera is not a player of the recording: its inventory, progress and look mean nothing in a replay.
             return true;
         }
         if (VideoExporter.isActive() && Minecraft.getInstance().level != null) {
@@ -237,6 +239,7 @@ public final class JustReplayClient {
             Path saved = Recorder.stop();
             if (saved != null) {
                 toast(Recorder.lastStopIncomplete() ? "justreplay.toast.incomplete" : "justreplay.toast.saved", saved.getFileName().toString());
+                offerName(saved);
             }
         } else if (Recorder.startManual()) {
             toast("justreplay.toast.started", "");
@@ -266,6 +269,16 @@ public final class JustReplayClient {
         GlassToast.show(icon, accent, Component.translatable(key), detail.isEmpty() ? null : Component.literal(detail));
     }
 
+    /**
+     * Offers the naming window for a recording that just stopped. Not when its files are incomplete (disk error or
+     * timeout): something may still be writing into its folder.
+     */
+    private static void offerName(Path saved) {
+        if (!Recorder.lastStopIncomplete()) {
+            ReplayNaming.offer(saved);
+        }
+    }
+
     private static boolean savingBuffer;
 
     /** Saves the instant replay buffer off the client thread; the toast follows when the files are written. */
@@ -292,7 +305,26 @@ public final class JustReplayClient {
                     : String.format(java.util.Locale.ROOT, "%.1f", minutes);
             toast(Component.translatable("justreplay.toast.buffer_saved", length),
                     Component.literal(saved.dir().getFileName().toString()));
+            ReplayNaming.offer(saved.dir());
         }));
+    }
+
+    /** The recording marker key: a marker in the running recording and the buffer, shown by a small toast. */
+    private static void placeRecordingMarker() {
+        if (ReplaySession.current() != null) {
+            return;
+        }
+        Recorder.Marked marked = Recorder.addMarker();
+        if (marked == null) {
+            GlassToast.show(Icon.FLAG, Theme.TEXT_MUTED, Component.translatable("justreplay.toast.marker_idle"),
+                    Component.translatable("justreplay.toast.marker_idle.hint", JRKeys.RECORD.getTranslatedKeyMessage()));
+            return;
+        }
+        GlassToast.show(Icon.FLAG, com.vyrriox.justreplay.gui.Timeline.MARKER_COLOR,
+                Component.translatable("justreplay.toast.marker", marked.number()),
+                marked.recordingTick() >= 0
+                        ? Component.translatable("justreplay.toast.marker.at", com.vyrriox.justreplay.format.RecordingMarkers.clock(marked.recordingTick()))
+                        : Component.translatable("justreplay.toast.marker.buffer"));
     }
 
     /** Starts a recording of the configured length, or stops the running recording. */
@@ -326,6 +358,9 @@ public final class JustReplayClient {
         while (JRKeys.RECORD_NEXT.consumeClick()) {
             toggleTimedRecording();
         }
+        while (JRKeys.RECORDING_MARKER.consumeClick()) {
+            placeRecordingMarker();
+        }
         if (Recorder.recordingFailed()) {
             Path failed = Recorder.stop();
             toast("justreplay.toast.disk_failed", failed == null ? "" : failed.getFileName().toString());
@@ -335,6 +370,7 @@ public final class JustReplayClient {
             Path saved = Recorder.stop();
             if (saved != null) {
                 toast(Recorder.lastStopIncomplete() ? "justreplay.toast.incomplete" : "justreplay.toast.next_done", saved.getFileName().toString());
+                offerName(saved);
             }
         }
         ReplaySession session = ReplaySession.current();

@@ -77,7 +77,7 @@ public final class SimulatedCompat {
             JustReplay.LOGGER.info("Simulated detected: ropes are written into snapshots");
         } catch (Throwable t) {
             reflectFailed = true;
-            ReplayCompat.warnOnce("simulated.reflect", "Simulated rope support disabled, its classes changed", t);
+            Integrations.SIMULATED.fail("reflect", t);
         }
         return reflect;
     }
@@ -106,7 +106,7 @@ public final class SimulatedCompat {
                 }
             }
         }
-        if (ReplayCompat.SABLE) {
+        if (Integrations.SABLE.on()) {
             chunks.addAll(SableCompat.plotChunks());
         }
         List<Holder> holders = new ArrayList<>();

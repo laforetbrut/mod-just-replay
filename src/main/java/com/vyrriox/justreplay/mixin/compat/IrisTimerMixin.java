@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.mixin.compat;
 
+import com.vyrriox.justreplay.compat.Integrations;
 import com.vyrriox.justreplay.compat.ReplayCompat;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
@@ -32,12 +33,19 @@ public abstract class IrisTimerMixin {
 
     @Inject(method = "beginFrame(J)V", at = @At("TAIL"), require = 0, remap = false)
     private void justreplay$replayClock(long frameStart, CallbackInfo ci) {
-        double clock = ReplayCompat.frameClockTicks();
-        if (clock >= 0) {
-            double delta = justreplay$lastClock < 0 ? 0 : Math.max(0, clock - justreplay$lastClock);
-            lastFrameTime = Math.max((float) (delta / 20.0), justreplay$MIN_FRAME_TIME);
-            frameTimeCounter = (float) ((clock / 20.0) % 3600.0);
+        if (!Integrations.IRIS.on()) {
+            return;
         }
-        justreplay$lastClock = clock;
+        try {
+            double clock = ReplayCompat.frameClockTicks();
+            if (clock >= 0) {
+                double delta = justreplay$lastClock < 0 ? 0 : Math.max(0, clock - justreplay$lastClock);
+                lastFrameTime = Math.max((float) (delta / 20.0), justreplay$MIN_FRAME_TIME);
+                frameTimeCounter = (float) ((clock / 20.0) % 3600.0);
+            }
+            justreplay$lastClock = clock;
+        } catch (Throwable t) {
+            Integrations.IRIS.fail("SystemTimeUniforms.Timer.beginFrame", t);
+        }
     }
 }

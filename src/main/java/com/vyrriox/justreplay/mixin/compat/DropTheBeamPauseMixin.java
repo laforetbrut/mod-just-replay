@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.mixin.compat;
 
+import com.vyrriox.justreplay.compat.Integrations;
 import com.vyrriox.justreplay.compat.DropTheBeamCompat;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
@@ -21,8 +22,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class DropTheBeamPauseMixin {
     @Inject(method = "followGamePause", at = @At("HEAD"), cancellable = true, require = 0, remap = false)
     private static void justreplay$replayOwnsThePause(CallbackInfo ci) {
-        if (DropTheBeamCompat.isReplaying()) {
-            ci.cancel();
+        if (!Integrations.DROP_THE_BEAM.on()) {
+            return;
+        }
+        try {
+            if (DropTheBeamCompat.isReplaying()) {
+                ci.cancel();
+            }
+        } catch (Throwable t) {
+            Integrations.DROP_THE_BEAM.fail("followGamePause", t);
         }
     }
 }
