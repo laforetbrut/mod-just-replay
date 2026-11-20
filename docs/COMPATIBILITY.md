@@ -12,19 +12,20 @@ against the mod's build and is enabled in `CompatTargets.java`, nothing was run.
 an offline client outside a development environment, with no launcher.
 
 The self test of 1.1.2 passes with 0 failures on all nine targets, in a development client and with the production
-jar. The checks added since (hidden armor on every target, More Player Models looks on Forge 1.20.1) are written but
-have not run yet.
+jar. The self test of the next version passes with 0 failures on all nine targets in a development client
+(2026-11-20), with Armourer's Workshop 3.4.0-beta.3 installed on NeoForge 1.21.1 and 26.1.2 and on Fabric 1.20.1,
+1.21.1 and 26.1.2. More Player Models looks (Forge 1.20.1) and the production jars have not run with it yet.
 
 | Target | Mods in the self test | Enabled but only read |
 |---|---|---|
 | NeoForge 1.21.1 | Development run: GeckoLib, Mowzie's Mobs, Curios, Iron's Spellbooks, Iris, Sodium, Entity Culling, Exposure, Accessories, Jade, Immersive Paintings, Immersive Aircraft, Immersive Vehicles: run. Create 6.0.10 with Create Aeronautics 1.3.2, Sable 2.0.6 and Create Propulsion: Simulated 1.1.5 (on NeoForge 21.1.265: Sable and Aeronautics need 21.1.228 or later): loaded. Accessories on mobs not exercised. | Older integrations keep the status in the table below. |
-| Fabric 1.21.1 | Production: GeckoLib, Entity Culling, Iris, Sodium, Jade, Exposure, Accessories, Immersive Paintings: run. Immersive Aircraft: run. | Armourer's Workshop, Better Combat, Bobby, Custom NPCs, Distant Horizons, Emotecraft, Pehkui, Player Animator, Sable, WaterFrames |
+| Fabric 1.21.1 | Production: GeckoLib, Entity Culling, Iris, Sodium, Jade, Exposure, Accessories, Immersive Paintings: run. Immersive Aircraft: run. Development run: Armourer's Workshop 3.4.0-beta.3: loaded, its hidden armor checks run. | Better Combat, Bobby, Custom NPCs, Distant Horizons, Emotecraft, Pehkui, Player Animator, Sable, WaterFrames |
 | Forge 1.21.1 | Production: GeckoLib, Entity Culling: run. | None |
 | NeoForge 1.20.1 | No third-party mod. | Armourer's Workshop, Curios, Custom NPCs, GeckoLib, Jade, More Player Models |
 | Forge 1.20.1 | Production: GeckoLib, Jade, Entity Culling: run. Curios: run. Development run: Immersive Vehicles: run. | Armourer's Workshop, Custom NPCs, Epic Fight, More Player Models |
-| Fabric 1.20.1 | No third-party mod. | Armourer's Workshop, Custom NPCs, Entity Culling, GeckoLib, Jade |
-| NeoForge 26.1.2 | Production: GeckoLib, Iris, Sodium, Jade, Entity Culling: run. Development run: Immersive Vehicles: run. | Armourer's Workshop |
-| Fabric 26.1.2 | Production: GeckoLib, Iris, Sodium, Jade, Entity Culling: run. | Armourer's Workshop |
+| Fabric 1.20.1 | Development run: Armourer's Workshop 3.4.0-beta.3: loaded, its hidden armor checks run. | Custom NPCs, Entity Culling, GeckoLib, Jade |
+| NeoForge 26.1.2 | Production: GeckoLib, Iris, Sodium, Jade, Entity Culling: run. Development run: Immersive Vehicles: run; Armourer's Workshop 3.4.0-beta.3: loaded, its hidden armor checks run. | None |
+| Fabric 26.1.2 | Production: GeckoLib, Iris, Sodium, Jade, Entity Culling: run. Development run: Armourer's Workshop 3.4.0-beta.3: loaded, its hidden armor checks run. | None |
 | Forge 26.1.2 | Production: GeckoLib: run. | None |
 
 On 1.20.1 and 26.1.2 the other integrations are removed: they would need rewriting and could not be tested there.
@@ -33,7 +34,8 @@ On 1.20.1 and 26.1.2 the other integrations are removed: they would need rewriti
 
 **On** means the integration was read against that jar and is enabled in `CompatTargets.java`: every class, member
 and mixin target it names was found in the jar, and a typed check of those names compiled against it with the game
-and loader classes of the target. None of them was run in game yet. **No build** means the mod publishes nothing that
+and loader classes of the target. None of them was run in game yet, except Armourer's Workshop, loaded in the self
+test where its development client takes it (status table above). **No build** means the mod publishes nothing that
 loads on that target (CurseForge and Modrinth, November 2026), so the integration stays off. Custom NPCs is the
 unofficial port here (CurseForge `customnpcs-unofficial`): the official Custom NPCs stops at 1.16.5.
 
@@ -74,7 +76,7 @@ Every integration is optional: it is reached by reflection or by optional mixins
 | **Pehkui** | Pehkui sends an entity's scales on `pehkui:scale`, keyed by its entity id, to every player tracking it and to the player itself (`broadcastAndSend`), when tracking starts and on each change. These packets are recorded and replayed as they are; the actor uses the recording player's entity id, so the recording player's own scale lands on it. Snapshots and checkpoints write the non-default scales every entity has now (players and mobs), since the server sent them before the capture. A gradual resize (a scale tick delay) handled during a seek is moved forward by the skipped ticks. An optional mixin makes gradual resizes follow the replay clock: they hold while paused and tick once per recorded tick above x1. | Read against the jar of Pehkui 3.8.3 (1.21, NeoForge), compiled, not yet tested in game. |
 | **Sable**, **Create Aeronautics**, **Simulated** | Sable sub-levels (airships and other moving block structures) are stored in plots of chunks about 20 million blocks away and drawn at their pose. Tracking start and stop, plot chunks, finalize, bounds, names and stop events travel through the connection (Veil payloads `sable:*` and normal chunk packets) and were already recorded. The poses (`sable:snapshot_packet`, `sable:snapshot_info_packet`) skip the connection: the singleplayer owner gets them by a direct call from the integrated server (`SableUDPServer.sendUDPPacketLocal`), a multiplayer client over Sable's UDP channel (`SableUDPChannelHandlerClient`). Two optional mixins catch both paths and record them as the same payloads Sable sends over TCP when UDP is off; the TCP fallback is recorded as it is. Playback hands them to Sable's client at their recorded tick and its snapshot interpolation smooths them; the send interval they carry is divided by the playback speed so the interpolation keeps pace away from x1. Snapshots and checkpoints write every sub-level the client knows (tracking start from its oldest buffered pose, its plot chunks with the plot light, finalize, the newer buffered poses, a stop for halted ones, then the interpolation clock), so a recording started mid-flight and seeks show the ships. Playback keeps plot chunks whatever their distance (they were refused as out of range before, which left ships empty) and never evicts them; a tracking start for a plot already in use is skipped. The replay world's own server cannot hand poses to the client, its TCP packets are blocked like any host packet. `sable:udp_activation`, `sable:freeze_player` and `sable:enter_gizmo_mode`, which act on the live player or connection, are dropped. Aeronautics and Simulated need nothing more: their blocks are Create block entities in the plot chunks, their packets (ropes, handles, contraption diagrams...) are Veil payloads on the connection, and their renderers read Create's animation clock. Simulated ropes are the exception: the server sends a rope (`simulated:rope_data`, then `simulated:rope_stopped` once it settles) only when the client starts tracking its owner block, and the client keeps it on that block entity, outside the chunk data, so snapshots and checkpoints rebuild those payloads from every rope the client knows (one per buffered point snapshot, then the stop), after the sub-levels so the owner blocks exist in the world or in a plot. Log lines at startup: `Sable detected: ...`, `Simulated detected: ...`. | Compiled against Sable 2.0.6 and Create Aeronautics bundled 1.3.2 (by reflection). Loaded in the self test with Create 6.0.10 and Create Propulsion: Simulated 1.1.5: both detection lines logged, no error. Ships and ropes are not part of the self test. |
 | **Custom NPCs** (unofficial port) | An NPC's look (model or another entity's look, skin URL or texture, size, name, held items, animations) is NBT that Custom NPCs appends to the vanilla add entity packet; the client never asks for it. Later changes come in `PacketNpcUpdate`. The packet decoded on the client keeps those bytes but drops them when encoded again, so the recorder puts them back in the encoded bytes. Snapshots and checkpoints write each NPC's current look, read from the client entity, so NPCs present before the recording or changed since their spawn appear as they are, after seeks and in a later session too. Player skins set by Custom NPCs (sent once on join) are written into snapshots. Dialogs, GUIs, overlays, quest and achievement toasts of the recording player are not replayed, and Custom NPCs' serverbound packets are dropped during a replay. On 1.20.1 its packets are raw payloads: on Forge one channel with the message index first, on Fabric one channel per packet; the indexes are read from the running mod, since they change between builds. On Forge the look travels in Forge's own spawn message, or after a vanilla spawn when Custom NPCs' invisible NPCs are on (its default), so snapshots also write each NPC's current look as the update packet the server sends when an NPC changes. | Read against the jars of the builds listed in the table above, compiled, not yet tested in game. |
-| **Armourer's Workshop** | Every Armourer's Workshop packet rides one custom payload channel, split in chunks. A wardrobe sync (`UpdateWardrobePacket`) names the entity by id and goes to the players tracking it and to the player itself; the actor uses the recording player's entity id, so the recording player's own wardrobe lands on it. Skin data is not in the wardrobe: wardrobes name skins by identifier (`db:...` once a skin is in a world's skin database). One skin loader (`SkinLoader`) serves the whole game, client and integrated server alike, and keeps loaded skins in a memory cache that is cleared when the client leaves a world. Where it reads a skin depends on how the world runs. On a dedicated server the client asks the server (`RequestSkinPacket`, answered by `ResponseSkinPacket`) or reads its own encrypted disk cache. In singleplayer (and on a LAN host) the integrated server prepares the loader for its own side, so a `db:` skin is read straight from that world's skin database and nothing crosses the connection. Just Replay therefore records skins at the loader, not on the network: every skin the loader finishes during a capture is written once as a compressed skin answer, whatever its source. Snapshots and checkpoints write every skin the loader holds, every skin a recorded entity's wardrobe or equipment references (read from the world's database in singleplayer if the loader does not hold it, asked of the server otherwise), and the wardrobe of every entity, players and actor included, because the server sends a wardrobe only on a change or when it starts tracking an entity. The log says how many skins each snapshot wrote, and warns about a worn skin the recording does not have. A replay runs in its own integrated world, whose skin database is empty, so the loader there would look every `db:` skin up in that empty database. During a replay an optional mixin on the loader's lookup serves every skin the replay played before any source is tried; a server skin the replay has not played yet waits for its recorded answer instead of failing. Played answers go into the loader directly (Armourer's Workshop hands an answer only to a pending request) and stay held for the whole replay. Skin requests to the replay host are dropped, or answered from the skins already played. A replay therefore needs no skin library, database, server or local cache, in the same session or after a restart. On 1.20.1, which has no typed payloads, the packets ride the channel the mod's dispatcher names. A hidden armor slot also hides the Armourer's Workshop skins that cover it (see "Hidden armor"). | Read against Armourer's Workshop 3.4.0-beta.3: sources and jar for NeoForge 1.21.1, jars for the other targets of the table above. Compiled, not yet tested in game. |
+| **Armourer's Workshop** | Every Armourer's Workshop packet rides one custom payload channel, split in chunks. A wardrobe sync (`UpdateWardrobePacket`) names the entity by id and goes to the players tracking it and to the player itself; the actor uses the recording player's entity id, so the recording player's own wardrobe lands on it. Skin data is not in the wardrobe: wardrobes name skins by identifier (`db:...` once a skin is in a world's skin database). One skin loader (`SkinLoader`) serves the whole game, client and integrated server alike, and keeps loaded skins in a memory cache that is cleared when the client leaves a world. Where it reads a skin depends on how the world runs. On a dedicated server the client asks the server (`RequestSkinPacket`, answered by `ResponseSkinPacket`) or reads its own encrypted disk cache. In singleplayer (and on a LAN host) the integrated server prepares the loader for its own side, so a `db:` skin is read straight from that world's skin database and nothing crosses the connection. Just Replay therefore records skins at the loader, not on the network: every skin the loader finishes during a capture is written once as a compressed skin answer, whatever its source. Snapshots and checkpoints write every skin the loader holds, every skin a recorded entity's wardrobe or equipment references (read from the world's database in singleplayer if the loader does not hold it, asked of the server otherwise), and the wardrobe of every entity, players and actor included, because the server sends a wardrobe only on a change or when it starts tracking an entity. The log says how many skins each snapshot wrote, and warns about a worn skin the recording does not have. A replay runs in its own integrated world, whose skin database is empty, so the loader there would look every `db:` skin up in that empty database. During a replay an optional mixin on the loader's lookup serves every skin the replay played before any source is tried; a server skin the replay has not played yet waits for its recorded answer instead of failing. Played answers go into the loader directly (Armourer's Workshop hands an answer only to a pending request) and stay held for the whole replay. Skin requests to the replay host are dropped, or answered from the skins already played. A replay therefore needs no skin library, database, server or local cache, in the same session or after a restart. On 1.20.1, which has no typed payloads, the packets ride the channel the mod's dispatcher names. A hidden armor slot also hides the Armourer's Workshop skins that cover it (see "Hidden armor"). | Read against Armourer's Workshop 3.4.0-beta.3: sources and jar for NeoForge 1.21.1, jars for the other targets of the table above. Loaded in the self test (0 failures) on NeoForge 1.21.1 and 26.1.2 and Fabric 1.20.1, 1.21.1 and 26.1.2, where its hidden armor checks run; skins in replays not yet tested in game. |
 | **Epic Fight** | Epic Fight draws battle mode players and patched mobs with its own animated models. Animations reach clients as `SPAnimatorControl` payloads keyed by entity id (players and mobs alike), living motions (idle, walk, run... per held weapon) as `SPChangeLivingMotion`, a player's mode (vanilla or battle) as `SetPlayerMode`; they are recorded and replayed as they are. What the recording player starts itself is played by its client and sent to the server, which forwards it to the players tracking it but not back to its sender: animation requests (`CPAnimatorControl`, with their animation variables), the mode key (`CPChangePlayerMode`), model yaw, movement input and animation position syncs. The recorder copies them as the payloads the trackers receive, with the local player's entity id (the actor keeps it); a request the server also answers to its sender is left to that answer (only its variables are copied). Animations the server plays on the player (hit reactions, server side skills, death) already come back to the client and are recorded as they are. Snapshots and checkpoints write, for every player (the actor included), its mode, and for every patched entity its living motions and the action animations running on its layers, as instant plays whose transition modifier carries the elapsed time in a marker (below -10000); playback turns the marker back into the animation's time once the packet is handled, so a recording started mid-fight shows the attack in progress. A seek drops action animations already over at the target (elapsed time from the skipped ticks and the animation's play speed) and plays the others at once, without their blend in, at the time they would have reached. Payloads that act on the receiving client's own player (`SPSkillFeedback`, `SPPlayUISound`, `SPAddLearnedSkill`, `SPRemoveSkillAndLearn`, `SPSetSkillContainerValue`, `SPInitSkills`) are not replayed, since they would land on the replay camera; Epic Fight's serverbound payloads are dropped during a replay. Two optional mixins make the client animator follow the replay clock: `ClientAnimator.tick` holds while paused and runs once per recorded tick above x1 (below x1 the client tick rate already slows down), and the pose blend (`AnimationPlayer.getCurrentPose`) holds on the current time while paused. Log line at the first use: `Epic Fight detected: ...`. On Forge 1.20.1 (Epic Fight 20.x) the messages are raw payloads on one Forge channel, `epicfight:network_manager`, read and written by Epic Fight's own code; the message indexes come from the running mod. Armor and held items on the models Epic Fight draws follow the hidden armor slots and arms, on both versions. | Read against Epic Fight 21.17.3.1 (NeoForge 1.21.1, jar and sources) and 20.14.17 (Forge 1.20.1, jar), compiled, not yet tested in game. |
 | **Create** (Flywheel, Ponder) | Create's animation clock (`AnimationTickHolder`) and the level renderer clock read by Flywheel's shaders are set to the replay cursor: kinetic visuals stop with the replay, follow its speed and show the same angles after a seek and in exports. The train network packets (track graphs, edge groups, trains, roll calls), sent once per connection, are kept and written again in every snapshot and checkpoint. Contraptions keep their original spawn packets through the existing spawn cache; block entity data travels in chunk packets. | Clock tested in the Arcadia pack (the counter equals the cursor, stays still while paused). Trains and moving contraptions untested. |
 | **Mekanism** | Machines are block entities synced by update packets and chunk data: no dedicated code. | Machine placed in the self test, no error in the log; visuals not inspected. |
@@ -104,8 +106,10 @@ running replay, the replay camera is never affected, and projects saved before t
 
 The render hooks are optional mixins (`require = 0`) on the vanilla armor, elytra and head item layers, written for
 the signatures of each version: the vanilla ones on 1.20.1 and 1.21.1 (plus NeoForge's own overload on NeoForge
-1.21.1), and the new render state layers on 26.1.2. Every target builds; the self test checks are written (mask,
-skipped pieces, camera player, global setting) but have not run, and nothing was looked at in game yet. A hook that does not apply fails silently: the armor then simply stays visible.
+1.21.1), and the new render state layers on 26.1.2. The self test checks the mask, the pieces the armor layer itself
+skipped, the camera player and the global setting: it passes on the nine targets in a development client, and a
+capture of NeoForge 1.21.1 shows the actor's helmet gone and its chestplate kept. Nobody has played with it in a
+real game yet. A hook that does not apply fails silently: the armor then simply stays visible.
 
 Limits:
 
@@ -118,7 +122,11 @@ Limits:
   one piece over the whole body, goes as soon as one of the four slots is hidden. Weapons, tools, shields and
   backpacks are not armor and stay. Only players tick in a paused replay, so the skins of any other entity are
   collected again as soon as its hidden slots change. Names checked against Armourer's Workshop 3.4.0-beta.3 on
-  its seven targets.
+  its seven targets. The self test checks it with that version installed (NeoForge 1.21.1 and 26.1.2, Fabric
+  1.20.1, 1.21.1 and 26.1.2): the hidden helmet leaves the armor Armourer's Workshop collected while the
+  chestplate stays, the global setting takes the chestplate away and back without the actor ticking, and wardrobe
+  skins of each kind follow their slots. Its Forge 1.20.1 build cannot start in a development client and NeoForge
+  1.20.1 loads no released mod there: on those two only the names were checked. No real skin was looked at yet.
 - Epic Fight models (battle mode players): armor and held items follow the hidden slots and arms, on NeoForge 1.21.1
   and Forge 1.20.1.
 - More Player Models (1.20.1): hidden armor works as on a vanilla player, except on a player drawn as another entity
@@ -285,19 +293,21 @@ l'intégration a seulement été lue d'après le build du mod et qu'elle est act
 launcher.
 
 Le test automatique de la 1.1.2 passe avec 0 échec sur les neuf cibles, en client de développement et avec le jar de
-production. Les vérifications ajoutées depuis (armure masquée sur toutes les cibles, apparences de More Player Models
-sur Forge 1.20.1) sont écrites mais n'ont pas encore tourné.
+production. Celui de la prochaine version passe avec 0 échec sur les neuf cibles en client de développement
+(20/11/2026), avec Armourer's Workshop 3.4.0-beta.3 installé sur NeoForge 1.21.1 et 26.1.2 et sur Fabric 1.20.1,
+1.21.1 et 26.1.2. Les apparences de More Player Models (Forge 1.20.1) et les jars de production n'ont pas encore
+tourné avec.
 
 | Cible | Mods dans le test automatique | Actives mais seulement lues |
 |---|---|---|
 | NeoForge 1.21.1 | Développement : GeckoLib, Mowzie's Mobs, Curios, Iron's Spellbooks, Iris, Sodium, Entity Culling, Exposure, Accessories, Jade, Immersive Paintings, Immersive Aircraft, Immersive Vehicles : testés. Create 6.0.10 avec Create Aeronautics 1.3.2, Sable 2.0.6 et Create Propulsion: Simulated 1.1.5 (sur NeoForge 21.1.265 : Sable et Aeronautics demandent 21.1.228 ou plus) : chargés. Accessories sur les mobs non exercé. | Les anciennes intégrations gardent l'état écrit plus bas. |
-| Fabric 1.21.1 | Production : GeckoLib, Entity Culling, Iris, Sodium, Jade, Exposure, Accessories, Immersive Paintings : testés. Immersive Aircraft : testé. | Armourer's Workshop, Better Combat, Bobby, Custom NPCs, Distant Horizons, Emotecraft, Pehkui, Player Animator, Sable, WaterFrames |
+| Fabric 1.21.1 | Production : GeckoLib, Entity Culling, Iris, Sodium, Jade, Exposure, Accessories, Immersive Paintings : testés. Immersive Aircraft : testé. Développement : Armourer's Workshop 3.4.0-beta.3 : chargé, ses vérifications d'armure masquée tournent. | Better Combat, Bobby, Custom NPCs, Distant Horizons, Emotecraft, Pehkui, Player Animator, Sable, WaterFrames |
 | Forge 1.21.1 | Production : GeckoLib, Entity Culling : testés. | Aucune |
 | NeoForge 1.20.1 | Aucun mod tiers. | Armourer's Workshop, Curios, Custom NPCs, GeckoLib, Jade, More Player Models |
 | Forge 1.20.1 | Production : GeckoLib, Jade, Entity Culling : testés. Curios : testé. Développement : Immersive Vehicles : testé. | Armourer's Workshop, Custom NPCs, Epic Fight, More Player Models |
-| Fabric 1.20.1 | Aucun mod tiers. | Armourer's Workshop, Custom NPCs, Entity Culling, GeckoLib, Jade |
-| NeoForge 26.1.2 | Production : GeckoLib, Iris, Sodium, Jade, Entity Culling : testés. Développement : Immersive Vehicles : testé. | Armourer's Workshop |
-| Fabric 26.1.2 | Production : GeckoLib, Iris, Sodium, Jade, Entity Culling : testés. | Armourer's Workshop |
+| Fabric 1.20.1 | Développement : Armourer's Workshop 3.4.0-beta.3 : chargé, ses vérifications d'armure masquée tournent. | Custom NPCs, Entity Culling, GeckoLib, Jade |
+| NeoForge 26.1.2 | Production : GeckoLib, Iris, Sodium, Jade, Entity Culling : testés. Développement : Immersive Vehicles : testé ; Armourer's Workshop 3.4.0-beta.3 : chargé, ses vérifications d'armure masquée tournent. | Aucune |
+| Fabric 26.1.2 | Production : GeckoLib, Iris, Sodium, Jade, Entity Culling : testés. Développement : Armourer's Workshop 3.4.0-beta.3 : chargé, ses vérifications d'armure masquée tournent. | Aucune |
 | Forge 26.1.2 | Production : GeckoLib : testé. | Aucune |
 
 En 1.20.1 et 26.1.2, les autres intégrations sont retirées : il faudrait les réécrire et elles n'étaient pas testables.
@@ -306,7 +316,8 @@ En 1.20.1 et 26.1.2, les autres intégrations sont retirées : il faudrait les r
 
 **Actif** : l'intégration a été lue sur ce jar et activée dans `CompatTargets.java` : chaque classe, membre et cible de
 mixin qu'elle nomme a été trouvé dans le jar, et un contrôle typé de ces noms a compilé contre lui avec les classes du
-jeu et du chargeur de la cible. Aucune n'a encore tourné en jeu. **Pas de build** : le mod ne publie rien qui se
+jeu et du chargeur de la cible. Aucune n'a encore tourné en jeu, sauf Armourer's Workshop, chargé dans le test
+automatique là où son client de développement le prend (tableau d'état plus haut). **Pas de build** : le mod ne publie rien qui se
 charge sur cette cible (CurseForge et Modrinth, novembre 2026), l'intégration reste éteinte. Custom NPCs désigne ici
 le portage non officiel (CurseForge `customnpcs-unofficial`) : le Custom NPCs officiel s'arrête à la 1.16.5.
 
@@ -464,7 +475,9 @@ fait rien quand le mod est absent. Le code se trouve dans `com.vyrriox.justrepla
   comme après un redémarrage. En 1.20.1, sans charges typées, les paquets passent par le canal que nomme le
   répartiteur du mod. Un emplacement d'armure masqué cache aussi les skins d'Armourer's Workshop qui le
   couvrent (voir « Armure masquée »). Lu sur Armourer's Workshop 3.4.0-beta.3 : sources et jar pour NeoForge 1.21.1, jars pour les
-  autres cibles du tableau plus haut. Compilé, pas encore testé en jeu.
+  autres cibles du tableau plus haut. Chargé dans le test automatique (0 échec) sur NeoForge 1.21.1 et 26.1.2 et
+  Fabric 1.20.1, 1.21.1 et 26.1.2, où ses vérifications d'armure masquée tournent ; les skins dans les replays ne
+  sont pas encore testés en jeu.
 - **Epic Fight** : Epic Fight dessine les joueurs en mode combat et les mobs qu'il prend en charge avec ses
   propres modèles animés. Les animations arrivent en `SPAnimatorControl` avec l'id d'entité (joueurs comme mobs),
   les mouvements de base (repos, marche, course... selon l'arme) en `SPChangeLivingMotion`, le mode d'un joueur
@@ -531,8 +544,10 @@ touchée, et les projets sauvés avant cette option gardent leur armure.
 Les points d'accroche du rendu sont des mixins optionnels (`require = 0`) sur les couches vanilla d'armure, d'élytres
 et d'objet porté sur la tête, écrits pour les signatures de chaque version : celles de vanilla en 1.20.1 et 1.21.1
 (plus la surcharge propre à NeoForge sur NeoForge 1.21.1), et les nouvelles couches à état de rendu en 26.1.2. Toutes
-les cibles compilent ; les vérifications du test automatique sont écrites (masque, pièces sautées, joueur caméra,
-réglage global) mais n'ont pas tourné, et rien n'a encore été regardé en jeu. Un point d'accroche qui ne s'applique
+les cibles compilent ; le test automatique vérifie le masque, les pièces sautées par la couche d'armure elle-même,
+le joueur caméra et le réglage global : il passe sur les neuf cibles en client de développement, et une capture de
+NeoForge 1.21.1 montre le casque de l'acteur parti et son plastron gardé. Personne n'y a encore joué dans un vrai
+jeu. Un point d'accroche qui ne s'applique
 pas échoue sans bruit : l'armure reste alors simplement visible.
 
 Limites :
@@ -547,7 +562,12 @@ Limites :
   corps, part dès qu'un des quatre emplacements est masqué. Les armes, outils, boucliers et sacs ne sont pas de
   l'armure et restent. Seuls les joueurs tickent dans un replay en pause : les skins de toute autre entité sont
   recollectés dès que ses emplacements masqués changent. Noms vérifiés sur Armourer's Workshop 3.4.0-beta.3 pour
-  ses sept cibles.
+  ses sept cibles. Le test automatique le vérifie avec cette version installée (NeoForge 1.21.1 et 26.1.2, Fabric
+  1.20.1, 1.21.1 et 26.1.2) : le casque masqué quitte l'armure qu'Armourer's Workshop a collectée et le plastron
+  reste, le réglage global retire puis rend le plastron sans que l'acteur ne tick, et les skins de garde-robe de
+  chaque sorte suivent leurs emplacements. Sa version Forge 1.20.1 ne démarre pas en client de développement et
+  NeoForge 1.20.1 n'y charge aucun mod publié : sur ces deux cibles, seuls les noms ont été vérifiés. Aucun vrai
+  skin n'a encore été regardé.
 - Modèles d'Epic Fight (joueurs en mode combat) : l'armure et les objets tenus suivent les emplacements et les bras
   masqués, sur NeoForge 1.21.1 et Forge 1.20.1.
 - More Player Models (1.20.1) : l'armure masquée marche comme sur un joueur vanilla, sauf sur un joueur dessiné comme

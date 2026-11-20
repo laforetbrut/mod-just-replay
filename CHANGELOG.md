@@ -18,7 +18,7 @@
 - **Markers while recording**: F6 drops a marker while recording or with the instant replay buffer on. They show up on the timeline when you open the replay.
 - **World visuals**: night vision, reduced or no fog, and particles all, none or by type in the World tab; hide every entity of a type and give an entity a glowing outline in the Entities tab. Exports show them too.
 
-Heads up: none of this has been tried in game yet. Every target builds and each integration was checked against the mod's own jar, so tell me if something looks off.
+Heads up: the automatic self test passes on every target, Armourer's Workshop included where it loads, but nobody has played with this yet and the other mods above were only checked against their jars, so tell me if something looks off.
 
 ### Changed
 - **Self test**: checks hidden armor on every target, Armourer's Workshop skins of hidden slots when the mod is there, and More Player Models looks on Forge 1.20.1 (with `-PdevMods`).
@@ -51,7 +51,7 @@ Heads up: none of this has been tried in game yet. Every target builds and each 
 - **Repères pendant l'enregistrement** : F6 pose un repère pendant un enregistrement ou avec le tampon des dernières minutes. Ils arrivent sur la timeline à l'ouverture du replay.
 - **Visuels du monde** : vision nocturne, brouillard réduit ou coupé, et particules toutes, aucune ou par type dans l'onglet Monde ; masquer toutes les entités d'un type et donner un contour lumineux à une entité dans l'onglet Entités. Les exports les montrent aussi.
 
-Attention : rien de tout ça n'a encore été essayé en jeu. Toutes les cibles compilent et chaque intégration a été vérifiée contre le jar du mod lui-même, alors dis-moi si quelque chose cloche.
+Attention : le test automatique passe sur toutes les cibles, Armourer's Workshop compris là où il charge, mais personne n'y a encore joué et les autres mods plus haut n'ont été vérifiés que contre leur jar, alors dis-moi si quelque chose cloche.
 
 ### Modifications
 - **Test automatique** : vérifie l'armure masquée sur toutes les cibles, les skins d'Armourer's Workshop des emplacements masqués quand le mod est là, et les apparences de More Player Models sur Forge 1.20.1 (avec `-PdevMods`).

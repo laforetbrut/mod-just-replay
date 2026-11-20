@@ -126,7 +126,7 @@ see [When an integration fails](docs/COMPATIBILITY.md#when-an-integration-fails)
   the elytra), leggings or boots of a recorded player (**Entities** tab) or an actor (actor screen), in playback and
   in video exports. The "Hide player armor in replays" setting (`hidePlayerArmor`) hides the armor of every player
   and actor. The game itself is never changed. Mobs and NPCs keep their armor; Armourer's Workshop skins follow the
-  hidden slots too (wings with the chestplate, a whole outfit as soon as one slot is hidden). Every target builds with it, but it has not been tried in game yet: see "Hidden armor" in
+  hidden slots too (wings with the chestplate, a whole outfit as soon as one slot is hidden). The self test checks it on every target, but nobody has played with it yet: see "Hidden armor" in
   [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md).
 - **Glass interface**: a clear glass look with rounded corners and smooth animations. The editor has a
   collapsible sidebar (Cameras, Actors, Scene, Export), a bottom dock with the transport controls and a
@@ -376,8 +376,8 @@ ignoré : voir [Quand une intégration échoue](docs/COMPATIBILITY.md#quand-une-
   **Entités**) ou d'un acteur (écran de l'acteur), en lecture et dans les exports vidéo. Le réglage « Hide player
   armor in replays » (`hidePlayerArmor`) cache l'armure de tous les joueurs et acteurs. Le jeu lui-même ne change
   jamais. Les mobs et les PNJ gardent leur armure ; les skins d'Armourer's Workshop suivent aussi les emplacements
-  masqués (les ailes avec le plastron, une tenue complète dès qu'un emplacement est masqué). Toutes les
-  cibles compilent avec, mais rien n'a encore été essayé en jeu : voir « Armure masquée » dans
+  masqués (les ailes avec le plastron, une tenue complète dès qu'un emplacement est masqué). Le test
+  automatique le vérifie sur toutes les cibles, mais personne n'y a encore joué : voir « Armure masquée » dans
   [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md).
 - **Interface en verre** : un style de verre clair aux coins arrondis et aux animations fluides. L'éditeur a
   un panneau latéral repliable (Caméras, Acteurs, Scène, Export), un dock en bas avec les commandes de
