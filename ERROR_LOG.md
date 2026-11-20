@@ -339,3 +339,17 @@
 **Root cause:** Integrations.startupLine looks the loader version up under the loader name; NeoForge 1.20.1 still lists itself under the mod id forge, so no mod neoforge is found
 **Fix:** common/1.20.1 Integrations.startupLine falls back to the forge mod version when the loader is neoforge (now: on neoforge 47.1.106)
 **Prevention:** On 1.20.1 NeoForge is the mod id forge: never look it up as neoforge (mods.toml, mod list, Modrinth tags already follow this)
+
+## [2026-11-20 04:31] — Generated fabric-1.20.1 branch does not build: Forge CuriosCompat in src/main
+**Context:** Building the published fabric-1.20.1 target branch (made by tools/make_branches.sh for 1.1.2) on its own
+**Error:** CuriosCompat.java:17: error: package net.minecraftforge.common.util does not exist
+**Root cause:** make_branches.sh copied common/1.20.1/src/main over the project's own files, so the Forge CuriosCompat of common replaced the Fabric copy of fabric-1.20.1; on main the build only hides it with a filter.exclude, and CI never builds target branches
+**Fix:** make_branches.sh merges common with merge_shared ... keep: a file the project has itself wins; core uses stop (any shared path ends the script). All nine generated branches built from a throwaway clone
+**Prevention:** After changing make_branches.sh or adding a file that a target overrides, generate the branches in a throwaway clone and build every one from a folder whose parent has no core/ or common/
+
+## [2026-11-20 04:31] — layers.py --move --apply fails on relative paths and misses full-name uses of common
+**Context:** Moving the plain Java of the three common folders to core/ with the layers.py script of the mod-port skill
+**Error:** git mv ... returned non-zero exit status 128 (relative --versions), then git rm refused: the file has changes staged in the index; after the move BbModel in core still called com.vyrriox.justreplay.editor.Interpolation.catmullRom, a common class
+**Root cause:** layers.py runs git mv and git rm from the folder of each file with paths relative to the repository root, cannot move files never committed, and ignores full-name references to mod classes when it sorts classes into core
+**Fix:** Ran it with --versions set to an absolute path after committing the new files; tools/check_layers.py found the BbModel reference and catmullRom moved to the plain Splines class in core
+**Prevention:** Commit new files before layers.py --apply, give it absolute paths, then run python3 tools/check_layers.py and compile core alone with javac before trusting the move

@@ -18,11 +18,11 @@ import java.util.List;
  * @author vyrriox
  */
 public final class ArmorSlots {
-    public static final int HEAD = 1;
-    public static final int CHEST = 2;
-    public static final int LEGS = 4;
-    public static final int FEET = 8;
-    public static final int ALL = 15;
+    public static final int HEAD = ArmorBits.HEAD;
+    public static final int CHEST = ArmorBits.CHEST;
+    public static final int LEGS = ArmorBits.LEGS;
+    public static final int FEET = ArmorBits.FEET;
+    public static final int ALL = ArmorBits.ALL;
 
     /** A slot with its translation key suffix. */
     public record Slot(int bit, String key) {

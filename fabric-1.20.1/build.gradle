@@ -33,6 +33,15 @@ if (commonTestDir.isDirectory()) {
     sourceSets.test.java.srcDir(commonTestDir)
 }
 
+// Plain Java shared by every target (no game, loader or common class) and its unit tests live once in ../core on the
+// main branch. On the per-target branches they are merged into src/main and src/test, so this block does nothing there.
+def coreDir = file("../core/src")
+if (coreDir.isDirectory()) {
+    sourceSets.main.java.srcDir(new File(coreDir, 'main/java'))
+    sourceSets.main.resources.srcDir(new File(coreDir, 'main/resources'))
+    sourceSets.test.java.srcDir(new File(coreDir, 'test/java'))
+}
+
 sourceSets.main.resources {
     exclude('**/*.bbmodel.license')
 }

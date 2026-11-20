@@ -176,8 +176,9 @@ cd neoforge-1.21.1
 The jar is written to `build/libs/`. `./gradlew runClient -Pselftest`, from a target folder, runs an automated
 record, replay, edit and export test in a development client. `python3 tools/test_matrix.py` builds and self
 tests every target one after the other, also with the mods of a modpack: see [docs/TEST_MATRIX.md](docs/TEST_MATRIX.md).
-Toolchains, the production self test and the branch model are in [docs/BUILDING.md](docs/BUILDING.md); how to take
-part is in [CONTRIBUTING.md](CONTRIBUTING.md).
+The code layout (`core/` for the plain Java of every target, `common/<version>/` for the game code of each
+version), toolchains, the production self test and the branch model are in [docs/BUILDING.md](docs/BUILDING.md);
+how to take part is in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### Scene jobs
 
@@ -413,8 +414,10 @@ cd neoforge-1.21.1
 Le jar est créé dans `build/libs/`. `./gradlew runClient -Pselftest`, depuis le dossier d'une cible, lance un test
 automatique complet (enregistrement, lecture, édition, export) dans un client de développement.
 `python3 tools/test_matrix.py` compile et teste toutes les cibles l'une après l'autre, aussi avec les mods d'un
-modpack : voir [docs/TEST_MATRIX.md](docs/TEST_MATRIX.md). Les outils, le test en production et le modèle de
-branches sont dans [docs/BUILDING.md](docs/BUILDING.md) ; pour participer, voir [CONTRIBUTING.md](CONTRIBUTING.md).
+modpack : voir [docs/TEST_MATRIX.md](docs/TEST_MATRIX.md). L'organisation du code (`core/` pour le Java pur de
+toutes les cibles, `common/<version>/` pour le code du jeu de chaque version), les outils, le test en production et
+le modèle de branches sont dans [docs/BUILDING.md](docs/BUILDING.md) ; pour participer, voir
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### Tâches de scène
 
