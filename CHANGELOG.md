@@ -24,7 +24,8 @@ Heads up: the automatic self test passes on every target, Armourer's Workshop in
 - **Self test**: checks hidden armor on every target, Armourer's Workshop skins of hidden slots when the mod is there, and More Player Models looks on Forge 1.20.1 (with `-PdevMods`).
 - **Self test**: now tries to break the compat safety net on purpose. It turns one integration off at startup (`-PselftestFailCompat`, Simple Voice Chat by default) and slips an unreadable packet into its recording: one warning, the startup line says it failed, the packet shows up in `Replay: N packets skipped`, and the replay keeps rolling. The test matrix report lists those lines for every target.
 - **Create Aeronautics, Sable, Create Propulsion**: checked together with Create 6.0.10 on NeoForge 1.21.1. The game loads, and recording, replays and seeks pass the self test. See `docs/COMPATIBILITY.md`.
-- **Building from source**: `./gradlew build` also runs the unit tests of `common/<mc>/src/test`, and the target branches carry them. See `docs/BUILDING.md`.
+- **Building from source**: `./gradlew build` also runs the unit tests of `core/src/test` and `common/<mc>/src/test`, and the target branches carry them. See `docs/BUILDING.md`.
+- **One core for every version**: the plain Java code (replay formats and names, speed track, effects, audio mixing, Blockbench models, config file, integration guard) now lives once in `core/` with its tests, instead of three copies. A fix there lands on all nine targets at once, and `tools/check_layers.py` keeps the game out of it. Nothing changes in game.
 - **Test matrix**: `tools/test_matrix.py` builds and self tests every target one after the other, with one report, also with the mods of a modpack. See `docs/TEST_MATRIX.md`.
 
 ### Fixed
@@ -35,6 +36,7 @@ Heads up: the automatic self test passes on every target, Armourer's Workshop in
 - **Hand edited projects**: an empty weather no longer stops the replay from opening.
 - **Leaving a replay on Fabric** no longer risks freezing the game while the replay world shuts down (likelier with a server resource pack in the replay).
 - **Actors named after a player**: a skin lookup that fails at once (profile service down) no longer crashes the game in a replay.
+- **Target branches**: the generated `fabric-1.20.1` branch no longer gets the Forge copy of the Curios integration, which kept it from building on its own.
 
 ### Ajouts
 - **Masquer l'armure** : coupe le casque, le plastron, les jambières ou les bottes d'un joueur enregistré ou d'un acteur, pièce par pièce. Les élytres partent avec le plastron, une citrouille ou une tête avec le casque. Seuls le replay et la vidéo changent, et les anciens projets gardent leur armure. La nouvelle option `hidePlayerArmor` déshabille tous les joueurs d'un coup. Ça marche aussi sur les modèles dessinés par Epic Fight et sur les skins d'Armourer's Workshop : les ailes partent avec le plastron, une tenue complète dès qu'un emplacement est masqué.
@@ -58,7 +60,8 @@ Attention : le test automatique passe sur toutes les cibles, Armourer's Workshop
 - **Test automatique** : vérifie l'armure masquée sur toutes les cibles, les skins d'Armourer's Workshop des emplacements masqués quand le mod est là, et les apparences de More Player Models sur Forge 1.20.1 (avec `-PdevMods`).
 - **Test automatique** : il essaie maintenant de casser exprès le filet de sécurité compat. Il coupe une intégration au démarrage (`-PselftestFailCompat`, Simple Voice Chat par défaut) et glisse un paquet illisible dans son enregistrement : un seul avertissement, la ligne de démarrage la donne en échec, le paquet apparaît dans `Replay: N packets skipped`, et le replay continue de tourner. Le rapport de la matrice de tests relève ces lignes pour chaque cible.
 - **Create Aeronautics, Sable, Create Propulsion** : vérifiés ensemble avec Create 6.0.10 sur NeoForge 1.21.1. Le jeu charge, et l'enregistrement, les replays et les sauts passent le test automatique. Voir `docs/COMPATIBILITY.md`.
-- **Compiler le mod** : `./gradlew build` lance aussi les tests unitaires de `common/<mc>/src/test`, et les branches de cible les embarquent. Voir `docs/BUILDING.md`.
+- **Compiler le mod** : `./gradlew build` lance aussi les tests unitaires de `core/src/test` et de `common/<mc>/src/test`, et les branches de cible les embarquent. Voir `docs/BUILDING.md`.
+- **Un seul cœur pour toutes les versions** : le code Java pur (formats et noms des replays, piste de vitesse, effets, mixage audio, modèles Blockbench, fichier de config, garde des intégrations) vit maintenant une seule fois dans `core/` avec ses tests, au lieu de trois copies. Un correctif y arrive d'un coup sur les neuf cibles, et `tools/check_layers.py` en tient le jeu à l'écart. Rien ne change en jeu.
 - **Matrice de tests** : `tools/test_matrix.py` compile et teste toutes les cibles l'une après l'autre, avec un seul rapport, aussi avec les mods d'un modpack. Voir `docs/TEST_MATRIX.md`.
 
 ### Correctifs
@@ -69,6 +72,7 @@ Attention : le test automatique passe sur toutes les cibles, Armourer's Workshop
 - **Projets retouchés à la main** : une météo vide ne bloque plus l'ouverture du replay.
 - **Quitter un replay sur Fabric** ne risque plus de figer le jeu pendant que le monde du replay se ferme (plus probable avec un pack de ressources du serveur dans le replay).
 - **Acteurs au nom d'un joueur** : une recherche de skin qui échoue d'un coup (service de profils indisponible) ne fait plus planter le jeu pendant un replay.
+- **Branches de cible** : la branche générée `fabric-1.20.1` ne reçoit plus la copie Forge de l'intégration Curios, qui l'empêchait de compiler seule.
 
 ---
 

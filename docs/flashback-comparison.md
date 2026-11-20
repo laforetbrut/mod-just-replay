@@ -19,7 +19,8 @@ Just Replay's exposure to them, prioritised gaps, and the gaps picked for the ne
   [0.33.0](https://modrinth.com/mod/flashback/version/0.33.0) (lien vers la page de la version).
 - **Just Replay** : branche `develop` au commit `25a58de` (version 1.1.2) : `README.md`, `CHANGELOG.md`,
   `docs/COMPATIBILITY.md` et le code. `JR/` veut dire `common/<mc>/src/main/java/com/vyrriox/justreplay/` : le même
-  fichier existe pour 1.20.1, 1.21.1 et 26.1.2 sauf mention contraire. Le travail prêt sur des branches locales
+  fichier existe pour 1.20.1, 1.21.1 et 26.1.2 sauf mention contraire. Le Java pur commun aux trois versions
+  est depuis rangé une seule fois dans `core/src/main/java/com/vyrriox/justreplay/`, au même chemin après `JR/`. Le travail prêt sur des branches locales
   pas encore fusionnées est signalé « (branche `x`, non fusionnée) ».
 - **Salle blanche** : Flashback est sous licence propriétaire (« Do not reupload or redistribute », README). Aucun
   fichier de code de Flashback ni de ReplayMod n'a été ouvert ; ce document ne décrit que des comportements visibles.
