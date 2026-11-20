@@ -141,7 +141,6 @@ public final class SceneRecorder {
         }
     }
 
-    /** Runs commands as the player of the integrated server, with operator rights. */
     /**
      * Runs commands on the integrated server as an operator. Returns the server game time they ran at, set once they
      * did (-1 until then, and for good without a server or commands).
@@ -191,10 +190,8 @@ public final class SceneRecorder {
             }
             case 2 -> {
                 com.vyrriox.justreplay.replay.ReplaySession session = com.vyrriox.justreplay.replay.ReplaySession.current();
-                if (com.vyrriox.justreplay.compat.CompatTargets.isActive("dropthebeam")) {
-                    for (var start : com.vyrriox.justreplay.compat.DropTheBeamCompat.songStartTicks()) {
-                        log("song start {} \"{}\" at tick {} loop {}", start.turntable().pos(), start.title(), start.tick(), start.loop());
-                    }
+                for (var start : com.vyrriox.justreplay.compat.ReplayCompat.songStarts()) {
+                    log("song start {} \"{}\" at tick {} loop {}", start.turntable().pos(), start.title(), start.tick(), start.loop());
                 }
                 if (session != null && !SHOTS.isBlank()) {
                     session.setCameraPath(true);
@@ -286,8 +283,10 @@ public final class SceneRecorder {
                 com.vyrriox.justreplay.config.JRConfig.EXPORT_CRF.set(16);
                 com.vyrriox.justreplay.config.JRConfig.EXPORT_FPS.set(60);
                 com.vyrriox.justreplay.config.JRConfig.EXPORT_RESOLUTION.set(com.vyrriox.justreplay.export.ExportResolution.FULL_HD_1080);
+                // A scene export keeps the exact name it was given: no range is added to the file name.
                 var error = com.vyrriox.justreplay.export.VideoExporter.start(session, Integer.parseInt(range[0].trim()),
-                        Integer.parseInt(range[1].trim()), parts.length > 1 ? parts[1] : "scene");
+                        Integer.parseInt(range[1].trim()), parts.length > 1 ? parts[1] : "scene",
+                        com.vyrriox.justreplay.export.VideoExporter.Settings.fromConfig(), false);
                 log("export started, error={}", error == null ? "none" : error.getString());
                 step = 3;
                 wait = 20;

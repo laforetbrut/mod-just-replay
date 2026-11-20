@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.mixin.compat;
 
+import com.vyrriox.justreplay.compat.Integrations;
 import com.vyrriox.justreplay.compat.ReplayCompat;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
@@ -18,6 +19,14 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
 public abstract class EpicFightPoseMixin {
     @ModifyVariable(method = "getCurrentPose", at = @At("HEAD"), argsOnly = true, require = 0, remap = false)
     private float justreplay$holdWhilePaused(float partialTick) {
-        return ReplayCompat.isReplayPaused() ? 1.0F : partialTick;
+        if (!Integrations.EPIC_FIGHT.on()) {
+            return partialTick;
+        }
+        try {
+            return ReplayCompat.isReplayPaused() ? 1.0F : partialTick;
+        } catch (Throwable t) {
+            Integrations.EPIC_FIGHT.fail("AnimationPlayer.getCurrentPose", t);
+            return partialTick;
+        }
     }
 }

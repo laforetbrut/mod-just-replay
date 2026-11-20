@@ -46,7 +46,7 @@ public final class PehkuiCompat {
     }
 
     private static Reflect reflect() {
-        if (reflect != null || reflectFailed || !ReplayCompat.PEHKUI) {
+        if (reflect != null || reflectFailed || !Integrations.PEHKUI.on()) {
             return reflect;
         }
         try {
@@ -65,7 +65,7 @@ public final class PehkuiCompat {
         } catch (Throwable t) {
             reflectFailed = true;
             reflect = null;
-            ReplayCompat.warnOnce("pehkui.reflect", "Pehkui support disabled, its classes changed", t);
+            Integrations.PEHKUI.fail("reflect", t);
         }
         return reflect;
     }
