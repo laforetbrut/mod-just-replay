@@ -31,7 +31,11 @@ public abstract class ConnectionMixin {
             ci.cancel();
             return;
         }
-        Recorder.onPacketReceived(self, packet);
+        try {
+            Recorder.onPacketReceived(self, packet);
+        } catch (Throwable t) {
+            Recorder.onReceiveError(packet, t);
+        }
     }
 
     /** The camera's movement is never sent to the replay host, so its server player never loads chunks. */
@@ -57,6 +61,8 @@ public abstract class ConnectionMixin {
             if (packet instanceof ServerboundMovePlayerPacket || com.vyrriox.justreplay.compat.ReplayCompat.blockServerbound(packet)) {
                 ci.cancel();
             }
+        } else if (!ReplaySession.isReplayConnection(self)) {
+            com.vyrriox.justreplay.compat.ReplayCompat.onLiveServerbound(packet);
         }
     }
 

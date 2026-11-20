@@ -42,6 +42,9 @@ public final class Playback {
     private final Set<Class<?>> failedTypes = Collections.synchronizedSet(new HashSet<>());
     /** Ids of recorded mod payloads skipped because no installed mod receives them, logged once each. */
     private final Set<net.minecraft.resources.ResourceLocation> skippedPayloads = new HashSet<>();
+    /** Recorded packets that could not be read or played: skipped and counted, summed up when the replay ends. */
+    private final com.vyrriox.justreplay.record.SkippedPackets skipped =
+            new com.vyrriox.justreplay.record.SkippedPackets("Replay", JustReplay.LOGGER::warn);
     private PacketCodec codec;
     private int cursor;
     private boolean paused;
@@ -58,6 +61,12 @@ public final class Playback {
     private int seekCount;
     /** Tick {@link #playTo} pauses on, or -1. */
     private int pauseAt = -1;
+    /** Speed track of the project, followed by previews (exports run their own clock), or null. */
+    private java.util.function.Supplier<com.vyrriox.justreplay.editor.SpeedTrack> speedTrack;
+    /** Client ticks left on a freeze of the speed track. */
+    private int holdTicks;
+    /** Tick of the last freeze held, so a freeze is held once each time the cursor reaches it. */
+    private int heldTick = -1;
 
     public Playback(PacketStream packets, int durationTicks) {
         this.packets = packets;
@@ -122,6 +131,44 @@ public final class Playback {
         speedIndex = Math.max(0, Math.min(SPEEDS.length - 1, index));
     }
 
+    /** The speed track previews follow; exports drive the clock themselves. */
+    public void setSpeedTrack(java.util.function.Supplier<com.vyrriox.justreplay.editor.SpeedTrack> track) {
+        this.speedTrack = track;
+    }
+
+    private com.vyrriox.justreplay.editor.SpeedTrack activeTrack() {
+        if (speedTrack == null || com.vyrriox.justreplay.export.VideoExporter.isActive()) {
+            return null;
+        }
+        com.vyrriox.justreplay.editor.SpeedTrack track = speedTrack.get();
+        return track == null || track.isEmpty() ? null : track;
+    }
+
+    /** Speed factor of the speed track at the cursor (1 without one), 0 while a freeze holds the picture. */
+    public float trackSpeed() {
+        if (holdTicks > 0) {
+            return 0.0F;
+        }
+        com.vyrriox.justreplay.editor.SpeedTrack track = activeTrack();
+        return track == null ? 1.0F : (float) track.speedAt(cursor);
+    }
+
+    /** The speed the replay runs at now: the chosen speed times the speed track's. */
+    public float effectiveSpeed() {
+        return speed() * trackSpeed();
+    }
+
+    /** True while a freeze of the speed track holds the picture. */
+    public boolean isHolding() {
+        return holdTicks > 0;
+    }
+
+    /** False when the speed track silences the game sounds and voices now (too slow, too fast or frozen). */
+    public boolean trackSoundsAudible() {
+        com.vyrriox.justreplay.editor.SpeedTrack track = activeTrack();
+        return track == null || track.soundsAt(trackSpeed(), holdTicks > 0);
+    }
+
     /** Builds the codec from the replay connection and plays the first tick. */
     public void start(ClientPacketListener listener) {
         codec = PacketCodec.of(listener);
@@ -137,11 +184,15 @@ public final class Playback {
         }
         lastStep = 0;
         if (!paused && !mc.isPaused()) {
-            if (cursor < duration) {
+            if (holdTicks > 0) {
+                // A freeze of the speed track: the picture stays, real time goes on.
+                holdTicks--;
+            } else if (cursor < duration) {
                 // The client never ticks faster than 20 TPS: above x1, several recorded ticks run per client tick.
-                speedAccumulator += Math.max(1.0F, speed());
+                speedAccumulator += Math.max(1.0F, effectiveSpeed());
                 int steps = (int) speedAccumulator;
                 speedAccumulator -= steps;
+                com.vyrriox.justreplay.editor.SpeedTrack track = activeTrack();
                 for (int i = 0; i < steps && cursor < duration; i++) {
                     cursor++;
                     flushTo(cursor);
@@ -149,6 +200,13 @@ public final class Playback {
                     if (pauseAt >= 0 && cursor >= pauseAt) {
                         paused = true;
                         pauseAt = -1;
+                        break;
+                    }
+                    double freeze = track == null ? 0.0 : track.freezeAt(cursor);
+                    if (freeze > 0.0 && heldTick != cursor) {
+                        heldTick = cursor;
+                        holdTicks = Math.max(1, (int) Math.round(freeze * 20.0 / Math.max(0.1F, speed())));
+                        speedAccumulator = 0.0F;
                         break;
                     }
                 }
@@ -172,6 +230,8 @@ public final class Playback {
         target = Math.max(0, Math.min(duration, target));
         seekCount++;
         pauseAt = -1;
+        holdTicks = 0;
+        heldTick = -1;
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         Vec3 camPos = player != null ? player.position() : null;
@@ -192,6 +252,7 @@ public final class Playback {
                 }
             }
             if (!restored && backward) {
+                ReplayPacks.onWorldRebuild();
                 packets.rewind();
                 cursor = 0;
             }
@@ -230,6 +291,7 @@ public final class Playback {
         if (snapshot.isEmpty()) {
             return false;
         }
+        ReplayPacks.onWorldRebuild();
         for (RecordedPacket recorded : snapshot) {
             handle(mc, recorded);
         }
@@ -278,7 +340,30 @@ public final class Playback {
     }
 
     @SuppressWarnings("unchecked")
+    /**
+     * Plays one recorded packet. Whatever goes wrong with it (a mod payload that cannot be read or handled, a filter
+     * that fails) skips that packet only: it is counted and the replay goes on with the next one.
+     */
     private void handle(Minecraft mc, RecordedPacket recorded) {
+        try {
+            handleChecked(mc, recorded);
+        } catch (Throwable t) {
+            PacketCodec c = codec;
+            skipped.fail(com.vyrriox.justreplay.record.SkippedPackets.Stage.PLAY, c != null ? c.describe(recorded.data()) : null, t);
+        }
+    }
+
+    /** The recorded packets this replay skipped since it started or since the last {@link #logSkipped}. */
+    public com.vyrriox.justreplay.record.SkippedPackets skipped() {
+        return skipped;
+    }
+
+    /** Logs how many recorded packets this replay skipped, if any, then counts from zero. */
+    public void logSkipped() {
+        skipped.flush(JustReplay.LOGGER::warn);
+    }
+
+    private void handleChecked(Minecraft mc, RecordedPacket recorded) {
         ClientPacketListener listener = mc.getConnection();
         if (listener == null) {
             return;
@@ -289,13 +374,12 @@ public final class Playback {
             if (skippedPayloads.add(unregistered)) {
                 JustReplay.LOGGER.info("Skipping recorded {} packets: no mod here receives them", unregistered);
             }
+            skipped.count(com.vyrriox.justreplay.record.SkippedPackets.Stage.NO_RECEIVER, unregistered.toString());
             return;
         }
-        Packet<? super ClientGamePacketListener> packet;
-        try {
-            packet = codec.decode(recorded.data());
-        } catch (Throwable t) {
-            logOnce(RecordedPacket.class, "Cannot decode a recorded packet (mod missing or changed?): " + t);
+        // A packet that cannot be read (its mod changed or is missing) is counted and skipped.
+        Packet<? super ClientGamePacketListener> packet = skipped.read(recorded.data(), codec::decode, codec::describe);
+        if (packet == null) {
             return;
         }
         if (packet instanceof net.minecraft.network.protocol.game.ClientboundPlayerChatPacket chat) {
@@ -305,8 +389,14 @@ public final class Playback {
                 return;
             }
         }
+        if (com.vyrriox.justreplay.compat.ReplayCompat.consumeRecorded(packet, recorded.tick())) {
+            return;
+        }
         if (recorded.tick() < skippingTo && PacketFilter.isTransient(packet)) {
             // Sounds and effects of skipped time would all fire at once.
+            return;
+        }
+        if (ReplayPacks.consume(packet)) {
             return;
         }
         if (PacketFilter.shouldDrop(packet)) {
@@ -315,6 +405,14 @@ public final class Playback {
         packet = (Packet<? super ClientGamePacketListener>) com.vyrriox.justreplay.compat.ReplayCompat.filterPlayback(packet);
         if (packet == null) {
             return;
+        }
+        if (recorded.tick() < skippingTo) {
+            // Mod state with its own clock (animations) starts late by the time skipped, or not at all once over.
+            packet = (Packet<? super ClientGamePacketListener>) com.vyrriox.justreplay.compat.ReplayCompat.adjustSkipped(packet,
+                    skippingTo - recorded.tick());
+            if (packet == null) {
+                return;
+            }
         }
         packet = chunks.filter(packet);
         if (packet == null) {
@@ -335,7 +433,7 @@ public final class Playback {
         try {
             ((Packet<ClientGamePacketListener>) packet).handle(listener);
         } catch (Throwable t) {
-            logOnce(packet.getClass(), "Packet " + packet.getClass().getSimpleName() + " failed during playback: " + t);
+            skipped.fail(com.vyrriox.justreplay.record.SkippedPackets.Stage.PLAY, PacketCodec.typeName(packet), t);
         } finally {
             dispatching = false;
             dispatchTick = -1;
@@ -432,7 +530,9 @@ public final class Playback {
         if (mc.level == null || mc.getConnection() == null) {
             return;
         }
-        TimeControl.apply(mc.level, TimeControl.DEFAULT_RATE * Math.min(1.0F, speed()), paused);
+        // A freeze holds the world like a pause while the client keeps ticking at full rate to count it.
+        float rate = holdTicks > 0 ? TimeControl.DEFAULT_RATE : TimeControl.DEFAULT_RATE * Math.min(1.0F, Math.max(0.05F, effectiveSpeed()));
+        TimeControl.apply(mc.level, rate, paused || holdTicks > 0);
     }
 
     private void logOnce(Class<?> type, String message) {

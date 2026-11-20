@@ -36,6 +36,8 @@ final class EditorTimeline {
     enum Lane {
         RULER(EditorTimeline.RULER, EditorTimeline.RULER, null), CUTS(13, 11, Icon.CUT), CAMERA(10, 9, Icon.CAMERA),
         ACTOR(12, 10, Icon.PERSON), MARKERS(10, 9, Icon.FLAG),
+        /** Speed keys, timelapses and freezes of the speed track (see {@link SpeedPanel}). */
+        SPEED(10, 9, Icon.CLOCK),
         /** Texts and images in the world: their height comes from {@link OverlaysPanel#laneHeight}, 0 without overlays. */
         OVERLAYS(0, 0, Icon.SCENE),
         /** Audio tracks: their height comes from {@link AudioLanes#height()}, they draw their own backs and labels. */
@@ -54,7 +56,7 @@ final class EditorTimeline {
     }
 
     /** Every track lane, in display order: the advanced editor. */
-    static final List<Lane> ALL_LANES = List.of(Lane.CUTS, Lane.CAMERA, Lane.ACTOR, Lane.OVERLAYS, Lane.MARKERS, Lane.AUDIO);
+    static final List<Lane> ALL_LANES = List.of(Lane.CUTS, Lane.CAMERA, Lane.ACTOR, Lane.OVERLAYS, Lane.MARKERS, Lane.SPEED, Lane.AUDIO);
     /** The simple editor works with one camera, so it has no cut track. */
     static final List<Lane> SIMPLE_LANES = List.of(Lane.CAMERA, Lane.ACTOR, Lane.OVERLAYS, Lane.MARKERS);
 
@@ -349,6 +351,7 @@ final class EditorTimeline {
             case CAMERA -> cameraKeys(g, project, y, s.cameraKey());
             case ACTOR -> actorLane(g, font, y, s.actor(), s.actorKey(), s.action());
             case MARKERS -> markers(g, font, project, y);
+            case SPEED -> SpeedPanel.renderLane(g, font, this, project.speed, y, heightOf(Lane.SPEED));
             case OVERLAYS -> {
                 if (overlays != null && y >= 0) {
                     overlays.renderLane(g, font, this, y, heightOf(Lane.OVERLAYS));

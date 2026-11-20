@@ -5,7 +5,6 @@ import com.vyrriox.justreplay.mixin.ConnectionAccessor;
 import com.vyrriox.justreplay.editor.ActorManager;
 import com.vyrriox.justreplay.editor.ReplayProject;
 import com.vyrriox.justreplay.export.VideoExporter;
-import com.vyrriox.justreplay.format.RecordedPacket;
 import com.vyrriox.justreplay.format.ReplayMeta;
 import com.vyrriox.justreplay.format.ReplayStorage;
 import net.minecraft.client.Minecraft;
@@ -82,6 +81,8 @@ public final class ReplaySession {
         this.meta = meta;
         this.project = project;
         this.playback = new Playback(packets, meta.durationTicks);
+        // Read through the session: undo replaces the fields of the project, never the project itself.
+        this.playback.setSpeedTrack(() -> this.project.speed);
         this.lastState = ReplayStorage.GSON.toJson(project);
         this.actors = new ActorManager(this);
         this.voices = new com.vyrriox.justreplay.voice.VoicePlayer(dir);
@@ -294,6 +295,34 @@ public final class ReplaySession {
                     Component.translatable("justreplay.toast.wrong_loader", recordedLoader),
                     Component.literal(dir.getFileName().toString()));
         }
+        if (recorded != null && !recorded.ignoreModChanges && com.vyrriox.justreplay.config.JRConfig.WARN_MOD_CHANGES.get()) {
+            com.vyrriox.justreplay.format.ModDiff mods = com.vyrriox.justreplay.format.ModDiff.compare(recorded.mods,
+                    com.vyrriox.justreplay.platform.Platform.get().modList());
+            if (!mods.isEmpty()) {
+                JustReplay.LOGGER.warn("Replay {} was recorded with other mods ({} differences): {}", dir, mods.size(),
+                        String.join(", ", mods.lines()));
+                mc.setScreen(new com.vyrriox.justreplay.gui.ModsChangedScreen(mods, (open, dontWarnAgain) -> {
+                    if (!open) {
+                        mc.setScreen(parent);
+                        return;
+                    }
+                    if (dontWarnAgain) {
+                        recorded.ignoreModChanges = true;
+                        ReplayStorage.writeMeta(dir, recorded);
+                    }
+                    load(mc, dir, parent);
+                }));
+                return;
+            }
+        }
+        load(mc, dir, parent);
+    }
+
+    /** Reads the replay off the render thread, then starts it; the checks of {@link #open} are done. */
+    private static void load(Minecraft mc, Path dir, Screen parent) {
+        if (current != null || mc.level != null || loading) {
+            return;
+        }
         loading = true;
         mc.forceSetScreen(new GenericDirtMessageScreen(Component.translatable("justreplay.loading")));
         // Decompressing a long replay takes a while: do it off the render thread.
@@ -359,7 +388,11 @@ public final class ReplaySession {
         ReplayProject loaded = ReplayStorage.readProject(dir);
         Path backup = ReplayStorage.lastProjectBackup;
         ReplayStorage.lastProjectBackup = null;
-        current = new ReplaySession(dir, ReplayStorage.readMeta(dir), loaded, packets);
+        ReplayMeta openedMeta = ReplayStorage.readMeta(dir);
+        if (loaded.importRecordingMarkers(openedMeta == null ? null : openedMeta.markers)) {
+            ReplayStorage.writeProject(dir, loaded);
+        }
+        current = new ReplaySession(dir, openedMeta, loaded, packets);
         current.parentScreen = parent;
         if (backup != null) {
             net.minecraft.client.gui.components.toasts.SystemToast.add(mc.getToasts(),
@@ -430,7 +463,9 @@ public final class ReplaySession {
             s.spectate.clear();
             VideoExporter.cancel();
             s.voices.close();
+            s.playback.logSkipped();
             com.vyrriox.justreplay.compat.ReplayCompat.onReplayEnd();
+            ReplayPacks.close(Minecraft.getInstance());
             s.saveProject();
             current = null;
             pendingWorldCleanup = true;
@@ -471,6 +506,7 @@ public final class ReplaySession {
             // Recorded ids must be in place before the codec decodes anything.
             boolean ids = com.vyrriox.justreplay.format.RegistryIds.apply(s.dir);
             JustReplay.LOGGER.info("Registry ids from the recording: {}", ids ? "applied" : "none (older replay)");
+            ReplayPacks.reset();
             s.playback.start(mc.getConnection());
             JustReplay.LOGGER.info("Replay playback started: {} ticks", s.playback.duration());
         }
@@ -478,6 +514,7 @@ public final class ReplaySession {
             return;
         }
         s.playback.tick(mc);
+        ReplayPacks.tick(mc);
         com.vyrriox.justreplay.compat.ReplayCompat.tick(mc, s);
         try {
             s.voices.tick(mc, s);

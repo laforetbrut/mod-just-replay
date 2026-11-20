@@ -75,3 +75,31 @@ jobs:
         with:
           name: justreplay-${{ matrix.project }}
           path: ${{ steps.dir.outputs.path }}/build/libs/*.jar
+      # The build runs the unit tests of core/src/test and common/<mcversion>/src/test: their report, when something failed.
+      - uses: actions/upload-artifact@v4
+        if: failure() && steps.dir.outputs.path != ''
+        with:
+          name: test-report-${{ matrix.project }}
+          path: ${{ steps.dir.outputs.path }}/build/reports/tests/
+          if-no-files-found: ignore
+
+  # The log reader of tools/test_matrix.py on known good and bad lines. Target branches have no tools/ folder.
+  test-matrix-script:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Self check of the test matrix script
+        if: hashFiles('tools/test_matrix.py') != ''
+        run: python3 tools/test_matrix.py --self-check
+
+  # core/ is plain Java compiled into every target: no game, loader or common class in it, no plain Java left in
+  # triple in common/, no loader import in common/. Target branches have no tools/ folder.
+  layers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check layers
+        if: hashFiles('tools/check_layers.py') != ''
+        run: |
+          python3 tools/check_layers.py --self-check
+          python3 tools/check_layers.py
