@@ -353,6 +353,11 @@ public final class Playback {
         }
     }
 
+    /** The recorded packets this replay skipped since it started or since the last {@link #logSkipped}. */
+    public com.vyrriox.justreplay.record.SkippedPackets skipped() {
+        return skipped;
+    }
+
     /** Logs how many recorded packets this replay skipped, if any, then counts from zero. */
     public void logSkipped() {
         skipped.flush(JustReplay.LOGGER::warn);

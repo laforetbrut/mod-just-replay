@@ -10,9 +10,11 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -155,5 +157,40 @@ class IntegrationTest {
                 List.of(curios, geckolib, morph, jade, pehkui), Set.of("curios", "geckolib", "morph", "jade"));
         assertEquals("Just Replay 1.1.2 on neoforge 21.1.221, Minecraft 1.21.1. Integrations on: Curios; off in the config: GeckoLib;"
                 + " installed but not supported on this loader: Morph; failed: Jade (in tick); not installed: 1.", line);
+    }
+
+    @Test
+    void failPropertyNamesTheModToTurnOff() {
+        assertNull(Integration.forcedFailureId(null));
+        assertNull(Integration.forcedFailureId(""));
+        assertNull(Integration.forcedFailureId("  "));
+        assertNull(Integration.forcedFailureId("none"));
+        assertNull(Integration.forcedFailureId("NONE"));
+        assertNull(Integration.forcedFailureId("false"));
+        assertEquals("voicechat", Integration.forcedFailureId(" VoiceChat "));
+    }
+
+    @Test
+    void forcedFailureWarnsOnceHoweverOftenItsHooksRun() {
+        AtomicInteger count = new AtomicInteger();
+        Integration integration = Integration.counted("testmod", "Test Mod", true, true, true, count);
+        assertTrue(integration.on());
+        integration.run(Integration.FORCED_HOOK, () -> {
+            throw new IllegalStateException("forced by -D" + Integration.FAIL_PROPERTY + "=testmod");
+        });
+        int[] ran = {0};
+        for (int i = 0; i < 50; i++) {
+            integration.run("render", () -> ran[0]++);
+            assertFalse(integration.test("tick", () -> ++ran[0] > 0));
+            integration.cleanup("onReplayEnd", () -> {
+                throw new NoClassDefFoundError("testmod/Api");
+            });
+        }
+        assertEquals(0, ran[0], "no hook runs once the integration is off");
+        assertEquals(1, count.get());
+        assertEquals(Integration.State.FAILED, integration.state());
+        assertEquals(Integration.FORCED_HOOK, integration.failedHook());
+        String line = Integration.startupLine("1.1.2", "fabric", "0.16.9", "1.21.1", List.of(integration), Set.of("testmod"));
+        assertTrue(line.contains("; failed: Test Mod (in self test forced failure);"), line);
     }
 }

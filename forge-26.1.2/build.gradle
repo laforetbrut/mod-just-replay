@@ -60,6 +60,9 @@ minecraft {
             }
             if (project.hasProperty('selftest')) {
                 systemProperty 'justreplay.selftest', 'true'
+                // Integration the self test turns off at startup to check the compat safety net (Simple Voice Chat by
+                // default, supported on every loader; none: no integration), see SelfTest.checkForcedFailureAtStartup.
+                systemProperty 'justreplay.selftestFailCompat', (project.findProperty('selftestFailCompat') ?: 'voicechat').toString()
                 jvmArgs '-Xmx8G'
                 systemProperty 'justreplay.checkpointTicks', '60'
             }

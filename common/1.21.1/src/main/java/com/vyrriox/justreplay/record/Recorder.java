@@ -233,6 +233,19 @@ public final class Recorder {
         return capture;
     }
 
+    /**
+     * Self test: writes {@code data} as it is as one recorded packet at the current tick, to the recording and the
+     * buffer, the way a packet of a mod that changed since would come back. False when nothing is captured.
+     */
+    public static boolean recordRawForSelfTest(byte[] data) {
+        Recorder c = capture;
+        if (c == null || (c.recording == null && c.buffer == null)) {
+            return false;
+        }
+        c.accept(data);
+        return true;
+    }
+
     public static boolean isRecording() {
         return active() != null;
     }
