@@ -1,18 +1,19 @@
 # Error log
 
-## [2026-11-04 14:00] — Armourer's Workshop outfits missing from replays (1.0.9 and 1.0.10)
-**Context:** a user's singleplayer recordings with Armourer's Workshop showed no outfits; 1.0.10 logged `snapshot wrote 39 skins` yet nothing showed.
-**Error:** no error anywhere; the recording file had no `armourers_workshop:*` payload at all.
-**Root cause:** the compat encoded packets with Armourer's Workshop's `PacketSplitter.split`, which runs on its own thread pool and hands the parts back later. The collector was read right after the call, always empty, so nothing was written while the snapshot counted skins as written. Two releases shipped without an in-game test because no `.armour` file was available.
-**Fix:** the packet id and data are encoded on the calling thread and cut with the same begin/body/end markers. Reproduced and verified with a user's `.armour` file and `/armourers setSkin @s head /<file>.armour` (the slot name is required).
-**Prevention:** never trust a mod's helper to be synchronous; count what was actually written, not what was asked. Do not ship a compat claim without one end-to-end in-game check; ask for test assets first.
+## [2026-10-11 14:20] — BOM written by PowerShell broke compilation
+**Context:** editing a Java file with `Set-Content -Encoding utf8` in Windows PowerShell 5.1.
+**Error:** `illegal character: '﻿'`.
+**Root cause:** PowerShell 5.1 writes UTF-8 with a BOM.
+**Fix:** stripped the BOM with sed.
+**Prevention:** edit sources with the Edit/Write tools or sed, never PowerShell `Set-Content`.
 
-## [2026-11-01 20:10] — Sable airships empty in replays
-**Context:** first in-game test of the Sable support: an airship assembled before recording, replayed with a scene job.
-**Error:** the replay showed no airship; Sable logged `Cannot add chunk at 0, 0 in nonexistent sub-level plot` at the start and after every seek.
-**Root cause:** a replayed login packet keeps the existing camera player and adds it to the new level without updating the player's own level field. Sable's tracking packet reaches the level through the packet context player, so the sub-level was created in the level from before the seek, and its chunks then arrived in a level without it. Not a packet order problem (checked with debug logs before guessing further).
-**Fix:** after a replayed login, the camera player is moved to the current level (`EntityInvoker.setLevel`).
-**Prevention:** any mod handler that uses `context.player().level()` depends on this; when a mod's state vanishes in a replay, compare `mc.player.level()` with `mc.level` first.
+## [2026-10-11 14:50] — Replay session dropped before playback started
+**Context:** opening a replay from the title screen (self test step 4).
+**Error:** playback never started; the login event saw `session=null`.
+**Root cause:** loading the host world fires `ClientPlayerNetworkEvent.LoggingOut` with a null connection.
+`isReplayConnection(null)` returned true because the session connection was still null, so the session closed.
+**Fix:** `isReplayConnection` requires a non-null connection; only the replay connection ends a session.
+**Prevention:** never compare a nullable connection with `==` without a null guard.
 
 ## [2026-10-15 13:11] — WaterFrames frame missing from a self test recording
 **Context:** Arcadia self test, a WaterFrames frame placed with `/setblock` right before `Recorder.startManual()`.
@@ -27,21 +28,6 @@
 **Root cause:** not confirmed (no more game runs allowed); most likely emotes received from the network keep a name that is not a plain string, which `getName` casts.
 **Fix:** names are read defensively, falling back to the emote UUID.
 **Prevention:** treat every value read by reflection from another mod as possibly failing.
-
-## [2026-10-11 14:50] — Replay session dropped before playback started
-**Context:** opening a replay from the title screen (self test step 4).
-**Error:** playback never started; the login event saw `session=null`.
-**Root cause:** loading the host world fires `ClientPlayerNetworkEvent.LoggingOut` with a null connection.
-`isReplayConnection(null)` returned true because the session connection was still null, so the session closed.
-**Fix:** `isReplayConnection` requires a non-null connection; only the replay connection ends a session.
-**Prevention:** never compare a nullable connection with `==` without a null guard.
-
-## [2026-10-11 14:20] — BOM written by PowerShell broke compilation
-**Context:** editing a Java file with `Set-Content -Encoding utf8` in Windows PowerShell 5.1.
-**Error:** `illegal character: '﻿'`.
-**Root cause:** PowerShell 5.1 writes UTF-8 with a BOM.
-**Fix:** stripped the BOM with sed.
-**Prevention:** edit sources with the Edit/Write tools or sed, never PowerShell `Set-Content`.
 
 ## [2026-10-15 18:00] — FFmpeg quit during a self-test export
 **Context:** vanilla self-test run after the Drop the Beam work (no Drop the Beam jar loaded).
@@ -78,12 +64,26 @@
 **Fix:** `RegistryIds.complete` appends every local key the recording does not list after the highest recorded id before applying; the replay world's server no longer sends `update_recipes` during a session. Self-test step checks an id survives a recording that misses it.
 **Prevention:** never apply a partial registry snapshot to the shared static registries; any code touching registry ids must keep every registered entry mapped.
 
+## [2026-11-01 20:10] — Sable airships empty in replays
+**Context:** first in-game test of the Sable support: an airship assembled before recording, replayed with a scene job.
+**Error:** the replay showed no airship; Sable logged `Cannot add chunk at 0, 0 in nonexistent sub-level plot` at the start and after every seek.
+**Root cause:** a replayed login packet keeps the existing camera player and adds it to the new level without updating the player's own level field. Sable's tracking packet reaches the level through the packet context player, so the sub-level was created in the level from before the seek, and its chunks then arrived in a level without it. Not a packet order problem (checked with debug logs before guessing further).
+**Fix:** after a replayed login, the camera player is moved to the current level (`EntityInvoker.setLevel`).
+**Prevention:** any mod handler that uses `context.player().level()` depends on this; when a mod's state vanishes in a replay, compare `mc.player.level()` with `mc.level` first.
+
 ## [2026-11-03 12:00] — Armourer's Workshop outfits missing from singleplayer replays (1.0.9)
 **Context:** a user recorded in singleplayer with Armourer's Workshop 3.4.0-beta.3 after loading .armour files into the world's skin database, then replayed.
 **Error:** replays showed no outfits; no error from Just Replay or Armourer's Workshop in the log.
 **Root cause:** Armourer's Workshop has one SkinLoader for the whole JVM. The integrated server prepares it with its own sessions, so in singleplayer a db: skin is read straight from the world's skin database and no RequestSkinPacket or ResponseSkinPacket ever crosses the connection. 1.0.9 recorded skins only from those packets and from the loader cache at snapshot time. The replay world is another integrated world with an empty skin database, and its loader looks db: skins up there, never over the network, so the request mixin never fired.
 **Fix:** record every skin at the loader (SkinLoader$Entry.accept mixin), add every worn skin at snapshots (loaded from the world database in singleplayer), and during a replay serve lookups from the recording at SkinLoader.resume before any source is tried. Snapshot skin count logged, missing worn skins warned.
 **Prevention:** for any mod with a cache shared between client and integrated server, check how the client gets its data in singleplayer before assuming it comes over the network.
+
+## [2026-11-04 14:00] — Armourer's Workshop outfits missing from replays (1.0.9 and 1.0.10)
+**Context:** a user's singleplayer recordings with Armourer's Workshop showed no outfits; 1.0.10 logged `snapshot wrote 39 skins` yet nothing showed.
+**Error:** no error anywhere; the recording file had no `armourers_workshop:*` payload at all.
+**Root cause:** the compat encoded packets with Armourer's Workshop's `PacketSplitter.split`, which runs on its own thread pool and hands the parts back later. The collector was read right after the call, always empty, so nothing was written while the snapshot counted skins as written. Two releases shipped without an in-game test because no `.armour` file was available.
+**Fix:** the packet id and data are encoded on the calling thread and cut with the same begin/body/end markers. Reproduced and verified with a user's `.armour` file and `/armourers setSkin @s head /<file>.armour` (the slot name is required).
+**Prevention:** never trust a mod's helper to be synchronous; count what was actually written, not what was asked. Do not ship a compat claim without one end-to-end in-game check; ask for test assets first.
 
 ## [2026-11-05 14:40] — Replay closed right after opening, intermittently (decode error from the host)
 **Context:** self test with GeckoLib, Curios, Iron's Spellbooks, Iris and others, opening the buffer clip.
@@ -155,7 +155,7 @@
 **Fix:** a named `NoEntityClip` class with an explicit constructor. The tag was not moved, and the behaviour is the same.
 **Prevention:** run the CI matrix on the release commit before tagging, through a pull request or a manual workflow run.
 
-## [2026-11-05 21:30] - Curios worn items dropped in a replay when a datapack supplies the slots (1.20.1)
+## [2026-11-05 21:30] — Curios worn items dropped in a replay when a datapack supplies the slots (1.20.1)
 **Context:** production self test on Forge 1.20.1 with Curios 5.14.1 and the test ring datapack.
 **Error:** `SELFTEST curios at start: worn stacks on the actor=-1 -> FAIL`, with no warning logged.
 **Root cause:** `CurioInventoryCapability$Provider.getCapability` returns empty while the client's `CuriosEntityManager.CLIENT` lists no slot for the entity type. That map comes from the data of the server played on; the replay host lacks a world or server datapack, and the recording did not carry the definitions, so every Curios sync message was dropped.
@@ -205,3 +205,158 @@
 **Root cause:** Immersive Vehicles reads its content packs only from the jars of the game's mods folder; a pack on the run classpath loads its assets but registers no item. A released 1.20.1 jar (SRG names) cannot go in mods/ of a dev run either
 **Fix:** the mod goes through -PdevMods=run-iv/devmods (fg.deobf), the content pack (no game class) in run-iv/mods
 **Prevention:** for a mod with content packs, put the packs where the mod scans for them and check the pack items exist before the test scene
+
+## [2026-11-18 07:46] — Page badges redrawn in pixel style, push to the images repository refused
+**Context:** Redrawing badge-minecraft.png and badge-loaders.png of the CurseForge page with images/tools/titles.py on the Debian box, then publishing them to Team-Arcadia/images
+**Error:** titles.py wrote 33 px pixel badges (the published ones are 68 px vector badges); git push to Team-Arcadia/images: could not read Username (no credentials for that repository in a mod-just-replay task)
+**Root cause:** VectorCraft and the Inter font are not installed here, so vector.available() is false and the pixel fallback is used; the task runner only hands out GitHub credentials for the repository of the task
+**Fix:** Rendered the SVG of vector.badge() with headless Chromium and the static Inter 4.1 TTF files from a temp folder (same widths as the published badges within 1 px); the push was left to a task on the images repository
+**Prevention:** Never publish badges or titles drawn by titles.py on Linux without comparing them to the published ones; run the images push as a task of the images repository
+**Recurred:** 2026-11-18 13:30, Tasks 440 and 453 were both started as mod-just-replay tasks, so the images clone stayed read-only and nothing was pushed. vigie proposer always files the follow-up on the current project (Vigie issue 462): create the badges task from the dashboard on team-arcadia/other/images, together with mod-just-replay for the page.
+
+## [2026-11-18 09:42] — Page badge widths of unpublished pictures
+**Context:** Task 422 redrew the Minecraft and loader badges but could not push them to Team-Arcadia/images; the page rebuilt with the new local badges was committed anyway.
+**Error:** curseforge_page.md gave badge-minecraft.png width 250 and badge-loaders.png width 222 while images_base still pins 7d35eb95556b, whose badges are 312 and 227 px wide: pasted as is, both badges show up 1.6x and 2x too big. check_page.py --online said nothing to report.
+**Root cause:** build_page.py reads the widths from the local images/ copies, which held the unpublished badges; check_page.py --online only checks that the pictures load, not their size.
+**Fix:** fetch_published.py . --force brought back the published badges, build_page.py wrote widths 156 and 114 again; a width check against the online pictures (half the natural width) found 0 mismatches.
+**Prevention:** Build and commit the page only from the pictures images_base serves: move images_base and rebuild in the same commit once the new pictures are pushed, never before.
+
+## [2026-11-18 09:51] — Report: Create refuses to register its blocks with Just Replay (not reproduced)
+**Context:** A test on another machine summed up as: its usual mods plus Just Replay do not load, Create refuses to register its blocks; without Create, Create Aeronautics and Create Propulsion the game loads. Only a screenshot of that summary was given, no log and no mod list.
+**Error:** Summary only: Create refuses to register its blocks at startup when Just Replay is installed with Create, Create Aeronautics and Create Propulsion (NeoForge 1.21.1 dev client).
+**Root cause:** Not in Just Replay: with Create 6.0.10, Create Aeronautics 1.3.2, Sable 2.0.6 and Create Propulsion: Simulated 1.1.5 on NeoForge 21.1.265 the dev client reaches the title screen (alone and with 16 common mods) and the full self test passes (155 lines, 0 failure). The owner ruled the report a mistake of the tester.
+**Fix:** No code change. The combination is now listed as loaded in docs/COMPATIBILITY.md.
+**Prevention:** Before hunting a load failure from someone else's summary, get the failing latest.log and its mods folder; first replay the same mods in a separate game folder (neoforge-1.21.1/run-<name>/mods, ignored by git) with -P neo_version=21.1.265 (Sable and Aeronautics need 21.1.228 or later).
+
+## [2026-11-18 13:50] — Page images refused by jsDelivr
+**Context:** Checking curseforge_page.md online before moving the badge pin of images_base (jsDelivr, commit 7d35eb95556b of Team-Arcadia/images)
+**Error:** check_page.py --online: 6 images HTTP 403 'Package size exceeded' (icons/play.png, title-films-fr.gif...), the 33 others served only from the jsDelivr cache
+**Root cause:** Team-Arcadia/images grew past 50 MB (156 MB), so jsDelivr refuses every file of the repository it has not cached, any commit pin included
+**Fix:** images_base moved to GitHub Pages (https://team-arcadia.github.io/images/mods/justreplay/curseforge/, on, branch main); page rebuilt, only the host changed; check_page.py --online nothing to report, widths 0 mismatches on 39 images
+**Prevention:** Never pin page images on jsDelivr again: Pages serves main, so rebuild the page (widths) in the same task as any push of new pictures
+
+## [2026-11-18 19:35] — Session killed by memory while two agents decompiled mod jars
+**Context:** Two background agents ran Vineflower on Epic Fight and Custom NPCs jars while the main session ran a javap loop over six Armourer's Workshop jars.
+**Error:** The main shell command ended with exit code 137 and the whole session stopped; both agents were stopped with no report.
+**Root cause:** Each Vineflower JVM takes a quarter of the 8 GB by default; two of them plus javap and the Claude processes ran the machine out of memory.
+**Fix:** Resumed one agent at a time with java -Xmx1500m for Vineflower, nothing else heavy alongside.
+**Prevention:** One JVM-heavy job at a time on this machine (decompiler, Gradle, game); give Vineflower -Xmx1500m in every agent brief.
+
+## [2026-11-19 00:40] — javac cannot find Entity in the NeoForge 26.1.2 patched game jar
+**Context:** Compiling a typed check of Armourer's Workshop names outside Gradle against the minecraft-patched merged jar of neoforge-26.1.2/build/moddev/artifacts.
+**Error:** error: cannot find symbol, symbol: class Entity, location: package net.minecraft.world.entity (javac -verbose shows Entity.class loaded from that jar).
+**Root cause:** The ModDevGradle patched jar holds Minecraft only; Entity extends NeoForge's AttachmentHolder, which is in the NeoForge universal jar, and javac reports the incomplete class as a missing symbol.
+**Fix:** Added the NeoForge universal jar of the same version (net.neoforged/neoforge in the Gradle modules cache) to the classpath.
+**Prevention:** Outside Gradle, compile against NeoForge 26.1.2 with both the minecraft-patched jar and the neoforge universal jar (the 1.21.1 neoforge merged jar already holds both).
+
+## [2026-11-19 10:08] — ModDevGradle unit tests: no Gson on the test classpath, then 'Mod development has not been enabled yet'
+**Context:** Adding JUnit 5 tests of common/<mc>/src/test to the NeoForge targets (ModDevGradle 2.0, legacyforge for NeoForge 1.20.1), task 470
+**Error:** compileTestJava: package com.google.gson does not exist; after adding neoForge.addModdingDependenciesTo(sourceSets.test) above the neoForge block: A problem occurred evaluating root project 'justreplay'. > Mod development has not been enabled yet
+**Root cause:** ModDevGradle puts the game and its libraries on the main source set only; addModdingDependenciesTo needs the neoForge { version = ... } block (which enables mod development) to have run first
+**Fix:** Call neoForge.addModdingDependenciesTo(sourceSets.test) (legacyForge.addModdingDependenciesTo on NeoForge 1.20.1) after the neoForge/legacyForge block, at the end of build.gradle. Loom and ForgeGradle 6/7 need nothing
+**Prevention:** On ModDevGradle targets, add test dependencies on the game with addModdingDependenciesTo placed after the neoForge or legacyForge block
+
+## [2026-11-19 10:08] — Unit tests leave a logs folder in the loader project
+**Context:** First runs of the shared unit tests (./gradlew test) on the 1.21.1 targets, task 470
+**Error:** Untracked neoforge-1.21.1/logs/, forge-1.21.1/logs/, fabric-1.21.1/logs/ (empty latest.log and debug.log) after the test task
+**Root cause:** The tested classes log through SLF4J; the game's Log4j configuration on the test classpath writes logs/ in the working folder, which is the project folder by default
+**Fix:** In each build.gradle, the test task runs in build/test-run: workingDir = layout.buildDirectory.dir('test-run').get().asFile, doFirst { testRun.mkdirs() }
+**Prevention:** Give every JUnit test task of a mod project a working folder under build/ so the game's logging never writes into the project
+
+## [2026-11-19 15:13] — List.of contains(null) crashed the project repair
+**Context:** Unit test of WorldSettings.normalize with a hand edited project (fog, particles or weather set to null)
+**Error:** java.lang.NullPointerException in WorldSettings.normalize: WEATHERS.contains(weather) with weather == null
+**Root cause:** Lists made by List.of throw on contains(null); the repair code of the World tab settings checked membership before checking for null, so a project with "weather": null could not be loaded and the replay did not open
+**Fix:** Check null first in WorldSettings.normalize (weather, fog, particles) and in particleHidden, in the three common folders; WorldVisualsTest covers it
+**Prevention:** Never call contains on a List.of or Set.of with a value read from JSON without a null check; add a null case to the unit test of every normalize method
+
+## [2026-11-19 17:00] — Merged branches gave two self test steps the same numbers
+**Context:** Merging the local branches of tasks 471 (replay naming window) and 474 (Flashback gaps) into one branch, task 475
+**Error:** case 70, 71 and 72 twice in the switch (step) of SelfTest.java in the three common folders (javac: duplicate case label); git merged both without a conflict
+**Root cause:** Both branches started from develop and took the first free numbers after 62 for their new steps; the hunks did not overlap, so git saw no conflict
+**Fix:** The naming window steps moved to 80, 81 and 82 in the three versions; the case labels and the go() transitions were listed to check that no step is duplicated or unreachable
+**Prevention:** After merging branches that add self test steps, list the case labels of switch (step) in each SelfTest.java and follow go()/next() from step 0 before building; give each new feature its own block of ten step numbers
+
+## [2026-11-19 17:10] — Temp folder full after copying the loader folders to /tmp
+**Context:** Comparing changed files with develop during task 475: extracted common/ from develop and copied the nine loader folders next to it in /tmp
+**Error:** No space left on device: the /tmp volume had 0 MB free and the command output was lost
+**Root cause:** /tmp is a 3.9 GB tmpfs held in memory on this machine, and the loader folders carry their build and run folders, several GB together
+**Fix:** Removed the copy (2.2 GB free again) and compared single files with git show develop:<path>
+**Prevention:** Never copy loader folders (build/, run*/) to /tmp; compare with git show <ref>:<path>, or git archive only the paths needed
+
+## [2026-11-20 00:32] — Hidden armor did nothing on NeoForge 1.21.1: a bare mixin method name hooks one overload
+**Context:** Task 467: in-game self test of hidden armor on NeoForge 1.21.1 with the armor layer counted on its own
+**Error:** SELFTEST hidden armor: pieces skipped 26 of which by the armor layer 0 -> FAIL (helmet still drawn)
+**Root cause:** Mixin 0.8 narrows @Redirect(method = "renderArmorPiece") to the first method of that name (TargetSelectors, SELECT_MEMBER turns the default quantifier into SINGLE). NeoForge declares the vanilla renderArmorPiece before its 12 argument overload, and render() only calls the overload.
+**Fix:** method = "renderArmorPiece*" takes every overload (HiddenArmorMixin, commit e9f1734); the Fabric refmap maps it to the single vanilla method.
+**Prevention:** Never rely on a bare method name to cover overloads: use name* or full descriptors, and run livrables/verif-mixins/scan_overloads.py of task 467 on each common tree after adding a name-only selector.
+
+## [2026-11-20 00:32] — Self test passed hidden armor while the armor layer hid nothing
+**Context:** Task 467: the hidden armor self test step counted skipped pieces to prove the armor hooks work
+**Error:** pieces skipped 19 -> OK on NeoForge 1.21.1 although the vanilla helmet was still drawn
+**Root cause:** The head item layer hook calls ArmorSlots.countSkipped() on every frame of a hidden head by itself, so the total was above zero without the armor layer skipping anything.
+**Fix:** The armor layer hooks count apart (ArmorSlots.countArmorLayerSkipped); the check requires that counter above zero (commit 93fbfd1). Proved red before the mixin fix, green after.
+**Prevention:** A self test counter must only be fed by the hook it proves; prove each new check red once on a known bad case.
+
+## [2026-11-20 00:32] — Slow motion export self test: file not found although the export succeeded
+**Context:** Task 467: first in-game run of self test steps 72 to 74 (speed track export, task 474)
+**Error:** slow motion export: 241 frames ... file false -> FAIL
+**Root cause:** The export named the file with its range (rangeInFileName, task 472: selftest_slow_00m01s-00m03s.mp4) while the step looked for selftest_slow.mp4, and it looked as soon as capture ended, before the finisher thread muxed the file.
+**Fix:** The step asks for the exact name like SceneJob (start with rangeInName false) and waits for VideoExporter.completion() before reading output() (commit 44bc397).
+**Prevention:** Check an export through VideoExporter.output() once completion() is done, never by a guessed name right after isActive() turns false.
+
+## [2026-11-20 00:33] — Game froze on Fabric when leaving a replay (IntegratedServer.halt waits for a dead thread)
+**Context:** Task 467: Fabric 26.1.2 self test, leaving the replay after the slow motion export (a server resource pack was active)
+**Error:** Self test TIMEOUT; jstack: Render thread parked in CompletableFuture.join <- BlockableEventLoop.executeBlocking <- IntegratedServer.halt <- Minecraft.disconnect, no Server thread left
+**Root cause:** The integrated server stops by itself when its player logs out. Leaving reloaded the resources (server pack dropped) before Minecraft.disconnect reached IntegratedServer.halt, which hands one more task to the server thread with executeBlocking, unguarded in vanilla; the thread was gone. NeoForge and Forge 47 guard it with isRunning().
+**Fix:** IntegratedServerHaltMixin redirects that executeBlocking behind server.isRunning() in every version; self test step 74 now leaves once the host thread has ended, which froze for sure without the guard (commit 63f52ae, Fabric 26.1.2 PASS).
+**Prevention:** Before leaving a world from code, assume the host may already be stopped; test leave paths on Fabric too, NeoForge hides this deadlock.
+
+## [2026-11-20 00:33] — Forge 1.21.1 and 26.1.2 dev clients cannot start in the Vigie sandbox (~/.minecraft/assets)
+**Context:** Task 467: test matrix runClient of forge-1.21.1 and forge-26.1.2 (ForgeGradle 7, Slime Launcher 0.2.3)
+**Error:** java.lang.IllegalArgumentException: Failed to create index directory: ~/.minecraft/assets/indexes (self test INCOMPLETE after 30 s)
+**Root cause:** Slime Launcher keeps the game assets in <user.home>/.minecraft/assets and checks or downloads them before launch; the task sandbox cannot write the home folder. No launcher option is reachable from the FG7 run config.
+**Fix:** -PmcHome=<dir> sets user.home of the dev game (forge build.gradle, commit 2c3eabb); <dir>/.minecraft/assets links to ~/.gradle/caches/neoformruntime/assets (indexes 17 and 30 complete, nothing downloaded).
+**Prevention:** On this machine run Forge 1.21.1 and 26.1.2 dev clients with -P mcHome=<task folder>/mchome and that link.
+
+## [2026-11-20 00:33] — Armourer's Workshop 3.4 stops the Forge 1.20.1 dev client at launch
+**Context:** Task 467: test matrix forge-1.20.1 with the Armourer's Workshop Forge 1.20.1 jar in devmods (-PdevMods)
+**Error:** Critical injection failure: @Inject annotation on aw2$renderGuiItemPre could not find any targets matching 'm_280405_(...)' (armourersworkshop-compat-mixins.json GuiGraphicsMixin)
+**Root cause:** Armourer's Workshop names its mixin targets in SRG itself through its config plugin (moe.plushie.armourers_workshop.api.annotation.Resolver), without a refmap, so fg.deobf and mixin.env.remapRefMap cannot translate them to the Parchment names of the dev game.
+**Fix:** None on our side: the hidden armor hooks were checked on Forge 1.20.1 by name against the real jar (verif-compat of task 467) and in game on Fabric 1.20.1, whose code is the same.
+**Prevention:** Test Armourer's Workshop 1.20.1 in game on Fabric 1.20.1 or with an installed Forge game, not in the Forge 1.20.1 dev client.
+
+## [2026-11-20 01:19] — Replay crashed with ConcurrentModificationException in ActorManager.pumpLookups
+**Context:** Task 467: Fabric 1.21.1 self test with player actors while the profile service answered an HTML error page
+**Error:** java.util.ConcurrentModificationException at ActorManager.pumpLookups(ActorManager.java:462) <- ActorManager.tick <- ReplaySession.clientTick (client crash)
+**Root cause:** pumpLookups started each due lookup inside its iterator loop. A lookup whose future was already complete (failed at once) ran its whenComplete callback on the render thread, and Minecraft.execute ran complete() right away, which queued the retry into the list being walked.
+**Fix:** pumpLookups collects the due lookups, ends the walk, then starts them (commit after 'fix: a failed actor skin lookup could crash the replay'), in the three versions.
+**Prevention:** Never start work that may complete synchronously while iterating the queue it can modify; collect first, act after the loop.
+
+## [2026-11-20 03:30] — NeoForge 1.20.1 startup line without the loader version
+**Context:** Reading the startup line of each target in the self test matrix of the compat safety net
+**Error:** Just Replay 1.1.2 on neoforge, Minecraft 1.20.1. Integrations on: ... (no loader version, the eight other targets have one)
+**Root cause:** Integrations.startupLine looks the loader version up under the loader name; NeoForge 1.20.1 still lists itself under the mod id forge, so no mod neoforge is found
+**Fix:** common/1.20.1 Integrations.startupLine falls back to the forge mod version when the loader is neoforge (now: on neoforge 47.1.106)
+**Prevention:** On 1.20.1 NeoForge is the mod id forge: never look it up as neoforge (mods.toml, mod list, Modrinth tags already follow this)
+
+## [2026-11-20 04:31] — Generated fabric-1.20.1 branch does not build: Forge CuriosCompat in src/main
+**Context:** Building the published fabric-1.20.1 target branch (made by tools/make_branches.sh for 1.1.2) on its own
+**Error:** CuriosCompat.java:17: error: package net.minecraftforge.common.util does not exist
+**Root cause:** make_branches.sh copied common/1.20.1/src/main over the project's own files, so the Forge CuriosCompat of common replaced the Fabric copy of fabric-1.20.1; on main the build only hides it with a filter.exclude, and CI never builds target branches
+**Fix:** make_branches.sh merges common with merge_shared ... keep: a file the project has itself wins; core uses stop (any shared path ends the script). All nine generated branches built from a throwaway clone
+**Prevention:** After changing make_branches.sh or adding a file that a target overrides, generate the branches in a throwaway clone and build every one from a folder whose parent has no core/ or common/
+
+## [2026-11-20 04:31] — layers.py --move --apply fails on relative paths and misses full-name uses of common
+**Context:** Moving the plain Java of the three common folders to core/ with the layers.py script of the mod-port skill
+**Error:** git mv ... returned non-zero exit status 128 (relative --versions), then git rm refused: the file has changes staged in the index; after the move BbModel in core still called com.vyrriox.justreplay.editor.Interpolation.catmullRom, a common class
+**Root cause:** layers.py runs git mv and git rm from the folder of each file with paths relative to the repository root, cannot move files never committed, and ignores full-name references to mod classes when it sorts classes into core
+**Fix:** Ran it with --versions set to an absolute path after committing the new files; tools/check_layers.py found the BbModel reference and catmullRom moved to the plain Splines class in core
+**Prevention:** Commit new files before layers.py --apply, give it absolute paths, then run python3 tools/check_layers.py and compile core alone with javac before trusting the move
+
+## [2026-11-20 07:24] — Self-test step at recording tick 5 never runs (t == 5 dead code)
+**Context:** More Player Models self-test on NeoForge 1.21.1 (kaan-mpm port), reading the first look right after the recording starts
+**Error:** SELFTEST more player models while recording: look read=false -> FAIL; actor wears the first look=false at cursor 20, 60 and 51
+**Root cause:** Step 2 starts the recording then waits next(5); step 3 first runs at recording tick 6, so its if (t == 5) block (Mods.place, first look read) was dead code on every version
+**Fix:** Run that block once from tick 5 on: if (t >= 5 && !startPlaced) with a static flag, in the three SelfTest.java
+**Prevention:** In a self-test step driven by the recorder tick, never test t == N for the first ticks of a step; use t >= N with a once flag, and log a line from the block so its absence shows

@@ -24,6 +24,22 @@ if (commonDir.isDirectory()) {
     sourceSets.main.resources.srcDir(new File(commonDir, 'resources'))
 }
 
+// Unit tests of the shared code (classes without game code), run by ./gradlew build. On the per-target branches they
+// are merged into src/test, so this block does nothing there.
+def commonTestDir = file("../common/${minecraft_version}/src/test/java")
+if (commonTestDir.isDirectory()) {
+    sourceSets.test.java.srcDir(commonTestDir)
+}
+
+// Plain Java shared by every target (no game, loader or common class) and its unit tests live once in ../core on the
+// main branch. On the per-target branches they are merged into src/main and src/test, so this block does nothing there.
+def coreDir = file("../core/src")
+if (coreDir.isDirectory()) {
+    sourceSets.main.java.srcDir(new File(coreDir, 'main/java'))
+    sourceSets.main.resources.srcDir(new File(coreDir, 'main/resources'))
+    sourceSets.test.java.srcDir(new File(coreDir, 'test/java'))
+}
+
 sourceSets.main.resources {
     exclude('**/*.bbmodel.license')
 }
@@ -46,8 +62,16 @@ minecraft {
             if (project.hasProperty('gameDir')) {
                 workingDir = file(project.property('gameDir'))
             }
+            // Slime Launcher keeps the game assets in <user.home>/.minecraft/assets: -PmcHome=<dir> gives the dev game
+            // another home, on a machine where that folder cannot be written.
+            if (project.hasProperty('mcHome')) {
+                systemProperty 'user.home', file(project.property('mcHome')).absolutePath
+            }
             if (project.hasProperty('selftest')) {
                 systemProperty 'justreplay.selftest', 'true'
+                // Integration the self test turns off at startup to check the compat safety net (Simple Voice Chat by
+                // default, supported on every loader; none: no integration), see SelfTest.checkForcedFailureAtStartup.
+                systemProperty 'justreplay.selftestFailCompat', (project.findProperty('selftestFailCompat') ?: 'voicechat').toString()
                 jvmArgs '-Xmx8G'
                 systemProperty 'justreplay.checkpointTicks', '60'
             }
@@ -87,6 +111,8 @@ repositories {
 }
 
 dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.2'
     // META-INF/accesstransformer.cfg opens what the GUI bridge needs, at compile time here and at runtime from the jar.
     implementation minecraft.dependency("net.minecraftforge:forge:${minecraft_version}-${forge_version}") {
         useDefaultAccessTransformer()
@@ -147,4 +173,12 @@ idea {
         downloadSources = true
         downloadJavadoc = true
     }
+}
+
+tasks.named('test', Test).configure {
+    useJUnitPlatform()
+    // The game's logging writes a logs folder where the tests run: keep it in build.
+    def testRun = layout.buildDirectory.dir('test-run').get().asFile
+    workingDir = testRun
+    doFirst { testRun.mkdirs() }
 }

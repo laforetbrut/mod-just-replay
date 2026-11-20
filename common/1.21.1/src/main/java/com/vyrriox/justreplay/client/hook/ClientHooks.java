@@ -119,11 +119,32 @@ public final class ClientHooks {
         return onSound(sound) ? AudioPlayer.onPlaySound(sound) : null;
     }
 
+    /** True while the render veil covers the window: mouse look, clicks, scrolling and keys but Esc are ignored. */
+    public static boolean blocksInput() {
+        return com.vyrriox.justreplay.export.RenderVeil.blocksInput();
+    }
+
+    /** True when a mouse look movement must be dropped: the render veil is up. */
+    public static boolean dropsMouseLook() {
+        return com.vyrriox.justreplay.export.RenderVeil.dropMouseLook();
+    }
+
+    /** True when a key must not reach the game: everything but Esc, which cancels, while the render veil is up. */
+    public static boolean cancelsKey(int key, int action) {
+        return blocksInput() && action != 0 && key != 256 && net.minecraft.client.Minecraft.getInstance().screen == null;
+    }
+
     public static boolean cancelsMouse(int button, int action) {
+        if (blocksInput()) {
+            return true;
+        }
         return EntityTool.onMouse(button, action) | OverlayPlacementTool.onMouse(button, action) | PlacementTool.onMouse(button, action);
     }
 
     public static boolean cancelsScroll(double x, double y) {
+        if (blocksInput()) {
+            return true;
+        }
         return EntityTool.onScroll(x, y) | OverlayPlacementTool.onScroll(x, y) | PlacementTool.onScroll(x, y);
     }
 

@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.mixin.compat;
 
+import com.vyrriox.justreplay.compat.Integrations;
 import com.vyrriox.justreplay.compat.ReplayCompat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.Entity;
@@ -34,15 +35,29 @@ public abstract class GeckoLibModelMixin {
 
     @Inject(method = justreplay$HANDLE_ANIMATIONS, at = @At("HEAD"), require = 0, remap = false)
     private void justreplay$readAnimatable(@Coerce Object animatable, long instanceId, @Coerce Object state, float partialTick, CallbackInfo ci) {
-        justreplay$onEntity = animatable instanceof Entity || justreplay$isReplacedEntity(animatable);
+        if (!Integrations.GECKOLIB.on()) {
+            justreplay$onEntity = false;
+            return;
+        }
+        try {
+            justreplay$onEntity = animatable instanceof Entity || justreplay$isReplacedEntity(animatable);
+        } catch (Throwable t) {
+            justreplay$onEntity = false;
+            Integrations.GECKOLIB.fail("GeoModel.handleAnimations", t);
+        }
     }
 
     @ModifyVariable(method = justreplay$HANDLE_ANIMATIONS, at = @At("STORE"), ordinal = 0, require = 0, remap = false)
     private double justreplay$replayFrameTime(double frameTime) {
-        if (!justreplay$onEntity || !Minecraft.getInstance().isSameThread()) {
+        if (!justreplay$onEntity || !Integrations.GECKOLIB.on() || !Minecraft.getInstance().isSameThread()) {
             return frameTime;
         }
-        return ReplayCompat.geckoEntityFrameTime(frameTime);
+        try {
+            return ReplayCompat.geckoEntityFrameTime(frameTime);
+        } catch (Throwable t) {
+            Integrations.GECKOLIB.fail("GeoModel.handleAnimations", t);
+            return frameTime;
+        }
     }
 
     @Unique

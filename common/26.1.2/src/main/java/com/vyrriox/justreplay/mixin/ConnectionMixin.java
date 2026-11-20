@@ -31,7 +31,11 @@ public abstract class ConnectionMixin {
             ci.cancel();
             return;
         }
-        Recorder.onPacketReceived(self, packet);
+        try {
+            Recorder.onPacketReceived(self, packet);
+        } catch (Throwable t) {
+            Recorder.onReceiveError(packet, t);
+        }
     }
 
     /** The camera's movement is never sent to the replay host, so its server player never loads chunks. */

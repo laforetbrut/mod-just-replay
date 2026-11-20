@@ -49,6 +49,7 @@ public final class PacketFilter {
             ClientboundKeepAlivePacket.class,
             ClientboundPingPacket.class,
             ClientboundDisconnectPacket.class,
+            // Applied by ReplayPacks before this filter, never by the client (it would prompt or answer the server).
             ClientboundResourcePackPacket.class,
             ClientboundPlayerPositionPacket.class,
             ClientboundPlayerLookAtPacket.class,

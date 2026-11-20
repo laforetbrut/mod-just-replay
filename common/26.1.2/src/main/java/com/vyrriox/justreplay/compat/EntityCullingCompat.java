@@ -23,7 +23,7 @@ public final class EntityCullingCompat {
     }
 
     private static Field field() {
-        if (enabled != null || reflectFailed || !ReplayCompat.ENTITY_CULLING) {
+        if (enabled != null || reflectFailed || !Integrations.ENTITY_CULLING.on()) {
             return enabled;
         }
         try {
@@ -34,7 +34,7 @@ public final class EntityCullingCompat {
             JustReplay.LOGGER.info("Entity Culling detected: culling is switched off while a replay is open");
         } catch (Throwable t) {
             reflectFailed = true;
-            ReplayCompat.warnOnce("entityculling.reflect", "Entity Culling support disabled, its classes changed", t);
+            Integrations.ENTITY_CULLING.fail("reflect", t);
         }
         return enabled;
     }

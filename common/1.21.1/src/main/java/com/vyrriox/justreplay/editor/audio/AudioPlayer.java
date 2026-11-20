@@ -79,7 +79,7 @@ public final class AudioPlayer {
             }
         }
         lastCursor = cursor;
-        float speed = playback.speed();
+        float speed = playback.effectiveSpeed();
         boolean audible = !VideoExporter.isActive() && AudioMixer.hasClips(tracks) && speed >= AudioClip.MIN_SPEED
                 && speed <= AudioClip.MAX_SPEED && mc.options.getSoundSourceVolume(SoundSource.MASTER) > 0.0F;
         if (!audible) {
@@ -179,6 +179,10 @@ public final class AudioPlayer {
         SoundSource source = sound.getSource();
         if (source == SoundSource.MASTER || source == SoundSource.MUSIC || source == SoundSource.VOICE) {
             return sound;
+        }
+        if (!s.playback().trackSoundsAudible()) {
+            // The speed track runs too slow or too fast for game sounds here, or holds a freeze.
+            return null;
         }
         float gain = gameGain(s.project()) * SoundKinds.gain(s.project(), sound)
                 * com.vyrriox.justreplay.editor.EntityEdits.soundGain(sound);

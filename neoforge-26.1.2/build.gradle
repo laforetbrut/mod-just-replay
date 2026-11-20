@@ -26,6 +26,22 @@ if (commonDir.isDirectory()) {
     sourceSets.main.resources.srcDir(new File(commonDir, 'resources'))
 }
 
+// Unit tests of the shared code (classes without game code), run by ./gradlew build. On the per-target branches they
+// are merged into src/test, so this block does nothing there.
+def commonTestDir = file("../common/${minecraft_version}/src/test/java")
+if (commonTestDir.isDirectory()) {
+    sourceSets.test.java.srcDir(commonTestDir)
+}
+
+// Plain Java shared by every target (no game, loader or common class) and its unit tests live once in ../core on the
+// main branch. On the per-target branches they are merged into src/main and src/test, so this block does nothing there.
+def coreDir = file("../core/src")
+if (coreDir.isDirectory()) {
+    sourceSets.main.java.srcDir(new File(coreDir, 'main/java'))
+    sourceSets.main.resources.srcDir(new File(coreDir, 'main/resources'))
+    sourceSets.test.java.srcDir(new File(coreDir, 'test/java'))
+}
+
 neoForge {
     version = project.neo_version
 
@@ -38,6 +54,9 @@ neoForge {
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
             if (project.hasProperty('selftest')) {
                 systemProperty 'justreplay.selftest', 'true'
+                // Integration the self test turns off at startup to check the compat safety net (Simple Voice Chat by
+                // default, supported on every loader; none: no integration), see SelfTest.checkForcedFailureAtStartup.
+                systemProperty 'justreplay.selftestFailCompat', (project.findProperty('selftestFailCompat') ?: 'voicechat').toString()
                 // Immersive Vehicles car the self test places (an item id or its start), see SelfTest.Mods.vehicleItem.
                 systemProperty 'justreplay.selftestVehicle', project.findProperty('selftestVehicle') ?: ''
                 jvmArgument '-Xmx8G'
@@ -87,6 +106,8 @@ repositories {
 }
 
 dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.2'
     // Simple Voice Chat API (the version bundled with voicechat 2.6.x); optional at runtime.
     compileOnly 'de.maxhenkel.voicechat:voicechat-api:2.6.20'
 }
@@ -122,4 +143,15 @@ idea {
         downloadSources = true
         downloadJavadoc = true
     }
+}
+
+// The tested classes use the libraries the game brings (Gson, SLF4J).
+neoForge.addModdingDependenciesTo(sourceSets.test)
+
+tasks.named('test', Test).configure {
+    useJUnitPlatform()
+    // The game's logging writes a logs folder where the tests run: keep it in build.
+    def testRun = layout.buildDirectory.dir('test-run').get().asFile
+    workingDir = testRun
+    doFirst { testRun.mkdirs() }
 }

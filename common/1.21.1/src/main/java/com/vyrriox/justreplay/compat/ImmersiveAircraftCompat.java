@@ -37,7 +37,7 @@ public final class ImmersiveAircraftCompat {
     }
 
     private static Reflect reflect() {
-        if (reflect != null || reflectFailed || !ReplayCompat.IMMERSIVE_AIRCRAFT) {
+        if (reflect != null || reflectFailed || !Integrations.IMMERSIVE_AIRCRAFT.on()) {
             return reflect;
         }
         try {
@@ -50,7 +50,7 @@ public final class ImmersiveAircraftCompat {
         } catch (Throwable t) {
             reflectFailed = true;
             reflect = null;
-            ReplayCompat.warnOnce("aircraft.reflect", "Immersive Aircraft support disabled, its classes changed", t);
+            Integrations.IMMERSIVE_AIRCRAFT.fail("reflect", t);
         }
         return reflect;
     }

@@ -7,7 +7,7 @@
 
 [page]
 languages = ["en", "fr"]
-images_base = "https://cdn.jsdelivr.net/gh/Team-Arcadia/images@7d35eb95556b/mods/justreplay/curseforge/"
+images_base = "https://team-arcadia.github.io/images/mods/justreplay/curseforge/"
 images_dir = ".."
 out = "../../curseforge_page.md"
 root = "../.."
@@ -55,8 +55,8 @@ icon = "camera"
   icon = "camera"
   name.en = "Records everything"
   name.fr = "Enregistre tout"
-  text.en = "modded worlds included: <code>F8</code>, or keep the last minutes in memory and save with <code>F7</code>."
-  text.fr = "mondes moddés compris, avec <code>F8</code>, ou gardez les dernières minutes en mémoire et sauvez-les avec <code>F7</code>."
+  text.en = "modded worlds and server resource packs included: <code>F8</code>, or keep the last minutes in memory and save with <code>F7</code>, drop markers with <code>F6</code>."
+  text.fr = "mondes moddés et packs de ressources du serveur compris, avec <code>F8</code>, ou gardez les dernières minutes en mémoire et sauvez-les avec <code>F7</code>, posez des repères avec <code>F6</code>."
 
   [[section.item]]
   icon = "play"
@@ -94,8 +94,8 @@ icon = "star"
   icon = "users"
   name.en = "Actors"
   name.fr = "Acteurs"
-  text.en = "any skin or PNG skin, any mob, Blockbench models; seated, walking or following."
-  text.fr = "tout skin ou fichier PNG, tout mob, modèles Blockbench ; assis, en marche ou en suivi."
+  text.en = "any skin or PNG skin, any mob, Blockbench models; seated, walking or following, armor on or off."
+  text.fr = "tout skin ou fichier PNG, tout mob, modèles Blockbench ; assis, en marche ou en suivi, avec ou sans armure."
 
   [[section.item]]
   icon = "note"
@@ -108,8 +108,8 @@ icon = "star"
   icon = "sparkle"
   name.en = "Effects"
   name.fr = "Effets"
-  text.en = "transitions, colour grading, vignette, letterbox, all with keyframes."
-  text.fr = "transitions, étalonnage, vignette, bandes cinéma, le tout avec images clés."
+  text.en = "transitions, colour grading, letterbox, slow motion, timelapses and freeze frames, all with keyframes."
+  text.fr = "transitions, étalonnage, bandes cinéma, ralentis, timelapses et arrêts sur image, le tout avec images clés."
 
   [[section.item]]
   icon = "pin"
@@ -122,8 +122,8 @@ icon = "star"
   icon = "bolt"
   name.en = "Works with your mods"
   name.fr = "Avec vos mods"
-  text.en = "Iris, Distant Horizons, Create, Voice Chat, Emotecraft, WaterFrames, Drop the Beam, Immersive Vehicles."
-  text.fr = "Iris, Distant Horizons, Create, Voice Chat, Emotecraft, WaterFrames, Drop the Beam, Immersive Vehicles."
+  text.en = "Iris, Distant Horizons, Create, Voice Chat, Emotecraft, WaterFrames, Drop the Beam, Immersive Vehicles, More Player Models, Epic Fight, Armourer's Workshop, Custom NPCs."
+  text.fr = "Iris, Distant Horizons, Create, Voice Chat, Emotecraft, WaterFrames, Drop the Beam, Immersive Vehicles, More Player Models, Epic Fight, Armourer's Workshop, Custom NPCs."
 
 [[section]]
 id = "start"
