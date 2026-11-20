@@ -159,6 +159,8 @@ Big modpacks mix versions nobody tested together, so every integration has a saf
   300 times during the replay, and writes an unreadable packet (`packet #16383`) into its recording. Expected: one
   warning, `failed: Simple Voice Chat (in self test forced failure)` in the startup line,
   `packet #16383 could not be read` in the `Replay: N packets skipped (...)` line, and the replay plays on.
+  Run on the nine targets on 2026-11-20: as expected everywhere (one warning per game, the packet counted 6 or 7
+  times in the main replay because of its seeks, once in the buffer clip).
 
 ### Known limits
 
@@ -608,7 +610,8 @@ Les gros modpacks mélangent des versions que personne n'a testées ensemble, al
   points d'accroche 300 fois pendant le replay, et écrit un paquet illisible (`packet #16383`) dans son
   enregistrement. Attendu : un seul avertissement, `failed: Simple Voice Chat (in self test forced failure)` dans la
   ligne de démarrage, `packet #16383 could not be read` dans la ligne `Replay: N packets skipped (...)`, et le replay
-  continue.
+  continue. Passé sur les neuf cibles le 2026-11-20 : conforme partout (un avertissement par jeu, le paquet compté 6
+  ou 7 fois dans le replay principal à cause de ses sauts, une fois dans le clip du tampon).
 
 ### Limites connues
 
