@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # Regenerates the per-target branches from main.
 #
-# main holds one folder per target (<loader>-<minecraft version>/) and the shared code of each Minecraft version
-# (common/<minecraft version>/src/main, its unit tests in src/test). Each target also has a branch named like its
-# folder, holding that single project at the repository root with the shared code merged into src/main and src/test,
-# so it builds on its own with ./gradlew build. A file the project has itself wins over the copy of common (on main
-# its build.gradle leaves the common copy out, like fabric-1.20.1 does for CuriosCompat).
+# main holds one folder per target (<loader>-<minecraft version>/), the shared code of each Minecraft version
+# (common/<minecraft version>/src/main, its unit tests in src/test) and the plain Java of every target (core/src/main,
+# its unit tests in core/src/test). Each target also has a branch named like its folder, holding that single project
+# at the repository root with common and core merged into src/main and src/test, so it builds on its own with
+# ./gradlew build. A file the project has itself wins over the copy of common (on main its build.gradle leaves the
+# common copy out, like fabric-1.20.1 does for CuriosCompat); core never shares a file with them, or the script stops.
 #
 # The branches are never edited by hand: change main, then run this script from the repository
 # root. BASE_BRANCH names another source branch (develop, for instance); main by default. The
@@ -39,7 +40,7 @@ SHARED=(LICENSE NOTICE README.md CHANGELOG.md CONTRIBUTING.md SECURITY.md CODE_O
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
-# Merges src/main and src/test of a shared folder of the base branch (common/<version>) into the target tree.
+# Merges src/main and src/test of a shared folder of the base branch (common/<version>, core) into the target tree.
 # keep: a file the tree already has stays as it is (the project's own copy); stop: such a file ends the script.
 merge_shared() {
     local folder=$1 dest=$2 clash=$3 set rel
@@ -78,8 +79,9 @@ for target in $(git ls-tree -d --name-only "$MAIN"); do
 
     # The project itself, moved to the root.
     git archive "$MAIN" "$target" | tar -x -C "$WORK/"
-    # Shared code of this Minecraft version and its unit tests.
+    # Shared code of this Minecraft version, then the plain Java of every target, with their unit tests.
     merge_shared "common/$version" "$tree_dir" keep
+    merge_shared core "$tree_dir" stop
     # Shared documents and repository files.
     for item in "${SHARED[@]}"; do
         if git cat-file -e "$MAIN:$item" 2>/dev/null; then
