@@ -56,7 +56,7 @@ public final class BetterCombatCompat {
     }
 
     private static Reflect reflect() {
-        if (reflect != null || reflectFailed || !ReplayCompat.BETTER_COMBAT) {
+        if (reflect != null || reflectFailed || !Integrations.BETTER_COMBAT.on()) {
             return reflect;
         }
         try {
@@ -83,7 +83,7 @@ public final class BetterCombatCompat {
             JustReplay.LOGGER.info("Better Combat detected: the local player's attack animations are recorded for its actor");
         } catch (Throwable t) {
             reflectFailed = true;
-            ReplayCompat.warnOnce("bettercombat.reflect", "Better Combat support disabled, its classes changed", t);
+            Integrations.BETTER_COMBAT.fail("reflect", t);
         }
         return reflect;
     }

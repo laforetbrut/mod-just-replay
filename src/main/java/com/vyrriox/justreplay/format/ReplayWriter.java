@@ -1,6 +1,6 @@
 package com.vyrriox.justreplay.format;
 
-import com.vyrriox.justreplay.JustReplay;
+import com.vyrriox.justreplay.JustReplayCore;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -48,7 +48,7 @@ public final class ReplayWriter implements AutoCloseable {
         long queued = queuedBytes.addAndGet(data.length);
         if (queued > BACKLOG_WARN_BYTES && !backlogWarned) {
             backlogWarned = true;
-            JustReplay.LOGGER.warn("The replay writer is {} MB behind, the disk or the CPU cannot keep up", queued >> 20);
+            JustReplayCore.LOGGER.warn("The replay writer is {} MB behind, the disk or the CPU cannot keep up", queued >> 20);
         }
         executor.execute(() -> {
             try {
@@ -58,7 +58,7 @@ public final class ReplayWriter implements AutoCloseable {
                 }
             } catch (IOException e) {
                 failed = true;
-                JustReplay.LOGGER.error("Failed to write replay data", e);
+                JustReplayCore.LOGGER.error("Failed to write replay data", e);
             } finally {
                 queuedBytes.addAndGet(-data.length);
             }
@@ -90,7 +90,7 @@ public final class ReplayWriter implements AutoCloseable {
                 stream.flush();
             } catch (IOException e) {
                 failed = true;
-                JustReplay.LOGGER.error("Failed to flush replay data", e);
+                JustReplayCore.LOGGER.error("Failed to flush replay data", e);
             }
         });
     }
@@ -111,14 +111,14 @@ public final class ReplayWriter implements AutoCloseable {
                 stream.close();
             } catch (IOException e) {
                 closedCleanly = false;
-                JustReplay.LOGGER.error("Failed to close replay stream", e);
+                JustReplayCore.LOGGER.error("Failed to close replay stream", e);
             }
         });
         executor.shutdown();
         try {
             if (!executor.awaitTermination(30, TimeUnit.SECONDS)) {
                 closedCleanly = false;
-                JustReplay.LOGGER.error("The replay writer did not finish within 30 s, the end of the recording may be missing");
+                JustReplayCore.LOGGER.error("The replay writer did not finish within 30 s, the end of the recording may be missing");
             }
         } catch (InterruptedException e) {
             closedCleanly = false;

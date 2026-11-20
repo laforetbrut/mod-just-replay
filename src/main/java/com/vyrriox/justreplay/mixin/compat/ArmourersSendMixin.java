@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.mixin.compat;
 
+import com.vyrriox.justreplay.compat.Integrations;
 import com.vyrriox.justreplay.compat.ArmourersWorkshopCompat;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
@@ -20,8 +21,15 @@ public abstract class ArmourersSendMixin {
     @Inject(method = "sendToServer(Lmoe/plushie/armourers_workshop/core/network/CustomPacket;)V",
             at = @At("HEAD"), cancellable = true, require = 0, remap = false)
     private static void justreplay$dropReplayRequests(@Coerce Object packet, CallbackInfo ci) {
-        if (ArmourersWorkshopCompat.blockServerbound(packet)) {
-            ci.cancel();
+        if (!Integrations.ARMOURERS_WORKSHOP.on()) {
+            return;
+        }
+        try {
+            if (ArmourersWorkshopCompat.blockServerbound(packet)) {
+                ci.cancel();
+            }
+        } catch (Throwable t) {
+            Integrations.ARMOURERS_WORKSHOP.fail("NetworkManager.sendToServer", t);
         }
     }
 }

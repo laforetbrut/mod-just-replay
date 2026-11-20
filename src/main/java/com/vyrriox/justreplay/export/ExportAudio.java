@@ -128,6 +128,8 @@ public final class ExportAudio {
     private final List<Event> ticking = new ArrayList<>();
     private int lastTickedCursor = -1;
     private int voiceStartTick = -1;
+    /** Video time of the exported ticks under the project's speed track; identity without one. */
+    private com.vyrriox.justreplay.editor.TimeMap timeMap;
     private List<AudioTrack> tracks = List.of();
     private float gameGain = 1.0F;
     private int footsteps;
@@ -142,6 +144,23 @@ public final class ExportAudio {
         this.voicePlayer = session != null && session.project().voices ? session.voices() : null;
     }
 
+    /** The video time of the export: game sounds and voices follow its speed, the audio tracks keep their own. */
+    public void useTimeMap(com.vyrriox.justreplay.editor.TimeMap map) {
+        this.timeMap = map;
+    }
+
+    private boolean timed() {
+        return timeMap != null && !timeMap.identity();
+    }
+
+    /** Track sample where the voice of a replay tick starts: one tick before the picture, as without a speed track. */
+    private long voiceSample(int tick) {
+        if (!timed()) {
+            return (long) (tick - voiceStartTick) * RATE / 20;
+        }
+        return Math.round(timeMap.secondsAt(tick - 1) * RATE);
+    }
+
     /** Waits for the voice track, which may still be loading in the background. Called on the finisher thread. */
     public void awaitVoices() {
         VoiceTrack track = voicePlayer != null ? voicePlayer.awaitTrack() : null;
@@ -154,6 +173,10 @@ public final class ExportAudio {
      */
     public void onSound(SoundInstance instance, long now, boolean capturing) {
         if (instance.getSource() == SoundSource.MUSIC || instance.getSource() == SoundSource.MASTER) {
+            return;
+        }
+        if (capturing && timed() && !timeMap.soundsAt(now / (double) RATE)) {
+            // Too slow, too fast or frozen for game sounds at this moment of the video.
             return;
         }
         Minecraft mc = Minecraft.getInstance();
@@ -276,7 +299,20 @@ public final class ExportAudio {
     private void freezeTracks(ReplayProject project) {
         List<AudioTrack> copy = new ArrayList<>();
         for (AudioTrack track : project.audioTracks) {
-            copy.add(track.copy());
+            AudioTrack frozen = track.copy();
+            if (timed()) {
+                // Clips start where the picture reaches their tick and play at their own speed: their start moves to
+                // the video time of that tick (the mix reads track samples as video samples from the first frame).
+                int base = voiceStartTick - 1;
+                for (com.vyrriox.justreplay.editor.audio.AudioClip clip : frozen.clips) {
+                    if (clip.start >= timeMap.end()) {
+                        clip.start = base + (int) Math.round(timeMap.durationSeconds() * 20.0) + (clip.start - timeMap.end());
+                    } else if (clip.start > base) {
+                        clip.start = base + (int) Math.round(timeMap.secondsAt(clip.start) * 20.0);
+                    }
+                }
+            }
+            copy.add(frozen);
         }
         tracks = copy;
         gameGain = project.muteGame ? 0.0F : Math.max(0.0F, Math.min(1.0F, project.gameVolume));
@@ -330,6 +366,9 @@ public final class ExportAudio {
     }
 
     private int voiceEndTick(int frames) {
+        if (timed()) {
+            return (int) Math.ceil(timeMap.tickAt(frames / (double) fps)) + 1;
+        }
         return voiceStartTick + (int) ((long) frames * 20 / fps);
     }
 
@@ -512,7 +551,7 @@ public final class ExportAudio {
             while (next < frames.size()) {
                 VoiceTrack.Frame frame = frames.get(next);
                 // A frame can only start later than its tick, so none past this block can reach it yet.
-                if (frame.tick() > endTick || (long) (frame.tick() - voiceStartTick) * RATE / 20 >= blockEnd) {
+                if (frame.tick() > endTick || voiceSample(frame.tick()) >= blockEnd) {
                     break;
                 }
                 next++;
@@ -544,7 +583,11 @@ public final class ExportAudio {
                 missingDecoder |= frame.codec() == VoiceTrack.CODEC_OPUS;
                 return;
             }
-            long start = (long) (frame.tick() - voiceStartTick) * RATE / 20;
+            long start = voiceSample(frame.tick());
+            if (timed() && !timeMap.soundsAt(start / (double) RATE)) {
+                // Voices go silent with the game sounds when the speed track is too slow, too fast or frozen.
+                return;
+            }
             Long end = speakerEnd.get(frame.speaker());
             if (end != null && end > start && end - start < RATE / 4) {
                 start = end;

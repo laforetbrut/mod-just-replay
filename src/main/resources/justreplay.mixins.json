@@ -39,23 +39,36 @@
     "PlayerSkinLayersMixin",
     "PlayerBodyPartsMixin",
     "HiddenArmItemMixin",
+    "HiddenArmorMixin",
+    "HiddenElytraMixin",
+    "HiddenHeadItemMixin",
     "LevelRendererSectionsAccessor",
     "SectionOcclusionGraphAccessor",
     "EntityBoundSoundAccessor",
     "EntityEditRenderMixin",
     "EntityEditGlowMixin",
+    "VisualFogMixin",
+    "VisualLightMixin",
+    "VisualParticlesMixin",
+    "VisualBlockParticlesMixin",
+    "GameRendererVisualAccessor",
     "SoundManagerStopMixin",
     "MinecraftHooksMixin",
     "MouseHandlerHooksMixin",
+    "KeyboardHandlerHooksMixin",
+    "MouseHandlerAccessor",
+    "KeyboardHandlerInvoker",
+    "GameRendererGuiAccessor",
     "SoundEngineHooksMixin",
     "ClientLevelTickMixin",
     "EntityRideTickMixin",
     "EntityRendererNameTagMixin",
     "EntityRenderStateMixin",
     "EntityRendererStateLinkMixin",
-    "LivingEntityRendererHooksMixin"
+    "LivingEntityRendererHooksMixin",
+    "IntegratedServerHaltMixin"
   ],
   "injectors": {
-    "defaultRequire": 1
+    "defaultRequire": 0
   }
 }
