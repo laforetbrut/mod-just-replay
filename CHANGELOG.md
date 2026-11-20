@@ -17,6 +17,7 @@
 - **Speed track**: slow motion, fast forward, smooth ramps, timelapses and freeze frames in the Effects tab and on the timeline (Advanced mode). Previews and exports follow it; game sounds and voices go quiet outside x0.5 to x2 (adjustable).
 - **Markers while recording**: F6 drops a marker while recording or with the instant replay buffer on. They show up on the timeline when you open the replay.
 - **World visuals**: night vision, reduced or no fog, and particles all, none or by type in the World tab; hide every entity of a type and give an entity a glowing outline in the Entities tab. Exports show them too.
+- **Render veil**: while a video exports, the window gets a veil with the progress, the frame count, the time spent and an estimate of the time left. Mouse and keys are locked until it's done (Esc still cancels), so nothing moves the camera or sneaks into the video. The veil itself never shows up in the video.
 
 Heads up: the automatic self test passes on every target, Armourer's Workshop included where it loads, but nobody has played with this yet and the other mods above were only checked against their jars, so tell me if something looks off.
 
@@ -27,6 +28,7 @@ Heads up: the automatic self test passes on every target, Armourer's Workshop in
 - **Building from source**: `./gradlew build` also runs the unit tests of `core/src/test` and `common/<mc>/src/test`, and the target branches carry them. See `docs/BUILDING.md`.
 - **One core for every version**: the plain Java code (replay formats and names, speed track, effects, audio mixing, Blockbench models, config file, integration guard) now lives once in `core/` with its tests, instead of three copies. A fix there lands on all nine targets at once, and `tools/check_layers.py` keeps the game out of it. Nothing changes in game.
 - **Test matrix**: `tools/test_matrix.py` builds and self tests every target one after the other, with one report, also with the mods of a modpack. See `docs/TEST_MATRIX.md`.
+- **Self test**: checks that the veil covers every exported frame, that the camera stays on its path and that a mouse sweep or an F1 press changes nothing during an export, and saves a capture of the window with the veil.
 
 ### Fixed
 - **Big modpacks**: an integration whose mod changed (a method or class gone, a crash in its code) no longer takes the game down. It turns itself off until the next start with one warning in the log, and the rest keeps going.
@@ -37,6 +39,7 @@ Heads up: the automatic self test passes on every target, Armourer's Workshop in
 - **Leaving a replay on Fabric** no longer risks freezing the game while the replay world shuts down (likelier with a server resource pack in the replay).
 - **Actors named after a player**: a skin lookup that fails at once (profile service down) no longer crashes the game in a replay.
 - **Target branches**: the generated `fabric-1.20.1` branch no longer gets the Forge copy of the Curios integration, which kept it from building on its own.
+- **Camera paths on 26.1.2**: the camera showed one frame late, and moving the mouse made it twitch in previews and exports. It now sits right on its path.
 
 ### Ajouts
 - **Masquer l'armure** : coupe le casque, le plastron, les jambières ou les bottes d'un joueur enregistré ou d'un acteur, pièce par pièce. Les élytres partent avec le plastron, une citrouille ou une tête avec le casque. Seuls le replay et la vidéo changent, et les anciens projets gardent leur armure. La nouvelle option `hidePlayerArmor` déshabille tous les joueurs d'un coup. Ça marche aussi sur les modèles dessinés par Epic Fight et sur les skins d'Armourer's Workshop : les ailes partent avec le plastron, une tenue complète dès qu'un emplacement est masqué.
@@ -53,6 +56,7 @@ Heads up: the automatic self test passes on every target, Armourer's Workshop in
 - **Piste de vitesse** : ralenti, accéléré, rampes douces, timelapses et gels de l'image dans l'onglet Effects et sur la timeline (mode Avancé). L'aperçu et les exports la suivent ; les sons du jeu et les voix se taisent hors de x0,5 à x2 (réglable).
 - **Repères pendant l'enregistrement** : F6 pose un repère pendant un enregistrement ou avec le tampon des dernières minutes. Ils arrivent sur la timeline à l'ouverture du replay.
 - **Visuels du monde** : vision nocturne, brouillard réduit ou coupé, et particules toutes, aucune ou par type dans l'onglet Monde ; masquer toutes les entités d'un type et donner un contour lumineux à une entité dans l'onglet Entités. Les exports les montrent aussi.
+- **Voile de rendu** : pendant un export vidéo, la fenêtre se couvre d'un voile avec la progression, le nombre d'images, le temps passé et une estimation du temps restant. Souris et clavier sont bloqués jusqu'à la fin (Échap annule toujours), donc rien ne bouge la caméra ni ne s'invite dans la vidéo. Le voile lui-même n'apparaît jamais dans la vidéo.
 
 Attention : le test automatique passe sur toutes les cibles, Armourer's Workshop compris là où il charge, mais personne n'y a encore joué et les autres mods plus haut n'ont été vérifiés que contre leur jar, alors dis-moi si quelque chose cloche.
 
@@ -63,6 +67,7 @@ Attention : le test automatique passe sur toutes les cibles, Armourer's Workshop
 - **Compiler le mod** : `./gradlew build` lance aussi les tests unitaires de `core/src/test` et de `common/<mc>/src/test`, et les branches de cible les embarquent. Voir `docs/BUILDING.md`.
 - **Un seul cœur pour toutes les versions** : le code Java pur (formats et noms des replays, piste de vitesse, effets, mixage audio, modèles Blockbench, fichier de config, garde des intégrations) vit maintenant une seule fois dans `core/` avec ses tests, au lieu de trois copies. Un correctif y arrive d'un coup sur les neuf cibles, et `tools/check_layers.py` en tient le jeu à l'écart. Rien ne change en jeu.
 - **Matrice de tests** : `tools/test_matrix.py` compile et teste toutes les cibles l'une après l'autre, avec un seul rapport, aussi avec les mods d'un modpack. Voir `docs/TEST_MATRIX.md`.
+- **Test automatique** : vérifie que le voile couvre chaque image exportée, que la caméra reste sur sa trajectoire et qu'un coup de souris ou un appui sur F1 ne change rien pendant un export, et enregistre une capture de la fenêtre avec le voile.
 
 ### Correctifs
 - **Gros modpacks** : une intégration dont le mod a changé (méthode ou classe disparue, plantage dans son code) ne fait plus planter le jeu. Elle se coupe jusqu'au prochain démarrage avec un seul avertissement dans le log, et le reste continue.
@@ -73,6 +78,7 @@ Attention : le test automatique passe sur toutes les cibles, Armourer's Workshop
 - **Quitter un replay sur Fabric** ne risque plus de figer le jeu pendant que le monde du replay se ferme (plus probable avec un pack de ressources du serveur dans le replay).
 - **Acteurs au nom d'un joueur** : une recherche de skin qui échoue d'un coup (service de profils indisponible) ne fait plus planter le jeu pendant un replay.
 - **Branches de cible** : la branche générée `fabric-1.20.1` ne reçoit plus la copie Forge de l'intégration Curios, qui l'empêchait de compiler seule.
+- **Trajectoires de caméra en 26.1.2** : la caméra avait une image de retard, et bouger la souris la faisait trembler dans l'aperçu et les exports. Elle colle maintenant à sa trajectoire.
 
 ---
 

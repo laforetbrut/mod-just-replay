@@ -62,6 +62,8 @@
     "SoundManagerStopMixin",
     "MinecraftHooksMixin",
     "MouseHandlerHooksMixin",
+    "KeyboardHandlerHooksMixin",
+    "MouseHandlerAccessor",
     "SoundEngineHooksMixin",
     "ClientLevelTickMixin",
     "EntityRideTickMixin",

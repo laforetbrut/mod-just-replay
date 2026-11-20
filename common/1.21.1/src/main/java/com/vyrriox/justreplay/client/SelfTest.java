@@ -5,6 +5,7 @@ import com.vyrriox.justreplay.editor.ReplayProject;
 import com.vyrriox.justreplay.editor.overlay.Overlay;
 import com.vyrriox.justreplay.export.VideoExporter;
 import com.vyrriox.justreplay.format.ReplayStorage;
+import com.vyrriox.justreplay.mixin.MouseHandlerAccessor;
 import com.vyrriox.justreplay.gui.EditorScreen;
 import com.vyrriox.justreplay.record.Recorder;
 import com.vyrriox.justreplay.replay.ReplaySession;
@@ -97,6 +98,22 @@ public final class SelfTest {
     private static int forcedCalls;
     private static int forcedRan;
     private static int forcedCursor = -1;
+    /**
+     * Render veil checks of the export: captured frames, frames whose camera was not where the path put the player,
+     * the worst gap and the largest step of the path between two frames (the gap check can only fail on a moving
+     * path), the mouse turn and the F1 press tried in the middle of the export, and the window capture.
+     */
+    private static int veilFrames;
+    private static int cameraOffFrames;
+    private static double cameraWorstOff;
+    private static double pathWorstStep;
+    private static double pathLastX = Double.NaN;
+    private static double pathLastZ;
+    private static float pathLastYaw;
+    private static double mouseTurned = Double.NaN;
+    private static boolean mouseDropped;
+    private static Boolean keyHidGui;
+    private static boolean veilShot;
 
     /** Counts, during a replay, the sounds the self test made for its own player while recording. */
     public static void onSound(net.minecraft.client.resources.sounds.SoundInstance sound) {
@@ -298,6 +315,76 @@ public final class SelfTest {
     }
 
     private static boolean vehiclePlacedLive;
+
+    /**
+     * Called by the export right after a frame is captured, before the veil goes over it: the rendered camera must be
+     * where the camera path put the player this frame, and moving the mouse or pressing F1 must change nothing.
+     */
+    public static void onExportFrame(Minecraft mc) {
+        LocalPlayer p = mc.player;
+        if (!ENABLED || p == null) {
+            return;
+        }
+        veilFrames++;
+        net.minecraft.client.Camera camera = mc.gameRenderer.getMainCamera();
+        double off = Math.max(Math.abs(camera.getPosition().x - p.getX()), Math.abs(camera.getPosition().z - p.getZ()));
+        double turnOff = Math.max(Math.abs(net.minecraft.util.Mth.wrapDegrees(camera.getYRot() - p.getYRot())), Math.abs(camera.getXRot() - p.getXRot()));
+        // Blocks and degrees: a tenth of a degree is as visible as a thousandth of a block at this range.
+        double gap = Math.max(off, turnOff / 100.0);
+        if (gap > 1.0E-3) {
+            cameraOffFrames++;
+        }
+        cameraWorstOff = Math.max(cameraWorstOff, gap);
+        if (!Double.isNaN(pathLastX)) {
+            double step = Math.max(Math.hypot(p.getX() - pathLastX, p.getZ() - pathLastZ),
+                    Math.abs(net.minecraft.util.Mth.wrapDegrees(p.getYRot() - pathLastYaw)) / 100.0);
+            pathWorstStep = Math.max(pathWorstStep, step);
+        }
+        pathLastX = p.getX();
+        pathLastZ = p.getZ();
+        pathLastYaw = p.getYRot();
+        long window = mc.getWindow().getWindow();
+        if (veilFrames == 12) {
+            // A mouse sweep as the window reports it: it must not turn the player the camera rides.
+            MouseHandlerAccessor mouse = (MouseHandlerAccessor) mc.mouseHandler;
+            float yawBefore = p.getYRot();
+            float pitchBefore = p.getXRot();
+            int droppedBefore = com.vyrriox.justreplay.export.RenderVeil.droppedMouseLooks();
+            mouse.justreplay$setAccumulatedDX(400.0);
+            mouse.justreplay$setAccumulatedDY(200.0);
+            mouse.justreplay$turnPlayer(0.05);
+            mouseTurned = Math.max(Math.abs(p.getYRot() - yawBefore), Math.abs(p.getXRot() - pitchBefore));
+            mouseDropped = com.vyrriox.justreplay.export.RenderVeil.droppedMouseLooks() > droppedBefore;
+        } else if (veilFrames == 14) {
+            // F1 shows the HUD again, which would be burnt into the rest of the video.
+            mc.keyboardHandler.keyPress(window, 290, 0, 1, 0);
+            mc.keyboardHandler.keyPress(window, 290, 0, 0, 0);
+        } else if (veilFrames == 24) {
+            keyHidGui = mc.options.hideGui;
+        }
+    }
+
+    /** Window capture with the veil over it, once the export is well into its frames. */
+    private static void shotVeil(Minecraft mc) {
+        VideoExporter e = VideoExporter.current();
+        if (!veilShot && e != null && !e.isPreparing() && e.frames() >= 30) {
+            veilShot = true;
+            shot(mc, "export-veil");
+        }
+    }
+
+    /** The veil was over every captured frame, the camera stayed on its path, the mouse and F1 changed nothing. */
+    private static void checkVeil() {
+        int drawn = com.vyrriox.justreplay.export.RenderVeil.drawnFrames();
+        log("render veil drawn on {} frames for {} captured -> {}", drawn, veilFrames, veilFrames > 0 && drawn >= veilFrames ? "OK" : "FAIL");
+        log("export camera on its path: {} of {} frames off, worst gap {} (path moved up to {} per frame) -> {}", cameraOffFrames,
+                veilFrames, String.format(java.util.Locale.ROOT, "%.5f", cameraWorstOff), String.format(java.util.Locale.ROOT, "%.4f", pathWorstStep),
+                veilFrames > 0 && cameraOffFrames == 0 ? "OK" : "FAIL");
+        log("export mouse sweep dropped={} turned the camera by {} degrees -> {}", mouseDropped, mouseTurned,
+                mouseDropped && mouseTurned == 0.0 ? "OK" : "FAIL");
+        log("export F1 press left the HUD hidden={} -> {}", keyHidGui, Boolean.TRUE.equals(keyHidGui) ? "OK" : "FAIL");
+        log("export window capture with the veil taken={} -> {}", veilShot, veilShot ? "OK" : "FAIL");
+    }
 
     private static void shot(Minecraft mc, String name) {
         Screenshot.grab(mc.gameDirectory, "selftest-" + name + ".png", mc.getMainRenderTarget(), c -> log("screenshot {}", name));
@@ -1055,6 +1142,7 @@ public final class SelfTest {
             }
             case 14 -> {
                 sampleExportClocks();
+                shotVeil(mc);
                 if (!VideoExporter.isActive()) {
                     next(200);
                 }
@@ -1065,6 +1153,7 @@ public final class SelfTest {
                 log("export audio clips mixed={} (expected 2), audio mux log={}", com.vyrriox.justreplay.export.ExportAudio.lastMixedClips(),
                         Files.exists(mp4.resolveSibling(mp4.getFileName() + ".audio.log")));
                 log("mods after export: {}", Mods.state(mc, ReplaySession.current()));
+                checkVeil();
                 Mods.logDropTheBeam("after export");
                 if (exportClockFirst < 0) {
                     log("clock export: no sample while the export ran FAIL");

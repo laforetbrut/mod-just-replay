@@ -105,15 +105,35 @@ public final class JustReplayClient {
         return Minecraft.getInstance().screen instanceof EditorScreen && chatLayer;
     }
 
+    /** True once the camera path was applied to this frame before its camera was worked out. */
+    private static boolean cameraPlaced;
+
+    /**
+     * Just before the game works out the camera of the frame. 26.1 extracts the whole frame before the frame hooks
+     * run, so a camera placed there showed one frame late, and with the mouse turn of the frame on top of it.
+     */
+    public static void onCameraUpdate(float partialTick) {
+        placeCamera(partialTick);
+        cameraPlaced = true;
+    }
+
     public static void onRenderFramePre(float partialTick) {
         com.vyrriox.justreplay.replay.SectionRepair.beforeFrame(Minecraft.getInstance());
+        if (!cameraPlaced) {
+            // The early hook did not run (another mod changed the frame loop): late is better than never.
+            placeCamera(partialTick);
+        }
+        cameraPlaced = false;
+        com.vyrriox.justreplay.replay.WorldOverride.onRenderFrame(partialTick);
+    }
+
+    private static void placeCamera(float partialTick) {
         ReplaySession session = ReplaySession.current();
         if (session != null && session.spectate().isActive() && session.isCameraPathActive()) {
             // A camera path or an export started this tick: never render it from a spectated entity.
             session.spectate().stop(Minecraft.getInstance());
         }
         CameraController.onRenderFrame(partialTick);
-        com.vyrriox.justreplay.replay.WorldOverride.onRenderFrame(partialTick);
     }
 
     public static void onRenderFramePost(float partialTick) {

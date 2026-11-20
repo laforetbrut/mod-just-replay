@@ -109,6 +109,9 @@ public final class VideoExporter {
     private boolean finished;
     private int previousCursor;
     private int previousSpeedIndex;
+    /** Wall clock when the export started, and when its first frame was captured (0 before), for the render veil. */
+    private final long startNanos = System.nanoTime();
+    private long captureStartNanos;
 
     /** How an export ended: complete, complete but silent because the sound could not be added, or not at all. */
     private enum Outcome {
@@ -167,8 +170,42 @@ public final class VideoExporter {
     }
 
     public float progress() {
-        long total = timeMap.identity() ? (long) (endTick - startTick) * fps / 20 + 1 : timeMap.frames(fps);
-        return Math.min(1.0F, (float) frames / Math.max(1L, total));
+        return Math.min(1.0F, (float) frames / Math.max(1L, totalFrames()));
+    }
+
+    /** Frames the video will have: the exported ticks under the speed track. */
+    public long totalFrames() {
+        return timeMap.identity() ? (long) (endTick - startTick) * fps / 20 + 1 : timeMap.frames(fps);
+    }
+
+    /** True until the first frame is captured: the world plays its pre-roll and the chunks build. */
+    public boolean isPreparing() {
+        return phase != Phase.CAPTURE;
+    }
+
+    /** True once every frame is issued and only the last ones are on their way to FFmpeg. */
+    public boolean isDraining() {
+        return false;
+    }
+
+    /** True when this export saves a single still picture. */
+    public boolean isStill() {
+        return still != null;
+    }
+
+    /** Wall time since the export started, warm-up included. */
+    public long elapsedMillis() {
+        return (System.nanoTime() - startNanos) / 1_000_000L;
+    }
+
+    /** Wall time since the first frame was captured, which the time left is worked out from. */
+    public long captureMillis() {
+        return captureStartNanos == 0L ? 0L : (System.nanoTime() - captureStartNanos) / 1_000_000L;
+    }
+
+    /** Name of the file the player gets: the still, the video, or the frame folder. */
+    public String shownFileName() {
+        return String.valueOf((still != null ? still : output).getFileName());
     }
 
     /** Length of the video being made, in seconds: the exported ticks under the speed track. */
@@ -297,6 +334,9 @@ public final class VideoExporter {
         mc.options.hideGui = true;
         mc.options.pauseOnLostFocus = false;
         mc.setScreen(null);
+        // The render veil covers the window: nothing the player holds or moves may reach the camera.
+        net.minecraft.client.KeyMapping.releaseAll();
+        mc.mouseHandler.releaseMouse();
 
         VideoExporter exporter = new VideoExporter(session, startTick, endTick, fps, output, png, process, renderWidth, renderHeight,
                 outWidth, outHeight, previousHideGui, previousPauseOnLostFocus);
@@ -395,6 +435,14 @@ public final class VideoExporter {
     }
 
     private void frame(float partialTick) {
+        capture(partialTick);
+        if (current == this) {
+            // Drawn on the picture the window shows once the frame is captured, so it never reaches the video.
+            RenderVeil.draw(this);
+        }
+    }
+
+    private void capture(float partialTick) {
         Minecraft mc = Minecraft.getInstance();
         if (failed || ReplaySession.current() != session) {
             finish(false);
@@ -433,6 +481,7 @@ public final class VideoExporter {
         }
         frames++;
         Camera camera = mc.gameRenderer.getMainCamera();
+        com.vyrriox.justreplay.client.SelfTest.onExportFrame(mc);
         audio.onFrame(camera.getPosition().x, camera.getPosition().y, camera.getPosition().z, camera.getYRot());
         com.vyrriox.justreplay.compat.ReplayCompat.onExportFrame(audio, frames - 1, fps, camera.getPosition().x, camera.getPosition().y,
                 camera.getPosition().z, camera.getYRot(), partialTick);
@@ -464,6 +513,7 @@ public final class VideoExporter {
             JustReplay.LOGGER.warn("Pre-roll ended at tick {} instead of {}", session.playback().cursor(), captureCursor);
         }
         phase = Phase.CAPTURE;
+        captureStartNanos = System.nanoTime();
         JustReplay.LOGGER.debug("Export warm-up done after {} frames", warmedFrames);
     }
 
@@ -504,6 +554,9 @@ public final class VideoExporter {
         }
         mc.options.hideGui = previousHideGui;
         mc.options.pauseOnLostFocus = previousPauseOnLostFocus;
+        if (mc.screen == null && mc.level != null) {
+            mc.mouseHandler.grabMouse();
+        }
         session.playback().setPaused(true);
         Thread waiter = new Thread(() -> {
             Outcome outcome = Outcome.FAILED;
