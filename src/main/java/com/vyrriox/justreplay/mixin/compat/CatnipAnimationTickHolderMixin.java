@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.mixin.compat;
 
+import com.vyrriox.justreplay.compat.Integrations;
 import com.vyrriox.justreplay.compat.ReplayCompat;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
@@ -23,18 +24,32 @@ public abstract class CatnipAnimationTickHolderMixin {
 
     @Inject(method = "tick", at = @At("HEAD"), cancellable = true, require = 0, remap = false)
     private static void justreplay$replayTick(CallbackInfo ci) {
-        int replayTicks = ReplayCompat.animationTicks();
-        if (replayTicks >= 0) {
-            ticks = replayTicks;
-            ci.cancel();
+        if (!Integrations.CREATE.on()) {
+            return;
+        }
+        try {
+            int replayTicks = ReplayCompat.animationTicks();
+            if (replayTicks >= 0) {
+                ticks = replayTicks;
+                ci.cancel();
+            }
+        } catch (Throwable t) {
+            Integrations.CREATE.fail("AnimationTickHolder.tick", t);
         }
     }
 
     @Inject(method = "reset", at = @At("TAIL"), require = 0, remap = false)
     private static void justreplay$replayReset(CallbackInfo ci) {
-        int replayTicks = ReplayCompat.animationTicks();
-        if (replayTicks >= 0) {
-            ticks = replayTicks;
+        if (!Integrations.CREATE.on()) {
+            return;
+        }
+        try {
+            int replayTicks = ReplayCompat.animationTicks();
+            if (replayTicks >= 0) {
+                ticks = replayTicks;
+            }
+        } catch (Throwable t) {
+            Integrations.CREATE.fail("AnimationTickHolder.reset", t);
         }
     }
 }

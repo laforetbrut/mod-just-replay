@@ -75,7 +75,7 @@ public final class ExposureCompat {
     }
 
     private static Reflect reflect() {
-        if (reflect != null || reflectFailed || !ReplayCompat.EXPOSURE) {
+        if (reflect != null || reflectFailed || !Integrations.EXPOSURE.on()) {
             return reflect;
         }
         try {
@@ -104,7 +104,7 @@ public final class ExposureCompat {
         } catch (Throwable t) {
             reflectFailed = true;
             reflect = null;
-            ReplayCompat.warnOnce("exposure.reflect", "Exposure support disabled, its classes changed", t);
+            Integrations.EXPOSURE.fail("reflect", t);
         }
         return reflect;
     }

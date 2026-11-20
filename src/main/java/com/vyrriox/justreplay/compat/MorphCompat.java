@@ -59,7 +59,7 @@ public final class MorphCompat {
     }
 
     private static Reflect reflect() {
-        if (reflect != null || reflectFailed || !ReplayCompat.MORPH) {
+        if (reflect != null || reflectFailed || !Integrations.MORPH.on()) {
             return reflect;
         }
         try {
@@ -82,7 +82,7 @@ public final class MorphCompat {
         } catch (Throwable t) {
             reflectFailed = true;
             reflect = null;
-            ReplayCompat.warnOnce("morph.reflect", "Morph support disabled, its classes changed", t);
+            Integrations.MORPH.fail("reflect", t);
         }
         return reflect;
     }

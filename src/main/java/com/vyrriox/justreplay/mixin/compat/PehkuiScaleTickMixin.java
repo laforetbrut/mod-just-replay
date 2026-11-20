@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.mixin.compat;
 
+import com.vyrriox.justreplay.compat.Integrations;
 import com.vyrriox.justreplay.compat.ReplayCompat;
 import net.minecraft.client.Minecraft;
 import org.spongepowered.asm.mixin.Mixin;
@@ -29,6 +30,18 @@ public abstract class PehkuiScaleTickMixin {
 
     @Inject(method = "tick()V", at = @At("HEAD"), cancellable = true, require = 0, remap = false)
     private void justreplay$followReplayClock(CallbackInfo ci) {
+        if (!Integrations.PEHKUI.on()) {
+            return;
+        }
+        try {
+            justreplay$stepWithReplay(ci);
+        } catch (Throwable t) {
+            Integrations.PEHKUI.fail("ScaleData.tick", t);
+        }
+    }
+
+    @Unique
+    private void justreplay$stepWithReplay(CallbackInfo ci) {
         if (justreplay$extraTicks || !Minecraft.getInstance().isSameThread()) {
             return;
         }

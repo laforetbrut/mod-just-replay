@@ -9,7 +9,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * Outlines the recorded entity selected in the editor's Entities tab (never in an export).
+ * Outlines the recorded entity selected in the editor's Entities tab (never in an export), and the entities the project
+ * gives a glowing outline (in exports too).
  *
  * @author vyrriox
  */
@@ -17,7 +18,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class EntityEditGlowMixin {
     @Inject(method = "shouldEntityAppearGlowing", at = @At("HEAD"), cancellable = true)
     private void justreplay$selectedGlows(Entity entity, CallbackInfoReturnable<Boolean> cir) {
-        if (EntityEdits.highlighted(entity)) {
+        if (EntityEdits.highlighted(entity) || EntityEdits.glows(entity)) {
             cir.setReturnValue(true);
         }
     }

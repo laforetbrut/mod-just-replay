@@ -1,5 +1,6 @@
 package com.vyrriox.justreplay.mixin.compat;
 
+import com.vyrriox.justreplay.compat.Integrations;
 import com.vyrriox.justreplay.compat.WaterFramesCompat;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import org.spongepowered.asm.mixin.Mixin;
@@ -21,6 +22,13 @@ public abstract class WaterFramesControlMixin {
     @Inject(method = "execute(Lme/srrapero720/waterframes/common/block/entity/DisplayTile;Z)V", at = @At("TAIL"),
             require = 0, remap = false)
     private void justreplay$executed(@Coerce BlockEntity tile, boolean server, CallbackInfo ci) {
-        WaterFramesCompat.onDataChanged(tile);
+        if (!Integrations.WATERFRAMES.on()) {
+            return;
+        }
+        try {
+            WaterFramesCompat.onDataChanged(tile);
+        } catch (Throwable t) {
+            Integrations.WATERFRAMES.fail("DisplayControlPacket.execute", t);
+        }
     }
 }
