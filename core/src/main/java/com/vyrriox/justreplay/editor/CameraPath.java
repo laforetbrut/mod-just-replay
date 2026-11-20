@@ -1,7 +1,5 @@
 package com.vyrriox.justreplay.editor;
 
-import net.minecraft.util.Mth;
-
 import java.util.List;
 
 /**
@@ -43,8 +41,8 @@ public final class CameraPath {
             if (i > 0) {
                 // Unwrap angles over the whole path so the camera always turns the short way.
                 double[] prev = points[i - 1];
-                points[i][3] = prev[3] + Mth.wrapDegrees(points[i][3] - prev[3]);
-                points[i][5] = prev[5] + Mth.wrapDegrees(points[i][5] - prev[5]);
+                points[i][3] = prev[3] + wrapDegrees(points[i][3] - prev[3]);
+                points[i][5] = prev[5] + wrapDegrees(points[i][5] - prev[5]);
             }
         }
     }
@@ -218,6 +216,21 @@ public final class CameraPath {
         double span = table[hi] - table[lo];
         double f = span <= 0 ? 0 : (distance - table[lo]) / span;
         return (lo + f) / SAMPLES_PER_SEGMENT;
+    }
+
+    /**
+     * Angle in degrees brought into [-180, 180), the same code as the game's {@code Mth.wrapDegrees(double)} so that
+     * core needs no game class.
+     */
+    static double wrapDegrees(double angle) {
+        double wrapped = angle % 360.0;
+        if (wrapped >= 180.0) {
+            wrapped -= 360.0;
+        }
+        if (wrapped < -180.0) {
+            wrapped += 360.0;
+        }
+        return wrapped;
     }
 
     static double[] clamp(double[] state) {
