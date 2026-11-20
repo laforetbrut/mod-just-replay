@@ -325,3 +325,10 @@
 **Root cause:** Armourer's Workshop names its mixin targets in SRG itself through its config plugin (moe.plushie.armourers_workshop.api.annotation.Resolver), without a refmap, so fg.deobf and mixin.env.remapRefMap cannot translate them to the Parchment names of the dev game.
 **Fix:** None on our side: the hidden armor hooks were checked on Forge 1.20.1 by name against the real jar (verif-compat of task 467) and in game on Fabric 1.20.1, whose code is the same.
 **Prevention:** Test Armourer's Workshop 1.20.1 in game on Fabric 1.20.1 or with an installed Forge game, not in the Forge 1.20.1 dev client.
+
+## [2026-11-20 01:19] — Replay crashed with ConcurrentModificationException in ActorManager.pumpLookups
+**Context:** Task 467: Fabric 1.21.1 self test with player actors while the profile service answered an HTML error page
+**Error:** java.util.ConcurrentModificationException at ActorManager.pumpLookups(ActorManager.java:462) <- ActorManager.tick <- ReplaySession.clientTick (client crash)
+**Root cause:** pumpLookups started each due lookup inside its iterator loop. A lookup whose future was already complete (failed at once) ran its whenComplete callback on the render thread, and Minecraft.execute ran complete() right away, which queued the retry into the list being walked.
+**Fix:** pumpLookups collects the due lookups, ends the walk, then starts them (commit after 'fix: a failed actor skin lookup could crash the replay'), in the three versions.
+**Prevention:** Never start work that may complete synchronously while iterating the queue it can modify; collect first, act after the loop.

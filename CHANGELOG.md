@@ -33,6 +33,7 @@ Heads up: none of this has been tried in game yet. Every target builds and each 
 - **Export names**: a video named like a Windows device (CON, NUL, COM1...) or starting with a dot now gets a name that works everywhere.
 - **Hand edited projects**: an empty weather no longer stops the replay from opening.
 - **Leaving a replay on Fabric** no longer risks freezing the game while the replay world shuts down (likelier with a server resource pack in the replay).
+- **Actors named after a player**: a skin lookup that fails at once (profile service down) no longer crashes the game in a replay.
 
 ### Ajouts
 - **Masquer l'armure** : coupe le casque, le plastron, les jambières ou les bottes d'un joueur enregistré ou d'un acteur, pièce par pièce. Les élytres partent avec le plastron, une citrouille ou une tête avec le casque. Seuls le replay et la vidéo changent, et les anciens projets gardent leur armure. La nouvelle option `hidePlayerArmor` déshabille tous les joueurs d'un coup. Ça marche aussi sur les modèles dessinés par Epic Fight et sur les skins d'Armourer's Workshop : les ailes partent avec le plastron, une tenue complète dès qu'un emplacement est masqué.
@@ -65,6 +66,7 @@ Attention : rien de tout ça n'a encore été essayé en jeu. Toutes les cibles 
 - **Noms d'export** : une vidéo nommée comme un périphérique Windows (CON, NUL, COM1...) ou qui commence par un point reçoit maintenant un nom valable partout.
 - **Projets retouchés à la main** : une météo vide ne bloque plus l'ouverture du replay.
 - **Quitter un replay sur Fabric** ne risque plus de figer le jeu pendant que le monde du replay se ferme (plus probable avec un pack de ressources du serveur dans le replay).
+- **Acteurs au nom d'un joueur** : une recherche de skin qui échoue d'un coup (service de profils indisponible) ne fait plus planter le jeu pendant un replay.
 
 ---
 
