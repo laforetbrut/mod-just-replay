@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Regenerates the per-target branches from main.
 #
-# main holds one folder per target (<loader>-<minecraft version>/) and the shared code of each
-# Minecraft version (common/<minecraft version>/src/main, its unit tests in src/test). Each target
-# also has a branch named like its folder, holding that single project at the repository root with
-# the shared code merged into src/main and src/test, so it builds on its own with ./gradlew build.
+# main holds one folder per target (<loader>-<minecraft version>/) and the shared code of each Minecraft version
+# (common/<minecraft version>/src/main, its unit tests in src/test). Each target also has a branch named like its
+# folder, holding that single project at the repository root with the shared code merged into src/main and src/test,
+# so it builds on its own with ./gradlew build. A file the project has itself wins over the copy of common (on main
+# its build.gradle leaves the common copy out, like fabric-1.20.1 does for CuriosCompat).
 #
 # The branches are never edited by hand: change main, then run this script from the repository
 # root. BASE_BRANCH names another source branch (develop, for instance); main by default. The
@@ -38,6 +39,31 @@ SHARED=(LICENSE NOTICE README.md CHANGELOG.md CONTRIBUTING.md SECURITY.md CODE_O
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
+# Merges src/main and src/test of a shared folder of the base branch (common/<version>) into the target tree.
+# keep: a file the tree already has stays as it is (the project's own copy); stop: such a file ends the script.
+merge_shared() {
+    local folder=$1 dest=$2 clash=$3 set rel
+    for set in main test; do
+        if ! git cat-file -e "$MAIN:$folder/src/$set" 2>/dev/null; then
+            continue
+        fi
+        mkdir -p "$WORK/shared" "$dest/src/$set"
+        git archive "$MAIN" "$folder/src/$set" | tar -x -C "$WORK/shared"
+        while IFS= read -r rel; do
+            if [ -e "$dest/src/$set/$rel" ]; then
+                if [ "$clash" = stop ]; then
+                    echo "$target: $folder/src/$set/$rel is also in the project or in common: keep one copy." >&2
+                    exit 1
+                fi
+                echo "$target: keeps its own src/$set/$rel over the copy of $folder"
+                rm "$WORK/shared/$folder/src/$set/$rel"
+            fi
+        done < <(cd "$WORK/shared/$folder/src/$set" && find . -type f | sed 's#^\./##')
+        cp -R "$WORK/shared/$folder/src/$set/." "$dest/src/$set/"
+        rm -rf "$WORK/shared"
+    done
+}
+
 for target in $(git ls-tree -d --name-only "$MAIN"); do
     if [[ ! "$target" =~ ^(neoforge|forge|fabric)-(.+)$ ]]; then
         continue
@@ -52,16 +78,8 @@ for target in $(git ls-tree -d --name-only "$MAIN"); do
 
     # The project itself, moved to the root.
     git archive "$MAIN" "$target" | tar -x -C "$WORK/"
-    # Shared code of this Minecraft version and its unit tests, merged into src/main and src/test.
-    for set in main test; do
-        if git cat-file -e "$MAIN:common/$version/src/$set" 2>/dev/null; then
-            mkdir -p "$WORK/common-$target"
-            git archive "$MAIN" "common/$version/src/$set" | tar -x -C "$WORK/common-$target"
-            mkdir -p "$tree_dir/src/$set"
-            cp -R "$WORK/common-$target/common/$version/src/$set/." "$tree_dir/src/$set/"
-            rm -rf "$WORK/common-$target"
-        fi
-    done
+    # Shared code of this Minecraft version and its unit tests.
+    merge_shared "common/$version" "$tree_dir" keep
     # Shared documents and repository files.
     for item in "${SHARED[@]}"; do
         if git cat-file -e "$MAIN:$item" 2>/dev/null; then
