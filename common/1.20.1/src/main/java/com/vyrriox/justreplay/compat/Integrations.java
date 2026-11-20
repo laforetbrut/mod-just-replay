@@ -154,6 +154,7 @@ public final class Integrations {
         String loader = platform.loaderName();
         String loaderId = "fabric".equals(loader) ? "fabricloader" : loader;
         String loaderVersion = "";
+        String forgeVersion = "";
         String game = "";
         for (String mod : platform.modList()) {
             int at = mod.indexOf('@');
@@ -163,7 +164,13 @@ public final class Integrations {
                 game = version;
             } else if (id.equals(loaderId)) {
                 loaderVersion = version;
+            } else if (id.equals("forge")) {
+                forgeVersion = version;
             }
+        }
+        if (loaderVersion.isEmpty() && "neoforge".equals(loader)) {
+            // NeoForge 1.20.1 still lists itself under the mod id forge.
+            loaderVersion = forgeVersion;
         }
         return Integration.startupLine(platform.modVersion(), loader, loaderVersion, game, ALL.values(), FOUND);
     }
