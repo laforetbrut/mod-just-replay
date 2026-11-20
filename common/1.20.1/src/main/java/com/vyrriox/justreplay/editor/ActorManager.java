@@ -458,9 +458,9 @@ public final class ActorManager {
             return;
         }
         long now = Util.getMillis();
-        int started = 0;
+        List<Lookup> due = new java.util.ArrayList<>();
         Iterator<Lookup> it = lookupQueue.iterator();
-        while (it.hasNext() && started < LOOKUPS_PER_TICK) {
+        while (it.hasNext() && due.size() < LOOKUPS_PER_TICK) {
             Lookup lookup = it.next();
             if (lookups.get(lookup.actorId) != lookup) {
                 // The actor was refreshed or removed meanwhile.
@@ -471,9 +471,11 @@ public final class ActorManager {
                 continue;
             }
             it.remove();
-            start(lookup);
-            started++;
+            due.add(lookup);
         }
+        // Started once the queue is no longer walked: a lookup that fails at once completes right here and queues its
+        // retry.
+        due.forEach(this::start);
     }
 
     private void start(Lookup lookup) {
