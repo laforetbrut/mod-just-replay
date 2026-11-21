@@ -367,3 +367,10 @@
 **Root cause:** ForgeGradle 7 downloads a JDK 8 through the Disco API on a fresh runner; the download fails now and then on the runner network. Not in the code: the same commit builds locally and on the rerun.
 **Fix:** gh run rerun <run id> --failed: the job passed on the rerun both times.
 **Prevention:** A forge-1.21.1 or forge-26.1.2 CI job red on 'Failed to provision JDK 8' is rerun, never fixed in the code and never a reason to retag.
+
+## [2026-11-21 11:37] — Self test entity edits check failed on a far-away mob
+**Context:** Test matrix of the markers work (Forge 26.1.2 self test, run-matrix folder)
+**Error:** SELFTEST entity edits: skipped renders 8 -> OK, offset renders 0 -> FAIL (moved mob: a cow at x=-80.5 z=-42.5)
+**Root cause:** Step 57 hid and moved the first two living entities of the level's list; the second one stood far from the camera, out of view, so it was never drawn and the offset render count stayed at 0
+**Fix:** Step 57 sorts the living entities by distance to the camera, those within 45 degrees of the view first (viewScore), and takes the two closest
+**Prevention:** A self test check that counts renders picks its entity near the camera and in view, never by list order
