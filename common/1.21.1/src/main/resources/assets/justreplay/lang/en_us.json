@@ -771,7 +771,7 @@
   "justreplay.overlay.text.edit": "Edit text...",
   "justreplay.overlay.text.edit.tip": "\n starts a new line, & followed by a code sets a colour or a style (&6 gold, &l bold)",
   "justreplay.overlay.text.title": "Overlay text",
-  "justreplay.overlay.text.label": "Text (\n: new line, &6: gold, &l: bold)",
+  "justreplay.overlay.text.label": "Text (\\n: new line, &6: gold, &l: bold)",
   "justreplay.overlay.text.help": "Codes: &0 to &f colours, &l bold, &o italic, &n underline, &m strikethrough, &r reset, \n new line.",
   "justreplay.overlay.default_text": "Your text",
   "justreplay.overlay.size": "Size",
