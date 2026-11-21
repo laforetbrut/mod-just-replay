@@ -1024,19 +1024,21 @@ public final class SelfTest {
                 // Entity edits: hide one recorded living entity, move another (the recording player counts), and check
                 // render and sound gains.
                 ReplaySession s = ReplaySession.current();
-                hiddenMob = null;
-                movedMob = null;
+                // The two closest to the camera, in front of it first: the first ones of the level's list may stand
+                // far away or behind the camera and never be drawn in the frames the check counts.
+                java.util.List<Entity> living = new java.util.ArrayList<>();
                 for (Entity e : mc.level.entitiesForRendering()) {
                     if (e == mc.player || com.vyrriox.justreplay.editor.ActorManager.isActorEntity(e)
                             || !(e instanceof net.minecraft.world.entity.LivingEntity)) {
                         continue;
                     }
-                    if (hiddenMob == null) {
-                        hiddenMob = e;
-                    } else if (movedMob == null) {
-                        movedMob = e;
-                    }
+                    living.add(e);
                 }
+                Vec3 eye = mc.player.getEyePosition();
+                Vec3 look = mc.player.getViewVector(1.0F);
+                living.sort(java.util.Comparator.comparingDouble(e -> viewScore(eye, look, e)));
+                hiddenMob = living.isEmpty() ? null : living.get(0);
+                movedMob = living.size() < 2 ? null : living.get(1);
                 skippedBefore = com.vyrriox.justreplay.editor.EntityEdits.skippedRenders();
                 offsetBefore = com.vyrriox.justreplay.editor.EntityEdits.offsetRenders();
                 if (hiddenMob != null) {
@@ -2007,6 +2009,14 @@ public final class SelfTest {
         boolean listed = summary != null && summary.startsWith("Replay: ")
                 && summary.contains(" x " + UNREADABLE_TYPE + " " + com.vyrriox.justreplay.record.SkippedPackets.Stage.READ.label());
         log("skipped packets line at the end of the replay: [{}] -> {}", summary, listed ? "OK" : "FAIL");
+    }
+
+    /** Distance from the camera to an entity, plus 1000 when it is not within 45 degrees of the view. */
+    private static double viewScore(Vec3 eye, Vec3 look, Entity e) {
+        Vec3 to = e.position().add(0, e.getBbHeight() / 2.0, 0).subtract(eye);
+        double d = to.length();
+        boolean ahead = d < 1.0E-3 || to.scale(1.0 / d).dot(look) > Math.cos(Math.toRadians(45));
+        return d + (ahead ? 0 : 1000);
     }
 
     /** One line per marker: every saved field, so two lists compare field by field. */
