@@ -36,8 +36,9 @@ public final class PathRenderer {
         return 0xFF000000 | COLORS[Math.floorMod(index, COLORS.length)];
     }
 
-    /** Called at the level stage after the translucent blocks. */
+    /** Called at the level stage after the translucent blocks; draws the markers too (see {@link MarkerRenderer}). */
     public static void onRenderLevel(Camera view, PoseStack poseStack, float partialTick) {
+        MarkerRenderer.onRenderLevel(view, poseStack, partialTick);
         ReplaySession session = ReplaySession.current();
         Minecraft mc = Minecraft.getInstance();
         if (session == null || !ReplaySession.isRunning() || VideoExporter.isActive() || mc.options.hideGui
@@ -169,7 +170,7 @@ public final class PathRenderer {
                 (color & 0xFF) / 255.0F * brightness};
     }
 
-    private static void line(VertexConsumer c, PoseStack.Pose pose, double x1, double y1, double z1, double x2, double y2, double z2,
+    static void line(VertexConsumer c, PoseStack.Pose pose, double x1, double y1, double z1, double x2, double y2, double z2,
                              float r, float g, float b) {
         float nx = (float) (x2 - x1);
         float ny = (float) (y2 - y1);
@@ -186,7 +187,7 @@ public final class PathRenderer {
         c.addVertex(pose, (float) x2, (float) y2, (float) z2).setColor(r, g, b, 1.0F).setNormal(pose, nx, ny, nz).setLineWidth(width);
     }
 
-    private static void box(VertexConsumer c, PoseStack.Pose pose, double x, double y, double z, double s, float r, float g, float b) {
+    static void box(VertexConsumer c, PoseStack.Pose pose, double x, double y, double z, double s, float r, float g, float b) {
         double[][] corners = new double[8][];
         for (int i = 0; i < 8; i++) {
             corners[i] = new double[]{x + ((i & 1) == 0 ? -s : s), y + ((i & 2) == 0 ? -s : s), z + ((i & 4) == 0 ? -s : s)};

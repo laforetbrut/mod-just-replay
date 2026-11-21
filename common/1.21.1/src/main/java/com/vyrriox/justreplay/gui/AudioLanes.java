@@ -369,6 +369,9 @@ final class AudioLanes {
         snaps.add(session.playback().cursor());
         for (com.vyrriox.justreplay.editor.Marker marker : project.markers) {
             snaps.add(marker.tick);
+            if (marker.isRange()) {
+                snaps.add(marker.end);
+            }
         }
         for (ReplayProject.Cut cut : project.cuts) {
             snaps.add(cut.tick);
