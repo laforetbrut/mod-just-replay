@@ -47,6 +47,10 @@ see [When an integration fails](docs/COMPATIBILITY.md#when-an-integration-fails)
 - **Markers while recording**: press **F6** while recording, or with the instant replay buffer on, to drop a
   marker on a big moment. Markers land on the timeline the first time the replay opens, clips of the buffer
   keep theirs.
+- **Markers in the editor**: the Markers tab pins a named note on a moment, a stretch of time, a spot of the
+  world or an entity, in the colour you pick. Drag them on the timeline; spots and entities show in the world
+  while you edit, never in exports. They live in `project.json` with a stable id, for a person or a tool that
+  edits the replay after you: see [docs/MARKERS.md](docs/MARKERS.md).
 - **Server resource packs**: packs a server pushed (before or during the recording) are applied when the replay
   plays, from the game's cache of server packs, and removed when it closes. `serverResourcePacks` can also
   download a missing pack, or turn them off.
@@ -284,6 +288,11 @@ ignoré : voir [Quand une intégration échoue](docs/COMPATIBILITY.md#quand-une-
 - **Repères pendant l'enregistrement** : **F6** pendant un enregistrement, ou avec le tampon des dernières
   minutes, pose un repère sur un moment fort. Les repères arrivent sur la timeline à la première ouverture du
   replay, et les clips du tampon gardent les leurs.
+- **Repères dans l'éditeur** : l'onglet Markers attache une note nommée à un moment, une plage de temps, un
+  point du monde ou une entité, dans la couleur choisie. Ils se tirent sur la timeline ; points et entités
+  s'affichent dans le monde pendant le montage, jamais dans les exports. Ils sont sauvés dans `project.json`
+  avec un identifiant stable, pour la personne ou l'outil qui monte le replay après toi : voir
+  [docs/MARKERS.md](docs/MARKERS.md).
 - **Packs de ressources du serveur** : les packs poussés par un serveur (avant ou pendant l'enregistrement) sont
   appliqués à la lecture, depuis le cache des packs de serveur du jeu, et retirés à la fermeture.
   `serverResourcePacks` peut aussi télécharger un pack manquant, ou les couper.

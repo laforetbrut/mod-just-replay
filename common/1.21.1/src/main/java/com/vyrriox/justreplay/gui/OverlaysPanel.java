@@ -436,7 +436,7 @@ final class OverlaysPanel {
         }));
     }
 
-    private static String actorName(ReplayProject.ActorData actor) {
+    static String actorName(ReplayProject.ActorData actor) {
         if (!actor.name.isBlank()) {
             return actor.name;
         }
@@ -543,7 +543,7 @@ final class OverlaysPanel {
         return Component.literal(String.format(Locale.ROOT, "#%06X", value & 0xFFFFFF));
     }
 
-    private static Integer parseHex(String s) {
+    static Integer parseHex(String s) {
         String v = s.trim();
         if (v.startsWith("#")) {
             v = v.substring(1);

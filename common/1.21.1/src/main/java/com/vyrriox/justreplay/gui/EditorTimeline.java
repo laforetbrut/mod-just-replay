@@ -82,6 +82,8 @@ final class EditorTimeline {
     AudioLanes audio;
     /** Overlay bars drawn in the OVERLAYS lane, or null. */
     OverlaysPanel overlays;
+    /** Draws the markers lane; set by the editor. */
+    MarkersPanel markers;
 
     void layout(int x, int top, int w) {
         this.x = x;
@@ -535,19 +537,8 @@ final class EditorTimeline {
     private void markers(GuiGraphics g, Font font, ReplayProject project, int y) {
         int h = heightOf(Lane.MARKERS);
         EffectsPanel.renderEffectKeys(g, this, project, y, h);
-        int lastEnd = Integer.MIN_VALUE;
-        for (ReplayProject.Marker marker : project.markers) {
-            int mx = xOf(marker.tick);
-            if (mx < x - 60 || mx > x + w + 2) {
-                continue;
-            }
-            g.fill(mx, y + 1, mx + 1, y + h - 1, Timeline.MARKER_COLOR);
-            Paint.rect(g, mx + 1, y + 1, 4, 3, 1, Timeline.MARKER_COLOR);
-            if (mx + 7 > lastEnd) {
-                String name = font.plainSubstrByWidth(marker.name, 70);
-                g.drawString(font, name, mx + 7, y + (h - 7) / 2, 0xD9FFE082, false);
-                lastEnd = mx + 7 + font.width(name) + 4;
-            }
+        if (markers != null) {
+            markers.renderLane(g, font, this, y, h);
         }
     }
 

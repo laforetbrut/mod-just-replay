@@ -41,9 +41,12 @@ public final class ReplayProject {
     public String selectedCamera;
     /** Play the recorded voice chat and include it in video exports. */
     public boolean voices = true;
+    /** Markers of the timeline and the world, sorted by tick; see {@link Marker}. */
     public List<Marker> markers = new ArrayList<>();
     /** True once the markers placed while recording ({@code meta.json}) were copied to {@link #markers}. */
     public boolean recordingMarkersImported;
+    /** Draw the markers in the world while editing (never in exports). */
+    public boolean showMarkers = true;
     public List<ActorData> actors = new ArrayList<>();
     /** Music and sound design tracks, mixed over the game sounds. */
     public List<AudioTrack> audioTracks = new ArrayList<>();
@@ -360,19 +363,6 @@ public final class ReplayProject {
         }
     }
 
-    public static final class Marker {
-        public int tick;
-        public String name = "";
-
-        public Marker() {
-        }
-
-        public Marker(int tick, String name) {
-            this.tick = tick;
-            this.name = name;
-        }
-    }
-
     /** Clamps a render scale to 0.05..10, 1 for an invalid value. */
     public static float clampScale(float scale) {
         if (!(scale > 0.0F) || Float.isInfinite(scale)) return 1.0F;
@@ -511,9 +501,8 @@ public final class ReplayProject {
     public void normalize() {
         if (cameras == null) cameras = new ArrayList<>();
         if (cuts == null) cuts = new ArrayList<>();
-        if (markers == null) markers = new ArrayList<>();
+        markers = Marker.normalizeAll(markers);
         if (actors == null) actors = new ArrayList<>();
-        markers.removeIf(m -> m == null);
         actors.removeIf(a -> a == null);
         if (audioTracks == null) audioTracks = new ArrayList<>();
         if (effects == null) effects = new ArrayList<>();
@@ -612,13 +601,48 @@ public final class ReplayProject {
         if (recorded != null) {
             for (com.vyrriox.justreplay.format.ReplayMeta.Marker marker : recorded) {
                 if (marker != null) {
-                    String name = marker.name == null || marker.name.isBlank() ? "Marker " + (markers.size() + 1) : marker.name;
-                    markers.add(new Marker(Math.max(0, marker.tick), name));
+                    String name = marker.name == null || marker.name.isBlank() ? Marker.nextName(markers) : marker.name;
+                    markers.add(Marker.instant(marker.tick, name));
                 }
             }
-            markers.sort(Comparator.comparingInt(m -> m.tick));
+            markers = Marker.normalizeAll(markers);
         }
         return true;
+    }
+
+    // ---------------------------------------------------------------- markers
+
+    /** The marker with this id, or null. */
+    public Marker marker(String id) {
+        if (id == null) {
+            return null;
+        }
+        for (Marker m : markers) {
+            if (id.equals(m.id)) {
+                return m;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Adds a marker: repaired like a loaded one (an id when it has none, a new one when it is taken), then the list
+     * is sorted by tick. Returns the marker.
+     */
+    public Marker addMarker(Marker marker) {
+        markers.add(marker);
+        markers = Marker.normalizeAll(markers);
+        return marker;
+    }
+
+    /** Removes the marker with this id; true when there was one. */
+    public boolean removeMarker(String id) {
+        return id != null && markers.removeIf(m -> id.equals(m.id));
+    }
+
+    /** The first free default marker name. */
+    public String nextMarkerName() {
+        return Marker.nextName(markers);
     }
 
     /** Hides or shows every recorded entity of a type; the list stays sorted and without duplicates. */

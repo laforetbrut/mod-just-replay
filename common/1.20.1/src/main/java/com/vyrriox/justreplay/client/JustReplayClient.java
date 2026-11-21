@@ -422,7 +422,7 @@ public final class JustReplayClient {
         }
         while (JRKeys.MARKER.consumeClick()) {
             int tick = playback.cursor();
-            session.project().markers.add(new ReplayProject.Marker(tick, "Marker " + (session.project().markers.size() + 1)));
+            session.project().addMarker(com.vyrriox.justreplay.editor.Marker.instant(tick, session.project().nextMarkerName()));
             session.saveProject();
         }
         while (JRKeys.CAMERA_KEYFRAME.consumeClick()) {
