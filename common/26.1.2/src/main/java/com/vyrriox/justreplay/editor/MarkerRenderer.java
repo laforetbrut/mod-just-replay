@@ -172,7 +172,8 @@ public final class MarkerRenderer {
             double[] at = places.get(i);
             boolean sel = m.id.equals(selected);
             boolean bright = sel || m.activeAt(time, NEAR);
-            double top = m.isPoint() ? at[1] + POST + 0.55 : at[1] + at[4] + 0.45;
+            // An entity's own name tag sits half a block over its head: the marker's name goes above it.
+            double top = m.isPoint() ? at[1] + POST + 0.55 : at[1] + at[4] + 0.85;
             poseStack.pushPose();
             poseStack.translate(at[0], top, at[2]);
             poseStack.mulPose(view.rotation());
