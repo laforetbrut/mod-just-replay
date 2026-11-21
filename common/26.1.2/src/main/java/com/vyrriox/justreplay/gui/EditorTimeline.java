@@ -536,7 +536,7 @@ final class EditorTimeline {
         int h = heightOf(Lane.MARKERS);
         EffectsPanel.renderEffectKeys(g, this, project, y, h);
         int lastEnd = Integer.MIN_VALUE;
-        for (ReplayProject.Marker marker : project.markers) {
+        for (com.vyrriox.justreplay.editor.Marker marker : project.markers) {
             int mx = xOf(marker.tick);
             if (mx < x - 60 || mx > x + w + 2) {
                 continue;

@@ -1853,7 +1853,7 @@ public final class SelfTest {
     }
 
     private static void checkRecordingMarkers(ReplaySession s) {
-        java.util.List<ReplayProject.Marker> marks = s.project().markers;
+        java.util.List<com.vyrriox.justreplay.editor.Marker> marks = s.project().markers;
         boolean names = marks.size() == 2 && "Marker 1".equals(marks.get(0).name) && "Marker 2".equals(marks.get(1).name);
         boolean ticks = names && marks.get(0).tick >= 59 && marks.get(0).tick <= 64
                 && Math.abs(marks.get(1).tick - marks.get(0).tick - 90) <= 1;

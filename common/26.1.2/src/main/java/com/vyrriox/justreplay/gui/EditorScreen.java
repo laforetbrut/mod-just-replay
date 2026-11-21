@@ -988,11 +988,11 @@ public class EditorScreen extends GlassScreen {
     }
 
     private void markerRows(Form f) {
-        List<ReplayProject.Marker> markers = session.project().markers;
+        List<com.vyrriox.justreplay.editor.Marker> markers = session.project().markers;
         if (markers.isEmpty()) {
             f.paragraph(Component.translatable("justreplay.editor.marker.none", JRKeys.MARKER.getTranslatedKeyMessage()), Theme.TEXT_MUTED);
         }
-        for (ReplayProject.Marker marker : markers) {
+        for (com.vyrriox.justreplay.editor.Marker marker : markers) {
             f.full(new ListRow(Component.literal(marker.name), b -> session.playback().seek(marker.tick))
                     .detail(Timeline.formatTicks(marker.tick))
                     .action(() -> Icon.TRASH, tc("justreplay.editor.marker.delete.tip"), () -> {
@@ -1171,7 +1171,7 @@ public class EditorScreen extends GlassScreen {
         int tick = session.playback().cursor();
         minecraft.setScreen(new TextInputScreen(this, Component.translatable("justreplay.editor.marker"),
                 Component.translatable("justreplay.editor.marker.name"), "Marker " + (session.project().markers.size() + 1), name -> {
-            session.project().markers.add(new ReplayProject.Marker(tick, name));
+            session.project().addMarker(com.vyrriox.justreplay.editor.Marker.instant(tick, name));
             session.saveProject();
         }));
     }
@@ -1500,7 +1500,7 @@ public class EditorScreen extends GlassScreen {
                     }
                 }
                 case MARKERS -> {
-                    for (ReplayProject.Marker marker : project.markers) {
+                    for (com.vyrriox.justreplay.editor.Marker marker : project.markers) {
                         if (Math.abs(timeline.xOf(marker.tick) - mx) <= 3) {
                             session.playback().seek(marker.tick);
                             return true;
@@ -1920,7 +1920,7 @@ public class EditorScreen extends GlassScreen {
                 }
             }
             case MARKERS -> {
-                for (ReplayProject.Marker marker : project.markers) {
+                for (com.vyrriox.justreplay.editor.Marker marker : project.markers) {
                     if (Math.abs(timeline.xOf(marker.tick) - mouseX) <= 3) {
                         deferTooltip(Component.literal(marker.name + "  " + Timeline.formatTicks(marker.tick)), mouseX, mouseY);
                         return;
