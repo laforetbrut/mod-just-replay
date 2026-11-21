@@ -8,6 +8,7 @@
 ### Changed
 - **One core, now with the editor**: the editor project (cameras, keyframes, cuts, overlays, time shifts) and replay storage moved to `core/`, so they exist once instead of three times. Nothing changes in game.
 - **Self test**: makes markers (one pinned with the in-world tool), reads them back from `project.json`, checks they stay out of the export, then deletes them.
+- **Self test**: the entity edits check picks the mobs in front of the camera, so a mob standing far away no longer fails it.
 
 ### Fixed
 - **Overlay text box**: the hint shows `\n` for a new line again instead of swallowing it.
@@ -18,6 +19,7 @@
 ### Modifications
 - **Un seul cœur, éditeur compris** : le projet de l'éditeur (caméras, keyframes, coupes, overlays, décalages de temps) et le stockage des replays passent dans `core/`, une fois au lieu de trois. Rien ne change en jeu.
 - **Self test** : crée des repères (dont un posé avec l'outil dans le monde), les relit depuis `project.json`, vérifie qu'ils restent hors de l'export, puis les supprime.
+- **Self test** : le contrôle des modifications d'entités prend les mobs devant la caméra, un mob resté au loin ne le fait plus échouer.
 
 ### Correctifs
 - **Champ de texte des overlays** : l'aide affiche de nouveau `\n` pour passer à la ligne au lieu de l'avaler.
