@@ -151,6 +151,10 @@ public final class SelfTest {
     private static final double[] exportClockIris = new double[2];
     private static int galleryIndex;
     private static String galleryName = "";
+    /** Marker renderer counters (level renders, frames with markers, frames an export refused) at a step's start. */
+    private static long[] markerCounters = new long[3];
+    private static long[] markerExportStart = new long[3];
+    private static long[] markerExportLast = new long[3];
     /** Export settings and editor mode of the user, saved at the start and put back at the end of the test. */
     private static int savedCrf = -1;
     private static int savedFps;
@@ -1089,6 +1093,102 @@ public final class SelfTest {
                 s.project().entityEdits.clear();
                 hiddenMob = null;
                 movedMob = null;
+                go(90, 5);
+            }
+            case 90 -> {
+                // Markers: three made with the model, one pinned in the world by the Spot tool of the Markers tab.
+                ReplaySession s = ReplaySession.current();
+                s.playback().setPaused(true);
+                s.setCameraPath(false);
+                s.playback().seek(40);
+                int duration = s.playback().duration();
+                com.vyrriox.justreplay.editor.Marker moment = s.project().addMarker(com.vyrriox.justreplay.editor.Marker.instant(30, "SelfTest moment"));
+                moment.note = "Wide shot of the build,\nthen cut to the player";
+                com.vyrriox.justreplay.editor.Marker stretch = s.project().addMarker(com.vyrriox.justreplay.editor.Marker.range(20, 80, duration, "SelfTest stretch"));
+                com.vyrriox.justreplay.editor.Marker hero = s.project().addMarker(com.vyrriox.justreplay.editor.Marker.entity(40, com.vyrriox.justreplay.editor.Marker.RECORDER, "Recording player", "SelfTest hero"));
+                hero.note = "Follow this player";
+                hero.color = 0x5BE49B;
+                var backwards = stretch.setRange(80, 20, duration);
+                var pastEnd = stretch.setRange(20, duration + 40, duration);
+                boolean kept = stretch.tick == 20 && stretch.end == 80 && com.vyrriox.justreplay.editor.Marker.RANGE.equals(stretch.type);
+                log("marker ranges refused: 80..20 {}, 20..{} {}, stretch kept at {}..{} -> {}", backwards, duration + 40, pastEnd,
+                        stretch.tick, stretch.end, backwards == com.vyrriox.justreplay.editor.Marker.RangeCheck.EMPTY && pastEnd == com.vyrriox.justreplay.editor.Marker.RangeCheck.PAST_END && kept ? "OK" : "FAIL");
+                s.saveProject();
+                // The camera looks down at the stairs: the Spot tool pins the next marker where the crosshair hits.
+                com.vyrriox.justreplay.replay.Playback.placeCamera(p, new Vec3(stairPos.getX() + 0.5, stairPos.getY() + 4.0, stairPos.getZ() - 3.5), 0.0F, 45.0F);
+                EditorScreen editor = new EditorScreen(s);
+                mc.setScreen(editor);
+                editor.startMarkerToolForTest(false);
+                log("marker tool started: active={} screen={}", com.vyrriox.justreplay.gui.EntityTool.isActive(),
+                        mc.screen == null ? "none" : mc.screen.getClass().getSimpleName());
+                next(15);
+            }
+            case 91 -> {
+                ReplaySession s = ReplaySession.current();
+                boolean confirmed = com.vyrriox.justreplay.gui.EntityTool.confirmForTest();
+                com.vyrriox.justreplay.editor.Marker spot = null;
+                for (com.vyrriox.justreplay.editor.Marker m : s.project().markers) {
+                    if (m.isPoint()) {
+                        spot = m;
+                    }
+                }
+                Vec3 stairs = Vec3.atCenterOf(stairPos);
+                boolean pinned = spot != null && Math.abs(spot.x - stairs.x) < 6 && Math.abs(spot.y - stairs.y) < 6 && Math.abs(spot.z - stairs.z) < 8
+                        && spot.dimension.equals(com.vyrriox.justreplay.editor.MarkerRenderer.dimension()) && spot.tick == s.playback().cursor();
+                log("marker pinned by the Spot tool: confirmed={} screen={} {} -> {}", confirmed,
+                        mc.screen == null ? "none" : mc.screen.getClass().getSimpleName(),
+                        spot == null ? "none" : describeMarkers(java.util.List.of(spot)), pinned ? "OK" : "FAIL");
+                if (spot != null) {
+                    spot.note = "Orbit around the stairs";
+                    s.saveProject();
+                }
+                // What the editor saved is what a new reading of project.json gives back.
+                java.util.List<String> saved = describeMarkers(s.project().markers);
+                java.util.List<String> read = describeMarkers(ReplayStorage.readProject(s.dir()).markers);
+                long made = s.project().markers.stream().filter(m -> m.name.startsWith("SelfTest") || m.isPoint()).count();
+                log("markers read back from project.json: {} -> {}", read, read.equals(saved) && made == 4 ? "OK" : "FAIL");
+                if (mc.screen instanceof EditorScreen e && spot != null) {
+                    e.openMarker(spot.id);
+                }
+                next(10);
+            }
+            case 92 -> {
+                shot(mc, "ui-markers-selected");
+                mc.setScreen(null);
+                // The world shot frames the spot and the recording player, so both markers show.
+                ReplaySession s = ReplaySession.current();
+                Entity recorder = s.findRecorder(mc);
+                com.vyrriox.justreplay.editor.Marker spot = null;
+                for (com.vyrriox.justreplay.editor.Marker m : s.project().markers) {
+                    if (m.isPoint()) {
+                        spot = m;
+                    }
+                }
+                if (recorder != null && spot != null) {
+                    Vec3 at = new Vec3(spot.x, spot.y, spot.z);
+                    Vec3 mid = recorder.position().add(at).scale(0.5);
+                    double span = recorder.position().distanceTo(at);
+                    com.vyrriox.justreplay.replay.Playback.placeCamera(p, mid.add(0, 2.0 + span * 0.35, -(5.0 + span * 0.9)), 0.0F, 22.0F);
+                }
+                markerCounters = com.vyrriox.justreplay.editor.MarkerRenderer.counters();
+                next(20);
+            }
+            case 93 -> {
+                ReplaySession s = ReplaySession.current();
+                long[] now = com.vyrriox.justreplay.editor.MarkerRenderer.counters();
+                log("markers drawn in the world: {} of {} level renders -> {}", now[1] - markerCounters[1], now[0] - markerCounters[0],
+                        now[1] > markerCounters[1] ? "OK" : "FAIL");
+                com.vyrriox.justreplay.editor.Marker hero = null;
+                for (com.vyrriox.justreplay.editor.Marker m : s.project().markers) {
+                    if (m.isEntity()) {
+                        hero = m;
+                    }
+                }
+                Entity followed = hero == null ? null : com.vyrriox.justreplay.editor.MarkerRenderer.entity(s, hero);
+                Entity recorder = s.findRecorder(mc);
+                log("entity marker on the recording player finds it: {} -> {}", followed == null ? "nothing" : followed.position(),
+                        followed != null && followed == recorder ? "OK" : "FAIL");
+                shot(mc, "markers-world");
                 go(13, 5);
             }
             case 13 -> {
@@ -1104,6 +1204,8 @@ public final class SelfTest {
                 com.vyrriox.justreplay.config.JRConfig.EXPORT_RESOLUTION.set(com.vyrriox.justreplay.export.ExportResolution.FULL_HD_1080);
                 com.vyrriox.justreplay.editor.overlay.OverlayRenderer.resetExportFrames();
                 var error = VideoExporter.start(s, 20, 80, "selftest");
+                markerExportStart = com.vyrriox.justreplay.editor.MarkerRenderer.counters();
+                markerExportLast = markerExportStart;
                 log("export start error={}", error == null ? "none" : error.getString());
                 if (error == null) {
                     Path output = VideoExporter.current().output();
@@ -1114,6 +1216,9 @@ public final class SelfTest {
             }
             case 14 -> {
                 sampleExportClocks();
+                if (VideoExporter.isActive()) {
+                    markerExportLast = com.vyrriox.justreplay.editor.MarkerRenderer.counters();
+                }
                 shotVeil(mc);
                 if (!VideoExporter.isActive()) {
                     next(200);
@@ -1135,6 +1240,38 @@ public final class SelfTest {
                         localAnvil, replaySteps, recorderSteps, localBell > 0 && localAnvil > 0 && recorderSteps > 0 ? "OK" : "FAIL");
                 log("export frames showing overlays: {} ({} overlays in the project)",
                         com.vyrriox.justreplay.editor.overlay.OverlayRenderer.exportFrames(), ReplaySession.current().project().overlays.size());
+                log("markers kept out of the export: {} frames drew markers while exporting, {} frames left them out -> {}",
+                        markerExportLast[1] - markerExportStart[1], markerExportLast[2] - markerExportStart[2],
+                        markerExportLast[1] == markerExportStart[1] && markerExportLast[2] > markerExportStart[2] ? "OK" : "FAIL");
+                go(94, 5);
+            }
+            case 94 -> {
+                // Deleting: the spot through the Delete key of the Markers tab, the others by id.
+                ReplaySession s = ReplaySession.current();
+                com.vyrriox.justreplay.editor.Marker spot = null;
+                for (com.vyrriox.justreplay.editor.Marker m : s.project().markers) {
+                    if (m.isPoint()) {
+                        spot = m;
+                    }
+                }
+                EditorScreen editor = new EditorScreen(s);
+                mc.setScreen(editor);
+                if (spot != null) {
+                    editor.deleteMarkerForTest(spot.id);
+                }
+                boolean spotGone = spot != null && s.project().marker(spot.id) == null;
+                int removed = 0;
+                for (com.vyrriox.justreplay.editor.Marker m : new java.util.ArrayList<>(s.project().markers)) {
+                    if (m.name.startsWith("SelfTest") && s.project().removeMarker(m.id)) {
+                        removed++;
+                    }
+                }
+                s.saveProject();
+                java.util.List<com.vyrriox.justreplay.editor.Marker> left = ReplayStorage.readProject(s.dir()).markers;
+                boolean gone = left.stream().noneMatch(m -> m.isPoint() || m.name.startsWith("SelfTest"));
+                log("markers deleted (spot by the Delete key: {}, {} more by id), left in project.json: {} -> {}", spotGone, removed,
+                        left.stream().map(m -> m.name + "@" + m.tick).toList(), spotGone && removed == 3 && gone ? "OK" : "FAIL");
+                mc.setScreen(null);
                 go(72, 5);
             }
             case 72 -> {
@@ -1870,6 +2007,17 @@ public final class SelfTest {
         boolean listed = summary != null && summary.startsWith("Replay: ")
                 && summary.contains(" x " + UNREADABLE_TYPE + " " + com.vyrriox.justreplay.record.SkippedPackets.Stage.READ.label());
         log("skipped packets line at the end of the replay: [{}] -> {}", summary, listed ? "OK" : "FAIL");
+    }
+
+    /** One line per marker: every saved field, so two lists compare field by field. */
+    private static java.util.List<String> describeMarkers(java.util.List<com.vyrriox.justreplay.editor.Marker> markers) {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        for (com.vyrriox.justreplay.editor.Marker m : markers) {
+            out.add(m.id + " " + m.type + " '" + m.name + "' " + m.tick + ".." + m.end
+                    + String.format(java.util.Locale.ROOT, " %.3f %.3f %.3f [%s]", m.x, m.y, m.z, m.dimension)
+                    + " target=" + m.target + " (" + m.targetName + ") #" + Integer.toHexString(m.color) + " note='" + m.note.replace("\n", "|") + "'");
+        }
+        return out;
     }
 
     private static void checkRecordingMarkers(ReplaySession s) {
