@@ -69,6 +69,7 @@ The build also runs the unit tests of `core/src/test` and `common/<mcversion>/sr
 - the angles of camera paths (the camera turns the short way, like the game's `Mth.wrapDegrees`) and the formatting codes taken out of overlay names;
 - the names of video exports (the exported range and the final file name) and what the render veil shows (share done, time spent and left, GUI scale of the window);
 - the changed mods warning, the markers placed while recording and the server resource packs of a replay;
+- the editor markers: saved to `project.json` and read back, older projects, refused ranges, places and targets, time insertions and removals;
 - the light, fog and particle settings, and the speed track (video time of each replay tick);
 - the Armourer's Workshop wardrobe skins a hidden armor slot takes with it.
 
@@ -208,6 +209,7 @@ Le build lance aussi les tests unitaires de `core/src/test` et de `common/<mcver
 - les angles des trajectoires de caméra (la caméra tourne par le plus court, comme `Mth.wrapDegrees` du jeu) et les codes de mise en forme retirés des noms d'overlays ;
 - les noms des exports vidéo (la plage exportée et le nom final du fichier) et ce que montre le voile de rendu (part faite, temps passé et restant, échelle d'interface de la fenêtre) ;
 - l'avertissement des mods changés, les repères posés pendant l'enregistrement et les packs de ressources du serveur d'un replay ;
+- les repères de l'éditeur : sauvés dans `project.json` et relus, anciens projets, plages, points et cibles refusés, insertions et retraits de temps ;
 - les réglages de lumière, de brouillard et de particules, et la piste de vitesse (temps vidéo de chaque tick du replay) ;
 - les skins de garde-robe d'Armourer's Workshop qu'un emplacement d'armure masqué emporte avec lui.
 
