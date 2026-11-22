@@ -12,6 +12,7 @@ import com.vyrriox.justreplay.format.ReplayMeta;
 import com.vyrriox.justreplay.format.ReplayStorage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
@@ -19,6 +20,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -31,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * @author vyrriox
  */
+@Timeout(value = 60, unit = TimeUnit.SECONDS)
 class McpReadToolsTest {
     @TempDir
     Path root;

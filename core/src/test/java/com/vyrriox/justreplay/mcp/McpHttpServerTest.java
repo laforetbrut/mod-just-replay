@@ -7,6 +7,7 @@ import com.google.gson.JsonParser;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -23,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -38,6 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * @author vyrriox
  */
+@Timeout(value = 60, unit = TimeUnit.SECONDS)
 class McpHttpServerTest {
     private static final String TOKEN = McpToken.generate();
     private static final String ALLOWED = "http://localhost:6274";
@@ -458,12 +461,12 @@ class McpHttpServerTest {
 
     @Test
     void streamsAndSessionsAreNotOffered() throws Exception {
-        HttpRequest get = HttpRequest.newBuilder(endpoint).header("Authorization", "Bearer " + TOKEN)
+        HttpRequest get = HttpRequest.newBuilder(endpoint).timeout(Duration.ofSeconds(10)).header("Authorization", "Bearer " + TOKEN)
                 .header("Accept", "text/event-stream").GET().build();
         assertEquals(405, http.send(get, HttpResponse.BodyHandlers.ofString()).statusCode());
-        HttpRequest delete = HttpRequest.newBuilder(endpoint).header("Authorization", "Bearer " + TOKEN).DELETE().build();
+        HttpRequest delete = HttpRequest.newBuilder(endpoint).timeout(Duration.ofSeconds(10)).header("Authorization", "Bearer " + TOKEN).DELETE().build();
         assertEquals(405, http.send(delete, HttpResponse.BodyHandlers.ofString()).statusCode());
-        HttpRequest other = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + server.port() + "/other"))
+        HttpRequest other = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + server.port() + "/other")).timeout(Duration.ofSeconds(10))
                 .header("Authorization", "Bearer " + TOKEN).POST(HttpRequest.BodyPublishers.ofString("{}")).build();
         assertEquals(404, http.send(other, HttpResponse.BodyHandlers.ofString()).statusCode());
         HttpResponse<String> init = post(request("initialize", new JsonObject()));

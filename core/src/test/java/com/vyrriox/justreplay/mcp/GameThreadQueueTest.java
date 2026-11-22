@@ -1,6 +1,7 @@
 package com.vyrriox.justreplay.mcp;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -19,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * @author vyrriox
  */
+@Timeout(value = 60, unit = TimeUnit.SECONDS)
 class GameThreadQueueTest {
     /** Waits until {@code queue} holds {@code n} calls. */
     private static void awaitSize(GameThreadQueue queue, int n) throws InterruptedException {
