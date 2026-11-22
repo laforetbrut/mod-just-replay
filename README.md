@@ -51,6 +51,10 @@ see [When an integration fails](docs/COMPATIBILITY.md#when-an-integration-fails)
   world or an entity, in the colour you pick. Drag them on the timeline; spots and entities show in the world
   while you edit, never in exports. They live in `project.json` with a stable id, for a person or a tool that
   edits the replay after you: see [docs/MARKERS.md](docs/MARKERS.md).
+- **MCP server for AI assistants**: switch it on in the settings and an AI assistant on your computer (Claude
+  Code or any MCP client) can read what the mod is doing, your replays, the edit of a replay and its markers with
+  their notes. Local only (127.0.0.1) with an access token, read only for now; an MCP badge shows while it
+  listens. See [docs/MCP.md](docs/MCP.md).
 - **Server resource packs**: packs a server pushed (before or during the recording) are applied when the replay
   plays, from the game's cache of server packs, and removed when it closes. `serverResourcePacks` can also
   download a missing pack, or turn them off.
@@ -293,6 +297,10 @@ ignoré : voir [Quand une intégration échoue](docs/COMPATIBILITY.md#quand-une-
   s'affichent dans le monde pendant le montage, jamais dans les exports. Ils sont sauvés dans `project.json`
   avec un identifiant stable, pour la personne ou l'outil qui monte le replay après toi : voir
   [docs/MARKERS.md](docs/MARKERS.md).
+- **Serveur MCP pour les assistants IA** : active-le dans les réglages et un assistant IA de ton ordinateur
+  (Claude Code ou tout client MCP) peut lire ce que fait le mod, tes replays, le montage d'un replay et ses
+  repères avec leurs notes. Local seulement (127.0.0.1) avec un jeton d'accès, en lecture seule pour
+  l'instant ; un badge MCP s'affiche tant qu'il écoute. Voir [docs/MCP.md](docs/MCP.md).
 - **Packs de ressources du serveur** : les packs poussés par un serveur (avant ou pendant l'enregistrement) sont
   appliqués à la lecture, depuis le cache des packs de serveur du jeu, et retirés à la fermeture.
   `serverResourcePacks` peut aussi télécharger un pack manquant, ou les couper.

@@ -71,7 +71,8 @@ The build also runs the unit tests of `core/src/test` and `common/<mcversion>/sr
 - the changed mods warning, the markers placed while recording and the server resource packs of a replay;
 - the editor markers: saved to `project.json` and read back, older projects, refused ranges, places and targets, time insertions and removals;
 - the light, fog and particle settings, and the speed track (video time of each replay tick);
-- the Armourer's Workshop wardrobe skins a hidden armor slot takes with it.
+- the Armourer's Workshop wardrobe skins a hidden armor slot takes with it;
+- the MCP server: its HTTP endpoint started on a free port of 127.0.0.1 (handshake and modern requests, tools run on a fake game thread, a frozen game, refusals without the token or from a foreign origin or host), the read tools on a fake game, the settings that start and stop it, and the checks the self test runs against it.
 
 - **Use `--no-build-cache` for a jar you will ship or run in production.** A cache hit once produced a Forge 1.20.1 jar without its refmap (see `ERROR_LOG.md`, now also guarded in that project). After such a build, check that the refmap is in the jar.
 - Install the jar of `build/libs/`. NeoForge 1.20.1 and the Fabric projects of 1.20.1 and 1.21.1 write a development jar elsewhere, which only works in development runs.
@@ -211,7 +212,8 @@ Le build lance aussi les tests unitaires de `core/src/test` et de `common/<mcver
 - l'avertissement des mods changés, les repères posés pendant l'enregistrement et les packs de ressources du serveur d'un replay ;
 - les repères de l'éditeur : sauvés dans `project.json` et relus, anciens projets, plages, points et cibles refusés, insertions et retraits de temps ;
 - les réglages de lumière, de brouillard et de particules, et la piste de vitesse (temps vidéo de chaque tick du replay) ;
-- les skins de garde-robe d'Armourer's Workshop qu'un emplacement d'armure masqué emporte avec lui.
+- les skins de garde-robe d'Armourer's Workshop qu'un emplacement d'armure masqué emporte avec lui ;
+- le serveur MCP : son point d'accès HTTP lancé sur un port libre de 127.0.0.1 (poignée de main et requêtes modernes, outils lancés sur un faux thread de jeu, jeu figé, refus sans jeton ou depuis une origine ou un hôte étrangers), les outils de lecture sur un faux jeu, les réglages qui le démarrent et l'arrêtent, et les contrôles que le self test lance contre lui.
 
 - **Utiliser `--no-build-cache` pour un jar à publier ou à lancer en production.** Une reprise du cache a déjà produit un jar Forge 1.20.1 sans sa refmap (voir `ERROR_LOG.md`, ce projet est maintenant aussi protégé). Après un tel build, vérifier que la refmap est dans le jar.
 - Installer le jar de `build/libs/`. NeoForge 1.20.1 et les projets Fabric de 1.20.1 et 1.21.1 écrivent ailleurs un jar de développement, qui ne marche qu'en développement.
