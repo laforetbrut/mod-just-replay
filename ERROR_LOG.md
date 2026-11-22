@@ -374,3 +374,10 @@
 **Root cause:** Step 57 hid and moved the first two living entities of the level's list; the second one stood far from the camera, out of view, so it was never drawn and the offset render count stayed at 0
 **Fix:** Step 57 sorts the living entities by distance to the camera, those within 45 degrees of the view first (viewScore), and takes the two closest
 **Prevention:** A self test check that counts renders picks its entity near the camera and in view, never by list order
+
+## [2026-11-22 20:33] — java.net.http header() adds a second value, the server reads the first
+**Context:** Unit test of the MCP HTTP server: a helper built every request with Content-Type application/json, then let a test pass its own headers through HttpRequest.Builder.header() to check that a text/plain body gets 415
+**Error:** expected: <415> but was: <200> in McpHttpServerTest.malformedMessagesGetJsonRpcErrors
+**Root cause:** HttpRequest.Builder.header(name, value) appends a value; the request carried both Content-Type values and the JDK HttpServer's Headers.getFirst() returned application/json, so the server saw a valid request
+**Fix:** The helper uses HttpRequest.Builder.setHeader() for the headers a test overrides
+**Prevention:** In java.net.http test helpers, override defaults with setHeader(), never header(); a header test must check the request it really sent (one value per name)
