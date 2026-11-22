@@ -102,7 +102,7 @@ class McpProbeTest {
     @Test
     void observationChecksPassAndTheirPicturesDecode() throws Exception {
         McpProbe.Observation o = McpProbe.observe(server.port(), token,
-                new McpProbe.Look(100, List.of("minecraft:pig", "minecraft:villager"), 320, 180)).get(60, TimeUnit.SECONDS);
+                new McpProbe.Look(100, List.of("minecraft:pig", "minecraft:villager"), true, 320, 180)).get(60, TimeUnit.SECONDS);
         assertEquals(10, o.lines().size(), o.lines().toString());
         for (String line : o.lines()) {
             assertTrue(line.endsWith("-> OK"), line);
@@ -119,11 +119,11 @@ class McpProbeTest {
     @Test
     void aMissingEntityFailsItsCheck() throws Exception {
         McpProbe.Observation o = McpProbe.observe(server.port(), token,
-                new McpProbe.Look(100, List.of("minecraft:pig", "minecraft:wither"), 320, 180)).get(60, TimeUnit.SECONDS);
+                new McpProbe.Look(100, List.of("minecraft:pig", "minecraft:wither"), true, 320, 180)).get(60, TimeUnit.SECONDS);
         assertTrue(o.lines().get(0).contains("minecraft:wither x0") && o.lines().get(0).endsWith("-> FAIL"), o.lines().get(0));
         // A tick past the end fails every check that asks for it.
         McpProbe.Observation late = McpProbe.observe(server.port(), token,
-                new McpProbe.Look(5000, List.of("minecraft:pig"), 320, 180)).get(60, TimeUnit.SECONDS);
+                new McpProbe.Look(5000, List.of("minecraft:pig"), true, 320, 180)).get(60, TimeUnit.SECONDS);
         assertTrue(late.lines().stream().filter(l -> l.endsWith("-> FAIL")).count() >= 8, late.lines().toString());
     }
 

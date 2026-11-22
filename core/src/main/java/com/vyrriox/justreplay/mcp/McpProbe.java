@@ -58,10 +58,11 @@ public final class McpProbe {
      * @param tick   a tick of the replay, not the play head, where the entities of {@code types} and the recording
      *               player are in the world and walking
      * @param types  entity types that must be there at {@code tick}
+     * @param actors at least one actor of the editor must be there too
      * @param width  width of the video frame asked for; the window frame is asked at {@code width * 4 / 5}
      * @param height height of the video frame
      */
-    public record Look(int tick, List<String> types, int width, int height) {
+    public record Look(int tick, List<String> types, boolean actors, int width, int height) {
     }
 
     /** A picture a check received, for the game to decode with its own decoder. */
@@ -141,14 +142,19 @@ public final class McpProbe {
                 found.add(type + " x" + count);
                 all &= count > 0;
             }
+            int actors = 0;
             for (JsonElement e : list.getAsJsonArray("entities")) {
                 if ("recorder".equals(e.getAsJsonObject().get("ref").getAsString())) {
                     recorder[0] = e.getAsJsonObject();
                 }
+                if (McpEntity.ACTOR.equals(e.getAsJsonObject().get("source").getAsString())) {
+                    actors++;
+                }
             }
             found.add("recording player " + (recorder[0] == null ? "missing" : "at " + point(recorder[0].getAsJsonObject("position"))));
+            found.add(actors + " actors");
             return verdict(list.get("total").getAsInt() + " entities: " + String.join(", ", found), all && recorder[0] != null
-                    && list.get("tick").getAsInt() == look.tick());
+                    && (!look.actors() || actors > 0) && list.get("tick").getAsInt() == look.tick());
         });
         check(lines, "mcp list_entities within 64 blocks of the recording player", () -> {
             JsonObject args = new JsonObject();

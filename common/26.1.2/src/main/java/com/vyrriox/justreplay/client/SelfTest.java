@@ -164,6 +164,12 @@ public final class SelfTest {
     private static boolean mcpListeningAtExport;
     private static long mcpBadgeExportStart;
     private static long mcpBadgeExportLast;
+    /** Tick the MCP observation checks look at: the recording player walks there, the villager and the actors are around. */
+    private static final int MCP_OBSERVE_TICK = 60;
+    private static java.util.concurrent.CompletableFuture<com.vyrriox.justreplay.mcp.McpProbe.Observation> mcpObserve;
+    private static int mcpObserveCursor;
+    private static net.minecraft.client.gui.screens.Screen mcpObserveScreen;
+    private static long mcpGrabsBefore;
     private static long[] markerExportStart = new long[3];
     private static long[] markerExportLast = new long[3];
     /** Export settings and editor mode of the user, saved at the start and put back at the end of the test. */
@@ -438,6 +444,76 @@ public final class SelfTest {
                 mouseDropped && mouseTurned == 0.0 ? "OK" : "FAIL");
         log("export F1 press left the HUD hidden={} -> {}", keyHidGui, Boolean.TRUE.equals(keyHidGui) ? "OK" : "FAIL");
         log("export window capture with the veil taken={} -> {}", veilShot, veilShot ? "OK" : "FAIL");
+    }
+
+    /** Decodes a picture the MCP tools sent with the game's own image library (stb_image) and keeps it for a look. */
+    private static void checkMcpPicture(Minecraft mc, com.vyrriox.justreplay.mcp.McpProbe.Picture picture) {
+        int[] size = null;
+        double spread = 0.0;
+        java.nio.ByteBuffer encoded = org.lwjgl.system.MemoryUtil.memAlloc(picture.data().length);
+        try (org.lwjgl.system.MemoryStack stack = org.lwjgl.system.MemoryStack.stackPush()) {
+            encoded.put(picture.data()).flip();
+            java.nio.IntBuffer w = stack.mallocInt(1);
+            java.nio.IntBuffer h = stack.mallocInt(1);
+            java.nio.IntBuffer channels = stack.mallocInt(1);
+            java.nio.ByteBuffer pixels = org.lwjgl.stb.STBImage.stbi_load_from_memory(encoded, w, h, channels, 3);
+            if (pixels != null) {
+                size = new int[]{w.get(0), h.get(0)};
+                // A picture with nothing on it (all black, one flat colour) has no spread of brightness.
+                double sum = 0.0;
+                double squares = 0.0;
+                int n = size[0] * size[1];
+                for (int i = 0; i < n; i++) {
+                    double luma = 0.299 * (pixels.get(i * 3) & 0xFF) + 0.587 * (pixels.get(i * 3 + 1) & 0xFF) + 0.114 * (pixels.get(i * 3 + 2) & 0xFF);
+                    sum += luma;
+                    squares += luma * luma;
+                }
+                double mean = sum / n;
+                spread = Math.sqrt(Math.max(0.0, squares / n - mean * mean));
+                org.lwjgl.stb.STBImage.stbi_image_free(pixels);
+            }
+        } finally {
+            org.lwjgl.system.MemoryUtil.memFree(encoded);
+        }
+        boolean png = picture.data().length > 0 && (picture.data()[0] & 0xFF) == 0x89;
+        String file = "selftest-mcp-" + picture.label().replace(' ', '-') + (png ? ".png" : ".jpg");
+        try {
+            Path dir = mc.gameDirectory.toPath().resolve("screenshots");
+            Files.createDirectories(dir);
+            Files.write(dir.resolve(file), picture.data());
+        } catch (java.io.IOException e) {
+            log("mcp picture {} could not be saved: {}", file, e.toString());
+        }
+        boolean right = size != null && size[0] == picture.width() && size[1] == picture.height();
+        log("mcp {} decodes with the game's image library at {} (asked {}x{}), brightness spread {}, saved as {} -> {}", picture.label(),
+                size == null ? "nothing (" + org.lwjgl.stb.STBImage.stbi_failure_reason() + ")" : size[0] + "x" + size[1], picture.width(),
+                picture.height(), String.format(java.util.Locale.ROOT, "%.1f", spread), file, right && spread > 3.0 ? "OK" : "FAIL");
+    }
+
+    /** The camera math of the MCP tools against the game's own camera vectors: the look point is the centre, up is up. */
+    private static void checkMcpCameraMath(Minecraft mc) {
+        net.minecraft.client.Camera camera = mc.gameRenderer.getMainCamera();
+        com.vyrriox.justreplay.mcp.McpCamera c = com.vyrriox.justreplay.export.FrameGrab.camera(mc, "current");
+        org.joml.Vector3fc look = camera.forwardVector();
+        org.joml.Vector3fc up = camera.upVector();
+        org.joml.Vector3fc left = camera.leftVector();
+        double[] forward = c.forward();
+        double dot = forward[0] * look.x() + forward[1] * look.y() + forward[2] * look.z();
+        int w = 640;
+        int h = 360;
+        com.vyrriox.justreplay.mcp.McpCamera.Projection centre = c.project(c.x() + 10 * look.x(), c.y() + 10 * look.y(), c.z() + 10 * look.z(), w, h);
+        com.vyrriox.justreplay.mcp.McpCamera.Projection above = c.project(c.x() + 10 * look.x() + up.x(), c.y() + 10 * look.y() + up.y(),
+                c.z() + 10 * look.z() + up.z(), w, h);
+        com.vyrriox.justreplay.mcp.McpCamera.Projection toLeft = c.project(c.x() + 10 * look.x() + left.x(), c.y() + 10 * look.y() + left.y(),
+                c.z() + 10 * look.z() + left.z(), w, h);
+        boolean ok = dot > 0.9999 && Math.abs(centre.screenX() - w / 2.0) < 0.5 && Math.abs(centre.screenY() - h / 2.0) < 0.5
+                && above.screenY() < h / 2.0 - 1 && Math.abs(above.screenX() - w / 2.0) < 0.5 && toLeft.screenX() < w / 2.0 - 1
+                && Math.abs(toLeft.screenY() - h / 2.0) < 0.5;
+        log("mcp camera math matches the game's camera (yaw {}, pitch {}, roll {}): look dot {}, look point at {},{}, up at y {}, left at x {} -> {}",
+                String.format(java.util.Locale.ROOT, "%.1f", c.yaw()), String.format(java.util.Locale.ROOT, "%.1f", c.pitch()), c.roll(),
+                String.format(java.util.Locale.ROOT, "%.6f", dot), String.format(java.util.Locale.ROOT, "%.2f", centre.screenX()),
+                String.format(java.util.Locale.ROOT, "%.2f", centre.screenY()), String.format(java.util.Locale.ROOT, "%.1f", above.screenY()),
+                String.format(java.util.Locale.ROOT, "%.1f", toLeft.screenX()), ok ? "OK" : "FAIL");
     }
 
     private static void shot(Minecraft mc, String name) {
@@ -1281,6 +1357,43 @@ public final class SelfTest {
                 long drawn = com.vyrriox.justreplay.mcp.McpClient.badgeFrames() - mcpBadgeBefore;
                 log("mcp badge drawn in the HUD while listening: {} frames -> {}", drawn, drawn > 0 ? "OK" : "FAIL");
                 shot(mc, "mcp-badge");
+                go(101, 5);
+            }
+            case 101 -> {
+                // MCP observation: the entities of another tick, frames drawn by the export path and by the window, read
+                // back by the game's own decoder; the play head and the screen must be as they were afterwards.
+                ReplaySession s = ReplaySession.current();
+                mcpObserveCursor = s.playback().cursor();
+                mcpObserveScreen = mc.screen;
+                mcpGrabsBefore = com.vyrriox.justreplay.export.FrameGrab.grabbed();
+                log("mcp observation checks start at play head {} on screen {}", mcpObserveCursor, mc.screen == null ? "none"
+                        : mc.screen.getClass().getSimpleName());
+                mcpObserve = com.vyrriox.justreplay.mcp.McpProbe.observe(mcpPort, com.vyrriox.justreplay.config.JRConfig.MCP.token.get(),
+                        new com.vyrriox.justreplay.mcp.McpProbe.Look(MCP_OBSERVE_TICK, java.util.List.of("minecraft:villager", "minecraft:player"),
+                                true, 320, 180));
+                next(1);
+            }
+            case 102 -> {
+                // The frames need this thread to keep ticking and drawing.
+                if (!mcpObserve.isDone()) {
+                    return;
+                }
+                com.vyrriox.justreplay.mcp.McpProbe.Observation o = mcpObserve.join();
+                for (String line : o.lines()) {
+                    log(line);
+                }
+                for (com.vyrriox.justreplay.mcp.McpProbe.Picture picture : o.pictures()) {
+                    checkMcpPicture(mc, picture);
+                }
+                long grabs = com.vyrriox.justreplay.export.FrameGrab.grabbed() - mcpGrabsBefore;
+                log("mcp frames handed over: {} (expected {}) -> {}", grabs, o.pictures().size(), grabs == 3 ? "OK" : "FAIL");
+                ReplaySession s = ReplaySession.current();
+                boolean sameScreen = mc.screen == mcpObserveScreen;
+                log("mcp observation left the replay as it was: play head {} (was {}), same screen={}, export running={} -> {}",
+                        s.playback().cursor(), mcpObserveCursor, sameScreen, VideoExporter.isActive(),
+                        s.playback().cursor() == mcpObserveCursor && sameScreen && !VideoExporter.isActive() ? "OK" : "FAIL");
+                checkMcpCameraMath(mc);
+                shot(mc, "mcp-observe");
                 go(13, 5);
             }
             case 13 -> {
