@@ -1121,5 +1121,15 @@
   "justreplay.speed.tip.key": "%s from %s",
   "justreplay.speed.tip.ramp": "%s from %s, ramping to the next key",
   "justreplay.speed.tip.freeze": "Freeze of %s s at %s",
-  "justreplay.speed.tip.timelapse": "Timelapse %s from %s to %s in %s s"
+  "justreplay.speed.tip.timelapse": "Timelapse %s from %s to %s in %s s",
+  "justreplay.configuration.mcp": "MCP server (AI assistants)",
+  "justreplay.configuration.enabled": "Start the MCP server",
+  "justreplay.configuration.port": "Port",
+  "justreplay.configuration.token": "Access token",
+  "justreplay.configuration.timeoutSeconds": "Answer timeout (seconds)",
+  "justreplay.configuration.allowedOrigins": "Allowed browser origins (comma separated)",
+  "justreplay.mcp.toast.started": "MCP server listening",
+  "justreplay.mcp.toast.started.detail": "%s",
+  "justreplay.mcp.toast.stopped": "MCP server stopped",
+  "justreplay.mcp.toast.failed": "MCP server cannot start"
 }

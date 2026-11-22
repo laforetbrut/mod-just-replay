@@ -45,9 +45,12 @@ public final class ReplayHud {
         }
         Font font = mc.font;
         Recorder recorder = Recorder.active();
+        int badgeX = 6;
         if (recorder != null && JRConfig.SHOW_RECORDING_INDICATOR.get()) {
-            renderRec(g, font, recorder.tick());
+            badgeX += renderRec(g, font, recorder.tick()) + 4;
         }
+        // The MCP server badge while it listens, next to REC; never in a video (exports return above).
+        com.vyrriox.justreplay.mcp.McpClient.renderBadge(g, font, badgeX, 6);
 
         ReplaySession session = ReplaySession.current();
         if (session == null || !ReplaySession.isRunning() || !session.isHudVisible() || mc.screen instanceof EditorScreen) {
@@ -107,7 +110,8 @@ public final class ReplayHud {
         }
     }
 
-    private static void renderRec(GuiGraphics g, Font font, int tick) {
+    /** Draws the REC pill and returns its width. */
+    private static int renderRec(GuiGraphics g, Font font, int tick) {
         if (tick != recTick) {
             recTick = tick;
             recText = "REC  " + Timeline.formatTicks(tick);
@@ -118,6 +122,7 @@ public final class ReplayHud {
         Paint.circle(g, 13, 13, 3.0F + pulse * 1.6F, Theme.withAlpha(Theme.RECORD, (int) (0x30 + 0x40 * pulse)));
         Paint.circle(g, 13, 13, 2.6F, Theme.mix(0xFFB33636, Theme.RECORD, pulse));
         g.drawString(font, recText, 20, 10, Theme.TEXT, false);
+        return w;
     }
 
     private static String time(int cursor, int duration) {

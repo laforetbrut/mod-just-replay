@@ -24,7 +24,7 @@ public final class McpState {
         /** True in the world of a replay being watched. */
         public boolean replayWorld;
         public boolean singleplayer;
-        /** Address of the server, empty in singleplayer. */
+        /** Name of the server in the server list, empty in singleplayer. */
         public String server = "";
         public String dimension = "";
     }
