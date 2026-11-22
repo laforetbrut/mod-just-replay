@@ -210,7 +210,7 @@ public final class JustReplayClient {
                     b -> mc.setScreen(new ReplayListScreen(title))).icon(Icon.FILM).iconColor(Theme.ACCENT)
                     .tip(Component.translatable("justreplay.button.replays.tip")));
             // Shows on the menu that the MCP server listens; draws nothing otherwise.
-            addWidget.accept(com.vyrriox.justreplay.mcp.McpClient.titleBadge(title));
+            addWidget.accept(com.vyrriox.justreplay.mcp.McpClient.titleBadge());
         } else if (screen instanceof PauseScreen pause && pause.showsPauseMenu()) {
             if (ReplaySession.isRunning()) {
                 addWidget.accept(new GlassButton(4, 4, 110, 20, Component.translatable("justreplay.button.editor"),

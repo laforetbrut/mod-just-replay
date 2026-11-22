@@ -104,23 +104,29 @@ public final class McpClient {
     }
 
     /** The badge of the title screen: drawn only while the server listens, it takes no clicks. */
-    public static AbstractWidget titleBadge(Screen screen) {
-        Font font = Minecraft.getInstance().font;
-        return new AbstractWidget(6, 6, badgeWidth(font), 14, Component.literal(LABEL)) {
-            {
-                active = false;
-            }
+    public static AbstractWidget titleBadge() {
+        return new TitleBadge(badgeWidth(Minecraft.getInstance().font));
+    }
 
-            @Override
-            protected void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-                renderBadge(g, Minecraft.getInstance().font, getX(), getY());
-            }
+    /**
+     * A named class with its own constructor: javac names the constructor parameters of an anonymous subclass after
+     * the game's, which clash on the NeoForge 1.20.1 build machines ("variable o is already defined").
+     */
+    private static final class TitleBadge extends AbstractWidget {
+        TitleBadge(int badgeWidth) {
+            super(6, 6, badgeWidth, 14, Component.literal(LABEL));
+            active = false;
+        }
 
-            @Override
-            protected void updateWidgetNarration(NarrationElementOutput output) {
-                // Nothing to read out: the badge only shows a state.
-            }
-        };
+        @Override
+        protected void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+            renderBadge(g, Minecraft.getInstance().font, getX(), getY());
+        }
+
+        @Override
+        protected void updateWidgetNarration(NarrationElementOutput output) {
+            // Nothing to read out: the badge only shows a state.
+        }
     }
 
     // ------------------------------------------------------------------ toasts
