@@ -513,6 +513,25 @@ public final class ConfigFile {
             super(key, List.copyOf(def), comment);
         }
 
+        /** The values on one line, separated by commas, as a settings field shows them. */
+        public static String join(List<String> values) {
+            return values == null ? "" : String.join(", ", values);
+        }
+
+        /** A line of values separated by commas: each one trimmed, empty ones dropped. */
+        public static List<String> split(String line) {
+            List<String> out = new ArrayList<>();
+            if (line != null) {
+                for (String part : line.split(",")) {
+                    String value = part.trim();
+                    if (!value.isEmpty()) {
+                        out.add(value);
+                    }
+                }
+            }
+            return List.copyOf(out);
+        }
+
         @Override
         public void set(List<String> newValue) {
             super.set(newValue == null ? def : List.copyOf(newValue));

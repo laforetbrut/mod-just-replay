@@ -171,6 +171,17 @@ public final class SelfTest {
     private static String galleryName = "";
     /** Marker renderer counters (level renders, frames with markers, frames an export refused) at a step's start. */
     private static long[] markerCounters = new long[3];
+    /** MCP server check: its port, the settings to put back after the run, the HTTP checks running off this thread. */
+    private static int mcpPort = -1;
+    private static boolean mcpSaved;
+    private static boolean mcpWasEnabled;
+    private static int mcpOldPort;
+    private static String mcpOldToken = "";
+    private static java.util.concurrent.CompletableFuture<java.util.List<String>> mcpChecks;
+    private static long mcpBadgeBefore;
+    private static boolean mcpListeningAtExport;
+    private static long mcpBadgeExportStart;
+    private static long mcpBadgeExportLast;
     private static long[] markerExportStart = new long[3];
     private static long[] markerExportLast = new long[3];
     /** Export settings and editor mode of the user, saved at the start and put back at the end of the test. */
@@ -345,6 +356,7 @@ public final class SelfTest {
     }
 
     private static void restoreUserConfig() {
+        restoreMcpConfig();
         if (savedCrf < 0) {
             return;
         }
@@ -354,6 +366,36 @@ public final class SelfTest {
         com.vyrriox.justreplay.config.JRConfig.EDITOR_MODE.set(savedMode);
         com.vyrriox.justreplay.config.JRConfig.SPEC.save();
         log("restored user export settings: {} fps, CRF {}, {}", savedFps, savedCrf, savedResolution);
+    }
+
+    /** Puts back the MCP settings the run changed: the server goes back off unless the user had it on. */
+    private static void restoreMcpConfig() {
+        if (!mcpSaved) {
+            return;
+        }
+        mcpSaved = false;
+        com.vyrriox.justreplay.config.JRConfig.SPEC.batch(() -> {
+            com.vyrriox.justreplay.config.JRConfig.MCP.enabled.set(mcpWasEnabled);
+            com.vyrriox.justreplay.config.JRConfig.MCP.port.set(mcpOldPort);
+            com.vyrriox.justreplay.config.JRConfig.MCP.token.set(mcpOldToken);
+        });
+        log("restored the MCP settings: server {}", mcpWasEnabled ? "on" : "off");
+    }
+
+    /** A port of 127.0.0.1 nothing listens on right now. */
+    private static int freeLocalPort() throws java.io.IOException {
+        try (java.net.ServerSocket socket = new java.net.ServerSocket(0, 1, java.net.InetAddress.getByName("127.0.0.1"))) {
+            return socket.getLocalPort();
+        }
+    }
+
+    private static boolean localPortOpen(int port) {
+        try (java.net.Socket socket = new java.net.Socket()) {
+            socket.connect(new java.net.InetSocketAddress("127.0.0.1", port), 500);
+            return true;
+        } catch (java.io.IOException e) {
+            return false;
+        }
     }
 
     /** Ends the run: a failed test quits with its reason in the log, it never leaves the game idle. */
@@ -1261,6 +1303,54 @@ public final class SelfTest {
                 log("entity marker on the recording player finds it: {} -> {}", followed == null ? "nothing" : followed.position(),
                         followed != null && followed == recorder ? "OK" : "FAIL");
                 shot(mc, "markers-world");
+                go(95, 5);
+            }
+            case 95 -> {
+                // MCP server: switched on (on a free port) while the replay and its markers are open, then asked over HTTP.
+                mcpSaved = true;
+                mcpWasEnabled = com.vyrriox.justreplay.config.JRConfig.MCP.enabled.get();
+                mcpOldPort = com.vyrriox.justreplay.config.JRConfig.MCP.port.get();
+                mcpOldToken = com.vyrriox.justreplay.config.JRConfig.MCP.token.get();
+                mcpPort = freeLocalPort();
+                com.vyrriox.justreplay.config.JRConfig.MCP.port.set(mcpPort);
+                com.vyrriox.justreplay.config.JRConfig.MCP.enabled.set(true);
+                log("mcp server switched on in the settings, port {}", mcpPort);
+                next(5);
+            }
+            case 96 -> {
+                com.vyrriox.justreplay.mcp.McpHost host = com.vyrriox.justreplay.mcp.McpClient.host();
+                String token = com.vyrriox.justreplay.config.JRConfig.MCP.token.get();
+                boolean listening = host.isListening() && host.port() == mcpPort && localPortOpen(mcpPort);
+                log("mcp server listening on 127.0.0.1:{} with a generated token of {} characters -> {}", host.port(), token.length(),
+                        listening && com.vyrriox.justreplay.mcp.McpToken.usable(token) ? "OK" : "FAIL");
+                ReplaySession s = ReplaySession.current();
+                com.vyrriox.justreplay.editor.Marker moment = null;
+                for (com.vyrriox.justreplay.editor.Marker m : s.project().markers) {
+                    if (m.name.equals("SelfTest moment")) {
+                        moment = m;
+                    }
+                }
+                if (!listening || moment == null) {
+                    log("mcp checks skipped: listening={} marker found={} -> FAIL", listening, moment != null);
+                    go(13, 5);
+                    return;
+                }
+                mcpBadgeBefore = com.vyrriox.justreplay.mcp.McpClient.badgeFrames();
+                mcpChecks = com.vyrriox.justreplay.mcp.McpProbe.start(mcpPort, token, new com.vyrriox.justreplay.mcp.McpProbe.Expect(
+                        s.dir().getFileName().toString(), s.project().markers.size(), moment.id, moment.name, moment.note));
+                next(1);
+            }
+            case 97 -> {
+                // The checks need this thread to keep ticking: every call reaching the game is answered at a client tick.
+                if (!mcpChecks.isDone()) {
+                    return;
+                }
+                for (String line : mcpChecks.join()) {
+                    log(line);
+                }
+                long drawn = com.vyrriox.justreplay.mcp.McpClient.badgeFrames() - mcpBadgeBefore;
+                log("mcp badge drawn in the HUD while listening: {} frames -> {}", drawn, drawn > 0 ? "OK" : "FAIL");
+                shot(mc, "mcp-badge");
                 go(13, 5);
             }
             case 13 -> {
@@ -1278,6 +1368,9 @@ public final class SelfTest {
                 var error = VideoExporter.start(s, 20, 80, "selftest");
                 markerExportStart = com.vyrriox.justreplay.editor.MarkerRenderer.counters();
                 markerExportLast = markerExportStart;
+                mcpListeningAtExport = com.vyrriox.justreplay.mcp.McpClient.isListening();
+                mcpBadgeExportStart = com.vyrriox.justreplay.mcp.McpClient.badgeFrames();
+                mcpBadgeExportLast = mcpBadgeExportStart;
                 log("export start error={}", error == null ? "none" : error.getString());
                 if (error == null) {
                     Path output = VideoExporter.current().output();
@@ -1290,6 +1383,7 @@ public final class SelfTest {
                 sampleExportClocks();
                 if (VideoExporter.isActive()) {
                     markerExportLast = com.vyrriox.justreplay.editor.MarkerRenderer.counters();
+                    mcpBadgeExportLast = com.vyrriox.justreplay.mcp.McpClient.badgeFrames();
                 }
                 shotVeil(mc);
                 if (!VideoExporter.isActive()) {
@@ -1315,6 +1409,20 @@ public final class SelfTest {
                 log("markers kept out of the export: {} frames drew markers while exporting, {} frames left them out -> {}",
                         markerExportLast[1] - markerExportStart[1], markerExportLast[2] - markerExportStart[2],
                         markerExportLast[1] == markerExportStart[1] && markerExportLast[2] > markerExportStart[2] ? "OK" : "FAIL");
+                go(98, 5);
+            }
+            case 98 -> {
+                long drawn = mcpBadgeExportLast - mcpBadgeExportStart;
+                log("mcp badge kept out of the export: server listening={}, {} frames drew it while exporting -> {}", mcpListeningAtExport,
+                        drawn, mcpListeningAtExport && drawn == 0 ? "OK" : "FAIL");
+                com.vyrriox.justreplay.config.JRConfig.MCP.enabled.set(false);
+                next(5);
+            }
+            case 99 -> {
+                com.vyrriox.justreplay.mcp.McpHost host = com.vyrriox.justreplay.mcp.McpClient.host();
+                boolean stopped = !host.isListening() && mcpPort > 0 && !localPortOpen(mcpPort);
+                log("mcp server stopped when switched off, port {} closed -> {}", mcpPort, stopped ? "OK" : "FAIL");
+                restoreMcpConfig();
                 go(94, 5);
             }
             case 94 -> {

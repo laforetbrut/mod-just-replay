@@ -111,6 +111,14 @@ public class JRConfigScreen extends GlassScreen {
         } else if (value instanceof ConfigFile.EnumValue<?> choice) {
             f.text(() -> label, Theme.TEXT_DIM);
             f.full(segmented(choice).tip(tip));
+        } else if (value instanceof ConfigFile.StringListValue) {
+            // A list (the allowed origins of the MCP server) is typed on one line, values separated by commas.
+            f.text(() -> label, Theme.TEXT_DIM);
+            GlassTextField field = new GlassTextField(font, 0, label);
+            field.setMaxLength(2048);
+            field.setValue(ConfigFile.StringListValue.join(strings(draft.get(value))));
+            field.setResponder(text -> draft.put(value, ConfigFile.StringListValue.split(text)));
+            f.full(field.tip(tip));
         } else {
             f.text(() -> label, Theme.TEXT_DIM);
             GlassTextField field = new GlassTextField(font, 0, label);
@@ -119,6 +127,11 @@ public class JRConfigScreen extends GlassScreen {
             field.setResponder(text -> draft.put(value, text.trim().isEmpty() ? value.defaultValue() : text.trim()));
             f.full(field.tip(tip));
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> strings(Object value) {
+        return value instanceof List<?> ? (List<String>) value : List.of();
     }
 
     /** A number being typed may be empty or too long for an int: the last valid one stays. */

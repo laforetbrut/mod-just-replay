@@ -3,6 +3,7 @@ package com.vyrriox.justreplay.config;
 import com.vyrriox.justreplay.compat.CompatSwitches;
 import com.vyrriox.justreplay.compat.CompatTargets;
 import com.vyrriox.justreplay.export.ExportResolution;
+import com.vyrriox.justreplay.mcp.McpConfig;
 import com.vyrriox.justreplay.platform.Platform;
 
 import java.nio.file.Files;
@@ -44,6 +45,8 @@ public final class JRConfig {
     public static final ConfigFile.EnumValue<ExportResolution> EXPORT_RESOLUTION;
     public static final ConfigFile.BoolValue EXPORT_RANGE_IN_NAME;
     public static final ConfigFile.EnumValue<EditorMode> EDITOR_MODE;
+    /** The local MCP server, off until switched on. */
+    public static final McpConfig MCP;
     /** One switch per integration, by mod id (see {@link CompatSwitches}, which reads them before the game starts). */
     public static final Map<String, ConfigFile.BoolValue> COMPAT;
 
@@ -146,6 +149,7 @@ public final class JRConfig {
         EDITOR_MODE = editor.enumeration("mode", EditorMode.SIMPLE,
                 "SIMPLE shows the essentials of the replay editor with big controls; ADVANCED shows every tool." + "\n"
                         + "Switching keeps all the work done in either mode.");
+        MCP = McpConfig.define(SPEC);
         ConfigFile.Section compat = SPEC.section(CompatSwitches.SECTION,
                 "Integrations with other mods, one switch per mod id. An integration that fails turns itself off until the" + "\n"
                         + "next start and says so in the log; set it to false here to keep it off. Changes apply at the next start.");

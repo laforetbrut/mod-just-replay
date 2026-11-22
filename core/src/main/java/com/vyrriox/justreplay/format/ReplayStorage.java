@@ -58,8 +58,13 @@ public final class ReplayStorage {
     }
 
     public static List<Entry> list() {
+        return list(root());
+    }
+
+    /** The replays saved in {@code root}, newest first. */
+    public static List<Entry> list(Path root) {
         List<Entry> result = new ArrayList<>();
-        try (Stream<Path> dirs = Files.list(root())) {
+        try (Stream<Path> dirs = Files.list(root)) {
             dirs.filter(Files::isDirectory).forEach(dir -> {
                 if (dir.getFileName().toString().endsWith(".tmp") || !Files.exists(dir.resolve(STREAM))) {
                     return;

@@ -55,6 +55,7 @@ public final class JustReplayClient {
         SelfTest.tick(mc);
         SceneRecorder.tick(mc);
         com.vyrriox.justreplay.compat.ReplayCompat.clientTick(mc);
+        com.vyrriox.justreplay.mcp.McpClient.tick(mc);
     }
 
     public static void onTickPre() {
@@ -208,6 +209,8 @@ public final class JustReplayClient {
             addWidget.accept(new GlassButton(x, y, 72, 20, Component.translatable("justreplay.button.replays"),
                     b -> mc.setScreen(new ReplayListScreen(title))).icon(Icon.FILM).iconColor(Theme.ACCENT)
                     .tip(Component.translatable("justreplay.button.replays.tip")));
+            // Shows on the menu that the MCP server listens; draws nothing otherwise.
+            addWidget.accept(com.vyrriox.justreplay.mcp.McpClient.titleBadge());
         } else if (screen instanceof PauseScreen pause && pause.showsPauseMenu()) {
             if (ReplaySession.isRunning()) {
                 addWidget.accept(new GlassButton(4, 4, 110, 20, Component.translatable("justreplay.button.editor"),
