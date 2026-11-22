@@ -154,6 +154,7 @@
 **Root cause:** javac builds a synthetic constructor for an anonymous class and names its parameters from the superclass; here those names clashed with the ones in the patched Minecraft classes on the CI machine. The exact difference with the local machine was not established.
 **Fix:** a named `NoEntityClip` class with an explicit constructor. The tag was not moved, and the behaviour is the same.
 **Prevention:** run the CI matrix on the release commit before tagging, through a pull request or a manual workflow run.
+**Recurred:** 2026-11-22 21:53, 2026-11-22, task 504: the MCP title badge, an anonymous AbstractWidget, failed the same way on the pull request CI only; a named TitleBadge class with its own constructor fixed it
 
 ## [2026-11-05 21:30] — Curios worn items dropped in a replay when a datapack supplies the slots (1.20.1)
 **Context:** production self test on Forge 1.20.1 with Curios 5.14.1 and the test ring datapack.
