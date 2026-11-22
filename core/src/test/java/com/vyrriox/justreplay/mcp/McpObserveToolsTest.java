@@ -338,11 +338,15 @@ class McpObserveToolsTest {
         JsonObject frame = ok("render_frame");
         assertNull(world.frames.get(1).camera());
         assertEquals("project", frame.getAsJsonObject("camera").get("source").getAsString());
-        ok("render_frame", "ui", true);
+        // The window keeps the player's view unless a camera is asked for.
+        JsonObject window = ok("render_frame", "ui", true);
         assertTrue(world.frames.get(2).ui());
-        assertEquals("project", world.frames.get(2).camera().source());
+        assertNull(world.frames.get(2).camera());
+        assertEquals("current", window.getAsJsonObject("camera").get("source").getAsString());
+        ok("render_frame", "ui", true, "camera", "project");
+        assertEquals("project", world.frames.get(3).camera().source());
         ok("render_frame", "ui", true, "camera", "current");
-        assertNull(world.frames.get(3).camera());
+        assertNull(world.frames.get(4).camera());
     }
 
     @Test

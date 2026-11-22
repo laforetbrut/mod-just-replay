@@ -201,9 +201,10 @@ public final class McpObserveTools {
     /** The camera arguments render_frame and project_to_screen share. */
     private static McpSchema camera(McpSchema schema) {
         return schema
-                .choice("camera", "auto: the project's camera path when it has one, else the current view. project: the camera "
-                        + "path, as the video shows it. current: the view the window shows now. free: the camera given by x, y, "
-                        + "z, yaw, pitch, roll and fov (chosen by itself when x, y and z are given).", null,
+                .choice("camera", "auto: for a video frame the project's camera path when it has one, else the current view; "
+                        + "for ui=true the current view. project: the camera path, as the video shows it. current: the view "
+                        + "the window shows now. free: the camera given by x, y, z, yaw, pitch, roll and fov (chosen by itself "
+                        + "when x, y and z are given).", null,
                         CAMERAS.toArray(new String[0]))
                 .number("x", "Eye X of a free camera.", -MAX_COORDINATE, MAX_COORDINATE)
                 .number("y", "Eye Y of a free camera.", -MAX_COORDINATE, MAX_COORDINATE)
@@ -331,9 +332,10 @@ public final class McpObserveTools {
                 return new Aim(p.withSource("project"), ui ? p.withSource("project") : null, "project");
             }
             default -> {
-                McpCamera p = r == null ? null : observer.projectCamera(tick);
+                // The window keeps the view the player has; a video frame follows the edit when it has a camera.
+                McpCamera p = r == null || ui ? null : observer.projectCamera(tick);
                 if (p != null) {
-                    return new Aim(p.withSource("project"), ui ? p.withSource("project") : null, "project");
+                    return new Aim(p.withSource("project"), null, "project");
                 }
                 return new Aim(current, ui ? null : current, "current");
             }

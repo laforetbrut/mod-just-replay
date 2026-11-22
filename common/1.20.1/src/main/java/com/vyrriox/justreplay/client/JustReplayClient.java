@@ -119,6 +119,7 @@ public final class JustReplayClient {
 
     public static void onRenderFramePost(float partialTick) {
         VideoExporter.onFrameRendered(partialTick);
+        com.vyrriox.justreplay.export.FrameGrab.onFrameRendered();
     }
 
     /** Spectator flying widens the view; keyframes store the configured FOV, so keep the camera at exactly that. */

@@ -52,8 +52,9 @@ public final class McpClient {
     public static McpHost host() {
         if (host == null) {
             McpRegistry registry = McpReadTools.registry(new GameView());
+            McpObserveTools.register(registry, new ReplayObserver());
             host = new McpHost(JRConfig.MCP, registry, new McpProtocol.Info(JustReplay.MOD_ID, "Just Replay",
-                    Platform.get().modVersion(), McpReadTools.INSTRUCTIONS), new Toasts());
+                    Platform.get().modVersion(), McpReadTools.INSTRUCTIONS + McpObserveTools.INSTRUCTIONS), new Toasts());
         }
         return host;
     }
@@ -61,6 +62,7 @@ public final class McpClient {
     /** Client thread, every tick: starts or stops the server as the settings say and answers the waiting calls. */
     public static void tick(Minecraft mc) {
         try {
+            com.vyrriox.justreplay.export.FrameGrab.tick();
             host().tick();
         } catch (RuntimeException | LinkageError e) {
             // The server is an extra: whatever goes wrong with it, the game goes on.
@@ -198,7 +200,7 @@ public final class McpClient {
             s.editor.mode = JRConfig.EDITOR_MODE.get().name();
 
             VideoExporter export = VideoExporter.current();
-            if (VideoExporter.isActive() && export != null) {
+            if (VideoExporter.isActive() && export != null && !export.isGrab()) {
                 s.export.active = true;
                 s.export.file = export.shownFileName();
                 s.export.startTick = export.startTick();

@@ -36,6 +36,11 @@ public final class SpectateCamera {
         return target != null;
     }
 
+    /** UUID of the entity viewed, or null. */
+    public UUID targetId() {
+        return target;
+    }
+
     /** True while following the recording player. */
     public boolean isFollowingRecorder() {
         return target != null && recorder;
