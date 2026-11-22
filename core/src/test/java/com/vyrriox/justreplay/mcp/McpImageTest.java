@@ -1,6 +1,7 @@
 package com.vyrriox.justreplay.mcp;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -9,6 +10,7 @@ import java.io.IOException;
 import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -22,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * @author vyrriox
  */
+@Timeout(value = 60, unit = TimeUnit.SECONDS)
 class McpImageTest {
     @Test
     void sizeFollowsTheShapeAndStaysInBounds() {
@@ -37,6 +40,8 @@ class McpImageTest {
         assertEquals(960, square.width());
         assertEquals(960, square.height());
         assertTrue(square.clamped());
+        // Over the budget but not too long: both sides shrink alike, the shape is kept (1.28).
+        assertEquals(new McpImage.Size(1086, 848, true), McpImage.fit(1280, 1000, 1.0));
         // Too small.
         assertEquals(new McpImage.Size(64, 64, true), McpImage.fit(10, 10, 1.0));
         // A broken shape falls back to 16:9.

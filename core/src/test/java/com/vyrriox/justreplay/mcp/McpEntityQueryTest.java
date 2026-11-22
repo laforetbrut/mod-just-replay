@@ -2,6 +2,9 @@ package com.vyrriox.justreplay.mcp;
 
 import com.google.gson.JsonObject;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+
+import java.util.concurrent.TimeUnit;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * @author vyrriox
  */
+@Timeout(value = 60, unit = TimeUnit.SECONDS)
 class McpEntityQueryTest {
     private final FakeObserver world = new FakeObserver();
 
@@ -70,7 +74,7 @@ class McpEntityQueryTest {
         List<Integer> seen = new ArrayList<>();
         int offset = 0;
         int pages = 0;
-        while (offset >= 0) {
+        while (offset >= 0 && pages < 10) {
             McpEntityQuery.Page page = new McpEntityQuery(List.of("zombie"), null, "", null, 0.0, offset, 1000).apply(all);
             assertEquals(231, page.total());
             assertTrue(page.entities().size() <= McpEntityQuery.MAX_LIMIT);

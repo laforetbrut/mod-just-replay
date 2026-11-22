@@ -1,6 +1,9 @@
 package com.vyrriox.justreplay.mcp;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -12,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * @author vyrriox
  */
+@Timeout(value = 60, unit = TimeUnit.SECONDS)
 class McpCameraTest {
     private static final double EPS = 1.0E-9;
 
