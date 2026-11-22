@@ -30,6 +30,7 @@ public final class McpTool {
     private final Set<String> argumentNames;
     private final JsonObject annotations;
     private final boolean onGameThread;
+    private final long minTimeoutMillis;
     private final Handler handler;
 
     private McpTool(Builder b) {
@@ -40,6 +41,7 @@ public final class McpTool {
         this.argumentNames = Set.copyOf(b.schema.names());
         this.annotations = b.annotations;
         this.onGameThread = b.onGameThread;
+        this.minTimeoutMillis = b.minTimeoutSeconds * 1000L;
         this.handler = b.handler;
     }
 
@@ -57,6 +59,11 @@ public final class McpTool {
 
     public boolean onGameThread() {
         return onGameThread;
+    }
+
+    /** Shortest time a call may take before it fails, whatever the settings say (0: the settings decide). */
+    public long minTimeoutMillis() {
+        return minTimeoutMillis;
     }
 
     Set<String> argumentNames() {
@@ -89,6 +96,7 @@ public final class McpTool {
         private McpSchema schema = McpSchema.object();
         private final JsonObject annotations = new JsonObject();
         private boolean onGameThread = true;
+        private int minTimeoutSeconds;
         private Handler handler;
 
         private Builder(String name) {
@@ -125,6 +133,15 @@ public final class McpTool {
         /** Runs the handler on the network thread; it reaches the game through {@link McpContext#onGameThread}. */
         public Builder offGameThread() {
             this.onGameThread = false;
+            return this;
+        }
+
+        /**
+         * Lets a call take at least {@code seconds} before it fails, for a tool that waits on the game for more than
+         * a tick (drawing a frame, moving through the replay). The longer of this and the settings applies.
+         */
+        public Builder timeoutSeconds(int seconds) {
+            this.minTimeoutSeconds = Math.max(0, seconds);
             return this;
         }
 

@@ -38,6 +38,47 @@ public final class McpSchema {
         return this;
     }
 
+    /** A whole number from {@code min} to {@code max} with no default: leaving it out means something else. */
+    public McpSchema integer(String name, String description, int min, int max) {
+        JsonObject p = property(name, "integer", description);
+        p.addProperty("minimum", min);
+        p.addProperty("maximum", max);
+        return this;
+    }
+
+    /** A number from {@code min} to {@code max}, with no default. */
+    public McpSchema number(String name, String description, double min, double max) {
+        JsonObject p = property(name, "number", description);
+        p.addProperty("minimum", min);
+        p.addProperty("maximum", max);
+        return this;
+    }
+
+    /** A list of at most {@code maxItems} strings. */
+    public McpSchema strings(String name, String description, int maxItems) {
+        JsonObject p = property(name, "array", description);
+        JsonObject items = new JsonObject();
+        items.addProperty("type", "string");
+        p.add("items", items);
+        p.addProperty("maxItems", maxItems);
+        return this;
+    }
+
+    /** A list of at most {@code maxItems} points, each an array of three numbers {@code [x, y, z]}. */
+    public McpSchema points(String name, String description, int maxItems) {
+        JsonObject p = property(name, "array", description);
+        JsonObject point = new JsonObject();
+        point.addProperty("type", "array");
+        JsonObject number = new JsonObject();
+        number.addProperty("type", "number");
+        point.add("items", number);
+        point.addProperty("minItems", 3);
+        point.addProperty("maxItems", 3);
+        p.add("items", point);
+        p.addProperty("maxItems", maxItems);
+        return this;
+    }
+
     public McpSchema bool(String name, String description, boolean def) {
         JsonObject p = property(name, "boolean", description);
         p.addProperty("default", def);
