@@ -34,8 +34,10 @@ MOD = "com.vyrriox.justreplay."
 MINECRAFT = ("net.minecraft.", "com.mojang.")
 LOADER = ("net.neoforged.", "net.minecraftforge.", "net.fabricmc.", "dev.architectury.", "org.quiltmc.")
 # Libraries every target has on its classpath (the game ships them) and that exist outside the game.
+# com.sun.net.httpserver is the JDK's HTTP server (module jdk.httpserver): every Java runtime the launcher installs
+# has it (17, 21 and 25, Windows, Linux and macOS), and the MCP server of core/ listens with it.
 PURE = ("java.", "javax.", "jdk.", "org.slf4j.", "com.google.gson.", "com.google.common.", "it.unimi.dsi.fastutil.",
-        "org.joml.", "org.apache.commons.", "org.jetbrains.annotations.", "org.jspecify.")
+        "org.joml.", "org.apache.commons.", "org.jetbrains.annotations.", "org.jspecify.", "com.sun.net.httpserver.")
 TEST_LIBS = ("org.junit.", "org.opentest4j.")
 # Loader code that stays in common/ on purpose: path under common/ -> why.
 COMMON_LOADER_FILES = {
