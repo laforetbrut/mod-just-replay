@@ -3,7 +3,6 @@ package com.vyrriox.justreplay.mcp;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonPrimitive;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -134,11 +133,6 @@ public final class McpArgs {
         return out;
     }
 
-    /** A copy of the raw arguments. */
-    public JsonObject raw() {
-        return values.deepCopy();
-    }
-
     private static String match(String value, Collection<String> allowed) {
         String wanted = value.trim().toLowerCase(Locale.ROOT);
         for (String a : allowed) {
@@ -147,21 +141,5 @@ public final class McpArgs {
             }
         }
         return null;
-    }
-
-    /** Arguments from name, value pairs (strings, numbers or booleans), for callers and tests. */
-    public static McpArgs of(Object... pairs) {
-        JsonObject o = new JsonObject();
-        for (int i = 0; i + 1 < pairs.length; i += 2) {
-            Object v = pairs[i + 1];
-            if (v instanceof Number n) {
-                o.add((String) pairs[i], new JsonPrimitive(n));
-            } else if (v instanceof Boolean b) {
-                o.add((String) pairs[i], new JsonPrimitive(b));
-            } else if (v != null) {
-                o.add((String) pairs[i], new JsonPrimitive(v.toString()));
-            }
-        }
-        return new McpArgs(o);
     }
 }
