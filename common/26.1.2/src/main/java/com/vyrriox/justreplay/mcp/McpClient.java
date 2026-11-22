@@ -43,6 +43,7 @@ public final class McpClient {
     private static final long ACTIVITY_MILLIS = 700L;
     private static McpHost host;
     private static boolean failureLogged;
+    private static long badgeFrames;
 
     private McpClient() {
     }
@@ -70,6 +71,11 @@ public final class McpClient {
         }
     }
 
+    /** Frames that drew a badge since the game started, for the self test. */
+    public static long badgeFrames() {
+        return badgeFrames;
+    }
+
     public static boolean isListening() {
         return host != null && host.isListening();
     }
@@ -86,6 +92,7 @@ public final class McpClient {
         if (!isListening()) {
             return 0;
         }
+        badgeFrames++;
         int w = badgeWidth(font);
         Paint.glass(g, x, y, w, 14, 7);
         boolean busy = System.currentTimeMillis() - host.lastCallMillis() < ACTIVITY_MILLIS;
