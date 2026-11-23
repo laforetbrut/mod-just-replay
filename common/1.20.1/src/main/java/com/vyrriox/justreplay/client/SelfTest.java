@@ -185,8 +185,6 @@ public final class SelfTest {
     /** Tick the MCP observation checks look at: the recording player walks there, the villager and the actors are around. */
     private static final int MCP_OBSERVE_TICK = 60;
     private static java.util.concurrent.CompletableFuture<com.vyrriox.justreplay.mcp.McpProbe.Observation> mcpObserve;
-    /** The forced slow checkpoint of the recording step was asked for. */
-    private static boolean slowCheckpointAsked;
     /** MCP control checks: the probe driving the buffer clip through MCP only, the markers it must find, a wait count. */
     private static java.util.concurrent.CompletableFuture<com.vyrriox.justreplay.mcp.McpProbe.Steering> mcpSteer;
     private static int mcpSteerMarkers;
@@ -756,10 +754,9 @@ public final class SelfTest {
                 if (t % 40 == 0 && Recorder.capturing() != null) {
                     log("recording cost: {}", Recorder.capturing().lastCost());
                 }
-                if (t >= 56 && !slowCheckpointAsked && Recorder.capturing() != null) {
-                    // Past the 0.9 interval a recording waits for its first checkpoint, so this one reaches the
-                    // recording; asked again each tick while a regular checkpoint is still being built.
-                    slowCheckpointAsked = Recorder.capturing().startSlowCheckpointTest();
+                if (t == 60 && Recorder.capturing() != null) {
+                    // Past the 0.9 interval a recording waits for its first checkpoint: this one reaches the recording.
+                    Recorder.capturing().startSlowCheckpointTest();
                 }
                 if (t >= 200 && clipSave == null) {
                     clipSave = Recorder.saveBuffer();
