@@ -26,7 +26,7 @@
 ### Fixed
 - **Overlay text box**: the hint shows `\n` for a new line again instead of swallowing it.
 - **Scene jobs**: leaving a replay while its resource packs were still loading no longer leaves the loading screen up for good.
-- **Checkpoints with the instant replay on**: a recording started while the last minutes buffer runs gets its checkpoints from its own start again. It used to wait for the buffer's clock, so its first checkpoint could come up to a buffer interval late (a minute with the default settings, five with a buffer of 25 minutes or more) and going back before it replayed everything from the start. The buffer keeps its own pace, and one checkpoint serves both whenever it fits both.
+- **Checkpoints with the instant replay on**: a recording started while the last minutes buffer runs gets its checkpoints from its own start again. It used to wait for the buffer's clock, so its first checkpoint could come up to a buffer interval late (a minute with the default settings, five with a buffer of 25 minutes or more) and going back before it replayed everything from the start. The buffer keeps its own pace, and one checkpoint serves both whenever it fits both. In the 4 minute test scene (a checkpoint every minute, a 2 minute buffer), the recording's checkpoints now land at 1209, 2420 and 3638 instead of 2259 and 3459, and going back from 3300 to 2080 takes 1.1 s instead of 2.0.
 
 ### Ajouts
 - **Repères dans l'éditeur** : le nouvel onglet Markers attache une note nommée à un moment, une plage de temps, un point du monde ou une entité, dans la couleur de ton choix. Ils se tirent le long de la timeline ; points et entités s'affichent dans le monde pendant le montage, jamais dans tes vidéos. Chacun garde un identifiant stable dans `project.json`, prêt pour la personne ou l'outil qui monte le replay ensuite. Les anciens projets s'ouvrent comme avant. Voir `docs/MARKERS.md`.
@@ -52,7 +52,7 @@
 ### Correctifs
 - **Champ de texte des overlays** : l'aide affiche de nouveau `\n` pour passer à la ligne au lieu de l'avaler.
 - **Tâches de scène** : quitter un replay pendant le chargement de ses packs de ressources ne laisse plus l'écran de chargement affiché pour de bon.
-- **Points de reprise avec le replay instantané** : un enregistrement lancé pendant que le tampon des dernières minutes tourne reprend ses points de reprise depuis son propre début. Il attendait l'horloge du tampon : son premier point pouvait arriver jusqu'à un intervalle du tampon en retard (une minute avec les réglages par défaut, cinq avec un tampon de 25 minutes ou plus), et reculer avant lui relisait tout depuis le début. Le tampon garde son propre rythme, et un même point de reprise sert les deux dès qu'il convient aux deux.
+- **Points de reprise avec le replay instantané** : un enregistrement lancé pendant que le tampon des dernières minutes tourne reprend ses points de reprise depuis son propre début. Il attendait l'horloge du tampon : son premier point pouvait arriver jusqu'à un intervalle du tampon en retard (une minute avec les réglages par défaut, cinq avec un tampon de 25 minutes ou plus), et reculer avant lui relisait tout depuis le début. Le tampon garde son propre rythme, et un même point de reprise sert les deux dès qu'il convient aux deux. Dans la scène de test de 4 min (un point par minute, tampon de 2 min), les points de l'enregistrement tombent désormais à 1209, 2420 et 3638 au lieu de 2259 et 3459, et reculer de 3300 à 2080 prend 1,1 s au lieu de 2,0.
 
 ## [1.2.0] - 2026-11-20
 
