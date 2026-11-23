@@ -30,8 +30,8 @@ import java.util.zip.GZIPOutputStream;
  * window. Everything older than that anchor is dropped as time passes, so memory stays bounded by the window.
  * <p>
  * All the work runs on a dedicated low priority thread; callers only enqueue. Packets reach that thread in batches,
- * like {@link ReplayWriter} hands them over: waking it for every packet cost the network thread about two microseconds
- * per packet. Every other call hands the batch over first, so the order of all calls is kept.
+ * like {@link ReplayWriter} hands them over: waking it for every packet was most of what recording cost the network
+ * thread. Every other call hands the batch over first, so the order of all calls is kept.
  *
  * @author vyrriox
  */

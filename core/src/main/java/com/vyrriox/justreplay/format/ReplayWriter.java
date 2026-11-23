@@ -15,8 +15,8 @@ import java.util.concurrent.atomic.AtomicLong;
  * whose start tick and file offset go to {@code index.bin} (see {@link SegmentedStream}), so playback only needs a
  * few segments in memory. Plain gzip readers still read the whole file as one stream.
  * <p>
- * Packets are handed to the writer thread in batches (see {@link #write}): waking that thread for every packet cost
- * the network thread about two microseconds per packet, a batch costs it a list append. Batches keep the order of
+ * Packets are handed to the writer thread in batches (see {@link #write}): waking that thread for every packet was
+ * most of what recording cost the network thread, a packet now costs it an array store. Batches keep the order of
  * every call, so the file is the same byte for byte.
  *
  * @author vyrriox
