@@ -166,15 +166,13 @@ final class ReplayObserver implements McpObserver {
     }
 
     /**
-     * Where the recording puts an entity at the play head: the position its last packet carried. Riders and actors
-     * have none of their own: their vehicle or the editor places them.
+     * Where the recording puts an entity at the play head: the position its last packet carried, which is where the
+     * game eases it to. A teleport packet no longer moves the base of the position codec in this version (the
+     * recording player is moved that way), so the base is not read. Riders and actors have no position of their
+     * own: their vehicle or the editor places them.
      */
     private static Vec3 position(Entity e, boolean actor) {
         if (!actor && !e.isPassenger()) {
-            Vec3 base = e.getPositionCodec().getBase();
-            if (base != null && !base.equals(Vec3.ZERO)) {
-                return base;
-            }
             net.minecraft.world.entity.InterpolationHandler easing = e.getInterpolation();
             if (easing != null && easing.hasActiveInterpolation()) {
                 return easing.position();
