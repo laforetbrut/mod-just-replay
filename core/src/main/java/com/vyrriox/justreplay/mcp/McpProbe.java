@@ -11,20 +11,34 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 
 /**
  * A small MCP client for the in-game self test: asks a running server over local HTTP what a real client would (the
- * legacy handshake, the modern discovery, the tool list, the read tools, a resource, two refusals) and turns each
- * answer into a log line ending in {@code -> OK} or {@code -> FAIL}. It runs on its own thread: the tools need the
+ * legacy handshake, the modern discovery, the tool list, the read tools, a resource, two refusals; then the
+ * observation tools, frames included) and turns each answer into a log line ending in {@code -> OK} or
+ * {@code -> FAIL}. It runs on its own thread: the tools need the
  * game thread to answer, so the game must keep ticking meanwhile.
  *
  * @author vyrriox
  */
 public final class McpProbe {
-    /** Tools the server must list, in this order. */
-    public static final List<String> TOOLS = List.of("get_state", "list_replays", "get_project", "list_markers", "get_marker");
+    /** Read tools the server must list first, in this order. */
+    public static final List<String> READ_TOOLS = List.of("get_state", "list_replays", "get_project", "list_markers", "get_marker");
+    /** Every tool the server must list, in this order: the read tools, then the observation tools. */
+    public static final List<String> TOOLS;
+
+    static {
+        List<String> all = new ArrayList<>(READ_TOOLS);
+        all.addAll(McpObserveTools.TOOLS);
+        TOOLS = List.copyOf(all);
+    }
+
+    /** Waiting time of one request: a frame waits for the game to draw it, which is slow in a software renderer. */
+    private static final Duration FRAME_WAIT = Duration.ofSeconds(McpObserveTools.FRAME_TIMEOUT_SECONDS + 30L);
 
     /**
      * What the answers must say about the replay open in the game.
@@ -36,6 +50,27 @@ public final class McpProbe {
      * @param markerNote its note
      */
     public record Expect(String replayId, int markers, String markerId, String markerName, String markerNote) {
+    }
+
+    /**
+     * What the observation checks look at in the replay open in the game.
+     *
+     * @param tick   a tick of the replay, not the play head, where the entities of {@code types} and the recording
+     *               player are in the world and walking
+     * @param types  entity types that must be there at {@code tick}
+     * @param actors at least one actor of the editor must be there too
+     * @param width  width of the video frame asked for; the window frame is asked at {@code width * 4 / 5}
+     * @param height height of the video frame
+     */
+    public record Look(int tick, List<String> types, boolean actors, int width, int height) {
+    }
+
+    /** A picture a check received, for the game to decode with its own decoder. */
+    public record Picture(String label, byte[] data, int width, int height) {
+    }
+
+    /** Lines of the observation checks and the pictures they received. */
+    public record Observation(List<String> lines, List<Picture> pictures) {
     }
 
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
@@ -61,6 +96,222 @@ public final class McpProbe {
         thread.setDaemon(true);
         thread.start();
         return lines;
+    }
+
+    /**
+     * Runs the observation checks on a new daemon thread: entities at a tick, one entity, a path, the world, a block,
+     * the players, two frames and a projection. The game must keep ticking and drawing meanwhile.
+     */
+    public static CompletableFuture<Observation> observe(int port, String token, Look look) {
+        CompletableFuture<Observation> result = new CompletableFuture<>();
+        Thread thread = new Thread(() -> {
+            List<Picture> pictures = new ArrayList<>();
+            try {
+                result.complete(new Observation(new McpProbe(port, token).look(look, pictures), pictures));
+            } catch (Throwable t) {
+                result.complete(new Observation(List.of("mcp observation probe stopped: " + McpProtocol.describe(t) + " -> FAIL"), pictures));
+            }
+        }, "Just Replay MCP observation probe");
+        thread.setDaemon(true);
+        thread.start();
+        return result;
+    }
+
+    List<String> look(Look look, List<Picture> pictures) {
+        List<String> lines = new ArrayList<>();
+        JsonObject[] recorder = new JsonObject[1];
+        JsonObject[] firstOfType = new JsonObject[1];
+        check(lines, "mcp list_entities at tick " + look.tick(), () -> {
+            JsonObject args = new JsonObject();
+            args.addProperty("tick", look.tick());
+            args.addProperty("limit", McpEntityQuery.MAX_LIMIT);
+            JsonObject list = tool("list_entities", args, true);
+            List<String> found = new ArrayList<>();
+            boolean all = true;
+            for (String type : look.types()) {
+                int count = 0;
+                for (JsonElement e : list.getAsJsonArray("entities")) {
+                    JsonObject o = e.getAsJsonObject();
+                    if (o.get("type").getAsString().equals(type)) {
+                        count++;
+                        if (firstOfType[0] == null) {
+                            firstOfType[0] = o;
+                        }
+                    }
+                }
+                found.add(type + " x" + count);
+                all &= count > 0;
+            }
+            int actors = 0;
+            for (JsonElement e : list.getAsJsonArray("entities")) {
+                if ("recorder".equals(e.getAsJsonObject().get("ref").getAsString())) {
+                    recorder[0] = e.getAsJsonObject();
+                }
+                if (McpEntity.ACTOR.equals(e.getAsJsonObject().get("source").getAsString())) {
+                    actors++;
+                }
+            }
+            found.add("recording player " + (recorder[0] == null ? "missing" : "at " + point(recorder[0].getAsJsonObject("position"))));
+            found.add(actors + " actors");
+            return verdict(list.get("total").getAsInt() + " entities: " + String.join(", ", found), all && recorder[0] != null
+                    && (!look.actors() || actors > 0) && list.get("tick").getAsInt() == look.tick());
+        });
+        check(lines, "mcp list_entities within 64 blocks of the recording player", () -> {
+            JsonObject args = new JsonObject();
+            args.addProperty("tick", look.tick());
+            args.addProperty("near", "recorder");
+            args.addProperty("radius", 64);
+            JsonObject list = tool("list_entities", args, false);
+            double last = -1.0;
+            boolean ordered = true;
+            for (JsonElement e : list.getAsJsonArray("entities")) {
+                double d = e.getAsJsonObject().get("distance").getAsDouble();
+                ordered &= d >= last && d <= 64.0;
+                last = d;
+            }
+            return verdict(list.get("total").getAsInt() + " entities, nearest first=" + ordered, list.get("total").getAsInt() > 0 && ordered);
+        });
+        check(lines, "mcp get_entity", () -> {
+            if (firstOfType[0] == null) {
+                return verdict("no entity of the expected types to ask for", false);
+            }
+            JsonObject args = new JsonObject();
+            args.addProperty("id", firstOfType[0].get("ref").getAsString());
+            args.addProperty("tick", look.tick());
+            JsonObject e = tool("get_entity", args, true).getAsJsonObject("entity");
+            boolean same = e.get("type").getAsString().equals(firstOfType[0].get("type").getAsString())
+                    && point(e.getAsJsonObject("position")).equals(point(firstOfType[0].getAsJsonObject("position")));
+            return verdict(e.get("type").getAsString() + " '" + e.get("name").getAsString() + "' at " + point(e.getAsJsonObject("position"))
+                    + ", same as the list=" + same, same && e.has("size"));
+        });
+        check(lines, "mcp get_entity_track of the recording player", () -> {
+            JsonObject args = new JsonObject();
+            args.addProperty("id", "recorder");
+            args.addProperty("from", Math.max(0, look.tick() - 40));
+            args.addProperty("to", look.tick());
+            args.addProperty("samples", 9);
+            JsonObject track = tool("get_entity_track", args, false);
+            int samples = track.getAsJsonArray("samples").size();
+            double distance = track.getAsJsonObject("summary").get("distance").getAsDouble();
+            return verdict(samples + " samples, " + distance + " blocks walked", samples >= 2 && distance > 0.0);
+        });
+        check(lines, "mcp get_world", () -> {
+            JsonObject args = new JsonObject();
+            args.addProperty("tick", look.tick());
+            JsonObject w = tool("get_world", args, true);
+            JsonObject world = w.getAsJsonObject("world");
+            return verdict(world.get("dimension").getAsString() + " at " + world.get("clock").getAsString() + ", " + world.get("weather").getAsString()
+                    + ", replay of " + w.getAsJsonObject("replay").get("duration").getAsString(), !world.get("dimension").getAsString().isEmpty()
+                    && w.getAsJsonObject("replay").get("durationTicks").getAsInt() > look.tick());
+        });
+        check(lines, "mcp get_block under the recording player", () -> {
+            if (recorder[0] == null) {
+                return verdict("no recording player", false);
+            }
+            JsonObject p = recorder[0].getAsJsonObject("position");
+            JsonObject args = new JsonObject();
+            args.addProperty("x", (int) Math.floor(p.get("x").getAsDouble()));
+            args.addProperty("y", (int) Math.floor(p.get("y").getAsDouble() - 0.5));
+            args.addProperty("z", (int) Math.floor(p.get("z").getAsDouble()));
+            args.addProperty("tick", look.tick());
+            JsonObject block = tool("get_block", args, false).getAsJsonObject("block");
+            return verdict(block.get("loaded").getAsBoolean() ? block.get("id").getAsString() + " " + block.getAsJsonObject("properties") : "not loaded",
+                    block.get("loaded").getAsBoolean());
+        });
+        check(lines, "mcp list_players", () -> {
+            JsonObject args = new JsonObject();
+            args.addProperty("tick", look.tick());
+            JsonObject players = tool("list_players", args, true);
+            JsonObject r = players.getAsJsonObject("recorder");
+            return verdict("recorded by '" + r.get("name").getAsString() + "' present=" + r.get("present").getAsBoolean() + ", "
+                    + players.get("tabListTotal").getAsInt() + " in the tab list", r.get("present").getAsBoolean());
+        });
+        check(lines, "mcp render_frame " + look.width() + "x" + look.height() + " jpeg at tick " + look.tick(), () -> {
+            JsonObject args = new JsonObject();
+            args.addProperty("tick", look.tick());
+            args.addProperty("width", look.width());
+            args.addProperty("height", look.height());
+            return picture(pictures, "video frame", tool("render_frame", args, true, true), McpImage.JPEG, look.width(), look.height());
+        });
+        int uiWidth = look.width() * 4 / 5;
+        int uiHeight = look.height() * 4 / 5;
+        check(lines, "mcp render_frame ui=true " + uiWidth + "x" + uiHeight + " png", () -> {
+            JsonObject args = new JsonObject();
+            args.addProperty("ui", true);
+            args.addProperty("format", McpImage.PNG);
+            args.addProperty("width", uiWidth);
+            args.addProperty("height", uiHeight);
+            return picture(pictures, "window frame", tool("render_frame", args, false, true), McpImage.PNG, uiWidth, uiHeight);
+        });
+        check(lines, "mcp render_frame and project_to_screen from a free camera aimed at the recording player", () -> {
+            if (recorder[0] == null) {
+                return verdict("no recording player", false);
+            }
+            JsonObject p = recorder[0].getAsJsonObject("position");
+            // Six blocks south of the player and two up, looking north and a little down at its chest.
+            double x = p.get("x").getAsDouble();
+            double y = p.get("y").getAsDouble() + 3.0;
+            double z = p.get("z").getAsDouble() + 6.0;
+            double pitch = Math.toDegrees(Math.atan2(2.0, 6.0));
+            JsonObject camera = new JsonObject();
+            camera.addProperty("tick", look.tick());
+            camera.addProperty("camera", "free");
+            camera.addProperty("x", x);
+            camera.addProperty("y", y);
+            camera.addProperty("z", z);
+            camera.addProperty("yaw", 180.0);
+            camera.addProperty("pitch", pitch);
+            camera.addProperty("width", look.width());
+            camera.addProperty("height", look.height());
+            String drawn = picture(pictures, "free camera", tool("render_frame", camera.deepCopy(), true, true), McpImage.JPEG,
+                    look.width(), look.height());
+            JsonObject projection = camera.deepCopy();
+            JsonArray entities = new JsonArray();
+            entities.add("recorder");
+            projection.add("entities", entities);
+            JsonArray points = new JsonArray();
+            JsonArray ahead = new JsonArray();
+            // Ten blocks along the view from the eye: the centre of the picture.
+            double[] forward = new McpCamera(x, y, z, 180.0, pitch, 0.0, 70.0, "free").forward();
+            ahead.add(x + 10.0 * forward[0]);
+            ahead.add(y + 10.0 * forward[1]);
+            ahead.add(z + 10.0 * forward[2]);
+            points.add(ahead);
+            projection.add("points", points);
+            JsonArray targets = tool("project_to_screen", projection, false).getAsJsonArray("targets");
+            JsonObject centre = targets.get(0).getAsJsonObject();
+            JsonObject player = targets.get(1).getAsJsonObject();
+            double cx = centre.getAsJsonArray("screen").get(0).getAsDouble();
+            double cy = centre.getAsJsonArray("screen").get(1).getAsDouble();
+            boolean centred = Math.abs(cx - look.width() / 2.0) < 0.6 && Math.abs(cy - look.height() / 2.0) < 0.6;
+            boolean seen = player.has("onScreen") && player.get("onScreen").getAsBoolean();
+            return drawn.replace(" -> OK", "").replace(" -> FAIL", "") + "; look point at " + cx + "," + cy + ", player on the picture at "
+                    + (player.has("screen") ? player.getAsJsonArray("screen").toString() : "nowhere")
+                    + verdict("", drawn.endsWith("-> OK") && centred && seen);
+        });
+        return lines;
+    }
+
+    /** Checks the picture of a render_frame answer and keeps it for the game to decode. */
+    private static String picture(List<Picture> pictures, String label, JsonObject result, String format, int width, int height) {
+        JsonObject image = result.getAsJsonArray("content").get(0).getAsJsonObject();
+        if (!"image".equals(image.get("type").getAsString())) {
+            return verdict("first content is " + image.get("type").getAsString() + ", not an image", false);
+        }
+        byte[] data = Base64.getDecoder().decode(image.get("data").getAsString());
+        int[] size = McpImage.headerSize(data);
+        String mime = image.get("mimeType").getAsString();
+        pictures.add(new Picture(label, data, width, height));
+        JsonObject s = result.getAsJsonObject("structuredContent");
+        JsonObject camera = s.getAsJsonObject("camera");
+        return verdict(String.format(Locale.ROOT, "%s, %d bytes, header %s, camera %s at %.1f %.1f %.1f yaw %.1f", mime, data.length,
+                        size == null ? "unreadable" : size[0] + "x" + size[1], camera.get("source").getAsString(), camera.get("x").getAsDouble(),
+                        camera.get("y").getAsDouble(), camera.get("z").getAsDouble(), camera.get("yaw").getAsDouble()),
+                mime.equals(McpImage.mimeType(format)) && size != null && size[0] == width && size[1] == height);
+    }
+
+    private static String point(JsonObject p) {
+        return String.format(Locale.ROOT, "%.2f %.2f %.2f", p.get("x").getAsDouble(), p.get("y").getAsDouble(), p.get("z").getAsDouble());
     }
 
     List<String> run(Expect expect) {
@@ -168,14 +419,21 @@ public final class McpProbe {
 
     /** Calls a tool and returns its structured answer, failing on a tool error. */
     private JsonObject tool(String name, JsonObject arguments, boolean modern) throws Exception {
+        return tool(name, arguments, modern, false).getAsJsonObject("structuredContent");
+    }
+
+    /** Calls a tool and returns its whole result ({@code content} included), failing on a tool error. */
+    private JsonObject tool(String name, JsonObject arguments, boolean modern, boolean whole) throws Exception {
         JsonObject params = new JsonObject();
         params.addProperty("name", name);
         params.add("arguments", arguments);
-        JsonObject r = result(send("tools/call", params, modern, name, true));
+        HttpResponse<String> response = http.send(post("tools/call", params, modern, name, true)
+                .timeout(McpObserveTools.TOOLS.contains(name) ? FRAME_WAIT : Duration.ofSeconds(20)).build(), HttpResponse.BodyHandlers.ofString());
+        JsonObject r = result(response);
         if (r.get("isError").getAsBoolean()) {
             throw new IllegalStateException("tool error: " + r.getAsJsonArray("content").get(0).getAsJsonObject().get("text").getAsString());
         }
-        return r.getAsJsonObject("structuredContent");
+        return r;
     }
 
     private static JsonObject result(HttpResponse<String> response) {

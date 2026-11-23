@@ -298,7 +298,7 @@ public final class McpProtocol {
             throw new McpException(McpException.INVALID_PARAMS, "arguments must be an object", 400);
         }
         McpArgs args = new McpArgs(arguments == null || arguments.isJsonNull() ? null : arguments.getAsJsonObject());
-        McpContext context = context(version);
+        McpContext context = context(version, tool.minTimeoutMillis());
         markCall();
         return runTool(tool, args, context).toJson();
     }
@@ -404,7 +404,12 @@ public final class McpProtocol {
     // ------------------------------------------------------------------ helpers
 
     private McpContext context(String version) {
-        long timeout = Math.max(1L, timeoutMillis.getAsLong());
+        return context(version, 0L);
+    }
+
+    /** A context whose deadline is the settings' timeout, or {@code minMillis} when that is longer. */
+    private McpContext context(String version, long minMillis) {
+        long timeout = Math.max(1L, Math.max(minMillis, timeoutMillis.getAsLong()));
         return new McpContext(queue, System.nanoTime() + timeout * 1_000_000L, version);
     }
 

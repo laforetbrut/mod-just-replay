@@ -62,7 +62,9 @@ class McpProbeTest {
                 return root;
             }
         };
-        McpProtocol protocol = new McpProtocol(McpReadTools.registry(fake), queue,
+        McpRegistry registry = McpReadTools.registry(fake);
+        McpObserveTools.register(registry, new FakeObserver());
+        McpProtocol protocol = new McpProtocol(registry, queue,
                 new McpProtocol.Info("justreplay", "Just Replay", "1.2.0", McpReadTools.INSTRUCTIONS), () -> 5000L);
         server = new McpHttpServer(protocol, token, List::of);
         server.start(0);
@@ -95,6 +97,34 @@ class McpProbeTest {
         for (String line : lines) {
             assertTrue(line.endsWith("-> OK"), line);
         }
+    }
+
+    @Test
+    void observationChecksPassAndTheirPicturesDecode() throws Exception {
+        McpProbe.Observation o = McpProbe.observe(server.port(), token,
+                new McpProbe.Look(100, List.of("minecraft:pig", "minecraft:villager"), true, 320, 180)).get(60, TimeUnit.SECONDS);
+        assertEquals(10, o.lines().size(), o.lines().toString());
+        for (String line : o.lines()) {
+            assertTrue(line.endsWith("-> OK"), line);
+        }
+        assertEquals(3, o.pictures().size());
+        for (McpProbe.Picture p : o.pictures()) {
+            java.awt.image.BufferedImage image = javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(p.data()));
+            assertEquals(p.width(), image.getWidth(), p.label());
+            assertEquals(p.height(), image.getHeight(), p.label());
+        }
+        assertEquals(256, o.pictures().get(1).width());
+    }
+
+    @Test
+    void aMissingEntityFailsItsCheck() throws Exception {
+        McpProbe.Observation o = McpProbe.observe(server.port(), token,
+                new McpProbe.Look(100, List.of("minecraft:pig", "minecraft:wither"), true, 320, 180)).get(60, TimeUnit.SECONDS);
+        assertTrue(o.lines().get(0).contains("minecraft:wither x0") && o.lines().get(0).endsWith("-> FAIL"), o.lines().get(0));
+        // A tick past the end fails every check that asks for it.
+        McpProbe.Observation late = McpProbe.observe(server.port(), token,
+                new McpProbe.Look(5000, List.of("minecraft:pig"), true, 320, 180)).get(60, TimeUnit.SECONDS);
+        assertTrue(late.lines().stream().filter(l -> l.endsWith("-> FAIL")).count() >= 8, late.lines().toString());
     }
 
     @Test

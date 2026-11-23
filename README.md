@@ -53,8 +53,9 @@ see [When an integration fails](docs/COMPATIBILITY.md#when-an-integration-fails)
   edits the replay after you: see [docs/MARKERS.md](docs/MARKERS.md).
 - **MCP server for AI assistants**: switch it on in the settings and an AI assistant on your computer (Claude
   Code or any MCP client) can read what the mod is doing, your replays, the edit of a replay and its markers with
-  their notes. Local only (127.0.0.1) with an access token, read only for now; an MCP badge shows while it
-  listens. See [docs/MCP.md](docs/MCP.md).
+  their notes, and look at the replay itself: any frame as a picture, every entity of any tick, the world and its
+  blocks. Local only (127.0.0.1) with an access token, read only for now; an MCP badge shows while it listens. See
+  [docs/MCP.md](docs/MCP.md).
 - **Server resource packs**: packs a server pushed (before or during the recording) are applied when the replay
   plays, from the game's cache of server packs, and removed when it closes. `serverResourcePacks` can also
   download a missing pack, or turn them off.
@@ -299,8 +300,9 @@ ignoré : voir [Quand une intégration échoue](docs/COMPATIBILITY.md#quand-une-
   [docs/MARKERS.md](docs/MARKERS.md).
 - **Serveur MCP pour les assistants IA** : active-le dans les réglages et un assistant IA de ton ordinateur
   (Claude Code ou tout client MCP) peut lire ce que fait le mod, tes replays, le montage d'un replay et ses
-  repères avec leurs notes. Local seulement (127.0.0.1) avec un jeton d'accès, en lecture seule pour
-  l'instant ; un badge MCP s'affiche tant qu'il écoute. Voir [docs/MCP.md](docs/MCP.md).
+  repères avec leurs notes, et regarder le replay lui-même : n'importe quelle frame en image, toutes les entités de
+  n'importe quel tick, le monde et ses blocs. Local seulement (127.0.0.1) avec un jeton d'accès, en lecture seule
+  pour l'instant ; un badge MCP s'affiche tant qu'il écoute. Voir [docs/MCP.md](docs/MCP.md).
 - **Packs de ressources du serveur** : les packs poussés par un serveur (avant ou pendant l'enregistrement) sont
   appliqués à la lecture, depuis le cache des packs de serveur du jeu, et retirés à la fermeture.
   `serverResourcePacks` peut aussi télécharger un pack manquant, ou les couper.

@@ -24,6 +24,16 @@ public interface LivingEntityAccessor {
     @Accessor("fallFlyTicks")
     void justreplay$setFallFlyTicks(int value);
 
+    /** Ticks left before the entity reaches the position and rotation the last packet gave. */
+    @Accessor("lerpSteps")
+    int justreplay$getLerpSteps();
+
+    @Accessor("lerpYRot")
+    double justreplay$getLerpYRot();
+
+    @Accessor("lerpXRot")
+    double justreplay$getLerpXRot();
+
     @Invoker("setLivingEntityFlag")
     void justreplay$setLivingEntityFlag(int key, boolean value);
 }

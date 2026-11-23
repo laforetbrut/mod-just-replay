@@ -5,12 +5,15 @@
 ### Added
 - **Markers in the editor**: the new Markers tab pins a named note on a moment, a stretch of time, a spot of the world or an entity, in the colour you like. Drag them along the timeline; spots and entities show up in the world while you edit, never in your videos. Each one keeps a stable id in `project.json`, ready for whoever edits the replay next. Older projects open just like before. See `docs/MARKERS.md`.
 - **MCP server for AI assistants**: switch it on in the settings and an AI assistant on your computer can read what Just Replay is up to: the recording, the replay you watch or edit, your saved replays, the edit (cameras, actors, actions, audio, effects, overlays) and the markers with their notes. Local only (your computer, never the network), an access token on every request, web pages turned away, and an MCP badge while it listens. Read only for now. See `docs/MCP.md`.
+- **MCP sees every frame and every entity**: the assistant can draw any frame of the open replay as a picture (a clean video frame from your camera path or a camera it places, or the window with the editor), list the entities of any tick with filters and pages, follow one over time, read the world, a block and the players, and find where a point lands on a frame. Your replay is put back exactly as it was. See `docs/MCP.md`.
 
 ### Changed
 - **One core, now with the editor**: the editor project (cameras, keyframes, cuts, overlays, time shifts) and replay storage moved to `core/`, so they exist once instead of three times. Nothing changes in game.
 - **Self test**: makes markers (one pinned with the in-world tool), reads them back from `project.json`, checks they stay out of the export, then deletes them.
 - **Self test**: the entity edits check picks the mobs in front of the camera, so a mob standing far away no longer fails it.
 - **Self test**: switches the MCP server on, asks it over local HTTP (handshake, discovery, every read tool, a resource, refusals without the token and from a web page), checks its badge stays out of the export, then switches it off.
+- **Self test**: asks MCP for the entities of a tick and for three frames (video, window, free camera), decodes them with the game's own image library, and checks the replay and the editor are left as they were.
+- **Self test**: the unreadable packet check no longer fails when a resource reload holds the replay right after the jump to tick 150.
 
 ### Fixed
 - **Overlay text box**: the hint shows `\n` for a new line again instead of swallowing it.
@@ -18,12 +21,15 @@
 ### Ajouts
 - **Repères dans l'éditeur** : le nouvel onglet Markers attache une note nommée à un moment, une plage de temps, un point du monde ou une entité, dans la couleur de ton choix. Ils se tirent le long de la timeline ; points et entités s'affichent dans le monde pendant le montage, jamais dans tes vidéos. Chacun garde un identifiant stable dans `project.json`, prêt pour la personne ou l'outil qui monte le replay ensuite. Les anciens projets s'ouvrent comme avant. Voir `docs/MARKERS.md`.
 - **Serveur MCP pour les assistants IA** : active-le dans les réglages et un assistant IA de ton ordinateur peut lire ce que fait Just Replay : l'enregistrement, le replay que tu regardes ou montes, tes replays sauvés, le montage (caméras, acteurs, actions, audio, effets, overlays) et les repères avec leurs notes. Local seulement (ton ordinateur, jamais le réseau), un jeton d'accès à chaque requête, pages web refusées, et un badge MCP tant qu'il écoute. En lecture seule pour l'instant. Voir `docs/MCP.md`.
+- **MCP voit chaque frame et chaque entité** : l'assistant peut rendre n'importe quelle frame du replay ouvert en image (une frame vidéo propre depuis ta trajectoire de caméra ou une caméra qu'il place, ou la fenêtre avec l'éditeur), lister les entités de n'importe quel tick avec filtres et pages, en suivre une dans le temps, lire le monde, un bloc et les joueurs, et trouver où tombe un point sur une frame. Ton replay est remis exactement comme il était. Voir `docs/MCP.md`.
 
 ### Modifications
 - **Un seul cœur, éditeur compris** : le projet de l'éditeur (caméras, keyframes, coupes, overlays, décalages de temps) et le stockage des replays passent dans `core/`, une fois au lieu de trois. Rien ne change en jeu.
 - **Self test** : crée des repères (dont un posé avec l'outil dans le monde), les relit depuis `project.json`, vérifie qu'ils restent hors de l'export, puis les supprime.
 - **Self test** : le contrôle des modifications d'entités prend les mobs devant la caméra, un mob resté au loin ne le fait plus échouer.
 - **Self test** : active le serveur MCP, l'interroge en HTTP local (poignée de main, découverte, chaque outil de lecture, une ressource, refus sans jeton et depuis une page web), vérifie que son badge reste hors de l'export, puis le coupe.
+- **Self test** : demande à MCP les entités d'un tick et trois frames (vidéo, fenêtre, caméra libre), les décode avec la bibliothèque d'images du jeu, et vérifie que le replay et l'éditeur restent comme ils étaient.
+- **Self test** : le contrôle du paquet illisible n'échoue plus quand un rechargement des ressources retient le replay juste après le saut au tick 150.
 
 ### Correctifs
 - **Champ de texte des overlays** : l'aide affiche de nouveau `\n` pour passer à la ligne au lieu de l'avaler.

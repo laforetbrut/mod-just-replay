@@ -382,3 +382,24 @@
 **Root cause:** HttpRequest.Builder.header(name, value) appends a value; the request carried both Content-Type values and the JDK HttpServer's Headers.getFirst() returned application/json, so the server saw a valid request
 **Fix:** The helper uses HttpRequest.Builder.setHeader() for the headers a test overrides
 **Prevention:** In java.net.http test helpers, override defaults with setHeader(), never header(); a header test must check the request it really sent (one value per name)
+
+## [2026-11-22 23:17] — MCP video frames all black in the self test
+**Context:** Task 505: render_frame draws one frame through the video export (VideoExporter.grab, start..start+1) on the self-test replay, whose project has fadeIn 10 and fadeOut 10
+**Error:** selftest-mcp-video-frame.jpg and selftest-mcp-free-camera.jpg decoded at the right size but flat black (brightness spread 0.0); the window frame (ui=true) was fine
+**Root cause:** FxEngine.fadeAmount takes the export range from VideoExporter.current(): a one frame export is all fade in, so its only frame is 100 percent black
+**Fix:** fadeAmount ignores an exporter that isGrab() and uses the range of the preview (cut track or camera path), as the whole edit would fade
+**Prevention:** Anything keyed on VideoExporter.current() (range, progress, fades) must ask isGrab() first: an MCP frame is an export of one frame that is not the start of a video
+
+## [2026-11-22 23:17] — Self test unreadable packet check flaky at tick 150
+**Context:** Task 505: NeoForge 1.21.1 self test, step 8 checks the replay went on past the unreadable packet written at tick 70, 30 ticks after seek(150)
+**Error:** unreadable packet: 1 x 'packet #16383 could not be read' so far, replay playing on at tick 150 -> FAIL
+**Root cause:** A resource reload (server pack set of the replay) started right at the jump; its loading overlay pauses the game, so the cursor sat on 150 for the 30 ticks and the check wanted cursor > 150
+**Fix:** The check accepts cursor >= 150: reaching the jump target after tick 70 already proves the replay went past the packet
+**Prevention:** A self test check on the cursor after a jump must not assume the replay ticks meanwhile: a loading overlay or a freeze holds it; compare with the jump target, not past it
+
+## [2026-11-23 01:18] — MCP track of the recording player frozen on 26.1.2
+**Context:** Task 505 matrix: get_entity_track of the recording player over ticks 20 to 60, read from Entity.getPositionCodec().getBase() after each jump
+**Error:** 9 samples, 0.0 blocks walked -> FAIL on NeoForge, Forge and Fabric 26.1.2 only; 10.72 blocks on the six 1.20.1 and 1.21.1 targets
+**Root cause:** In 26.1.2 ClientPacketListener.handleTeleportEntity only sets the interpolation target (setValuesFromPositionPacket); it no longer moves the codec base, and the recording player is moved by teleport packets, so the base stayed at its spawn
+**Fix:** ReplayObserver 26.1.2 reads the active InterpolationHandler target, else Entity.position(); 1.20.1 and 1.21.1 keep the codec base (their teleport handler sets it)
+**Prevention:** On 26.1.2 the last recorded position of an entity is getInterpolation().position() while interpolating, never the codec base; check a position reader against an entity moved by teleports (the recording player)

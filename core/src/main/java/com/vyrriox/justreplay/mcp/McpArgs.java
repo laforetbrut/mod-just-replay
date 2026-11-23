@@ -83,6 +83,123 @@ public final class McpArgs {
         throw new Invalid("Argument '" + name + "' must be a whole number from " + min + " to " + max);
     }
 
+    /** A whole number from {@code min} to {@code max}, or null when absent. */
+    public Integer optionalInteger(String name, int min, int max) throws Invalid {
+        return has(name) ? integer(name, 0, min, max) : null;
+    }
+
+    /** A number from {@code min} to {@code max}, or null when absent. */
+    public Double number(String name, double min, double max) throws Invalid {
+        JsonElement e = values.get(name);
+        if (e == null || e.isJsonNull()) {
+            return null;
+        }
+        if (e.isJsonPrimitive() && e.getAsJsonPrimitive().isNumber()) {
+            double d = e.getAsDouble();
+            if (Double.isFinite(d) && d >= min && d <= max) {
+                return d;
+            }
+        }
+        throw new Invalid("Argument '" + name + "' must be a number from " + number(min) + " to " + number(max));
+    }
+
+    /** A number from {@code min} to {@code max}, {@code def} when absent. */
+    public double number(String name, double def, double min, double max) throws Invalid {
+        Double value = number(name, min, max);
+        return value == null ? def : value;
+    }
+
+    /** A list of at most {@code maxItems} non blank strings (an array, or one string), empty when absent. */
+    public List<String> strings(String name, int maxItems) throws Invalid {
+        JsonElement e = values.get(name);
+        List<String> out = new ArrayList<>();
+        if (e == null || e.isJsonNull()) {
+            return out;
+        }
+        JsonArray items;
+        if (e.isJsonArray()) {
+            items = e.getAsJsonArray();
+        } else {
+            items = new JsonArray();
+            items.add(e);
+        }
+        if (items.size() > maxItems) {
+            throw new Invalid("Argument '" + name + "' takes at most " + maxItems + " values");
+        }
+        for (JsonElement item : items) {
+            if (!item.isJsonPrimitive() || !item.getAsJsonPrimitive().isString() || item.getAsString().trim().isEmpty()) {
+                throw new Invalid("Argument '" + name + "' takes a list of non empty strings");
+            }
+            String value = item.getAsString().trim();
+            if (!out.contains(value)) {
+                out.add(value);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * A list of at most {@code maxItems} points, each {@code [x, y, z]} (or an object with x, y and z), empty when
+     * absent.
+     */
+    public List<double[]> points(String name, int maxItems) throws Invalid {
+        JsonElement e = values.get(name);
+        List<double[]> out = new ArrayList<>();
+        if (e == null || e.isJsonNull()) {
+            return out;
+        }
+        if (!e.isJsonArray()) {
+            throw new Invalid("Argument '" + name + "' takes a list of points [x, y, z]");
+        }
+        JsonArray items = e.getAsJsonArray();
+        if (items.size() > maxItems) {
+            throw new Invalid("Argument '" + name + "' takes at most " + maxItems + " points");
+        }
+        for (JsonElement item : items) {
+            double[] p = point(item);
+            if (p == null) {
+                throw new Invalid("Argument '" + name + "' takes a list of points [x, y, z] of finite numbers");
+            }
+            out.add(p);
+        }
+        return out;
+    }
+
+    private static double[] point(JsonElement item) {
+        double[] p = new double[3];
+        if (item.isJsonArray() && item.getAsJsonArray().size() == 3) {
+            JsonArray a = item.getAsJsonArray();
+            for (int i = 0; i < 3; i++) {
+                if (!a.get(i).isJsonPrimitive() || !a.get(i).getAsJsonPrimitive().isNumber()) {
+                    return null;
+                }
+                p[i] = a.get(i).getAsDouble();
+            }
+        } else if (item.isJsonObject()) {
+            JsonObject o = item.getAsJsonObject();
+            String[] keys = {"x", "y", "z"};
+            for (int i = 0; i < 3; i++) {
+                JsonElement v = o.get(keys[i]);
+                if (v == null || !v.isJsonPrimitive() || !v.getAsJsonPrimitive().isNumber()) {
+                    return null;
+                }
+                p[i] = v.getAsDouble();
+            }
+        } else {
+            return null;
+        }
+        for (double v : p) {
+            if (!Double.isFinite(v) || Math.abs(v) > 1.0E8) {
+                return null;
+            }
+        }
+        return p;
+    }
+
+    private static String number(double d) {
+        return d == Math.rint(d) && Math.abs(d) < 1.0E15 ? Long.toString((long) d) : Double.toString(d);
+    }
+
     public boolean bool(String name, boolean def) throws Invalid {
         JsonElement e = values.get(name);
         if (e == null || e.isJsonNull()) {
