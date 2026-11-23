@@ -1128,6 +1128,8 @@
   "justreplay.configuration.token": "Access token",
   "justreplay.configuration.timeoutSeconds": "Answer timeout (seconds)",
   "justreplay.configuration.allowedOrigins": "Allowed browser origins (comma separated)",
+  "justreplay.configuration.readOnly": "Read only (refuse every change)",
+  "justreplay.configuration.allowDestructive": "Allow deleting files (replays, exports)",
   "justreplay.mcp.toast.started": "MCP server listening",
   "justreplay.mcp.toast.started.detail": "%s",
   "justreplay.mcp.toast.stopped": "MCP server stopped",

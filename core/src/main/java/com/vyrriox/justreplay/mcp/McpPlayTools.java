@@ -45,7 +45,8 @@ public final class McpPlayTools {
         registry.add(McpTool.builder("close_replay")
                 .title("Close the replay")
                 .description("Closes the open replay and goes back to the title screen, as leaving it from the pause menu does; "
-                        + "its edit is saved first. Refused while a video export runs (cancel_export stops it).")
+                        + "its edit is saved first. Refused while a video export runs (cancel_export stops it) and while the "
+                        + "replay's resource packs are still loading, just after it opened.")
                 .additive()
                 .offGameThread()
                 .timeoutSeconds(CLOSE_TIMEOUT_SECONDS)

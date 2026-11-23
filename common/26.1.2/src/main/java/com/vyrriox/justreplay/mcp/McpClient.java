@@ -42,6 +42,7 @@ public final class McpClient {
     /** The badge's dot lights up this long after a call. */
     private static final long ACTIVITY_MILLIS = 700L;
     private static McpHost host;
+    private static final McpController CONTROLLER = new McpController();
     private static boolean failureLogged;
     private static long badgeFrames;
 
@@ -51,10 +52,14 @@ public final class McpClient {
     /** The server's host, made on first use. */
     public static McpHost host() {
         if (host == null) {
-            McpRegistry registry = McpReadTools.registry(new GameView());
-            McpObserveTools.register(registry, new ReplayObserver());
+            GameView game = new GameView();
+            ReplayObserver observer = new ReplayObserver();
+            McpRegistry registry = McpReadTools.registry(game);
+            McpObserveTools.register(registry, observer);
+            McpControlTools.register(registry, game, observer, CONTROLLER);
             host = new McpHost(JRConfig.MCP, registry, new McpProtocol.Info(JustReplay.MOD_ID, "Just Replay",
-                    Platform.get().modVersion(), McpReadTools.INSTRUCTIONS + McpObserveTools.INSTRUCTIONS), new Toasts());
+                    Platform.get().modVersion(), McpReadTools.INSTRUCTIONS + McpObserveTools.INSTRUCTIONS
+                    + McpControlTools.INSTRUCTIONS), new Toasts());
         }
         return host;
     }
@@ -63,6 +68,7 @@ public final class McpClient {
     public static void tick(Minecraft mc) {
         try {
             com.vyrriox.justreplay.export.FrameGrab.tick();
+            CONTROLLER.tick(mc);
             host().tick();
         } catch (RuntimeException | LinkageError e) {
             // The server is an extra: whatever goes wrong with it, the game goes on.
@@ -198,6 +204,12 @@ public final class McpClient {
 
             s.editor.open = mc.screen instanceof EditorScreen;
             s.editor.mode = JRConfig.EDITOR_MODE.get().name();
+            if (session != null && ReplaySession.isRunning()) {
+                s.editor.canUndo = session.canUndo();
+                s.editor.canRedo = session.canRedo();
+            }
+            s.mcp.readOnly = JRConfig.MCP.readOnly.get();
+            s.mcp.allowDestructive = JRConfig.MCP.allowDestructive.get();
 
             VideoExporter export = VideoExporter.current();
             if (VideoExporter.isActive() && export != null && !export.isGrab()) {

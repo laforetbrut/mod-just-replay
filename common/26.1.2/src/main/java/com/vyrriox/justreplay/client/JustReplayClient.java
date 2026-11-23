@@ -167,8 +167,7 @@ public final class JustReplayClient {
         if (VideoExporter.isActive() && Minecraft.getInstance().level != null) {
             // Esc cancels the export; any other screen would be burnt into the video.
             if (screen instanceof PauseScreen) {
-                VideoExporter.cancel();
-                toast("justreplay.export.cancelled", "");
+                cancelExport();
             } else if (screen != null) {
                 return true;
             }
@@ -260,16 +259,47 @@ public final class JustReplayClient {
             return;
         }
         if (Recorder.isRecording()) {
-            Path saved = Recorder.stop();
-            if (saved != null) {
-                toast(Recorder.lastStopIncomplete() ? "justreplay.toast.incomplete" : "justreplay.toast.saved", saved.getFileName().toString());
+            stopRecording(true);
+        } else {
+            startRecording(0);
+        }
+    }
+
+    /**
+     * Starts recording as the record keys do, for {@code ticks} (0: until stopped), with their toast. False when the
+     * recording could not start.
+     */
+    public static boolean startRecording(int ticks) {
+        boolean started = ticks > 0 ? Recorder.startTimed(ticks) : Recorder.startManual();
+        if (!started) {
+            toast("justreplay.toast.failed", "");
+        } else if (ticks > 0) {
+            toast(Component.translatable("justreplay.toast.next_started", ticks / 1200), null);
+        } else {
+            toast("justreplay.toast.started", "");
+        }
+        return started;
+    }
+
+    /**
+     * Stops the recording as the record key does: its toast and, with {@code offerName}, the naming window. Returns
+     * the saved folder, or null when nothing was recording.
+     */
+    public static Path stopRecording(boolean offerName) {
+        Path saved = Recorder.stop();
+        if (saved != null) {
+            toast(Recorder.lastStopIncomplete() ? "justreplay.toast.incomplete" : "justreplay.toast.saved", saved.getFileName().toString());
+            if (offerName) {
                 offerName(saved);
             }
-        } else if (Recorder.startManual()) {
-            toast("justreplay.toast.started", "");
-        } else {
-            toast("justreplay.toast.failed", "");
         }
+        return saved;
+    }
+
+    /** Cancels the running export as Escape does, with its toast. */
+    public static void cancelExport() {
+        VideoExporter.cancel();
+        toast("justreplay.export.cancelled", "");
     }
 
     private static void toast(String key, String detail) {
@@ -307,20 +337,31 @@ public final class JustReplayClient {
 
     /** Saves the instant replay buffer off the client thread; the toast follows when the files are written. */
     private static void saveBuffer(Minecraft mc) {
+        saveBuffer(mc, true);
+    }
+
+    /**
+     * Saves the instant replay buffer as its key does, off the client thread, with its toasts and, with
+     * {@code offerName}, the naming window. The future gives the folder once written; null when nothing can be saved
+     * now (the buffer is off, a replay is open or a save is running).
+     */
+    public static java.util.concurrent.CompletableFuture<Path> saveBuffer(Minecraft mc, boolean offerName) {
         if (ReplaySession.current() != null || savingBuffer) {
-            return;
+            return null;
         }
         var saving = Recorder.saveBuffer();
         if (saving == null) {
             toast(Component.translatable("justreplay.toast.buffer_off"), Component.translatable("justreplay.toast.buffer_off.hint"));
-            return;
+            return null;
         }
         savingBuffer = true;
+        java.util.concurrent.CompletableFuture<Path> done = new java.util.concurrent.CompletableFuture<>();
         saving.whenComplete((saved, error) -> mc.execute(() -> {
             savingBuffer = false;
             if (error != null || saved == null) {
                 JustReplay.LOGGER.warn("Cannot save the replay buffer: {}", String.valueOf(error));
                 toast("justreplay.toast.buffer_failed", "");
+                done.completeExceptionally(error != null ? error : new IllegalStateException("the buffer gave no replay"));
                 return;
             }
             float minutes = saved.durationTicks() / 1200.0F;
@@ -329,8 +370,12 @@ public final class JustReplayClient {
                     : String.format(java.util.Locale.ROOT, "%.1f", minutes);
             toast(Component.translatable("justreplay.toast.buffer_saved", length),
                     Component.literal(saved.dir().getFileName().toString()));
-            ReplayNaming.offer(saved.dir());
+            if (offerName) {
+                ReplayNaming.offer(saved.dir());
+            }
+            done.complete(saved.dir());
         }));
+        return done;
     }
 
     /** The recording marker key: a marker in the running recording and the buffer, shown by a small toast. */
@@ -360,12 +405,7 @@ public final class JustReplayClient {
             toggleRecording();
             return;
         }
-        int minutes = JRConfig.NEXT_MINUTES.get();
-        if (Recorder.startTimed(minutes * 1200)) {
-            toast(Component.translatable("justreplay.toast.next_started", minutes), null);
-        } else {
-            toast("justreplay.toast.failed", "");
-        }
+        startRecording(JRConfig.NEXT_MINUTES.get() * 1200);
     }
 
     private static void toast(Component title, Component detail) {

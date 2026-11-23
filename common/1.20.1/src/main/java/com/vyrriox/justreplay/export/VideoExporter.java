@@ -198,6 +198,16 @@ public final class VideoExporter {
     }
 
     /** True when this export only draws a frame for the MCP tools, written nowhere. */
+    /** True once the export was cancelled. */
+    public boolean isCancelled() {
+        return cancelled;
+    }
+
+    /** Frames per second of the video. */
+    public int fps() {
+        return fps;
+    }
+
     public boolean isGrab() {
         return grab != null;
     }
