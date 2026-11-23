@@ -410,3 +410,17 @@
 **Root cause:** The replay applies its server resource packs right after it starts, which reloads resources behind the loading overlay. Leaving then calls Minecraft.disconnect, which drops the render thread's queued tasks (dropAllTasks), most likely the reload's main thread stage with them: the reload never ends and the overlay stays up. A player cannot leave under the overlay, code can (self test, scene jobs, MCP close_replay).
 **Fix:** McpController: open_replay counts a replay as open once it ran 20 ticks with no overlay, close_replay refuses while an overlay is up; self test step 18 waits for the overlay to go before leaving the clip.
 **Prevention:** Never leave a world from code while mc.getOverlay() is set; wait for the reload to finish first.
+
+## [2026-11-23 06:24] — Self test checkpoint seek never restores a checkpoint in xvfb
+**Context:** Task 507, measuring seeks: the step 'after checkpoint seek to 130' of the self test, run in xvfb on NeoForge 1.21.1.
+**Error:** The recording has 'checkpoints=0 bytes in 0 files' and the debug log shows 'Seek 190 -> 130 ... from the start': the step logs a world state but no checkpoint was ever restored.
+**Root cause:** In software rendering every frame is slower than 25 ms, so each checkpoint takes tens of ticks to build; with a 60 tick interval one is nearly always pending, new requests are skipped while pending, the forced slow checkpoint asked at recording tick 10 is earlier than the 0.9 interval a recording waits for, and the last regular one is dropped at the stop. Moving the slow one to tick 60, then retrying it until no checkpoint is pending, still gave 0 files and made the slow check fail (-1 ticks).
+**Fix:** Both attempts reverted (f698d51, 90fc4ba); the self test is unchanged. The gap is reported to the owner: on a machine with fast frames the recording gets its checkpoints and the step restores one.
+**Prevention:** A self test step named after a code path must assert that the path ran (here: Playback used a checkpoint), not only log the state after it; check the debug line 'Seek A -> B took ... after the checkpoint at C' when touching checkpoints.
+
+## [2026-11-23 06:24] — Self test world spins in Saving worlds after the recording
+**Context:** Task 507, self test on NeoForge 1.21.1 in xvfb, right after 'record stopped' leaves the recording world.
+**Error:** The log stops at '[Server thread] Saving worlds' for 5 minutes; a thread dump shows the server thread RUNNABLE in MinecraftServer.stopServer -> ServerChunkCache.tick -> ChunkMap.processUnloads -> CompletableFuture UniRun.tryFire, 265 s of CPU, the client in Minecraft.disconnect waiting for it.
+**Root cause:** Not found: the loop is the game's own chunk unload on stop (not the replay host, HostChunkMapMixin does not apply). It happened once in four runs of the same code and did not come back in the next run.
+**Fix:** The run was stopped with 'loop.py stop'; the next self test passed that point in 20 s. Thread dumps kept in the task 507 folder (travail/logs/threads-hang*.txt).
+**Prevention:** When a self test stalls after 'record stopped', take 'jcmd <pid> Thread.print' before stopping it, and note whether the server thread is in stopServer; a second occurrence is worth a guard like HostChunkMapMixin for the recording world.
