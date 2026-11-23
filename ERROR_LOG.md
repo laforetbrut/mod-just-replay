@@ -396,3 +396,10 @@
 **Root cause:** A resource reload (server pack set of the replay) started right at the jump; its loading overlay pauses the game, so the cursor sat on 150 for the 30 ticks and the check wanted cursor > 150
 **Fix:** The check accepts cursor >= 150: reaching the jump target after tick 70 already proves the replay went past the packet
 **Prevention:** A self test check on the cursor after a jump must not assume the replay ticks meanwhile: a loading overlay or a freeze holds it; compare with the jump target, not past it
+
+## [2026-11-23 01:18] — MCP track of the recording player frozen on 26.1.2
+**Context:** Task 505 matrix: get_entity_track of the recording player over ticks 20 to 60, read from Entity.getPositionCodec().getBase() after each jump
+**Error:** 9 samples, 0.0 blocks walked -> FAIL on NeoForge, Forge and Fabric 26.1.2 only; 10.72 blocks on the six 1.20.1 and 1.21.1 targets
+**Root cause:** In 26.1.2 ClientPacketListener.handleTeleportEntity only sets the interpolation target (setValuesFromPositionPacket); it no longer moves the codec base, and the recording player is moved by teleport packets, so the base stayed at its spawn
+**Fix:** ReplayObserver 26.1.2 reads the active InterpolationHandler target, else Entity.position(); 1.20.1 and 1.21.1 keep the codec base (their teleport handler sets it)
+**Prevention:** On 26.1.2 the last recorded position of an entity is getInterpolation().position() while interpolating, never the codec base; check a position reader against an entity moved by teleports (the recording player)
