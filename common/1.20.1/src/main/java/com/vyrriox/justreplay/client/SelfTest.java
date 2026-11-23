@@ -52,6 +52,7 @@ public final class SelfTest {
     private static int armorLayerSkippedBefore;
     private static int wait;
     private static int settle;
+    private static int backSeekWaits;
     private static int speedStart;
     /** Pause and slow motion: an entity the freeze must hold, and what is read before and after. */
     private static Entity heldEntity;
@@ -698,8 +699,6 @@ public final class SelfTest {
                         Mods.seedRing(mc);
                         // Worn well before the recording starts: only its snapshot can give it to the actor.
                         Mods.setLook(p, "0.8");
-                        // Worn items of mods with no integration of their own: only the snapshot has them.
-                        SelfTestModState.prepare(p);
                         next(60);
                     }
                 }
@@ -718,6 +717,9 @@ public final class SelfTest {
                         wait = 5;
                         return;
                     }
+                    // Entities and worn items of mods with no integration of their own, put there before the recording:
+                    // only its snapshot has them. After the ring, whose slot rebuild empties the Curios of the player.
+                    SelfTestModState.prepare(p);
                     settlePhase = 2;
                     wait = 5;
                     return;
@@ -887,6 +889,10 @@ public final class SelfTest {
                 go(60, 40);
             }
             case 60 -> {
+                if (SelfTestModState.waitingForFrames(mc)) {
+                    wait = 5;
+                    return;
+                }
                 SelfTestModState.checkHiddenChest(mc, ReplaySession.current(), () -> shot(mc, "1c-chest-hidden"));
                 // 40 more ticks paused: the clocks read while rendering must not have moved.
                 checkClockHeld(clockGecko, geckoClock(), clockIris, irisClock());
@@ -940,6 +946,12 @@ public final class SelfTest {
             }
             case 9 -> {
                 ReplaySession s = ReplaySession.current();
+                // In a big pack a resource reload holds the game for a while after the jump back: the checks below
+                // expect the replay playing on from tick 20, so wait for it to move (two minutes at most).
+                if (s != null && s.playback().cursor() <= 20 && ++backSeekWaits < 480) {
+                    wait = 5;
+                    return;
+                }
                 logWorld(mc, s, "after backward seek");
                 Mods.checkCurios(mc, s, "after backward seek");
                 SelfTestModState.checkTrinketSlots();
@@ -2771,22 +2783,27 @@ public final class SelfTest {
             return out;
         }
 
-        /** Curios worn by the recording player, expected 1: tells a lost ring apart from one the replay lost. */
+        /**
+         * Curios worn by the recording player: the ring, and what the mod state probes put in Curios slots. Tells a lost
+         * ring apart from one the replay lost.
+         */
         static void checkRecordingCurios(LocalPlayer p) {
             if (loaded("curios") && curiosGiven) {
                 int worn = com.vyrriox.justreplay.compat.CuriosCompat.wornCount(p);
-                log("curios while recording: worn stacks on the player={} -> {}", worn, worn == 1 ? "OK" : "FAIL");
+                int expected = 1 + SelfTestModState.curiosWorn();
+                log("curios while recording: worn stacks on the player={} of {} -> {}", worn, expected, worn == expected ? "OK" : "FAIL");
             }
         }
 
-        /** Curios worn by the recording player's actor in the replay, expected 1; skipped when Curios or the ring is absent. */
+        /** Curios worn by the recording player's actor in the replay: the ring and the curios of the mod state probes. */
         static void checkCurios(Minecraft mc, ReplaySession s, String label) {
             if (!loaded("curios") || !curiosGiven) {
                 log("curios {}: skipped", label);
                 return;
             }
             int worn = com.vyrriox.justreplay.compat.CuriosCompat.wornCount(s.findRecorder(mc));
-            log("curios {}: worn stacks on the actor={} -> {}", label, worn, worn == 1 ? "OK" : "FAIL");
+            int expected = 1 + SelfTestModState.curiosWorn();
+            log("curios {}: worn stacks on the actor={} of {} -> {}", label, worn, expected, worn == expected ? "OK" : "FAIL");
         }
 
         /** More Player Models: scales every part of the test player with the mod's own command; nothing when it is absent. */

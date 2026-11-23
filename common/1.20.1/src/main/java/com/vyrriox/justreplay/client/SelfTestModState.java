@@ -41,6 +41,8 @@ final class SelfTestModState {
     /** The entity edit hiding the chestplate of the recording player's actor, while {@link #checkHiddenChest} waits. */
     private static com.vyrriox.justreplay.editor.ReplayProject.EntityEdit hiddenChest;
     private static int elytraSkippedBefore;
+    private static int frameWaits;
+    private static int clearPolls;
     private static net.minecraft.world.phys.Vec3 cameraAt;
     private static float cameraYaw;
     private static float cameraPitch;
@@ -126,6 +128,28 @@ final class SelfTestModState {
         mc.player.moveTo(actor.getX() + back.x, actor.getY() + 1.0, actor.getZ() + back.z, mc.player.getYRot(), mc.player.getXRot());
         mc.player.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, actor.position().add(0, 1.1, 0));
         log("elytra slot: chestplate of the recording player's actor hidden, camera behind it at {}", mc.player.blockPosition());
+    }
+
+    /**
+     * True while {@link #checkHiddenChest} must wait: a resource reload covers the screen (a big pack takes a while to
+     * reload when a replay opens) and the layers it judges are drawn only once it is gone, then for two seconds of
+     * frames. Two minutes at most.
+     */
+    static boolean waitingForFrames(Minecraft mc) {
+        if (hiddenChest == null || frameWaits >= 480) {
+            return false;
+        }
+        frameWaits++;
+        if (mc.getOverlay() != null) {
+            clearPolls = 0;
+            return true;
+        }
+        return ++clearPolls < 8;
+    }
+
+    /** How many of the items the probes put on sit in Curios slots: the ring check counts them with its ring. */
+    static int curiosWorn() {
+        return (int) WORN_SLOTS.stream().filter(worn -> worn.startsWith("curios:")).count();
     }
 
     /**

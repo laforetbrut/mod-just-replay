@@ -52,6 +52,7 @@ public final class SelfTest {
     private static int armorLayerSkippedBefore;
     private static int wait;
     private static int settle;
+    private static int backSeekWaits;
     private static int speedStart;
     private static Path replay;
     /** File the export step writes: its name carries the exported range unless the config keeps the old names. */
@@ -804,6 +805,12 @@ public final class SelfTest {
             }
             case 9 -> {
                 ReplaySession s = ReplaySession.current();
+                // In a big pack a resource reload holds the game for a while after the jump back: the checks below
+                // expect the replay playing on from tick 20, so wait for it to move (two minutes at most).
+                if (s != null && s.playback().cursor() <= 20 && ++backSeekWaits < 480) {
+                    wait = 5;
+                    return;
+                }
                 logWorld(mc, s, "after backward seek");
                 Mods.checkCurios(mc, s, "after backward seek");
                 Mods.checkJadeAircraft(mc, "after backward seek");
