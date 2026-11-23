@@ -79,6 +79,39 @@ public final class McpSchema {
         return this;
     }
 
+    /** A point {@code [x, y, z]} of three numbers. */
+    public McpSchema point(String name, String description) {
+        JsonObject p = property(name, "array", description);
+        JsonObject number = new JsonObject();
+        number.addProperty("type", "number");
+        p.add("items", number);
+        p.addProperty("minItems", 3);
+        p.addProperty("maxItems", 3);
+        return this;
+    }
+
+    /** An object mapping names to numbers, such as the parameters of an effect. */
+    public McpSchema numbers(String name, String description) {
+        JsonObject p = property(name, "object", description);
+        JsonObject number = new JsonObject();
+        number.addProperty("type", "number");
+        p.add("additionalProperties", number);
+        return this;
+    }
+
+    /** An RGB colour written {@code #RRGGBB}. */
+    public McpSchema color(String name, String description) {
+        JsonObject p = property(name, "string", description);
+        p.addProperty("pattern", "^#?[0-9A-Fa-f]{6}$");
+        return this;
+    }
+
+    /** True or false with no default: leaving it out keeps what is there. */
+    public McpSchema bool(String name, String description) {
+        property(name, "boolean", description);
+        return this;
+    }
+
     public McpSchema bool(String name, String description, boolean def) {
         JsonObject p = property(name, "boolean", description);
         p.addProperty("default", def);

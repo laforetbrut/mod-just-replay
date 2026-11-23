@@ -208,9 +208,12 @@ class McpHostTest {
     void theSettingsSectionIsWrittenWithEveryOption() throws Exception {
         String text = Files.readString(file.path(), StandardCharsets.UTF_8);
         assertTrue(text.contains("\"mcp\": {"));
-        for (String key : List.of("enabled", "port", "token", "timeoutSeconds", "allowedOrigins")) {
+        for (String key : List.of("enabled", "port", "token", "timeoutSeconds", "allowedOrigins", "readOnly", "allowDestructive")) {
             assertTrue(text.contains("\"" + key + "\""), key);
         }
+        // Deleting files over MCP stays off until the player switches it on; changes are allowed once the server is on.
+        assertFalse(config.allowDestructive.get());
+        assertFalse(config.readOnly.get());
         assertThrows(IllegalArgumentException.class, () -> new McpHttpServer(null, "short", List::of));
     }
 }

@@ -18,6 +18,7 @@ public final class McpState {
     public final Replay replay = new Replay();
     public final Editor editor = new Editor();
     public final Export export = new Export();
+    public final Mcp mcp = new Mcp();
 
     public static final class World {
         public boolean loaded;
@@ -66,6 +67,17 @@ public final class McpState {
         public boolean open;
         /** {@code SIMPLE} or {@code ADVANCED}. */
         public String mode = "";
+        /** The edit of the open replay has changes undo can take back, or put back. */
+        public boolean canUndo;
+        public boolean canRedo;
+    }
+
+    /** What the MCP settings let tools do. */
+    public static final class Mcp {
+        /** Every tool that changes something is refused. */
+        public boolean readOnly;
+        /** Tools that delete replays and exported files may run. */
+        public boolean allowDestructive;
     }
 
     public static final class Export {

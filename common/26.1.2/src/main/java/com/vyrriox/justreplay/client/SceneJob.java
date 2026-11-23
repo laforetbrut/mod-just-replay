@@ -30,7 +30,7 @@ import java.util.Locale;
  *
  * @author vyrriox
  */
-final class SceneJob {
+public final class SceneJob {
     /** Ticks a step may wait for a world or a replay to load before the job gives up. */
     private static final int LOAD_TIMEOUT = 20 * 60 * 5;
 
@@ -364,7 +364,15 @@ final class SceneJob {
         return true;
     }
 
-    private static void leave(Minecraft mc) {
+    /**
+     * Leaves the world or the replay for the title screen, as the pause menu does. Not while resources reload (a
+     * replay's resource packs, just after it opens): leaving drops the tasks the reload waits for and its loading
+     * screen would stay up for good, so nothing happens and the caller tries again.
+     */
+    public static void leave(Minecraft mc) {
+        if (mc.getOverlay() != null) {
+            return;
+        }
         if (mc.level != null) {
             mc.level.disconnect(net.minecraft.network.chat.Component.empty());
         }

@@ -1246,12 +1246,7 @@ public class EditorScreen extends GlassScreen {
         if (selectedActor == null) {
             return;
         }
-        String param = actionType.defaultParam;
-        if (actionType == ActionType.ANIMATION && selectedActor.isModel()) {
-            List<String> animations = ModelLibrary.animations(selectedActor.model);
-            param = animations.isEmpty() ? "" : animations.get(0) + "|once";
-        }
-        param = com.vyrriox.justreplay.editor.ActorManager.moveTargetOrDefault(actionType, param);
+        String param = com.vyrriox.justreplay.editor.ActorManager.defaultActionParam(selectedActor, actionType);
         ReplayProject.ActorAction action = new ReplayProject.ActorAction(session.playback().cursor(), actionType, 0, param);
         selectedActor.actions.add(action);
         selectedActor.sort();
@@ -1362,7 +1357,7 @@ public class EditorScreen extends GlassScreen {
     }
 
     /** Feet height of an actor placed under the camera: the ground within 4 blocks, else the camera height. */
-    private double groundBelow(LocalPlayer p) {
+    public static double groundBelow(LocalPlayer p) {
         Vec3 from = p.position();
         BlockHitResult hit = p.level().clip(new net.minecraft.world.level.ClipContext(from, from.subtract(0, 4, 0),
                 net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, p));

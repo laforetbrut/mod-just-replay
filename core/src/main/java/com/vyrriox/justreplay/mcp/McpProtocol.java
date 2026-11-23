@@ -50,6 +50,33 @@ public final class McpProtocol {
     public record Info(String name, String title, String version, String instructions) {
     }
 
+    /**
+     * The settings that limit what tools may do, read at every call: a read only server refuses every tool that
+     * changes something, and tools that delete files need the player's explicit permission.
+     */
+    public interface Guards {
+        /** Changes allowed, deleting files refused: the defaults of the settings. */
+        Guards DEFAULTS = of(() -> false, () -> false);
+
+        boolean readOnly();
+
+        boolean allowDeleting();
+
+        static Guards of(java.util.function.BooleanSupplier readOnly, java.util.function.BooleanSupplier allowDeleting) {
+            return new Guards() {
+                @Override
+                public boolean readOnly() {
+                    return readOnly.getAsBoolean();
+                }
+
+                @Override
+                public boolean allowDeleting() {
+                    return allowDeleting.getAsBoolean();
+                }
+            };
+        }
+    }
+
     /** The HTTP answer to one message: a status and a JSON body, or no body ({@code 202 Accepted}). */
     public record Reply(int status, JsonObject body) {
         static final Reply ACCEPTED = new Reply(202, null);
@@ -59,14 +86,39 @@ public final class McpProtocol {
     private final GameThreadQueue queue;
     private final Info info;
     private final LongSupplier timeoutMillis;
+    private final Guards guards;
     private final AtomicLong calls = new AtomicLong();
     private volatile long lastCallMillis;
 
     public McpProtocol(McpRegistry registry, GameThreadQueue queue, Info info, LongSupplier timeoutMillis) {
+        this(registry, queue, info, timeoutMillis, Guards.DEFAULTS);
+    }
+
+    public McpProtocol(McpRegistry registry, GameThreadQueue queue, Info info, LongSupplier timeoutMillis, Guards guards) {
         this.registry = registry;
         this.queue = queue;
         this.info = info;
         this.timeoutMillis = timeoutMillis;
+        this.guards = guards;
+    }
+
+    /**
+     * Why the settings refuse a tool now, or null when it may run. Checked before its arguments are read, so a refused
+     * call changes nothing whatever it asks.
+     */
+    static String refusal(McpTool tool, Guards guards) {
+        if (tool.access() == McpTool.Access.READ) {
+            return null;
+        }
+        if (guards.readOnly()) {
+            return "The MCP server of Just Replay is read only: the player switched on 'Read only' (mcp.readOnly) in the MCP "
+                    + "settings, so " + tool.name() + " is refused and nothing changed. The read and observation tools still work.";
+        }
+        if (tool.access() == McpTool.Access.DELETE && !guards.allowDeleting()) {
+            return "Deleting files over MCP is off: " + tool.name() + " deletes files for good, so it only works once the player "
+                    + "switches on 'Allow deleting files' (mcp.allowDestructive) in the MCP settings. Nothing was deleted.";
+        }
+        return null;
     }
 
     /** Every version this server answers, newest first. */
@@ -304,6 +356,10 @@ public final class McpProtocol {
     }
 
     private McpToolResult runTool(McpTool tool, McpArgs args, McpContext context) {
+        String refused = refusal(tool, guards);
+        if (refused != null) {
+            return McpToolResult.error(refused);
+        }
         try {
             args.allowOnly(tool.argumentNames());
             McpToolResult result = tool.onGameThread()

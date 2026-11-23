@@ -25,6 +25,7 @@ final class FakeObserver implements McpObserver {
     int cursor = 40;
     int duration = 1200;
     boolean paused = true;
+    double speed = 1.0;
     boolean exporting;
     boolean open = true;
     int extraZombies;
@@ -35,7 +36,12 @@ final class FakeObserver implements McpObserver {
     /** When set, render answers with a future nobody completes. */
     boolean holdFrames;
     CompletableFuture<Frame> heldFrame;
-    final ReplayProject project = new ReplayProject();
+    /** Replaced when the control tools open another replay. */
+    ReplayProject project = new ReplayProject();
+    /** Id of the open replay. */
+    String id = "fake-replay";
+    /** The view, which set_camera moves. */
+    McpCamera camera = new McpCamera(0.0, 70.0, 0.0, 0.0, 0.0, 0.0, 70.0, "current");
     final ReplayMeta meta = new ReplayMeta();
     final Marker spot;
     final Marker hero;
@@ -68,7 +74,7 @@ final class FakeObserver implements McpObserver {
 
     @Override
     public Replay replay() {
-        return open ? new Replay("fake-replay", meta, project, cursor, duration, paused, 1.0, exporting) : null;
+        return open ? new Replay(id, meta, project, cursor, duration, paused, speed, exporting) : null;
     }
 
     @Override
@@ -187,7 +193,7 @@ final class FakeObserver implements McpObserver {
 
     @Override
     public McpCamera currentCamera() {
-        return new McpCamera(0.0, 70.0, 0.0, 0.0, 0.0, 0.0, 70.0, "current");
+        return camera;
     }
 
     @Override

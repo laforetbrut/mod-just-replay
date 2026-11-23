@@ -403,3 +403,10 @@
 **Root cause:** In 26.1.2 ClientPacketListener.handleTeleportEntity only sets the interpolation target (setValuesFromPositionPacket); it no longer moves the codec base, and the recording player is moved by teleport packets, so the base stayed at its spawn
 **Fix:** ReplayObserver 26.1.2 reads the active InterpolationHandler target, else Entity.position(); 1.20.1 and 1.21.1 keep the codec base (their teleport handler sets it)
 **Prevention:** On 26.1.2 the last recorded position of an entity is getInterpolation().position() while interpolating, never the codec base; check a position reader against an entity moved by teleports (the recording player)
+
+## [2026-11-23 03:00] — Loading screen stuck after leaving a replay during its resource reload
+**Context:** Task 506: NeoForge 1.21.1 self test, new MCP control steps after the buffer clip; step 18 leaves the clip 3 s after it opened
+**Error:** mcp control checks: the menu never came back -> FAIL; debug.log: the reload started when the clip opened (server pack) never created its atlases, mc.getOverlay() stayed set for 60 s
+**Root cause:** The replay applies its server resource packs right after it starts, which reloads resources behind the loading overlay. Leaving then calls Minecraft.disconnect, which drops the render thread's queued tasks (dropAllTasks), most likely the reload's main thread stage with them: the reload never ends and the overlay stays up. A player cannot leave under the overlay, code can (self test, scene jobs, MCP close_replay).
+**Fix:** McpController: open_replay counts a replay as open once it ran 20 ticks with no overlay, close_replay refuses while an overlay is up; self test step 18 waits for the overlay to go before leaving the clip.
+**Prevention:** Never leave a world from code while mc.getOverlay() is set; wait for the reload to finish first.

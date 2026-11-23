@@ -31,6 +31,9 @@ public final class CameraController {
         return Math.max(0, playback.cursor() - step + partialTick * step);
     }
 
+    /** Roll and field of view of the free camera, or null. */
+    private static double[] lens;
+
     /**
      * Holds the camera at {@code state} (as a camera keyframe gives it: position of the feet, yaw, pitch, roll and
      * field of view) at every frame, in place of the camera path, until {@link #clearOverride}.
@@ -71,10 +74,33 @@ public final class CameraController {
     }
 
     public static Float roll() {
-        return lastState == null ? null : (float) lastState[5];
+        if (lastState != null) {
+            return (float) lastState[5];
+        }
+        return lens != null && lensShown() ? (float) lens[0] : null;
     }
 
     public static Double fov() {
-        return lastState == null ? null : lastState[6];
+        if (lastState != null) {
+            return lastState[6];
+        }
+        return lens != null && lensShown() ? lens[1] : null;
+    }
+
+    /**
+     * Gives the free camera of the replay a roll and a field of view (MCP's set_camera), held until the replay closes
+     * or another lens is given; the camera path and an entity viewed through keep their own.
+     */
+    public static void lens(double roll, double fov) {
+        lens = new double[]{roll, fov};
+    }
+
+    public static void clearLens() {
+        lens = null;
+    }
+
+    private static boolean lensShown() {
+        ReplaySession session = ReplaySession.current();
+        return session != null && ReplaySession.isRunning() && !session.spectate().isActive();
     }
 }

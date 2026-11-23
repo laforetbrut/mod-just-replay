@@ -17,6 +17,19 @@ public final class McpTool {
     /** Letters, digits, underscore, hyphen and dot, 1 to 128 of them, as the specification asks of tool names. */
     static final Pattern NAME = Pattern.compile("[A-Za-z0-9_.-]{1,128}");
 
+    /**
+     * What a tool may do to the game, checked before every call against the MCP settings, whatever the tool's own
+     * code does: see {@link McpProtocol.Guards}.
+     */
+    public enum Access {
+        /** Only reads. */
+        READ,
+        /** Changes the game or the open project (project edits stay undoable); refused while the server is read only. */
+        CHANGE,
+        /** Deletes files for good (a replay, an export): also refused unless the player allowed it in the settings. */
+        DELETE
+    }
+
     /** Answers a call. Throw {@link McpArgs.Invalid} for a wrong argument: the caller gets a tool error it can fix. */
     @FunctionalInterface
     public interface Handler {
@@ -29,6 +42,7 @@ public final class McpTool {
     private final JsonObject inputSchema;
     private final Set<String> argumentNames;
     private final JsonObject annotations;
+    private final Access access;
     private final boolean onGameThread;
     private final long minTimeoutMillis;
     private final Handler handler;
@@ -40,6 +54,7 @@ public final class McpTool {
         this.inputSchema = b.schema.build();
         this.argumentNames = Set.copyOf(b.schema.names());
         this.annotations = b.annotations;
+        this.access = b.access;
         this.onGameThread = b.onGameThread;
         this.minTimeoutMillis = b.minTimeoutSeconds * 1000L;
         this.handler = b.handler;
@@ -59,6 +74,11 @@ public final class McpTool {
 
     public boolean onGameThread() {
         return onGameThread;
+    }
+
+    /** What the tool may do, for the settings that limit MCP clients. */
+    public Access access() {
+        return access;
     }
 
     /** Shortest time a call may take before it fails, whatever the settings say (0: the settings decide). */
@@ -95,6 +115,8 @@ public final class McpTool {
         private String description;
         private McpSchema schema = McpSchema.object();
         private final JsonObject annotations = new JsonObject();
+        /** A tool that says nothing about itself is taken for one that changes things. */
+        private Access access = Access.CHANGE;
         private boolean onGameThread = true;
         private int minTimeoutSeconds;
         private Handler handler;
@@ -123,9 +145,43 @@ public final class McpTool {
 
         /** Marks the tool as one that only reads: it changes nothing, so calling it again gives the same answer. */
         public Builder readOnly() {
+            access = Access.READ;
             annotations.addProperty("readOnlyHint", true);
             annotations.addProperty("destructiveHint", false);
             annotations.addProperty("idempotentHint", true);
+            annotations.addProperty("openWorldHint", false);
+            return this;
+        }
+
+        /** Marks a tool that changes things but only adds or moves them (a marker, a keyframe, the play head): nothing is lost. */
+        public Builder additive() {
+            return changes(Access.CHANGE, false);
+        }
+
+        /**
+         * Marks a tool that may overwrite or remove what is there (an edit of the project, which {@code undo} takes
+         * back, or the recording it stops).
+         */
+        public Builder destructive() {
+            return changes(Access.CHANGE, true);
+        }
+
+        /** Marks a tool that deletes files for good: refused unless the player allowed it in the settings. */
+        public Builder deletesFiles() {
+            return changes(Access.DELETE, true);
+        }
+
+        /** Calling it again with the same arguments changes nothing more (after additive, destructive or deletesFiles). */
+        public Builder idempotent() {
+            annotations.addProperty("idempotentHint", true);
+            return this;
+        }
+
+        private Builder changes(Access access, boolean destructive) {
+            this.access = access;
+            annotations.addProperty("readOnlyHint", false);
+            annotations.addProperty("destructiveHint", destructive);
+            annotations.addProperty("idempotentHint", false);
             annotations.addProperty("openWorldHint", false);
             return this;
         }
