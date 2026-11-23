@@ -4,6 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.vyrriox.justreplay.format.ReplayStorage;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -28,12 +29,16 @@ import java.util.concurrent.CompletableFuture;
 public final class McpProbe {
     /** Read tools the server must list first, in this order. */
     public static final List<String> READ_TOOLS = List.of("get_state", "list_replays", "get_project", "list_markers", "get_marker");
-    /** Every tool the server must list, in this order: the read tools, then the observation tools. */
+    /** Every tool the server must list, in this order: the read tools, the observation tools, then the control tools. */
     public static final List<String> TOOLS;
+    /** Tools that wait on the game for long: a replay opening or closing, files written, audio decoded. */
+    private static final java.util.Set<String> SLOW = java.util.Set.of("open_replay", "close_replay", "stop_recording",
+            "save_instant_replay", "rename_replay", "delete_replay", "edit_audio_clip");
 
     static {
         List<String> all = new ArrayList<>(READ_TOOLS);
         all.addAll(McpObserveTools.TOOLS);
+        all.addAll(McpControlTools.TOOLS);
         TOOLS = List.copyOf(all);
     }
 
@@ -71,6 +76,28 @@ public final class McpProbe {
 
     /** Lines of the observation checks and the pictures they received. */
     public record Observation(List<String> lines, List<Picture> pictures) {
+    }
+
+    /**
+     * What the control checks drive, through MCP only: a saved replay they open from a menu and close at the end, and
+     * an export they start and cancel.
+     *
+     * @param replayId   id of a saved replay where the recording player is, holding no edit of the checks yet
+     * @param markers    how many markers its project holds before the checks
+     * @param tick       a tick of the replay the checks go to, with room for an export of 40 ticks after it
+     * @param exportName name of the export they start, then cancel
+     */
+    public record Steer(String replayId, int markers, int tick, String exportName) {
+    }
+
+    /**
+     * Lines of the control checks and what they added, for the game to find in project.json.
+     *
+     * @param cameraId     camera that got the keyframe, empty when the checks could not add it
+     * @param keyframeTick tick of that keyframe
+     * @param exportFile   file name of the export they cancelled, empty when none started
+     */
+    public record Steering(List<String> lines, String cameraId, int keyframeTick, String actorId, String markerId, String exportFile) {
     }
 
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
@@ -115,6 +142,232 @@ public final class McpProbe {
         thread.setDaemon(true);
         thread.start();
         return result;
+    }
+
+    /**
+     * Runs the control checks on a new daemon thread: open the replay, read its markers, go to a tick, place the view,
+     * add a camera keyframe, an actor and a marker, refusals, save, read the three back, undo and redo, start an
+     * export, follow it, cancel it, close the replay. The game must be on a menu with nothing open, and keep ticking.
+     */
+    public static CompletableFuture<Steering> steer(int port, String token, Steer steer) {
+        CompletableFuture<Steering> result = new CompletableFuture<>();
+        Thread thread = new Thread(() -> {
+            try {
+                result.complete(new McpProbe(port, token).drive(steer));
+            } catch (Throwable t) {
+                result.complete(new Steering(List.of("mcp control probe stopped: " + McpProtocol.describe(t) + " -> FAIL"), "", -1, "",
+                        "", ""));
+            }
+        }, "Just Replay MCP control probe");
+        thread.setDaemon(true);
+        thread.start();
+        return result;
+    }
+
+    Steering drive(Steer steer) {
+        List<String> lines = new ArrayList<>();
+        String[] camera = {""};
+        int[] keyTick = {-1};
+        String[] actor = {""};
+        String[] marker = {""};
+        String[] export = {""};
+        double[] eye = new double[3];
+        double[] feet = new double[3];
+        check(lines, "mcp open_replay from the menu", () -> {
+            JsonObject args = new JsonObject();
+            args.addProperty("replay", steer.replayId());
+            JsonObject r = tool("open_replay", args, true);
+            boolean open = r.has("open") && r.get("open").getAsBoolean();
+            String id = r.has("replay") ? r.getAsJsonObject("replay").get("id").getAsString() : "";
+            return verdict("replay " + id + " open=" + open, open && id.equals(steer.replayId()));
+        });
+        check(lines, "mcp list_markers of the opened replay", () -> {
+            JsonObject list = tool("list_markers", new JsonObject(), true);
+            return verdict(list.get("count").getAsInt() + " markers (expected " + steer.markers() + ")",
+                    list.get("count").getAsInt() == steer.markers());
+        });
+        check(lines, "mcp seek to tick " + steer.tick(), () -> {
+            JsonObject args = new JsonObject();
+            args.addProperty("tick", steer.tick());
+            JsonObject r = tool("seek", args, false);
+            return verdict("play head at " + r.get("tick").getAsInt() + " (" + r.get("time").getAsString() + ")",
+                    r.get("tick").getAsInt() == steer.tick());
+        });
+        check(lines, "mcp get_entity finds the recording player", () -> {
+            JsonObject args = new JsonObject();
+            args.addProperty("id", "recorder");
+            JsonObject p = tool("get_entity", args, true).getAsJsonObject("entity").getAsJsonObject("position");
+            feet[0] = p.get("x").getAsDouble();
+            feet[1] = p.get("y").getAsDouble();
+            feet[2] = p.get("z").getAsDouble();
+            eye[0] = feet[0];
+            eye[1] = feet[1] + 3.0;
+            eye[2] = feet[2] - 5.0;
+            return verdict("at " + point(p), true);
+        });
+        check(lines, "mcp set_camera places the free camera", () -> {
+            JsonObject args = new JsonObject();
+            args.addProperty("x", eye[0]);
+            args.addProperty("y", eye[1]);
+            args.addProperty("z", eye[2]);
+            args.add("lookAt", array(feet[0], feet[1] + 1.0, feet[2]));
+            args.addProperty("fov", 60);
+            JsonObject c = tool("set_camera", args, false).getAsJsonObject("camera");
+            boolean aimed = Math.abs(c.get("yaw").getAsDouble()) < 1.0 && c.get("pitch").getAsDouble() > 0.0;
+            return verdict("eye " + point(c) + " yaw " + c.get("yaw").getAsDouble() + " pitch " + c.get("pitch").getAsDouble()
+                    + " fov " + c.get("fov").getAsDouble(), aimed && Math.abs(c.get("fov").getAsDouble() - 60.0) < 1.0E-6);
+        });
+        check(lines, "mcp edit_camera_keyframe adds a keyframe at the play head", () -> {
+            JsonObject args = new JsonObject();
+            args.addProperty("action", "add");
+            args.addProperty("x", eye[0]);
+            args.addProperty("y", eye[1]);
+            args.addProperty("z", eye[2]);
+            args.add("lookAt", array(feet[0], feet[1] + 1.0, feet[2]));
+            args.addProperty("fov", 60);
+            JsonObject r = tool("edit_camera_keyframe", args, true);
+            JsonObject k = r.getAsJsonObject("keyframe");
+            camera[0] = r.getAsJsonObject("camera").get("id").getAsString();
+            keyTick[0] = k.get("tick").getAsInt();
+            double y = k.get("y").getAsDouble();
+            return verdict("keyframe at " + keyTick[0] + " on camera " + r.getAsJsonObject("camera").get("name").getAsString()
+                    + ", feet y " + y, keyTick[0] == steer.tick() && Math.abs(y - (eye[1] - McpCamera.EYE_HEIGHT)) < 1.0E-3);
+        });
+        check(lines, "mcp edit_actor adds an actor", () -> {
+            JsonObject args = new JsonObject();
+            args.addProperty("action", "add");
+            args.addProperty("type", "minecraft:villager");
+            args.addProperty("name", "MCP actor");
+            args.addProperty("x", feet[0] + 2.0);
+            args.addProperty("y", feet[1]);
+            args.addProperty("z", feet[2] + 2.0);
+            args.addProperty("scale", 1.5);
+            JsonObject a = tool("edit_actor", args, false).getAsJsonObject("actor");
+            actor[0] = a.get("id").getAsString();
+            return verdict("actor " + actor[0] + " " + a.get("type").getAsString() + " scale " + a.get("scale").getAsDouble(),
+                    "minecraft:villager".equals(a.get("type").getAsString()) && Math.abs(a.get("scale").getAsDouble() - 1.5) < 1.0E-6);
+        });
+        check(lines, "mcp edit_marker adds a marker", () -> {
+            JsonObject args = new JsonObject();
+            args.addProperty("action", "add");
+            args.addProperty("name", "MCP marker");
+            args.addProperty("note", "Placed over MCP by the self test");
+            args.addProperty("tick", steer.tick() + 20);
+            args.addProperty("color", "green");
+            JsonObject m = tool("edit_marker", args, true).getAsJsonObject("marker");
+            marker[0] = m.get("id").getAsString();
+            return verdict("marker " + marker[0] + " at " + m.get("tick").getAsInt(), m.get("tick").getAsInt() == steer.tick() + 20);
+        });
+        check(lines, "mcp refuses a tick outside the replay", () -> {
+            JsonObject args = new JsonObject();
+            args.addProperty("action", "add");
+            args.addProperty("tick", 99_999_999);
+            String error = toolError("edit_marker", args);
+            return verdict("'" + error + "'", error.contains("outside the replay"));
+        });
+        check(lines, "mcp refuses to delete a replay by default", () -> {
+            JsonObject args = new JsonObject();
+            args.addProperty("replay", steer.replayId());
+            String error = toolError("delete_replay", args);
+            JsonObject query = new JsonObject();
+            query.addProperty("query", steer.replayId());
+            int left = tool("list_replays", query, false).get("total").getAsInt();
+            return verdict("'" + error + "', replay still listed: " + (left == 1), error.contains("Allow deleting files") && left == 1);
+        });
+        check(lines, "mcp save_project", () -> {
+            JsonObject r = tool("save_project", new JsonObject(), true);
+            return verdict(r.get("file").getAsString() + ", " + r.getAsJsonObject("holds").get("actors").getAsInt() + " actors",
+                    r.get("saved").getAsBoolean() && r.get("file").getAsString().endsWith(ReplayStorage.PROJECT));
+        });
+        check(lines, "mcp get_project reads back the keyframe, the actor and the marker", () -> {
+            JsonObject args = new JsonObject();
+            JsonArray sections = new JsonArray();
+            sections.add("cameras");
+            sections.add("actors");
+            args.add("sections", sections);
+            args.addProperty("detail", "full");
+            JsonObject project = tool("get_project", args, false);
+            boolean key = false;
+            for (JsonElement c : project.getAsJsonArray("cameras")) {
+                if (c.getAsJsonObject().get("id").getAsString().equals(camera[0])) {
+                    for (JsonElement k : c.getAsJsonObject().getAsJsonArray("keyframes")) {
+                        key |= k.getAsJsonObject().get("tick").getAsInt() == keyTick[0];
+                    }
+                }
+            }
+            boolean found = false;
+            for (JsonElement a : project.getAsJsonArray("actors")) {
+                found |= a.getAsJsonObject().get("id").getAsString().equals(actor[0]);
+            }
+            boolean listed = markerListed(marker[0]);
+            return verdict("keyframe=" + key + " actor=" + found + " marker=" + listed, key && found && listed);
+        });
+        check(lines, "mcp undo then redo the marker", () -> {
+            tool("undo", new JsonObject(), true);
+            boolean gone = !markerListed(marker[0]);
+            JsonObject r = tool("redo", new JsonObject(), false);
+            boolean back = markerListed(marker[0]);
+            return verdict("gone after undo=" + gone + ", back after redo=" + back, gone && back && r.get("redone").getAsInt() == 1);
+        });
+        check(lines, "mcp start_export", () -> {
+            JsonObject args = new JsonObject();
+            args.addProperty("from", steer.tick());
+            args.addProperty("to", steer.tick() + 40);
+            args.addProperty("name", steer.exportName());
+            args.addProperty("fps", 20);
+            args.addProperty("rangeInName", false);
+            JsonObject r = tool("start_export", args, true);
+            JsonObject e = r.getAsJsonObject("export");
+            export[0] = e.get("file").getAsString();
+            return verdict("started " + export[0] + ", " + e.get("totalFrames").getAsLong() + " frames",
+                    r.get("started").getAsBoolean() && e.get("active").getAsBoolean() && export[0].startsWith(steer.exportName()));
+        });
+        check(lines, "mcp get_export follows the export", () -> {
+            long until = System.currentTimeMillis() + 30_000L;
+            JsonObject e = tool("get_export", new JsonObject(), false);
+            while (e.get("active").getAsBoolean() && e.get("frames").getAsLong() == 0 && System.currentTimeMillis() < until) {
+                Thread.sleep(200L);
+                e = tool("get_export", new JsonObject(), false);
+            }
+            return verdict(e.get("state").getAsString() + ", " + e.get("frames").getAsLong() + " of " + e.get("totalFrames").getAsLong()
+                    + " frames (" + e.get("percent").getAsInt() + " %)", e.get("active").getAsBoolean() && e.get("frames").getAsLong() > 0);
+        });
+        check(lines, "mcp cancel_export", () -> {
+            JsonObject r = tool("cancel_export", new JsonObject(), true);
+            return verdict("cancelled " + r.get("file").getAsString(), r.get("cancelled").getAsBoolean());
+        });
+        check(lines, "mcp get_export after the cancel", () -> {
+            long until = System.currentTimeMillis() + 60_000L;
+            JsonObject e = tool("get_export", new JsonObject(), true);
+            while (!e.get("done").getAsBoolean() && System.currentTimeMillis() < until) {
+                Thread.sleep(200L);
+                e = tool("get_export", new JsonObject(), true);
+            }
+            return verdict(e.get("state").getAsString(), "cancelled".equals(e.get("state").getAsString()) && !e.get("written").getAsBoolean());
+        });
+        check(lines, "mcp close_replay", () -> {
+            JsonObject r = tool("close_replay", new JsonObject(), false);
+            return verdict("closed " + r.get("replayId").getAsString(), r.get("closed").getAsBoolean()
+                    && r.get("replayId").getAsString().equals(steer.replayId()));
+        });
+        return new Steering(lines, camera[0], keyTick[0], actor[0], marker[0], export[0]);
+    }
+
+    private boolean markerListed(String id) throws Exception {
+        for (JsonElement m : tool("list_markers", new JsonObject(), true).getAsJsonArray("markers")) {
+            if (m.getAsJsonObject().get("id").getAsString().equals(id)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static JsonArray array(double... values) {
+        JsonArray a = new JsonArray();
+        for (double v : values) {
+            a.add(v);
+        }
+        return a;
     }
 
     List<String> look(Look look, List<Picture> pictures) {
@@ -424,16 +677,31 @@ public final class McpProbe {
 
     /** Calls a tool and returns its whole result ({@code content} included), failing on a tool error. */
     private JsonObject tool(String name, JsonObject arguments, boolean modern, boolean whole) throws Exception {
-        JsonObject params = new JsonObject();
-        params.addProperty("name", name);
-        params.add("arguments", arguments);
-        HttpResponse<String> response = http.send(post("tools/call", params, modern, name, true)
-                .timeout(McpObserveTools.TOOLS.contains(name) ? FRAME_WAIT : Duration.ofSeconds(20)).build(), HttpResponse.BodyHandlers.ofString());
-        JsonObject r = result(response);
+        JsonObject r = call(name, arguments, modern);
         if (r.get("isError").getAsBoolean()) {
             throw new IllegalStateException("tool error: " + r.getAsJsonArray("content").get(0).getAsJsonObject().get("text").getAsString());
         }
         return r;
+    }
+
+    /** Calls a tool that must refuse the call, and returns its error message. */
+    private String toolError(String name, JsonObject arguments) throws Exception {
+        JsonObject r = call(name, arguments, true);
+        if (!r.get("isError").getAsBoolean()) {
+            throw new IllegalStateException(name + " accepted the call: " + r.get("structuredContent"));
+        }
+        return r.getAsJsonArray("content").get(0).getAsJsonObject().get("text").getAsString();
+    }
+
+    private JsonObject call(String name, JsonObject arguments, boolean modern) throws Exception {
+        JsonObject params = new JsonObject();
+        params.addProperty("name", name);
+        params.add("arguments", arguments);
+        Duration wait = McpObserveTools.TOOLS.contains(name) ? FRAME_WAIT
+                : SLOW.contains(name) ? Duration.ofSeconds(McpPlayTools.OPEN_TIMEOUT_SECONDS + 30L) : Duration.ofSeconds(20);
+        HttpResponse<String> response = http.send(post("tools/call", params, modern, name, true).timeout(wait).build(),
+                HttpResponse.BodyHandlers.ofString());
+        return result(response);
     }
 
     private static JsonObject result(HttpResponse<String> response) {

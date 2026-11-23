@@ -36,7 +36,7 @@ public final class McpReadTools {
 
     /** Instructions given to the model when it connects. */
     public static final String INSTRUCTIONS = "Just Replay records Minecraft sessions as replays and edits them into videos (cameras, "
-            + "actors, audio, effects, overlays, markers), inside the player's game. These tools only read. Start with get_state "
+            + "actors, audio, effects, overlays, markers), inside the player's game. Start with get_state "
             + "to see what the mod is doing and whether a replay is open; list_replays gives the saved replays and their ids; "
             + "get_project shows the edit of a replay; list_markers and get_marker give its markers with their notes, which "
             + "often say what the player wants. Times are ticks (20 per second), also given as text such as 1:02.5.";

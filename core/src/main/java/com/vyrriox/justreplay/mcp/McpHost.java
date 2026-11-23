@@ -49,7 +49,8 @@ public final class McpHost {
     public McpHost(McpConfig config, McpRegistry registry, McpProtocol.Info info, Events events) {
         this.config = config;
         this.events = events;
-        this.protocol = new McpProtocol(registry, queue, info, () -> config.timeoutSeconds.get() * 1000L);
+        this.protocol = new McpProtocol(registry, queue, info, () -> config.timeoutSeconds.get() * 1000L,
+                McpProtocol.Guards.of(config.readOnly::get, config.allowDestructive::get));
     }
 
     /** Game thread, once per tick. */

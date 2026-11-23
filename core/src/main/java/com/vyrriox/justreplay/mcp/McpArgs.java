@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -42,6 +43,17 @@ public final class McpArgs {
         }
     }
 
+    /** Names of the arguments given, null ones left out, in the order the call wrote them. */
+    public Set<String> names() {
+        Set<String> out = new java.util.LinkedHashSet<>();
+        for (Map.Entry<String, JsonElement> e : values.entrySet()) {
+            if (!e.getValue().isJsonNull()) {
+                out.add(e.getKey());
+            }
+        }
+        return out;
+    }
+
     public boolean has(String name) {
         JsonElement e = values.get(name);
         return e != null && !e.isJsonNull();
@@ -57,6 +69,40 @@ public final class McpArgs {
             return e.getAsString();
         }
         throw new Invalid("Argument '" + name + "' must be a string");
+    }
+
+    /** A string of at most {@code maxLength} characters, possibly empty, or null when absent. */
+    public String text(String name, int maxLength) throws Invalid {
+        String value = string(name, null);
+        if (value != null && value.length() > maxLength) {
+            throw new Invalid("Argument '" + name + "' takes at most " + maxLength + " characters (it has " + value.length() + ")");
+        }
+        return value;
+    }
+
+    /** An object argument, or null when absent. */
+    public JsonObject object(String name) throws Invalid {
+        JsonElement e = values.get(name);
+        if (e == null || e.isJsonNull()) {
+            return null;
+        }
+        if (!e.isJsonObject()) {
+            throw new Invalid("Argument '" + name + "' must be an object");
+        }
+        return e.getAsJsonObject();
+    }
+
+    /** A point {@code [x, y, z]} (or an object with x, y and z) of finite numbers, or null when absent. */
+    public double[] point(String name) throws Invalid {
+        JsonElement e = values.get(name);
+        if (e == null || e.isJsonNull()) {
+            return null;
+        }
+        double[] p = point(e);
+        if (p == null) {
+            throw new Invalid("Argument '" + name + "' must be a point [x, y, z] of finite numbers");
+        }
+        return p;
     }
 
     /** A string argument that must be given and not blank. */
