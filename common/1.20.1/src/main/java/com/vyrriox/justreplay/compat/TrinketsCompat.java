@@ -21,11 +21,11 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /**
- * Trinkets slots (capes, rings, belts, the elytra of Elytra Slot) in snapshots and checkpoints. The Trinkets server
- * sends what an entity wears when a client starts tracking it, then only the changes ({@code trinkets:sync_inventory},
- * keyed by entity id): a recording started mid-session, and a seek that rebuilds the entities, would show nobody's
- * trinkets until the next change. The current content of an entity is written as the server sends it; the recording
- * player's actor shares the player's entity id and gets it too.
+ * Trinkets slots (capes, rings, belts, the elytra of Elytra Slot) in snapshots and checkpoints. What an entity wears
+ * reaches a client once, in the Cardinal Components sync of that entity (when tracking starts), then only as changes
+ * ({@code trinkets:sync_inventory}, keyed by entity id): a recording started mid-session, and a seek that rebuilds the
+ * entities, would show nobody's trinkets until the next change. The current content of an entity is written as such a
+ * change message; the recording player's actor shares the player's entity id and gets it too.
  * <p>
  * Trinkets gives an entity slots from the definitions of the server played on ({@code trinkets:sync_slots}, sent once
  * at login), and drops the content of a slot the entity does not have: snapshots and checkpoints carry the
