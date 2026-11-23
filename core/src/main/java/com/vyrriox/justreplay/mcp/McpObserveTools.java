@@ -82,7 +82,9 @@ public final class McpObserveTools {
         registry.add(McpTool.builder("list_entities")
                 .title("Entities at a tick")
                 .description("The entities of the replay world at a tick: id, ref, UUID, type, name, recorded entity or editor "
-                        + "actor, position, rotation, velocity (blocks per second), health, equipment, vehicle and passengers. "
+                        + "actor, position, rotation, velocity (blocks per second), health, equipment (vanilla slots, then the slots "
+                        + "of Curios, Accessories and Trinkets as curios:<slot>, accessories:<slot>, trinkets:<group>/<slot>), "
+                        + "vehicle and passengers. "
                         + "Filters: types, source, a name, a sphere around a point, a marker or an entity. Nearest first around "
                         + "a centre, by id otherwise; one page at a time (nextOffset gives the next one).")
                 .input(McpSchema.object()

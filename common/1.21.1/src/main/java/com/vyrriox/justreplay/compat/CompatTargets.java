@@ -25,7 +25,9 @@ public final class CompatTargets {
      * of its NeoForge build 20241226 and Fabric build 20260521: the same classes and packets on both loaders. More
      * Player Models ({@code moreplayermodels}) has no 1.21.1 build of its own: the integration follows the unofficial
      * NeoForge port {@code kaan-mpm.jar} (version 1.21.1.20261109-cat-scale, nested in the kaanstyle bundle 1.0.15),
-     * checked against that jar, so it is on for NeoForge alone.
+     * checked against that jar, so it is on for NeoForge alone. Elytra Slot ({@code elytraslot}) was read from its jars
+     * 9.0.2 (NeoForge) and 9.0.1 (Fabric), Trinkets from the jar of 3.10.0 (Fabric only); neither has a Forge 1.21.1
+     * build.
      */
     private static final Map<String, Set<String>> SUPPORTED = Map.of(
             "neoforge", Set.of("accessories", "aeronautics", "armourers_workshop", "bettercombat", "bobby", "create", "curios",
@@ -33,8 +35,8 @@ public final class CompatTargets {
                     "exposure", "geckolib", "immersive_aircraft", "immersive_paintings", "irons_spellbooks", "iris", "jade",
                     "moreplayermodels", "morph", "mts", "parcool", "pehkui", PLAYER_ANIMATOR, "sable", "simulated", "waterframes"),
             "fabric", Set.of("accessories", "armourers_workshop", "bettercombat", "bobby", "customnpcs", "distanthorizons",
-                    "elytraslot", "emotecraft", "entityculling", "exposure", "geckolib", "immersive_aircraft", "immersive_paintings", "iris",
-                    "jade", "pehkui", PLAYER_ANIMATOR, "sable", "waterframes"),
+                    "elytraslot", "emotecraft", "entityculling", "exposure", "geckolib", "immersive_aircraft",
+                    "immersive_paintings", "iris", "jade", "pehkui", PLAYER_ANIMATOR, "sable", "trinkets", "waterframes"),
             "forge", Set.of("entityculling", "geckolib"));
 
     /**
@@ -72,6 +74,7 @@ public final class CompatTargets {
             "sable", "Sable",
             "simulated", "Create Simulated",
             VOICE_CHAT, "Simple Voice Chat",
+            "trinkets", "Trinkets",
             "waterframes", "WaterFrames");
 
     /**
@@ -82,6 +85,7 @@ public final class CompatTargets {
             "Armourers", "armourers_workshop",
             "Bobby", "bobby",
             "Catnip", "create",
+            "CreateBacktank", "create",
             "DropTheBeam", "dropthebeam",
             "ElytraSlot", "elytraslot",
             "EpicFight", "epicfight",
