@@ -368,6 +368,7 @@ class McpControlToolsTest {
         assertTrue(toolError("edit_audio_clip", "action", "update", "clip", clip.get("id").getAsString(), "out", 500.0)
                 .contains("past the end of the file"));
         assertTrue(toolError("edit_audio_clip", "action", "add", "file", "broken.ogg").contains("cannot be played"));
+        assertTrue(toolError("edit_audio_clip", "action", "add", "file", "theme.ogg", "start", 5000).contains("outside the replay"));
         ok("edit_audio_track", "action", "add", "name", "Music", "volume", 0.5);
         ok("edit_audio_clip", "action", "move", "clip", clip.get("id").getAsString(), "track", "Music");
         assertEquals(1, world.project.audioTracks.get(1).clips.size());

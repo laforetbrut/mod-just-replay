@@ -367,7 +367,7 @@ final class McpMediaTools {
                 case "add" -> {
                     AudioClip c = new AudioClip(plan.file(), r.tick(), length);
                     given.applyTo(c);
-                    checkClip(c, length);
+                    checkClip(c, length, r.durationTicks());
                     AudioTrack t = args.has("track") ? track(p, args.required("track"))
                             : p.audioTracks.isEmpty() ? null : p.audioTracks.get(0);
                     if (t == null) {
@@ -387,7 +387,7 @@ final class McpMediaTools {
                     }
                     AudioClip trial = McpEditTools.copy(at.clip());
                     given.applyTo(trial);
-                    checkClip(trial, length);
+                    checkClip(trial, length, r.durationTicks());
                     given.applyTo(at.clip());
                     at.clip().clampFades();
                     at.track().sort();
@@ -413,7 +413,8 @@ final class McpMediaTools {
     }
 
     /** A clip must play something of its file. */
-    private static void checkClip(AudioClip c, double sourceTicks) throws McpArgs.Invalid {
+    private static void checkClip(AudioClip c, double sourceTicks, int duration) throws McpArgs.Invalid {
+        McpControlTools.checkTick(c.start, duration, "start");
         if (c.out <= c.in) {
             throw new McpArgs.Invalid("'out' (" + c.out + ") must be after 'in' (" + c.in + ")");
         }
