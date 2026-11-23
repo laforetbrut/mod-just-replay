@@ -118,6 +118,9 @@ public final class VideoExporter {
     private long captureStartNanos;
     /** When the last frame was captured, for the timing of the log line. */
     private long captureEndNanos;
+    /** Time spent reading frames back into the arrays handed to FFmpeg, and how many were read. */
+    private long readNanos;
+    private int readFrames;
 
     /** How an export ended: complete, complete but silent because the sound could not be added, or not at all. */
     private enum Outcome {
@@ -218,8 +221,8 @@ public final class VideoExporter {
     private String timing() {
         double capture = captureStartNanos == 0L || captureEndNanos == 0L ? 0.0 : (captureEndNanos - captureStartNanos) / 1e9;
         double total = (System.nanoTime() - startNanos) / 1e9;
-        return String.format(java.util.Locale.ROOT, "captured in %.1f s at %.1f fps, %.1f s in all", capture,
-                capture > 0.0 ? frames / capture : 0.0, total);
+        return String.format(java.util.Locale.ROOT, "captured in %.1f s at %.1f fps, read back in %.2f ms a frame, %.1f s in all", capture,
+                capture > 0.0 ? frames / capture : 0.0, readFrames == 0 ? 0.0 : readNanos / 1e6 / readFrames, total);
     }
 
     /** Wall time since the export started, warm-up included. */
@@ -520,11 +523,14 @@ public final class VideoExporter {
             finish(false);
             return;
         }
+        long readStarted = System.nanoTime();
         try (NativeImage image = Screenshot.takeScreenshot(target)) {
             int[] pixels = image.getPixelsRGBA();
             ByteBuffer bytes = ByteBuffer.allocate(pixels.length * 4).order(ByteOrder.LITTLE_ENDIAN);
             bytes.asIntBuffer().put(pixels);
             byte[] frame = bytes.array();
+            readNanos += System.nanoTime() - readStarted;
+            readFrames++;
             if (!deliver(frame)) {
                 finish(false);
                 return;
