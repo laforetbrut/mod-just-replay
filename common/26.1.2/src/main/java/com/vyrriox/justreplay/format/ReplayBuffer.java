@@ -29,7 +29,9 @@ import java.util.zip.GZIPOutputStream;
  * checkpoint still needed to cover the window, or the start of the buffer itself while it is younger than the
  * window. Everything older than that anchor is dropped as time passes, so memory stays bounded by the window.
  * <p>
- * All the work runs on a dedicated low priority thread; callers only enqueue.
+ * All the work runs on a dedicated low priority thread; callers only enqueue. Packets reach that thread in batches,
+ * like {@link ReplayWriter} hands them over: waking it for every packet cost the network thread about two microseconds
+ * per packet. Every other call hands the batch over first, so the order of all calls is kept.
  *
  * @author vyrriox
  */
@@ -60,6 +62,12 @@ public final class ReplayBuffer {
     private final ExecutorService executor;
     private volatile int windowTicks;
     private volatile boolean closed;
+    /** Packets not handed to the buffer thread yet, guarded by {@code this}. */
+    private int[] batchTicks = new int[64];
+    private byte[][] batchData = new byte[64][];
+    private int batchSize;
+    private int batchBytes;
+    private int batchFirstTick;
 
     // ---------------------------------------------------------------- buffer thread state
     private final List<Anchor> anchors = new ArrayList<>();
@@ -102,7 +110,43 @@ public final class ReplayBuffer {
 
     /** Appends a packet; ticks never go back. */
     public void write(int tick, byte[] data) {
-        run(() -> append(tick, data));
+        if (closed) {
+            return;
+        }
+        synchronized (this) {
+            if (batchSize == batchTicks.length) {
+                batchTicks = java.util.Arrays.copyOf(batchTicks, batchSize * 2);
+                batchData = java.util.Arrays.copyOf(batchData, batchSize * 2);
+            }
+            if (batchSize == 0) {
+                batchFirstTick = tick;
+            }
+            batchTicks[batchSize] = tick;
+            batchData[batchSize] = data;
+            batchSize++;
+            batchBytes += data.length;
+            if (batchSize >= ReplayWriter.BATCH_PACKETS || batchBytes >= ReplayWriter.BATCH_BYTES
+                    || tick - batchFirstTick >= ReplayWriter.BATCH_TICKS) {
+                handOff();
+            }
+        }
+    }
+
+    /** Gives the queued packets to the buffer thread, in order. Caller holds {@code this}. */
+    private void handOff() {
+        if (batchSize == 0) {
+            return;
+        }
+        int[] ticks = java.util.Arrays.copyOf(batchTicks, batchSize);
+        byte[][] data = java.util.Arrays.copyOf(batchData, batchSize);
+        java.util.Arrays.fill(batchData, 0, batchSize, null);
+        batchSize = 0;
+        batchBytes = 0;
+        submit(() -> {
+            for (int i = 0; i < ticks.length; i++) {
+                append(ticks[i], data[i]);
+            }
+        });
     }
 
     /**
@@ -241,7 +285,15 @@ public final class ReplayBuffer {
         executor.shutdown();
     }
 
+    /** Runs a task on the buffer thread after every packet written so far. */
     private boolean run(Runnable task) {
+        synchronized (this) {
+            handOff();
+            return submit(task);
+        }
+    }
+
+    private boolean submit(Runnable task) {
         if (closed) {
             return false;
         }
