@@ -255,6 +255,8 @@ public final class ReplayProject {
         public String timing = "CONSTANT_SPEED";
         /** Gentle acceleration at the start and deceleration at the end of a constant speed path. */
         public boolean ease = true;
+        /** Path last built from this camera, see {@link CameraPath#of(Camera)}; never saved. */
+        transient CameraPath.Built builtPath;
 
         // STATIC placement (feet position of the free camera); roll and fov are also used by FOLLOW
         public double x, y, z;

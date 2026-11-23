@@ -83,6 +83,11 @@ public final class VideoExporter {
     private final Process process;
     private final OutputStream stdin;
     private final BlockingQueue<byte[]> queue = new ArrayBlockingQueue<>(6);
+    /**
+     * Frames FFmpeg is done with, used again for the next ones: a 1080p frame is 8 MB, allocating one per frame kept the
+     * garbage collector busy for nothing. Never more frames exist than the queue, the one being written and this pool.
+     */
+    private final BlockingQueue<byte[]> spareFrames = new ArrayBlockingQueue<>(4);
     private final Thread writerThread;
     private final int width;
     private final int height;
@@ -126,6 +131,11 @@ public final class VideoExporter {
     /** Wall clock when the export started, and when its first frame was captured (0 before), for the render veil. */
     private final long startNanos = System.nanoTime();
     private long captureStartNanos;
+    /** When the last frame was captured, for the timing of the log line. */
+    private long captureEndNanos;
+    /** Time spent reading frames back into the arrays handed to FFmpeg, and how many were read. */
+    private long readNanos;
+    private int readFrames;
 
     /** How an export ended: complete, complete but silent because the sound could not be added, or not at all. */
     private enum Outcome {
@@ -220,6 +230,14 @@ public final class VideoExporter {
 
     public boolean isGrab() {
         return grab != null;
+    }
+
+    /** Capture time and rate, and the whole time with warm-up and encoding, for the log. */
+    private String timing() {
+        double capture = captureStartNanos == 0L || captureEndNanos == 0L ? 0.0 : (captureEndNanos - captureStartNanos) / 1e9;
+        double total = (System.nanoTime() - startNanos) / 1e9;
+        return String.format(java.util.Locale.ROOT, "captured in %.1f s at %.1f fps, read back in %.2f ms a frame, %.1f s in all", capture,
+                capture > 0.0 ? frames / capture : 0.0, readFrames == 0 ? 0.0 : readNanos / 1e6 / readFrames, total);
     }
 
     /** Wall time since the export started, warm-up included. */
@@ -598,9 +616,12 @@ public final class VideoExporter {
         try {
             if (!finished && !failed) {
                 byte[] frame;
+                long readStarted = System.nanoTime();
                 try (GpuBuffer.MappedView view = encoder.mapBuffer(staging, true, false)) {
                     frame = flipOpaque(view.data());
                 }
+                readNanos += System.nanoTime() - readStarted;
+                readFrames++;
                 if (!deliver(frame)) {
                     failed = true;
                 }
@@ -622,7 +643,7 @@ public final class VideoExporter {
     /** The texture is bottom row first; FFmpeg wants top row first and an opaque image. */
     private byte[] flipOpaque(ByteBuffer pixels) {
         int rowBytes = width * 4;
-        byte[] frame = new byte[rowBytes * height];
+        byte[] frame = frameBuffer(rowBytes * height);
         for (int y = 0; y < height; y++) {
             pixels.get(y * rowBytes, frame, (height - y - 1) * rowBytes, rowBytes);
         }
@@ -630,6 +651,12 @@ public final class VideoExporter {
             frame[i] = (byte) 0xFF;
         }
         return frame;
+    }
+
+    /** A frame array of {@code size} bytes: a spare one FFmpeg is done with, or a new one. */
+    private byte[] frameBuffer(int size) {
+        byte[] frame = spareFrames.poll();
+        return frame != null && frame.length == size ? frame : new byte[size];
     }
 
     /** Hands a captured frame on: to the frame grab, or to FFmpeg. False when FFmpeg is gone. */
@@ -679,6 +706,7 @@ public final class VideoExporter {
                     break;
                 }
                 stdin.write(frame);
+                spareFrames.offer(frame);
             }
         } catch (IOException | InterruptedException e) {
             failed = true;
@@ -698,6 +726,7 @@ public final class VideoExporter {
             return;
         }
         finished = true;
+        captureEndNanos = System.nanoTime();
         current = null;
         // A readback still in flight closes its own buffer when it lands.
         freeReadbackBuffers.forEach(GpuBuffer::close);
@@ -798,7 +827,7 @@ public final class VideoExporter {
                 case DONE_WITHOUT_SOUND -> "finished without sound";
                 case FAILED -> cancelled ? "cancelled" : "failed";
             };
-            JustReplay.LOGGER.info("{} {} ({} frames): {}", still != null ? "Still" : "Export", ended, frames, describe());
+            JustReplay.LOGGER.info("{} {} ({} frames, {}): {}", still != null ? "Still" : "Export", ended, frames, timing(), describe());
         } catch (Throwable t) {
             JustReplay.LOGGER.error("Cannot report the end of the export", t);
         } finally {

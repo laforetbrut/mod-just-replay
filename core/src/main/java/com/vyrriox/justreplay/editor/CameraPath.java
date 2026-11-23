@@ -25,7 +25,8 @@ public final class CameraPath {
     private final Curve curve;
     private final Timing timing;
     private final boolean ease;
-    private double[] arcLength;
+    /** Built on first use, then read by any thread: published whole. */
+    private volatile double[] arcLength;
 
     public CameraPath(List<ReplayProject.CameraKeyframe> keyframes, Curve curve, Timing timing, boolean ease) {
         int n = keyframes.size();
@@ -47,9 +48,72 @@ public final class CameraPath {
         }
     }
 
+    /**
+     * The path of a camera. The path of unchanged keyframes and settings is built once and kept on the camera: the
+     * rig and the path drawing ask for it every frame, and a constant speed path builds its whole arc length table.
+     */
     public static CameraPath of(ReplayProject.Camera camera) {
-        return new CameraPath(camera.keyframes, parse(Curve.class, camera.curve, Curve.CATMULL_ROM),
+        Built built = camera.builtPath;
+        if (built != null && built.matches(camera)) {
+            return built.path;
+        }
+        CameraPath path = new CameraPath(camera.keyframes, parse(Curve.class, camera.curve, Curve.CATMULL_ROM),
                 parse(Timing.class, camera.timing, Timing.CONSTANT_SPEED), camera.ease);
+        camera.builtPath = new Built(camera, path);
+        return path;
+    }
+
+    /** A path with every input it was built from, compared bit for bit before it is used again. */
+    static final class Built {
+        private static final int FIELDS = 8;
+        private final double[] keys;
+        private final String curve;
+        private final String timing;
+        private final boolean ease;
+        final CameraPath path;
+
+        Built(ReplayProject.Camera camera, CameraPath path) {
+            List<ReplayProject.CameraKeyframe> keyframes = camera.keyframes;
+            this.keys = new double[keyframes.size() * FIELDS];
+            for (int i = 0; i < keyframes.size(); i++) {
+                ReplayProject.CameraKeyframe k = keyframes.get(i);
+                int o = i * FIELDS;
+                keys[o] = k.tick;
+                keys[o + 1] = k.x;
+                keys[o + 2] = k.y;
+                keys[o + 3] = k.z;
+                keys[o + 4] = k.yaw;
+                keys[o + 5] = k.pitch;
+                keys[o + 6] = k.roll;
+                keys[o + 7] = k.fov;
+            }
+            this.curve = camera.curve;
+            this.timing = camera.timing;
+            this.ease = camera.ease;
+            this.path = path;
+        }
+
+        boolean matches(ReplayProject.Camera camera) {
+            List<ReplayProject.CameraKeyframe> keyframes = camera.keyframes;
+            if (keyframes.size() * FIELDS != keys.length || ease != camera.ease || !java.util.Objects.equals(curve, camera.curve)
+                    || !java.util.Objects.equals(timing, camera.timing)) {
+                return false;
+            }
+            for (int i = 0; i < keyframes.size(); i++) {
+                ReplayProject.CameraKeyframe k = keyframes.get(i);
+                int o = i * FIELDS;
+                if (keys[o] != k.tick || !same(keys[o + 1], k.x) || !same(keys[o + 2], k.y) || !same(keys[o + 3], k.z)
+                        || !same(keys[o + 4], k.yaw) || !same(keys[o + 5], k.pitch) || !same(keys[o + 6], k.roll)
+                        || !same(keys[o + 7], k.fov)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private static boolean same(double kept, double now) {
+            return Double.doubleToRawLongBits(kept) == Double.doubleToRawLongBits(now);
+        }
     }
 
     /** Path of the selected camera of a project. */
@@ -182,6 +246,7 @@ public final class CameraPath {
     }
 
     private double[] arcTable() {
+        double[] arcLength = this.arcLength;
         if (arcLength == null) {
             int n = points.length;
             int samples = (n - 1) * SAMPLES_PER_SEGMENT;
@@ -197,6 +262,7 @@ public final class CameraPath {
                 arcLength[j] = arcLength[j - 1] + Math.sqrt(dx * dx + dy * dy + dz * dz) + turn * 0.05 + 1e-9;
                 prev = cur;
             }
+            this.arcLength = arcLength;
         }
         return arcLength;
     }
