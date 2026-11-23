@@ -34,7 +34,7 @@ public final class SceneJob {
     /** Ticks a step may wait for a world or a replay to load before the job gives up. */
     private static final int LOAD_TIMEOUT = 20 * 60 * 5;
 
-    private sealed interface Step permits Record, Open, Shots, Export, Quit {
+    private sealed interface Step permits Record, Open, Shots, Export, Editor, Quit {
     }
 
     private record Record(String world, List<String> commands, int delay, int length) implements Step {
@@ -48,6 +48,10 @@ public final class SceneJob {
     }
 
     private record Export(int start, int end, String name, VideoExporter.Settings settings) implements Step {
+    }
+
+    /** {@code tick} -1 keeps the play head where it is. */
+    private record Editor(int tick, int length, boolean play, boolean cameraPath, String tab) implements Step {
     }
 
     private record Quit() implements Step {
@@ -69,6 +73,12 @@ public final class SceneJob {
     /** Ticks a shot plays before its tick, so entities move and particles spawn as they do in an export. */
     private static final int SHOT_PREROLL = 20;
     private static VideoExporter exporter;
+    /** What an editor step counts from: wall clock, render thread CPU time, frame rate samples, play head. */
+    private static long editorWall;
+    private static long editorCpu;
+    private static long fpsSum;
+    private static int fpsSamples;
+    private static int editorFrom;
 
     private SceneJob() {
     }
@@ -102,6 +112,8 @@ public final class SceneJob {
             shots(mc, s);
         } else if (step instanceof Export e) {
             export(mc, e);
+        } else if (step instanceof Editor d) {
+            editor(mc, d);
         } else {
             quitting = true;
         }
@@ -328,6 +340,62 @@ public final class SceneJob {
         }
     }
 
+    /**
+     * Keeps the editor open for a while, paused or playing, then logs what it cost: the frame rate and the render
+     * thread time per second, to compare two builds on the same replay.
+     */
+    private static void editor(Minecraft mc, Editor d) {
+        ReplaySession session = ReplaySession.current();
+        if (session == null) {
+            fail("no replay open: put an open step before editor");
+            return;
+        }
+        java.lang.management.ThreadMXBean threads = java.lang.management.ManagementFactory.getThreadMXBean();
+        if (phase == 0) {
+            mc.setScreen(null);
+            session.setCameraPath(d.cameraPath());
+            if (d.tick() >= 0) {
+                session.playback().seek(d.tick());
+            }
+            session.playback().setPaused(!d.play());
+            com.vyrriox.justreplay.gui.EditorScreen editor = new com.vyrriox.justreplay.gui.EditorScreen(session);
+            mc.setScreen(editor);
+            if (d.tab() != null) {
+                editor.showTabForTest(d.tab());
+            }
+            phase = 1;
+            // The first second settles (widgets built, chunks drawn) before anything is counted.
+            wait = 20;
+            return;
+        }
+        if (phase == 1) {
+            editorFrom = session.playback().cursor();
+            editorWall = System.nanoTime();
+            editorCpu = threads.getCurrentThreadCpuTime();
+            fpsSum = 0;
+            fpsSamples = 0;
+            phase = 2;
+            waited = 0;
+            return;
+        }
+        if (++waited % 20 == 0) {
+            fpsSum += mc.getFps();
+            fpsSamples++;
+        }
+        if (waited < d.length()) {
+            return;
+        }
+        double seconds = (System.nanoTime() - editorWall) / 1e9;
+        double cpu = (threads.getCurrentThreadCpuTime() - editorCpu) / 1e6 / Math.max(0.001, seconds);
+        log("editor at tick {} for {} s ({}{}): {} fps, render thread {} ms CPU per second, play head {}..{}", editorFrom,
+                String.format(Locale.ROOT, "%.1f", seconds), d.play() ? "playing" : "paused", d.tab() == null ? "" : ", tab " + d.tab(),
+                String.format(Locale.ROOT, "%.1f", fpsSamples == 0 ? 0.0 : (double) fpsSum / fpsSamples),
+                String.format(Locale.ROOT, "%.0f", cpu), editorFrom, session.playback().cursor());
+        mc.setScreen(null);
+        session.playback().setPaused(true);
+        next(20);
+    }
+
     private static void quit(Minecraft mc) {
         switch (phase) {
             case 0 -> {
@@ -401,6 +469,8 @@ public final class SceneJob {
             return "export: ticks " + e.start() + ".." + e.end() + " as " + e.name() + ", "
                     + (e.settings().width() > 0 ? e.settings().width() + "x" + e.settings().height() : e.settings().resolution().name())
                     + ", " + e.settings().fps() + " fps" + (e.settings().pngSequence() ? ", PNG sequence" : ", crf " + e.settings().crf());
+        } else if (step instanceof Editor d) {
+            return "editor: " + d.length() / 20.0 + " s, " + (d.play() ? "playing" : "paused");
         }
         return "quit";
     }
@@ -450,6 +520,8 @@ public final class SceneJob {
                 yield new Shots(ticks, safe(text(o, "prefix", "scene")));
             }
             case "export" -> export(o);
+            case "editor" -> new Editor(o.has("tick") ? o.get("tick").getAsInt() : -1, ticks(o, "seconds", 10), flag(o, "play"),
+                    flag(o, "cameraPath"), text(o, "tab", null));
             case "quit" -> new Quit();
             default -> throw new IllegalArgumentException("unknown type \"" + type + "\"");
         };
@@ -523,6 +595,11 @@ public final class SceneJob {
             throw new IllegalArgumentException("\"" + key + "\" cannot be negative");
         }
         return (int) Math.round(value * 20);
+    }
+
+    private static boolean flag(JsonObject o, String key) {
+        JsonElement element = o.get(key);
+        return element != null && !element.isJsonNull() && element.getAsBoolean();
     }
 
     private static String required(JsonObject o, String key) {

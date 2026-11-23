@@ -116,6 +116,8 @@ public final class VideoExporter {
     /** Wall clock when the export started, and when its first frame was captured (0 before), for the render veil. */
     private final long startNanos = System.nanoTime();
     private long captureStartNanos;
+    /** When the last frame was captured, for the timing of the log line. */
+    private long captureEndNanos;
 
     /** How an export ended: complete, complete but silent because the sound could not be added, or not at all. */
     private enum Outcome {
@@ -210,6 +212,14 @@ public final class VideoExporter {
 
     public boolean isGrab() {
         return grab != null;
+    }
+
+    /** Capture time and rate, and the whole time with warm-up and encoding, for the log. */
+    private String timing() {
+        double capture = captureStartNanos == 0L || captureEndNanos == 0L ? 0.0 : (captureEndNanos - captureStartNanos) / 1e9;
+        double total = (System.nanoTime() - startNanos) / 1e9;
+        return String.format(java.util.Locale.ROOT, "captured in %.1f s at %.1f fps, %.1f s in all", capture,
+                capture > 0.0 ? frames / capture : 0.0, total);
     }
 
     /** Wall time since the export started, warm-up included. */
@@ -610,6 +620,7 @@ public final class VideoExporter {
             return;
         }
         finished = true;
+        captureEndNanos = System.nanoTime();
         current = null;
         com.vyrriox.justreplay.compat.ReplayCompat.onExportEnd();
         Minecraft mc = Minecraft.getInstance();
@@ -707,7 +718,7 @@ public final class VideoExporter {
                 case DONE_WITHOUT_SOUND -> "finished without sound";
                 case FAILED -> cancelled ? "cancelled" : "failed";
             };
-            JustReplay.LOGGER.info("{} {} ({} frames): {}", still != null ? "Still" : "Export", ended, frames, describe());
+            JustReplay.LOGGER.info("{} {} ({} frames, {}): {}", still != null ? "Still" : "Export", ended, frames, timing(), describe());
         } catch (Throwable t) {
             JustReplay.LOGGER.error("Cannot report the end of the export", t);
         } finally {

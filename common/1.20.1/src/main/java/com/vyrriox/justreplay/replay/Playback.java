@@ -228,6 +228,9 @@ public final class Playback {
      */
     public void seek(int target) {
         target = Math.max(0, Math.min(duration, target));
+        long seekStarted = System.nanoTime();
+        int seekFrom = cursor;
+        int usedCheckpoint = -1;
         seekCount++;
         pauseAt = -1;
         holdTicks = 0;
@@ -249,6 +252,7 @@ public final class Playback {
                 if (checkpoint >= 0 && (backward || checkpoint > cursor)) {
                     restored = restoreCheckpoint(mc, checkpoint);
                     JustReplay.LOGGER.debug("Seek to {} from checkpoint {}: {}", target, checkpoint, restored);
+                    usedCheckpoint = restored ? checkpoint : -1;
                 }
             }
             if (!restored && backward) {
@@ -265,6 +269,11 @@ public final class Playback {
             placeCamera(mc.player, camPos, yaw, pitch);
         }
         applyTickRate(mc);
+        if (JustReplay.LOGGER.isDebugEnabled()) {
+            JustReplay.LOGGER.debug("Seek {} -> {} took {} ms, {} stream packets{}", seekFrom, target,
+                    String.format(java.util.Locale.ROOT, "%.1f", (System.nanoTime() - seekStarted) / 1e6), handledInLastFlush,
+                    usedCheckpoint >= 0 ? " after the checkpoint at " + usedCheckpoint : backward ? " from the start" : "");
+        }
     }
 
     /** Latest checkpoint at or before a tick, or -1. */

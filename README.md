@@ -223,6 +223,7 @@ folder (`run/`). The file lists steps run in order:
 | `open` | `replay` (folder of `justreplay/replays/`; left out, the last recording of this job), `delay` (seconds after it starts, 5) |
 | `shots` | `ticks` (list, required), `prefix` (`scene`): one screenshot per tick in `screenshots/<prefix>-<tick>.png`. The replay plays the second before each tick, so mobs move and particles show as in an export |
 | `export` | `start`, `end` (ticks, required), `name` (`scene`), `resolution` (`window`, `720p`, `1080p`, `1440p`, `2160p`; `1080p`) or `width` and `height`, `fps` (10 to 240, 60), `crf` (0 to 51, 16), `format` (`mp4` or `png`, `mp4`) |
+| `editor` | `tick` (play head; left out, it stays where it is), `seconds` (10), `play` (`false`), `cameraPath` (`false`), `tab` (an editor tab): keeps the editor open that long, then logs the frame rate and the render thread time per second, to compare two builds on the same replay |
 | `quit` | none; the game also quits after the last step |
 
 Durations are in seconds and can be fractional. Shots and exports follow the camera path of the replay's
@@ -464,6 +465,7 @@ La propriété Gradle `-Pjob` règle la propriété JVM `justreplay.job` ; un ch
 | `open` | `replay` (dossier de `justreplay/replays/` ; absent, le dernier enregistrement de la tâche), `delay` (secondes après le démarrage, 5) |
 | `shots` | `ticks` (liste, obligatoire), `prefix` (`scene`) : une capture par tick dans `screenshots/<prefix>-<tick>.png`. Le replay joue la seconde qui précède chaque tick, pour que les mobs bougent et que les particules s'affichent comme dans un export |
 | `export` | `start`, `end` (ticks, obligatoires), `name` (`scene`), `resolution` (`window`, `720p`, `1080p`, `1440p`, `2160p` ; `1080p`) ou `width` et `height`, `fps` (10 à 240, 60), `crf` (0 à 51, 16), `format` (`mp4` ou `png`, `mp4`) |
+| `editor` | `tick` (tête de lecture ; absent, elle ne bouge pas), `seconds` (10), `play` (`false`), `cameraPath` (`false`), `tab` (un onglet de l'éditeur) : garde l'éditeur ouvert ce temps-là, puis écrit dans le journal la fréquence d'images et le temps du fil de rendu par seconde, pour comparer deux builds sur le même replay |
 | `quit` | aucun ; le jeu se ferme aussi après la dernière étape |
 
 Les durées sont en secondes et peuvent être décimales. Les captures et les exports suivent le chemin de caméra
