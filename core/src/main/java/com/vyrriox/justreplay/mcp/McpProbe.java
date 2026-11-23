@@ -84,7 +84,7 @@ public final class McpProbe {
      *
      * @param replayId   id of a saved replay where the recording player is, holding no edit of the checks yet
      * @param markers    how many markers its project holds before the checks
-     * @param tick       a tick of the replay the checks go to, with room for an export of 40 ticks after it
+     * @param tick       a tick of the replay the checks go to, with room for an export of 100 ticks after it
      * @param exportName name of the export they start, then cancel
      */
     public record Steer(String replayId, int markers, int tick, String exportName) {
@@ -145,7 +145,7 @@ public final class McpProbe {
     }
 
     /**
-     * Runs the control checks on a new daemon thread: open the replay, read its markers, go to a tick, place the view,
+     * Runs the control checks on a new daemon thread: open the replay, pause it, read its markers, go to a tick, place the view,
      * add a camera keyframe, an actor and a marker, refusals, save, read the three back, undo and redo, start an
      * export, follow it, cancel it, close the replay. The game must be on a menu with nothing open, and keep ticking.
      */
@@ -180,6 +180,14 @@ public final class McpProbe {
             boolean open = r.has("open") && r.get("open").getAsBoolean();
             String id = r.has("replay") ? r.getAsJsonObject("replay").get("id").getAsString() : "";
             return verdict("replay " + id + " open=" + open, open && id.equals(steer.replayId()));
+        });
+        check(lines, "mcp set_playback pauses the replay", () -> {
+            // A replay opens playing: paused, the play head stays where seek puts it while the checks edit.
+            JsonObject args = new JsonObject();
+            args.addProperty("playing", false);
+            JsonObject r = tool("set_playback", args, false);
+            return verdict("playing=" + r.get("playing").getAsBoolean() + " at " + r.get("time").getAsString(),
+                    !r.get("playing").getAsBoolean());
         });
         check(lines, "mcp list_markers of the opened replay", () -> {
             JsonObject list = tool("list_markers", new JsonObject(), true);
@@ -271,8 +279,11 @@ public final class McpProbe {
             String error = toolError("delete_replay", args);
             JsonObject query = new JsonObject();
             query.addProperty("query", steer.replayId());
-            int left = tool("list_replays", query, false).get("total").getAsInt();
-            return verdict("'" + error + "', replay still listed: " + (left == 1), error.contains("Allow deleting files") && left == 1);
+            boolean left = false;
+            for (JsonElement r : tool("list_replays", query, false).getAsJsonArray("replays")) {
+                left |= r.getAsJsonObject().get("id").getAsString().equals(steer.replayId());
+            }
+            return verdict("'" + error + "', replay still listed: " + left, error.contains("Allow deleting files") && left);
         });
         check(lines, "mcp save_project", () -> {
             JsonObject r = tool("save_project", new JsonObject(), true);
@@ -312,7 +323,8 @@ public final class McpProbe {
         check(lines, "mcp start_export", () -> {
             JsonObject args = new JsonObject();
             args.addProperty("from", steer.tick());
-            args.addProperty("to", steer.tick() + 40);
+            args.addProperty("to", steer.tick() + 100);
+            args.addProperty("resolution", "WINDOW");
             args.addProperty("name", steer.exportName());
             args.addProperty("fps", 20);
             args.addProperty("rangeInName", false);
@@ -323,7 +335,7 @@ public final class McpProbe {
                     r.get("started").getAsBoolean() && e.get("active").getAsBoolean() && export[0].startsWith(steer.exportName()));
         });
         check(lines, "mcp get_export follows the export", () -> {
-            long until = System.currentTimeMillis() + 30_000L;
+            long until = System.currentTimeMillis() + 90_000L;
             JsonObject e = tool("get_export", new JsonObject(), false);
             while (e.get("active").getAsBoolean() && e.get("frames").getAsLong() == 0 && System.currentTimeMillis() < until) {
                 Thread.sleep(200L);

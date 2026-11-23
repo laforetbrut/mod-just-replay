@@ -185,6 +185,12 @@ public final class SelfTest {
     /** Tick the MCP observation checks look at: the recording player walks there, the villager and the actors are around. */
     private static final int MCP_OBSERVE_TICK = 60;
     private static java.util.concurrent.CompletableFuture<com.vyrriox.justreplay.mcp.McpProbe.Observation> mcpObserve;
+    /** MCP control checks: the probe driving the buffer clip through MCP only, the markers it must find, a wait count. */
+    private static java.util.concurrent.CompletableFuture<com.vyrriox.justreplay.mcp.McpProbe.Steering> mcpSteer;
+    private static int mcpSteerMarkers;
+    private static int mcpSteerWait;
+    /** Tick the control checks go to in the buffer clip, with room for their export of 100 ticks after it. */
+    private static final int MCP_STEER_TICK = 100;
     private static int mcpObserveCursor;
     private static net.minecraft.client.gui.screens.Screen mcpObserveScreen;
     private static long mcpGrabsBefore;
@@ -1648,6 +1654,10 @@ public final class SelfTest {
                 }
             }
             case 18 -> {
+                if (mc.getOverlay() != null) {
+                    // The clip's resource packs are loading: leaving now would leave the loading screen up for good.
+                    return;
+                }
                 ReplaySession s = ReplaySession.current();
                 logWorld(mc, s, "buffer clip playing");
                 shot(mc, "6-buffer-clip");
@@ -1657,7 +1667,80 @@ public final class SelfTest {
                 logWorld(mc, s, "buffer clip after backward seek");
                 mc.level.disconnect();
                 mc.clearLevel(new TitleScreen());
-                next(60);
+                go(103, 60);
+            }
+            case 103 -> {
+                // MCP control, driven through MCP only: the probe opens the buffer clip from the menu, goes to a tick,
+                // places the view, adds a camera keyframe, an actor and a marker, saves and reads them back, undoes and
+                // redoes, starts an export and cancels it, then closes the replay. The game switches the server on and
+                // checks project.json afterwards.
+                if (!atMenu(mc)) {
+                    if (++mcpSteerWait > 2400) {
+                        log("mcp control checks: the menu never came back (screen {}, loading overlay {}) -> FAIL",
+                                mc.screen == null ? "none" : mc.screen.getClass().getSimpleName(), mc.getOverlay() != null);
+                        go(19, 5);
+                    }
+                    return;
+                }
+                if (clip == null) {
+                    log("mcp control checks skipped: no test replay (the buffer clip was not saved) -> FAIL");
+                    go(19, 5);
+                    return;
+                }
+                ReplayProject before = ReplayStorage.readProject(clip);
+                com.vyrriox.justreplay.format.ReplayMeta clipMeta = ReplayStorage.readMeta(clip);
+                // Markers placed while recording join the project the first time the replay opens.
+                mcpSteerMarkers = before.markers.size() + (before.recordingMarkersImported || clipMeta == null || clipMeta.markers == null
+                        ? 0 : clipMeta.markers.size());
+                Files.deleteIfExists(ReplayStorage.exportRoot().resolve("selftest_mcp.mp4"));
+                mcpSaved = true;
+                mcpWasEnabled = com.vyrriox.justreplay.config.JRConfig.MCP.enabled.get();
+                mcpOldPort = com.vyrriox.justreplay.config.JRConfig.MCP.port.get();
+                mcpOldToken = com.vyrriox.justreplay.config.JRConfig.MCP.token.get();
+                mcpPort = freeLocalPort();
+                com.vyrriox.justreplay.config.JRConfig.MCP.port.set(mcpPort);
+                com.vyrriox.justreplay.config.JRConfig.MCP.enabled.set(true);
+                log("mcp server switched on again for the control checks, port {}", mcpPort);
+                next(5);
+            }
+            case 104 -> {
+                com.vyrriox.justreplay.mcp.McpHost host = com.vyrriox.justreplay.mcp.McpClient.host();
+                if (!host.isListening() || host.port() != mcpPort) {
+                    log("mcp control checks skipped: the server does not listen on port {} -> FAIL", mcpPort);
+                    restoreMcpConfig();
+                    go(19, 5);
+                    return;
+                }
+                log("mcp control checks start on '{}' ({} markers), from the menu", clip.getFileName(), mcpSteerMarkers);
+                mcpSteer = com.vyrriox.justreplay.mcp.McpProbe.steer(mcpPort, com.vyrriox.justreplay.config.JRConfig.MCP.token.get(),
+                        new com.vyrriox.justreplay.mcp.McpProbe.Steer(clip.getFileName().toString(), mcpSteerMarkers, MCP_STEER_TICK,
+                                "selftest_mcp"));
+                next(1);
+            }
+            case 105 -> {
+                // The checks need this thread to keep ticking: the replay opens, plays, exports and closes meanwhile.
+                if (!mcpSteer.isDone()) {
+                    return;
+                }
+                com.vyrriox.justreplay.mcp.McpProbe.Steering steering = mcpSteer.join();
+                for (String line : steering.lines()) {
+                    log(line);
+                }
+                ReplayProject saved = ReplayStorage.readProject(clip);
+                ReplayProject.Camera camera = saved.camera(steering.cameraId());
+                boolean keyframe = camera != null && camera.keyframeAt(steering.keyframeTick()) != null;
+                boolean actor = saved.actors.stream().anyMatch(a -> a.id.equals(steering.actorId()));
+                boolean marker = saved.marker(steering.markerId()) != null;
+                log("mcp edits found in project.json: keyframe at tick {}={} actor={} marker={} -> {}", steering.keyframeTick(), keyframe,
+                        actor, marker, keyframe && actor && marker ? "OK" : "FAIL");
+                Path cancelled = steering.exportFile().isEmpty() ? null : ReplayStorage.exportRoot().resolve(steering.exportFile());
+                log("mcp cancelled export left no file: {} -> {}", cancelled == null ? "no export" : cancelled.getFileName(),
+                        cancelled != null && !Files.exists(cancelled) ? "OK" : "FAIL");
+                log("mcp control left the game on the menu: replay open={} -> {}", ReplaySession.current() != null,
+                        ReplaySession.current() == null && atMenu(mc) ? "OK" : "FAIL");
+                com.vyrriox.justreplay.config.JRConfig.MCP.enabled.set(false);
+                restoreMcpConfig();
+                go(19, 5);
             }
             case 19 -> {
                 com.vyrriox.justreplay.config.JRConfig.REPLAY_BUFFER.set(false);

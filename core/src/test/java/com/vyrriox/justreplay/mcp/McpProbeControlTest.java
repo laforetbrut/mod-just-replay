@@ -96,7 +96,7 @@ class McpProbeControlTest {
     void everyControlCheckPassesAndWhatItAddedIsSaved() throws Exception {
         McpProbe.Steering s = McpProbe.steer(server.port(), token, new McpProbe.Steer("test-replay", 2, 100, "selftest_mcp"))
                 .get(60, TimeUnit.SECONDS);
-        assertEquals(18, s.lines().size(), s.lines().toString());
+        assertEquals(19, s.lines().size(), s.lines().toString());
         for (String line : s.lines()) {
             assertTrue(line.endsWith("-> OK"), line);
         }
