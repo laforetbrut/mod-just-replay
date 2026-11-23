@@ -13,6 +13,7 @@
     "ArmourersSkinResponseMixin",
     "ArmourersWardrobeSlotsMixin",
     "BobbyMixin",
+    "ElytraSlotHiddenMixin",
     "EpicFightAnimatorTickMixin",
     "EpicFightArmorLayerMixin",
     "EpicFightHeldItemMixin",

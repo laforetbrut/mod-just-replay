@@ -16,6 +16,7 @@
     "DropTheBeamAudioMixin",
     "DropTheBeamClockMixin",
     "DropTheBeamPauseMixin",
+    "ElytraSlotHiddenMixin",
     "EpicFightAnimatorTickMixin",
     "EpicFightArmorLayerMixin",
     "EpicFightHeldItemMixin",

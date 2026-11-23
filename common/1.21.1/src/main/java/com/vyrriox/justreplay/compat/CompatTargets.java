@@ -29,11 +29,11 @@ public final class CompatTargets {
      */
     private static final Map<String, Set<String>> SUPPORTED = Map.of(
             "neoforge", Set.of("accessories", "aeronautics", "armourers_workshop", "bettercombat", "bobby", "create", "curios",
-                    "customnpcs", "distanthorizons", "dropthebeam", "emotecraft", "entityculling", "epicfight", "exposure",
-                    "geckolib", "immersive_aircraft", "immersive_paintings", "irons_spellbooks", "iris", "jade",
+                    "customnpcs", "distanthorizons", "dropthebeam", "elytraslot", "emotecraft", "entityculling", "epicfight",
+                    "exposure", "geckolib", "immersive_aircraft", "immersive_paintings", "irons_spellbooks", "iris", "jade",
                     "moreplayermodels", "morph", "mts", "parcool", "pehkui", PLAYER_ANIMATOR, "sable", "simulated", "waterframes"),
             "fabric", Set.of("accessories", "armourers_workshop", "bettercombat", "bobby", "customnpcs", "distanthorizons",
-                    "emotecraft", "entityculling", "exposure", "geckolib", "immersive_aircraft", "immersive_paintings", "iris",
+                    "elytraslot", "emotecraft", "entityculling", "exposure", "geckolib", "immersive_aircraft", "immersive_paintings", "iris",
                     "jade", "pehkui", PLAYER_ANIMATOR, "sable", "waterframes"),
             "forge", Set.of("entityculling", "geckolib"));
 
@@ -52,6 +52,7 @@ public final class CompatTargets {
             "customnpcs", "Custom NPCs",
             "distanthorizons", "Distant Horizons",
             "dropthebeam", "Drop the Beam",
+            "elytraslot", "Elytra Slot",
             "emotecraft", "Emotecraft",
             "entityculling", "Entity Culling",
             "epicfight", "Epic Fight",
@@ -82,6 +83,7 @@ public final class CompatTargets {
             "Bobby", "bobby",
             "Catnip", "create",
             "DropTheBeam", "dropthebeam",
+            "ElytraSlot", "elytraslot",
             "EpicFight", "epicfight",
             "GeckoLib", "geckolib",
             "Iris", "iris",

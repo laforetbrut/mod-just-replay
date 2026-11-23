@@ -31,10 +31,11 @@ public final class CompatTargets {
      * each loader. Epic Fight 20.14.17 is Forge only: it needs Forge 47.4 or later and has no Fabric build.
      */
     private static final Map<String, Set<String>> SUPPORTED = Map.of(
-            "neoforge", Set.of("armourers_workshop", "customnpcs", "geckolib", "curios", "jade", "moreplayermodels"),
-            "fabric", Set.of("armourers_workshop", "customnpcs", "geckolib", "jade", "entityculling"),
-            "forge", Set.of("armourers_workshop", "customnpcs", "geckolib", "curios", "jade", "entityculling", "mts",
-                    "moreplayermodels", "epicfight"));
+            "neoforge", Set.of("armourers_workshop", "customnpcs", "elytraslot", "geckolib", "curios", "jade",
+                    "moreplayermodels"),
+            "fabric", Set.of("armourers_workshop", "customnpcs", "elytraslot", "geckolib", "jade", "entityculling"),
+            "forge", Set.of("armourers_workshop", "customnpcs", "elytraslot", "geckolib", "curios", "jade", "entityculling",
+                    "mts", "moreplayermodels", "epicfight"));
 
     /**
      * Every integration of this Minecraft version, mod id to the name the log and the settings show, in the order of
@@ -46,6 +47,7 @@ public final class CompatTargets {
             "curios", "Curios",
             "customnpcs", "Custom NPCs",
             "distanthorizons", "Distant Horizons",
+            "elytraslot", "Elytra Slot",
             "entityculling", "Entity Culling",
             "epicfight", "Epic Fight",
             "geckolib", "GeckoLib",
@@ -64,6 +66,7 @@ public final class CompatTargets {
     private static final Map<String, String> MIXIN_OWNERS = names(
             "Armourers", "armourers_workshop",
             "Bobby", "bobby",
+            "ElytraSlot", "elytraslot",
             "EpicFight", "epicfight",
             "GeckoLib", "geckolib",
             "Iris", "iris",

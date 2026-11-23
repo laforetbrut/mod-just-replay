@@ -39,6 +39,7 @@ public final class Integrations {
     public static final Integration CUSTOM_NPCS = ALL.get("customnpcs");
     public static final Integration DISTANT_HORIZONS = ALL.get("distanthorizons");
     public static final Integration DROP_THE_BEAM = ALL.get("dropthebeam");
+    public static final Integration ELYTRA_SLOT = ALL.get("elytraslot");
     public static final Integration EMOTECRAFT = ALL.get("emotecraft");
     public static final Integration ENTITY_CULLING = ALL.get("entityculling");
     public static final Integration EPIC_FIGHT = ALL.get("epicfight");

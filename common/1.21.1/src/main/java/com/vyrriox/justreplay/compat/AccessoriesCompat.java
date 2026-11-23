@@ -119,6 +119,36 @@ public final class AccessoriesCompat {
         return false;
     }
 
+    /**
+     * Hands every stack an entity wears in an Accessories slot to {@code out}, named {@code accessories:<slot>}, with
+     * {@code #<n>} from the second place of a slot on and {@code /cosmetic} for its cosmetic places (the MCP observation
+     * tools). Nothing when Accessories is absent or gives the entity no capability.
+     */
+    static void forEachWorn(Entity entity, java.util.function.BiConsumer<String, ItemStack> out) throws ReflectiveOperationException {
+        Reflect r = reflect();
+        if (r == null || !(entity instanceof LivingEntity living)) {
+            return;
+        }
+        Map<?, ?> containers = containers(r, living);
+        if (containers == null) {
+            return;
+        }
+        for (Map.Entry<?, ?> slot : containers.entrySet()) {
+            String name = "accessories:" + slot.getKey();
+            forEachStack((Container) r.getAccessories.invoke(slot.getValue()), name, out);
+            forEachStack((Container) r.getCosmeticAccessories.invoke(slot.getValue()), name + "/cosmetic", out);
+        }
+    }
+
+    private static void forEachStack(Container stacks, String name, java.util.function.BiConsumer<String, ItemStack> out) {
+        for (int i = 0; i < stacks.getContainerSize(); i++) {
+            ItemStack stack = stacks.getItem(i);
+            if (!stack.isEmpty()) {
+                out.accept(i == 0 ? name : name + "#" + (i + 1), stack);
+            }
+        }
+    }
+
     // ---------------------------------------------------------------- recording
 
     /**

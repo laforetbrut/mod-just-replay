@@ -612,6 +612,8 @@ public final class SelfTest {
                         Mods.seedRing(mc);
                         // Worn well before the recording starts: only its snapshot can give it to the actor.
                         Mods.setLook(p, "0.8");
+                        // Entities and worn items of mods with no integration of their own: only the snapshot has them.
+                        SelfTestModState.prepare(p);
                         next(60);
                     }
                 }
@@ -665,6 +667,7 @@ public final class SelfTest {
                     Mods.place(mc, p, modsBase);
                     lookBefore = Mods.look(p);
                     Mods.checkLookRetarget(p);
+                    SelfTestModState.captureStart(mc);
                 }
                 if (t == LOOK_CHANGE_TICK) {
                     // The server answers the recording player under its own UUID: the recording must name its actor.
@@ -759,6 +762,7 @@ public final class SelfTest {
                     int slowTicks = Recorder.capturing() != null ? Recorder.capturing().slowCheckpointTicks() : -1;
                     log("checkpoint under forced slow frames: {} ({} ticks, recording stopped at tick {})",
                             slowTicks >= 0 ? "PASS" : "FAIL", slowTicks, t);
+                    SelfTestModState.captureEnd(mc);
                     replay = Recorder.stop();
                     int[] checkpoints = com.vyrriox.justreplay.format.Checkpoints.list(replay);
                     log("record stopped: {} packets={} stream={} bytes checkpoints={} bytes in {} files", replay,
@@ -793,6 +797,7 @@ public final class SelfTest {
                 logWorld(mc, s, "playing");
                 log("mods while playing: {}", Mods.state(mc, s));
                 Mods.checkCurios(mc, s, "at start");
+                SelfTestModState.check(mc, s, "at start");
                 cameraLook = Mods.look(mc.player);
                 Mods.checkLook(mc, s, "at start");
                 Mods.checkLookGuards(mc);
@@ -816,9 +821,11 @@ public final class SelfTest {
                 shot(mc, "1b-paused60");
                 clockGecko = geckoClock();
                 clockIris = irisClock();
+                SelfTestModState.hideChest(mc, s);
                 go(60, 40);
             }
             case 60 -> {
+                SelfTestModState.checkHiddenChest(mc, ReplaySession.current(), () -> shot(mc, "1c-elytra-slot-hidden"));
                 // 40 more ticks paused: the clocks read while rendering must not have moved.
                 checkClockHeld(clockGecko, geckoClock(), clockIris, irisClock());
                 ReplaySession s = ReplaySession.current();
@@ -843,6 +850,7 @@ public final class SelfTest {
                 logWorld(mc, s, "after forward seek");
                 log("mods after forward seek: {}", Mods.state(mc, s));
                 Mods.checkCurios(mc, s, "after forward seek");
+                SelfTestModState.check(mc, s, "after forward seek");
                 Mods.checkLook(mc, s, "after forward seek");
                 Mods.checkImmersivePaintings("after forward seek");
                 Mods.checkCulling("after a toggle key press", false);
@@ -860,6 +868,7 @@ public final class SelfTest {
                 ReplaySession s = ReplaySession.current();
                 logWorld(mc, s, "after backward seek");
                 Mods.checkCurios(mc, s, "after backward seek");
+                SelfTestModState.check(mc, s, "after backward seek");
                 Mods.checkLook(mc, s, "after backward seek");
                 Mods.checkAccessoriesAfterClear(mc, s);
                 Mods.checkJadeAircraft(mc, "after backward seek");
@@ -867,6 +876,7 @@ public final class SelfTest {
                 checkForcedFailureDuringReplay(s);
                 shot(mc, "3-seek20");
                 Mods.faceVehicle(mc);
+                SelfTestModState.face(mc);
                 checkClockBackSeek(clockGecko, geckoClock(), clockEntity, com.vyrriox.justreplay.compat.ReplayCompat.lastGeckoEntityFrameTime());
                 clockGecko = geckoClock();
                 clockIris = irisClock();
@@ -880,6 +890,9 @@ public final class SelfTest {
                 if (ironsPhase == 0) {
                     if (Mods.loaded("mts")) {
                         shot(mc, "3b-vehicle");
+                    }
+                    if (SelfTestModState.faced()) {
+                        shot(mc, "3c-mod-state");
                     }
                     log("speed x{}: cursor advanced {} ticks in 10 client ticks", s.playback().speed(), s.playback().cursor() - speedStart);
                     checkClockRise("speed", s.playback().cursor() - speedStart, clockStartStep, Math.max(1, s.playback().lastStep()),
@@ -1451,8 +1464,9 @@ public final class SelfTest {
                 log("mcp observation checks start at play head {} on screen {}", mcpObserveCursor, mc.screen == null ? "none"
                         : mc.screen.getClass().getSimpleName());
                 mcpObserve = com.vyrriox.justreplay.mcp.McpProbe.observe(mcpPort, com.vyrriox.justreplay.config.JRConfig.MCP.token.get(),
-                        new com.vyrriox.justreplay.mcp.McpProbe.Look(MCP_OBSERVE_TICK, java.util.List.of("minecraft:villager", "minecraft:player"),
-                                true, 320, 180));
+                        new com.vyrriox.justreplay.mcp.McpProbe.Look(MCP_OBSERVE_TICK,
+                                SelfTestModState.mcpTypes(java.util.List.of("minecraft:villager", "minecraft:player")), true, 320, 180,
+                                SelfTestModState.mcpWorn()));
                 next(1);
             }
             case 102 -> {

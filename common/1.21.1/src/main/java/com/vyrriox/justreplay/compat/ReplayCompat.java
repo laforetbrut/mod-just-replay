@@ -485,6 +485,20 @@ public final class ReplayCompat {
         }
     }
 
+    /**
+     * Items an entity wears in the slots of a mod (Curios, Accessories), for the MCP observation tools: {@code out} gets
+     * the slot name ({@code curios:head}, {@code accessories:hat}...) and the stack.
+     */
+    public static void describeWorn(net.minecraft.world.entity.Entity entity,
+                                    java.util.function.BiConsumer<String, net.minecraft.world.item.ItemStack> out) {
+        if (CURIOS.on()) {
+            CURIOS.run("forEachWorn", () -> CuriosCompat.forEachWorn(entity, out));
+        }
+        if (ACCESSORIES.on()) {
+            ACCESSORIES.run("forEachWorn", () -> AccessoriesCompat.forEachWorn(entity, out));
+        }
+    }
+
     /** Mod definitions the entity state depends on (snapshots and checkpoints), written before any entity. */
     public static void writeDefinitions(java.util.function.Consumer<Packet<?>> out) {
         CURIOS.run("writeDefinitions", () -> CuriosCompat.writeDefinitions(out));
