@@ -438,8 +438,7 @@ public final class JustReplayClient {
                     continue;
                 }
                 int tick = playback.cursor();
-                camera.keyframes.removeIf(k -> k.tick == tick);
-                camera.keyframes.add(new ReplayProject.CameraKeyframe(tick, p.getX(), p.getY(), p.getZ(),
+                camera.setKeyframe(new ReplayProject.CameraKeyframe(tick, p.getX(), p.getY(), p.getZ(),
                         p.getYRot(), p.getXRot(), 0, mc.options.fov().get()));
                 session.saveProject();
                 toast("justreplay.toast.keyframe", camera.name + "  " + com.vyrriox.justreplay.gui.Timeline.formatTicks(tick));

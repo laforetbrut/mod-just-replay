@@ -128,6 +128,18 @@ public final class ReplayProject {
             return hidden && time >= hideFrom && (hideTo < 0 || time <= hideTo);
         }
 
+        /**
+         * Label of an entity's edit: its type and name for a player or a named entity ({@code player Alex}), its name
+         * otherwise.
+         *
+         * @param typeId entity type id, such as {@code minecraft:player}
+         * @param named  a player, or an entity with a custom name
+         */
+        public static String label(String typeId, String name, boolean named) {
+            String type = typeId == null ? "" : typeId.substring(typeId.indexOf(':') + 1);
+            return named ? type + " " + name : name;
+        }
+
         /** True when the edit changes nothing and can be dropped. */
         public boolean isEmpty() {
             return !hidden && offsets.isEmpty() && !muted && !hideSkinLayers && hiddenParts == 0 && hiddenArmor == 0 && skinChanges.isEmpty() && Math.abs(soundGain - 1.0F) < 0.001F
@@ -297,6 +309,24 @@ public final class ReplayProject {
 
         public void sort() {
             keyframes.sort(Comparator.comparingInt(k -> k.tick));
+        }
+
+        /** The keyframe at a tick, or null. */
+        public CameraKeyframe keyframeAt(int tick) {
+            for (CameraKeyframe k : keyframes) {
+                if (k.tick == tick) {
+                    return k;
+                }
+            }
+            return null;
+        }
+
+        /** Adds a keyframe, replacing the one already at its tick; true when one was replaced. */
+        public boolean setKeyframe(CameraKeyframe key) {
+            boolean replaced = keyframes.removeIf(k -> k.tick == key.tick);
+            keyframes.add(key);
+            sort();
+            return replaced;
         }
 
         /** Deep copy with a new id. */
@@ -495,6 +525,48 @@ public final class ReplayProject {
         public void sort() {
             keyframes.sort(Comparator.comparingInt(k -> k.tick));
             actions.sort(Comparator.comparingInt(a -> a.tick));
+        }
+
+        /** The keyframe at a tick, or null. */
+        public ActorKeyframe keyframeAt(int tick) {
+            for (ActorKeyframe k : keyframes) {
+                if (k.tick == tick) {
+                    return k;
+                }
+            }
+            return null;
+        }
+
+        /** Adds a keyframe at {@code tick}, replacing the one already there; the yaw is brought into [-180, 180). */
+        public ActorKeyframe setKeyframe(int tick, double x, double y, double z, float yaw) {
+            keyframes.removeIf(k -> k.tick == tick);
+            ActorKeyframe key = new ActorKeyframe(tick, x, y, z, (float) CameraPath.wrapDegrees(yaw), 0.0F);
+            keyframes.add(key);
+            sort();
+            return key;
+        }
+
+        /** Adds an action at {@code tick}, replacing the actions of the same type, and of the types {@code replaces}, there. */
+        public ActorAction setAction(int tick, ActionType type, int duration, String param, ActionType... replaces) {
+            actions.removeIf(a -> {
+                if (a.tick != tick) {
+                    return false;
+                }
+                ActionType existing = a.actionType();
+                if (existing == type) {
+                    return true;
+                }
+                for (ActionType r : replaces) {
+                    if (existing == r) {
+                        return true;
+                    }
+                }
+                return false;
+            });
+            ActorAction action = new ActorAction(tick, type, duration, param == null ? "" : param);
+            actions.add(action);
+            sort();
+            return action;
         }
     }
 
@@ -704,6 +776,20 @@ public final class ReplayProject {
             boolean used = false;
             for (Camera camera : cameras) {
                 used |= name.equals(camera.name);
+            }
+            if (!used) {
+                return name;
+            }
+        }
+    }
+
+    /** Next free default audio track name, "Track N". */
+    public String nextTrackName() {
+        for (int n = audioTracks.size() + 1; ; n++) {
+            String name = "Track " + n;
+            boolean used = false;
+            for (com.vyrriox.justreplay.editor.audio.AudioTrack track : audioTracks) {
+                used |= name.equals(track.name);
             }
             if (!used) {
                 return name;
