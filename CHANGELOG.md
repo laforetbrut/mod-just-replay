@@ -16,6 +16,11 @@
 - **Self test**: asks MCP for the entities of a tick and for three frames (video, window, free camera), decodes them with the game's own image library, and checks the replay and the editor are left as they were.
 - **Self test**: the unreadable packet check no longer fails when a resource reload holds the replay right after the jump to tick 150.
 - **Self test**: drives the buffer clip through MCP only: opens it from the menu, goes to a tick, adds a camera keyframe, an actor and a marker, saves and reads them back, undoes and redoes, checks wrong arguments and deleting are refused, starts an export and cancels it, then closes the replay.
+- **Faster video export**: each frame is read once into a reused buffer, instead of a pixel by pixel pass, a flip and two new 8 MB arrays. A 1080p frame costs 4.2 ms of CPU instead of 17.4 and makes no garbage (16.6 MB before); in the test run the read back of a frame went from 90.4 to 77.6 ms, the rest being the software renderer of the test machine. Same pixels in the video.
+- **Camera paths**: a camera's path is kept between frames while its keyframes stay put, instead of being rebuilt every frame: 0.6 µs and 72 bytes per frame instead of 85 µs and 43 KB for 12 keyframes, same positions to the bit.
+- **Lighter recording**: packets go to the writer and to the instant replay buffer in batches. On a 4 minute test recording (740 packets a second) the network thread spends 118 ns instead of 208 per packet on the writer and 85 instead of 118 on the buffer, and allocates 8 bytes instead of 48. The gzip stream is buffered too (4 % less CPU for the writer thread). Files are the same byte for byte.
+- **MCP server at rest**: a tick costs 90 ns instead of 393 and allocates nothing (96 bytes before) while the server listens; switched off it stays at 5 ns.
+- **Measures**: every seek logs how long it took (debug log), exports log their frame rate and how long a frame takes to read back, and scene jobs get an `editor` step that logs the editor's frame rate and render thread time.
 
 ### Fixed
 - **Overlay text box**: the hint shows `\n` for a new line again instead of swallowing it.
@@ -35,6 +40,11 @@
 - **Self test** : demande à MCP les entités d'un tick et trois frames (vidéo, fenêtre, caméra libre), les décode avec la bibliothèque d'images du jeu, et vérifie que le replay et l'éditeur restent comme ils étaient.
 - **Self test** : le contrôle du paquet illisible n'échoue plus quand un rechargement des ressources retient le replay juste après le saut au tick 150.
 - **Self test** : pilote le clip du tampon par MCP seulement : l'ouvre depuis le menu, va à un tick, ajoute une keyframe de caméra, un acteur et un repère, les sauve et les relit, annule puis rétablit, vérifie que les arguments faux et la suppression sont refusés, lance un export puis l'annule, et ferme le replay.
+- **Export vidéo plus rapide** : chaque frame est lue une seule fois dans un tampon réutilisé, au lieu d'un passage pixel par pixel, d'un retournement et de deux tableaux neufs de 8 Mo. Une frame 1080p coûte 4,2 ms de CPU au lieu de 17,4 et ne laisse plus de déchets (16,6 Mo avant) ; dans le test, la relecture d'une frame passe de 90,4 à 77,6 ms, le reste venant du rendu logiciel de la machine de test. Mêmes pixels dans la vidéo.
+- **Trajectoires de caméra** : la trajectoire d'une caméra est gardée d'une frame à l'autre tant que ses keyframes ne bougent pas, au lieu d'être recalculée à chaque frame : 0,6 µs et 72 octets par frame au lieu de 85 µs et 43 Ko pour 12 keyframes, mêmes positions au bit près.
+- **Enregistrement plus léger** : les paquets partent par lots vers l'écriture et vers le tampon des dernières minutes. Sur un enregistrement de test de 4 min (740 paquets par seconde), le fil réseau passe 118 ns au lieu de 208 par paquet pour l'écriture et 85 au lieu de 118 pour le tampon, et alloue 8 octets au lieu de 48. Le flux gzip est aussi tamponné (4 % de CPU en moins pour le fil d'écriture). Fichiers identiques octet pour octet.
+- **Serveur MCP au repos** : pendant l'écoute, un tick coûte 90 ns au lieu de 393 et n'alloue plus rien (96 octets avant) ; éteint, il reste à 5 ns.
+- **Mesures** : chaque seek note sa durée (journal de debug), les exports leur fréquence d'images et le temps de relecture d'une frame, et les tâches de scène gagnent une étape `editor` qui note la fréquence d'images et le temps du fil de rendu de l'éditeur.
 
 ### Correctifs
 - **Champ de texte des overlays** : l'aide affiche de nouveau `\n` pour passer à la ligne au lieu de l'avaler.

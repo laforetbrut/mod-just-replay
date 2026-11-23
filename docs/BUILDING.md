@@ -66,7 +66,8 @@ The build also runs the unit tests of `core/src/test` and `common/<mcversion>/sr
 
 - the integration guard, the integration switches of the config and the skipped packets counter;
 - the cleaning of replay names and the renaming of replay folders;
-- the angles of camera paths (the camera turns the short way, like the game's `Mth.wrapDegrees`) and the formatting codes taken out of overlay names;
+- the angles of camera paths (the camera turns the short way, like the game's `Mth.wrapDegrees`), the path kept between frames until a keyframe or a setting changes, and the formatting codes taken out of overlay names;
+- the recording writer: packets handed over in batches give the same file byte for byte as one at a time, and work queued after packets runs after them;
 - the names of video exports (the exported range and the final file name) and what the render veil shows (share done, time spent and left, GUI scale of the window);
 - the changed mods warning, the markers placed while recording and the server resource packs of a replay;
 - the editor markers: saved to `project.json` and read back, older projects, refused ranges, places and targets, time insertions and removals;
