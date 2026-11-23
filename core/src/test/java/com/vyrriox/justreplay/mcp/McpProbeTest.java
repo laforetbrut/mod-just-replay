@@ -63,7 +63,9 @@ class McpProbeTest {
             }
         };
         McpRegistry registry = McpReadTools.registry(fake);
-        McpObserveTools.register(registry, new FakeObserver());
+        FakeObserver observer = new FakeObserver();
+        McpObserveTools.register(registry, observer);
+        McpControlTools.register(registry, fake, observer, new FakeControl(observer, root, root.resolve("exports")));
         McpProtocol protocol = new McpProtocol(registry, queue,
                 new McpProtocol.Info("justreplay", "Just Replay", "1.2.0", McpReadTools.INSTRUCTIONS), () -> 5000L);
         server = new McpHttpServer(protocol, token, List::of);
