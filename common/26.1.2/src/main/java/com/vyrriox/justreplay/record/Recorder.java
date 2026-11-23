@@ -1202,12 +1202,19 @@ public final class Recorder {
         }
     }
 
-    /** Self test: forces slow frames and asks for a checkpoint; see {@link #slowCheckpointTicks()}. */
-    public void startSlowCheckpointTest() {
+    /**
+     * Self test: forces slow frames and asks for a checkpoint; see {@link #slowCheckpointTicks()}. False, and nothing
+     * forced, while another checkpoint is still being built: that one would swallow the request.
+     */
+    public boolean startSlowCheckpointTest() {
+        if (checkpointPending) {
+            return false;
+        }
         ChunkCapture.forcedFrameNanos = 100_000_000L;
         slowCheckpointStart = tick;
         slowCheckpointTicks = -1;
         requestCheckpoint(Minecraft.getInstance());
+        return true;
     }
 
     /** Self test: ends the forced slow frames; ticks the checkpoint took under them, or -1 when it did not finish. */
