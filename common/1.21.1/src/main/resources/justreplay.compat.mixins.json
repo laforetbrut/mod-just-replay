@@ -13,6 +13,7 @@
     "ArmourersWardrobeSlotsMixin",
     "BobbyMixin",
     "CatnipAnimationTickHolderMixin",
+    "CreateBacktankHiddenMixin",
     "DropTheBeamAudioMixin",
     "DropTheBeamClockMixin",
     "DropTheBeamPauseMixin",
