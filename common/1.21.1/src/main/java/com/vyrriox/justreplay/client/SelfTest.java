@@ -89,6 +89,11 @@ public final class SelfTest {
     private static String cameraLook;
     private static int ringWaits;
     private static boolean ringRebuilt;
+    /** Before the recording: 0 the server runs the first commands, 1 the ring, 2 the server again, 3 a second for the client. */
+    private static int settlePhase;
+    private static volatile boolean serverAnswered;
+    private static boolean serverAsked;
+    private static int serverWaits;
     private static volatile net.minecraft.world.item.Item accessoryGiven;
     private static java.util.SequencedMap<?, ?> accessorySlots;
     private static boolean immersiveRegistered;
@@ -292,6 +297,35 @@ public final class SelfTest {
                 && !(mc.screen instanceof net.minecraft.client.gui.screens.ProgressScreen)
                 && !(mc.screen instanceof net.minecraft.client.gui.screens.LevelLoadingScreen)
                 && !(mc.screen instanceof net.minecraft.client.gui.screens.ReceivingLevelScreen);
+    }
+
+    /**
+     * True once the integrated server has run everything sent to it so far: a task queued behind the commands of the
+     * self test has come back. A datapack reload holds the server thread for many seconds in a big pack, and the
+     * commands sent meanwhile would run after the recording they prepare. Asked again at each call that follows a true
+     * answer; gives up after two minutes.
+     */
+    private static boolean serverCaughtUp(Minecraft mc) {
+        net.minecraft.client.server.IntegratedServer server = mc.getSingleplayerServer();
+        if (server == null) {
+            return true;
+        }
+        if (!serverAsked) {
+            serverAsked = true;
+            serverAnswered = false;
+            serverWaits = 0;
+            server.execute(() -> serverAnswered = true);
+            return false;
+        }
+        serverWaits++;
+        if (!serverAnswered && serverWaits < 480) {
+            return false;
+        }
+        if (serverWaits > 12 || !serverAnswered) {
+            log("integrated server caught up after {} ticks{}", serverWaits * 5, serverAnswered ? "" : " (no answer, going on)");
+        }
+        serverAsked = false;
+        return true;
     }
 
     private static void next(int delay) {
@@ -619,8 +653,26 @@ public final class SelfTest {
                 }
             }
             case 2 -> {
-                if (Mods.ringPending(mc)) {
+                // Everything sent so far must have run on the server and reached the client before the recording.
+                if (settlePhase == 0 || settlePhase == 2) {
+                    if (!serverCaughtUp(mc)) {
+                        wait = 5;
+                        return;
+                    }
+                    settlePhase++;
+                }
+                if (settlePhase == 1) {
+                    if (Mods.ringPending(mc)) {
+                        wait = 5;
+                        return;
+                    }
+                    settlePhase = 2;
                     wait = 5;
+                    return;
+                }
+                if (settlePhase == 3) {
+                    settlePhase = 4;
+                    wait = 20;
                     return;
                 }
                 if (Mods.loaded("irons_spellbooks") && !ironsCastSent) {
@@ -1466,7 +1518,7 @@ public final class SelfTest {
                 mcpObserve = com.vyrriox.justreplay.mcp.McpProbe.observe(mcpPort, com.vyrriox.justreplay.config.JRConfig.MCP.token.get(),
                         new com.vyrriox.justreplay.mcp.McpProbe.Look(MCP_OBSERVE_TICK,
                                 SelfTestModState.mcpTypes(java.util.List.of("minecraft:villager", "minecraft:player")), true, 320, 180,
-                                SelfTestModState.mcpWorn()));
+                                Mods.mcpWorn()));
                 next(1);
             }
             case 102 -> {
@@ -2698,13 +2750,14 @@ public final class SelfTest {
                 log("curios: cannot write the ring datapack: {}", e.toString());
                 return;
             }
-            ringWaits = 40;
+            ringWaits = 480;
             log("curios: no ring item in the pack, using the test datapack");
             mc.player.connection.sendCommand("reload");
         }
 
         /**
-         * True while the ring is not ready, for ten seconds at most. The player joined before the datapack existed, so
+         * True while the ring is not ready, for two minutes at most (a reload is slow in a big pack). The player joined
+         * before the datapack existed, so
          * once the reload has reached the client, the server rebuilds the handlers of the player and a second reload
          * syncs them.
          */
@@ -2730,13 +2783,34 @@ public final class SelfTest {
                 });
                 return true;
             }
+            // Other mods give the player slots of their own: the ring slot itself must be there.
             int slots = com.vyrriox.justreplay.compat.CuriosCompat.slotTypes(mc.player);
-            if (slots > 0 || ringWaits <= 0) {
-                log("curios: slot types on the player before recording={} -> {}", slots, slots > 0 ? "OK" : "FAIL");
+            boolean ring = com.vyrriox.justreplay.compat.CuriosCompat.hasSlotType(mc.player, "ring");
+            if (ring || ringWaits <= 0) {
+                log("curios: slot types on the player before recording={}, ring slot {} -> {}", slots, ring ? "there" : "missing",
+                        ring ? "OK" : "FAIL");
                 ringWaits = 0;
                 return false;
             }
             return true;
+        }
+
+        /**
+         * What the MCP observation must list on the recording player beyond its vanilla slots: the Curios ring and the
+         * accessory given above, by slot, then the items of the other installed mods ({@link SelfTestModState}).
+         */
+        static java.util.List<String> mcpWorn() {
+            java.util.List<String> out = new java.util.ArrayList<>();
+            net.minecraft.world.item.Item ring = ringItem();
+            if (loaded("curios") && curiosGiven && ring != null) {
+                out.add("curios:ring=" + net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(ring));
+            }
+            net.minecraft.world.item.Item accessory = accessoryGiven;
+            if (loaded("accessories") && accessory != null) {
+                out.add("accessories:ring=" + net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(accessory));
+            }
+            out.addAll(SelfTestModState.mcpWorn());
+            return out;
         }
 
         /** Curios worn by the recording player, expected 1: tells a lost ring apart from one the replay lost. */

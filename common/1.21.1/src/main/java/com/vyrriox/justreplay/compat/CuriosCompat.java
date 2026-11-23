@@ -161,6 +161,21 @@ public final class CuriosCompat {
         }
     }
 
+    /** True when an entity has a handler for this slot type now (false when Curios is absent or has no inventory for it). */
+    public static boolean hasSlotType(Entity entity, String slot) {
+        Reflect r = reflect();
+        if (r == null || !(entity instanceof LivingEntity living)) {
+            return false;
+        }
+        try {
+            Map<?, ?> curios = curios(r, living);
+            return curios != null && curios.containsKey(slot);
+        } catch (Throwable t) {
+            ReplayCompat.warnOnce("curios.count", "Cannot read the Curios of " + entity, t);
+            return false;
+        }
+    }
+
     /** Slot types an entity has a handler for now, or -1 when Curios is absent or has no inventory for it. */
     public static int slotTypes(Entity entity) {
         Reflect r = reflect();

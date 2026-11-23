@@ -141,6 +141,13 @@ class McpProbeTest {
                 320, 180, List.of("minecraft:diamond_sword", "minecraft:elytra"))).get(60, TimeUnit.SECONDS);
         assertTrue(missing.lines().get(1).contains("missing [minecraft:elytra]") && missing.lines().get(1).endsWith("-> FAIL"),
                 missing.lines().get(1));
+        McpProbe.Observation slot = McpProbe.observe(server.port(), token, new McpProbe.Look(100, List.of("minecraft:pig"), true,
+                320, 180, List.of("mainhand=minecraft:diamond_sword"))).get(60, TimeUnit.SECONDS);
+        assertTrue(slot.lines().get(1).endsWith("-> OK"), slot.lines().get(1));
+        McpProbe.Observation otherSlot = McpProbe.observe(server.port(), token, new McpProbe.Look(100, List.of("minecraft:pig"), true,
+                320, 180, List.of("offhand=minecraft:diamond_sword"))).get(60, TimeUnit.SECONDS);
+        assertTrue(otherSlot.lines().get(1).contains("missing [offhand=minecraft:diamond_sword]")
+                && otherSlot.lines().get(1).endsWith("-> FAIL"), otherSlot.lines().get(1));
     }
 
     @Test

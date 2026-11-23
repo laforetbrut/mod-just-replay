@@ -47,8 +47,11 @@ final class SelfTestModState {
     private record EntityProbe(String mod, String type, int dx, int dz, String nbt) {
     }
 
-    /** An item the recording player wears before the recording: the command that puts it on and its item id. */
-    private record WornProbe(String mod, String item, String command) {
+    /**
+     * An item the recording player wears before the recording: its item id, the command that puts it on and the slot the
+     * MCP observation must list it in.
+     */
+    private record WornProbe(String mod, String item, String slot, String command) {
     }
 
     /** A probe entity found on the live client, with the encoded value of each synced data id it had. */
@@ -61,16 +64,20 @@ final class SelfTestModState {
             new EntityProbe("man_of_many_planes", "man_of_many_planes:scarlet_biplane", -7, 7, "{}"));
 
     private static final List<WornProbe> WORN_PROBES = List.of(
-            new WornProbe("simplehats", "simplehats:acornhat", "curios replace head 0 @s with simplehats:acornhat"),
-            new WornProbe("cosmeticarmoursmod", "cosmeticarmoursmod:fox_tail_orange_chestplate",
+            new WornProbe("simplehats", "simplehats:acornhat", "curios:head", "curios replace head 0 @s with simplehats:acornhat"),
+            new WornProbe("cosmeticarmoursmod", "cosmeticarmoursmod:fox_tail_orange_chestplate", "curios:tail",
                     "curios replace tail 0 @s with cosmeticarmoursmod:fox_tail_orange_chestplate"),
-            new WornProbe("elytraslot", "minecraft:elytra", "curios replace back 0 @s with minecraft:elytra"),
-            new WornProbe("create_jetpack", "create_jetpack:jetpack", "item replace entity @s armor.chest with create_jetpack:jetpack"));
+            new WornProbe("elytraslot", "minecraft:elytra", "curios:back", "curios replace back 0 @s with minecraft:elytra"),
+            new WornProbe("create_jetpack", "create_jetpack:jetpack", "chest",
+                    "item replace entity @s armor.chest with create_jetpack:jetpack"));
 
     private static final Set<EntityDataSerializer<?>> VANILLA = vanillaSerializers();
     private static final List<Tracked> TRACKED = new ArrayList<>();
     private static final Map<UUID, Map<Integer, byte[]>> STABLE = new HashMap<>();
+    /** Items of the probes the recording player wore when the recording started. */
     private static final List<String> WORN = new ArrayList<>();
+    /** The same, as {@code slot=item}, for the MCP observation. */
+    private static final List<String> WORN_SLOTS = new ArrayList<>();
     private static BlockPos base;
     private static boolean faced;
     /** The entity edit hiding the chestplate of the recording player's actor, while {@link #checkHiddenChest} waits. */
@@ -114,6 +121,7 @@ final class SelfTestModState {
         TRACKED.clear();
         STABLE.clear();
         WORN.clear();
+        WORN_SLOTS.clear();
         faced = false;
         if (base == null || mc.level == null || mc.player == null) {
             return;
@@ -137,6 +145,7 @@ final class SelfTestModState {
                         on ? "OK" : "FAIL");
                 if (on) {
                     WORN.add(probe.item());
+                    WORN_SLOTS.add(probe.slot() + "=" + probe.item());
                 }
             }
         }
@@ -247,9 +256,9 @@ final class SelfTestModState {
         return out;
     }
 
-    /** Items the MCP observation must list on the recording player. */
+    /** Items the MCP observation must list on the recording player, each in its slot ({@code slot=item}). */
     static List<String> mcpWorn() {
-        return List.copyOf(WORN);
+        return List.copyOf(WORN_SLOTS);
     }
 
     /** Turns the replay camera to the first probe entity, for a screenshot; false when there is none. */

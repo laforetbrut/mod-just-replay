@@ -43,6 +43,7 @@ public final class Integrations {
     public static final Integration JADE = ALL.get("jade");
     public static final Integration MORE_PLAYER_MODELS = ALL.get("moreplayermodels");
     public static final Integration PLAYER_ANIMATOR = ALL.get(CompatTargets.PLAYER_ANIMATOR);
+    public static final Integration TRINKETS = ALL.get("trinkets");
     public static final Integration VOICE_CHAT = ALL.get(CompatTargets.VOICE_CHAT);
     public static final Integration WATERFRAMES = ALL.get("waterframes");
 

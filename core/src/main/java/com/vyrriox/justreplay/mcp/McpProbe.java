@@ -66,7 +66,8 @@ public final class McpProbe {
      * @param actors at least one actor of the editor must be there too
      * @param width  width of the video frame asked for; the window frame is asked at {@code width * 4 / 5}
      * @param height height of the video frame
-     * @param worn   items the recording player must wear at {@code tick}, in a vanilla or a mod slot (Curios...)
+     * @param worn   items the recording player must wear at {@code tick}, in a vanilla or a mod slot (Curios...): an
+     *               item id, or {@code slot=item} when the slot matters ({@code curios:ring=minecraft:gold_nugget})
      */
     public record Look(int tick, List<String> types, boolean actors, int width, int height, List<String> worn) {
         public Look(int tick, List<String> types, boolean actors, int width, int height) {
@@ -432,8 +433,11 @@ public final class McpProbe {
                 if (recorder[0] != null && recorder[0].has("equipment")) {
                     for (JsonElement e : recorder[0].getAsJsonArray("equipment")) {
                         JsonObject item = e.getAsJsonObject();
-                        found.add(item.get("slot").getAsString() + "=" + item.get("item").getAsString());
-                        missing.remove(item.get("item").getAsString());
+                        String worn = item.get("slot").getAsString() + "=" + item.get("item").getAsString();
+                        found.add(worn);
+                        if (!missing.remove(worn)) {
+                            missing.remove(item.get("item").getAsString());
+                        }
                     }
                 }
                 return verdict(found + (missing.isEmpty() ? "" : ", missing " + missing), recorder[0] != null && missing.isEmpty());
