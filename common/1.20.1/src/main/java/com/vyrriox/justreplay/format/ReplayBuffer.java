@@ -60,6 +60,7 @@ public final class ReplayBuffer {
     private static final long LOG_INTERVAL_MS = 60_000L;
 
     private final ExecutorService executor;
+    private final int startTick;
     private volatile int windowTicks;
     private volatile boolean closed;
     /** Packets not handed to the buffer thread yet, guarded by {@code this}. */
@@ -87,6 +88,7 @@ public final class ReplayBuffer {
      * @param windowTicks length kept in memory
      */
     public ReplayBuffer(int startTick, int windowTicks) {
+        this.startTick = startTick;
         this.windowTicks = Math.max(20, windowTicks);
         this.lastTick = startTick;
         anchors.add(new Anchor(startTick - 1, null));
@@ -96,6 +98,11 @@ public final class ReplayBuffer {
             t.setPriority(Thread.MIN_PRIORITY);
             return t;
         });
+    }
+
+    /** Tick of the first packet the buffer receives, where its checkpoint calendar starts. */
+    public int startTick() {
+        return startTick;
     }
 
     public int windowTicks() {

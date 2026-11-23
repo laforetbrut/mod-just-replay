@@ -166,6 +166,8 @@ public final class SelfTest {
     private static long mcpBadgeExportLast;
     /** Tick the MCP observation checks look at: the recording player walks there, the villager and the actors are around. */
     private static final int MCP_OBSERVE_TICK = 60;
+    /** Latest recording tick the stop waits until, for the slow checkpoint to reach the recording's folder. */
+    private static final int CHECKPOINT_WAIT_END = 600;
     private static java.util.concurrent.CompletableFuture<com.vyrriox.justreplay.mcp.McpProbe.Observation> mcpObserve;
     /** MCP control checks: the probe driving the buffer clip through MCP only, the markers it must find, a wait count. */
     private static java.util.concurrent.CompletableFuture<com.vyrriox.justreplay.mcp.McpProbe.Steering> mcpSteer;
@@ -695,6 +697,7 @@ public final class SelfTest {
                     log("recording cost: {}", Recorder.capturing().lastCost());
                 }
                 if (t == 10 && Recorder.capturing() != null) {
+                    // Built under forced slow frames and kept by the recording: the checkpoint seek below restores it.
                     Recorder.capturing().startSlowCheckpointTest();
                 }
                 if (t >= 200 && clipSave == null) {
@@ -704,15 +707,18 @@ public final class SelfTest {
                         clipSave = java.util.concurrent.CompletableFuture.failedFuture(new IllegalStateException("no buffer"));
                     }
                 }
-                if (t >= 200 && clipSave.isDone()) {
+                if (t >= 200 && clipSave.isDone() && (checkpointWritten() || t >= CHECKPOINT_WAIT_END)) {
                     verifyClip(mc);
                     int slowTicks = Recorder.capturing() != null ? Recorder.capturing().slowCheckpointTicks() : -1;
-                    log("checkpoint under forced slow frames: {} ({} ticks)", slowTicks >= 0 ? "PASS" : "FAIL", slowTicks);
+                    log("checkpoint under forced slow frames: {} ({} ticks, recording stopped at tick {})",
+                            slowTicks >= 0 ? "PASS" : "FAIL", slowTicks, t);
                     replay = Recorder.stop();
+                    int[] checkpoints = com.vyrriox.justreplay.format.Checkpoints.list(replay);
                     log("record stopped: {} packets={} stream={} bytes checkpoints={} bytes in {} files", replay,
                             ReplayStorage.readStream(replay).size(), Files.size(replay.resolve(ReplayStorage.STREAM)),
-                            folderSize(replay.resolve(com.vyrriox.justreplay.format.Checkpoints.FOLDER)),
-                            com.vyrriox.justreplay.format.Checkpoints.list(replay).length);
+                            folderSize(replay.resolve(com.vyrriox.justreplay.format.Checkpoints.FOLDER)), checkpoints.length);
+                    log("recording checkpoints at ticks {} -> {}", java.util.Arrays.toString(checkpoints),
+                            checkpoints.length > 0 ? "OK" : "FAIL");
                     Mods.logParkourCombat("recorded");
                     mc.level.disconnect(net.minecraft.network.chat.Component.empty());
                     mc.disconnect(new TitleScreen(), false);
@@ -824,6 +830,9 @@ public final class SelfTest {
                 s.playback().resetSpeed();
                 s.playback().seek(190);
                 s.playback().seek(130);
+                int restored = s.playback().lastSeekCheckpoint();
+                log("checkpoint seek 190 -> 130 from {} -> {}", restored >= 0 ? "the checkpoint at " + restored : "the start",
+                        restored >= 0 ? "OK" : "FAIL");
                 logWorld(mc, s, "after checkpoint seek to 130");
                 s.playback().seek(20);
                 s.jumpToRecorder(mc);
@@ -1965,6 +1974,17 @@ public final class SelfTest {
         if (moved) {
             clip = renamed;
         }
+    }
+
+    /**
+     * Whether the slow checkpoint asked for at recording tick 10 was handed out and the recording's folder holds a
+     * checkpoint (files are written on an IO thread, right after the hand out). True when no recording runs.
+     */
+    private static boolean checkpointWritten() {
+        Recorder capture = Recorder.capturing();
+        Recorder.Recording recording = capture == null ? null : capture.recording();
+        return recording == null || capture.slowCheckpointDone()
+                && com.vyrriox.justreplay.format.Checkpoints.list(recording.dir()).length > 0;
     }
 
     /** Checks the saved instant replay opens like any replay: stream, first packet, checkpoints, duration. */

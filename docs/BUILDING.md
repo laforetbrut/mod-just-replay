@@ -68,13 +68,14 @@ The build also runs the unit tests of `core/src/test` and `common/<mcversion>/sr
 - the cleaning of replay names and the renaming of replay folders;
 - the angles of camera paths (the camera turns the short way, like the game's `Mth.wrapDegrees`), the path kept between frames until a keyframe or a setting changes, and the formatting codes taken out of overlay names;
 - the recording writer: packets handed over in batches give the same file byte for byte as one at a time, and work queued after packets runs after them;
+- the checkpoint calendars of the recording and of the instant replay buffer: each follows its own start (a recording started while the buffer runs is never late), one checkpoint serves both when it fits both, a forced checkpoint, retries after a failure;
 - the names of video exports (the exported range and the final file name) and what the render veil shows (share done, time spent and left, GUI scale of the window);
 - the changed mods warning, the markers placed while recording and the server resource packs of a replay;
 - the editor markers: saved to `project.json` and read back, older projects, refused ranges, places and targets, time insertions and removals;
 - the light, fog and particle settings, and the speed track (video time of each replay tick);
 - the Armourer's Workshop wardrobe skins a hidden armor slot takes with it;
 - the MCP server: its HTTP endpoint started on a free port of 127.0.0.1 (handshake and modern requests, tools run on a fake game thread, a frozen game, refusals without the token or from a foreign origin or host), the read tools on a fake game, the settings that start and stop it, and the checks the self test runs against it;
-- the MCP observation tools on a fake replay world: their schemas and bounds, the jump to another tick and back, entity filters and pages, tracks, the JPEG and PNG encoders read back by the JDK's decoders, picture sizes, and the camera math that places points on a frame.
+- the MCP observation tools on a fake replay world: their schemas and bounds, the jump to another tick and back, entity filters and pages, tracks, the JPEG and PNG encoders read back by the JDK's decoders, picture sizes, and the camera math that places points on a frame;
 - the MCP control tools on a fake game: their annotations, deleting files refused by default and every change refused by a read only server, the strict reading of their arguments (a refused call changes nothing), each family of edits as the editor makes them, undo and redo, recording, renaming and exporting, and the control checks of the self test over HTTP.
 
 - **Use `--no-build-cache` for a jar you will ship or run in production.** A cache hit once produced a Forge 1.20.1 jar without its refmap (see `ERROR_LOG.md`, now also guarded in that project). After such a build, check that the refmap is in the jar.
@@ -210,14 +211,16 @@ Le build lance aussi les tests unitaires de `core/src/test` et de `common/<mcver
 
 - la garde des intégrations, les interrupteurs d'intégration de la config et le compteur de paquets ignorés ;
 - le nettoyage des noms de replay et le renommage des dossiers de replay ;
-- les angles des trajectoires de caméra (la caméra tourne par le plus court, comme `Mth.wrapDegrees` du jeu) et les codes de mise en forme retirés des noms d'overlays ;
+- les angles des trajectoires de caméra (la caméra tourne par le plus court, comme `Mth.wrapDegrees` du jeu), la trajectoire gardée d'une frame à l'autre tant qu'aucune keyframe ni aucun réglage ne change, et les codes de mise en forme retirés des noms d'overlays ;
+- l'écriture de l'enregistrement : des paquets remis par lots donnent le même fichier octet pour octet qu'un par un, et le travail mis en file après des paquets passe après eux ;
+- les calendriers de points de reprise de l'enregistrement et du tampon des dernières minutes : chacun suit son propre début (un enregistrement lancé pendant que le tampon tourne n'est jamais en retard), un même point sert les deux quand il convient aux deux, le point forcé, les nouvelles tentatives après un échec ;
 - les noms des exports vidéo (la plage exportée et le nom final du fichier) et ce que montre le voile de rendu (part faite, temps passé et restant, échelle d'interface de la fenêtre) ;
 - l'avertissement des mods changés, les repères posés pendant l'enregistrement et les packs de ressources du serveur d'un replay ;
 - les repères de l'éditeur : sauvés dans `project.json` et relus, anciens projets, plages, points et cibles refusés, insertions et retraits de temps ;
 - les réglages de lumière, de brouillard et de particules, et la piste de vitesse (temps vidéo de chaque tick du replay) ;
 - les skins de garde-robe d'Armourer's Workshop qu'un emplacement d'armure masqué emporte avec lui ;
 - le serveur MCP : son point d'accès HTTP lancé sur un port libre de 127.0.0.1 (poignée de main et requêtes modernes, outils lancés sur un faux thread de jeu, jeu figé, refus sans jeton ou depuis une origine ou un hôte étrangers), les outils de lecture sur un faux jeu, les réglages qui le démarrent et l'arrêtent, et les contrôles que le self test lance contre lui ;
-- les outils MCP d'observation sur un faux monde de replay : leurs schémas et leurs bornes, le saut vers un autre tick et le retour, filtres et pages d'entités, trajectoires, les encodeurs JPEG et PNG relus par les décodeurs du JDK, tailles d'image, et le calcul de caméra qui place les points sur une frame.
+- les outils MCP d'observation sur un faux monde de replay : leurs schémas et leurs bornes, le saut vers un autre tick et le retour, filtres et pages d'entités, trajectoires, les encodeurs JPEG et PNG relus par les décodeurs du JDK, tailles d'image, et le calcul de caméra qui place les points sur une frame ;
 - les outils MCP de contrôle sur un faux jeu : leurs annotations, la suppression de fichiers refusée par défaut et toute modification refusée par un serveur en lecture seule, la lecture stricte de leurs arguments (un appel refusé ne change rien), chaque famille de modifications telle que l'éditeur la fait, annuler et rétablir, l'enregistrement, le renommage et l'export, et les contrôles du test automatique en HTTP.
 
 - **Utiliser `--no-build-cache` pour un jar à publier ou à lancer en production.** Une reprise du cache a déjà produit un jar Forge 1.20.1 sans sa refmap (voir `ERROR_LOG.md`, ce projet est maintenant aussi protégé). Après un tel build, vérifier que la refmap est dans le jar.

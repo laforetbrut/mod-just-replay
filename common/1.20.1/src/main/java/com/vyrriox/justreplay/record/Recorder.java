@@ -114,8 +114,6 @@ public final class Recorder {
         private final ReplayMeta meta;
         private volatile int startTick;
         private volatile int stopAfterTicks = -1;
-        /** Recording tick of its last checkpoint; the start counts as one. */
-        private int lastCheckpoint;
 
         private Recording(Path dir, ReplayWriter writer, ReplayMeta meta) {
             this.dir = dir;
@@ -162,9 +160,12 @@ public final class Recorder {
     /** Lowest tick a packet may be written with; raised past a checkpoint so later packets never share its tick. */
     private int floorTick;
     private volatile boolean checkpointPending;
-    private int slowCheckpointStart;
+    /** When each output wants its next checkpoint; client thread. */
+    private final CheckpointSchedule schedule = new CheckpointSchedule();
+    /** Self test: a checkpoint under forced slow frames was asked for, and waits for no other to be in progress. */
+    private boolean slowCheckpointWanted;
+    private int slowCheckpointStart = -1;
     private int slowCheckpointTicks = -1;
-    private int lastCheckpointTick;
     /** Chunks the recorder builds itself: extra cached chunks and checkpoint chunks, a few per tick. */
     private final ChunkCapture chunks = new ChunkCapture();
     /** Incremented under the recorder lock by every login or respawn packet captured. */
@@ -698,13 +699,7 @@ public final class Recorder {
                 r.startTick = at;
                 r.meta.startGameTime = gameTime(mc);
                 return data -> r.writer.write(0, data);
-            }, () -> {
-                c.recording = r;
-                if (c.buffer == null) {
-                    // Checkpoints follow this recording's own clock.
-                    c.lastCheckpointTick = c.tick;
-                }
-            });
+            }, () -> c.recording = r);
             return true;
         } catch (Throwable t) {
             JustReplay.LOGGER.error("Cannot start recording", t);
@@ -1022,11 +1017,7 @@ public final class Recorder {
                 }
             }
         }
-        int interval = checkpointInterval();
-        if (interval > 0 && tick - lastCheckpointTick >= interval) {
-            lastCheckpointTick = tick;
-            requestCheckpoint(mc);
-        }
+        scheduleCheckpoint(mc);
         addCost(System.nanoTime() - start, true);
     }
 
@@ -1065,18 +1056,34 @@ public final class Recorder {
 
     // ---------------------------------------------------------------- checkpoints
 
-    /** Ticks between checkpoints for the running outputs, or 0 when none needs any. */
-    private int checkpointInterval() {
-        int interval = 0;
-        if (recording != null) {
-            interval = recordingCheckpointInterval();
-        }
+    /**
+     * Points the checkpoint calendars at the outputs running now. Each output follows its own start and interval, so a
+     * recording started while the buffer runs never waits for the buffer's clock (see {@link CheckpointSchedule}).
+     */
+    private void followOutputs() {
+        Recording r = recording;
+        schedule.recording().follow(r, r == null ? 0 : r.startTick, recordingCheckpointInterval());
         ReplayBuffer b = buffer;
-        if (b != null) {
-            int forBuffer = bufferCheckpointInterval(b.windowTicks());
-            interval = interval == 0 ? forBuffer : Math.min(interval, forBuffer);
+        schedule.buffer().follow(b, b == null ? 0 : b.startTick(), b == null ? 1 : bufferCheckpointInterval(b.windowTicks()));
+    }
+
+    /** End of a client tick: asks for a checkpoint when an output wants one and none is in progress. */
+    private void scheduleCheckpoint(Minecraft mc) {
+        followOutputs();
+        if (checkpointPending) {
+            return;
         }
-        return interval;
+        if (slowCheckpointWanted) {
+            slowCheckpointWanted = false;
+            ChunkCapture.forcedFrameNanos = 100_000_000L;
+            slowCheckpointStart = tick;
+            slowCheckpointTicks = -1;
+            // Taken by the recording whatever its spacing, so even the short self test recording gets a checkpoint.
+            schedule.recording().force(tick);
+            requestCheckpoint(mc);
+        } else if (schedule.wants(tick)) {
+            requestCheckpoint(mc);
+        }
     }
 
     /**
@@ -1104,6 +1111,7 @@ public final class Recorder {
             });
         } catch (Throwable t) {
             checkpointPending = false;
+            schedule.failed(tick);
             if (failedTypes.add(Checkpoints.class)) {
                 JustReplay.LOGGER.warn("Cannot schedule a replay checkpoint: {}", t.toString());
             }
@@ -1141,40 +1149,66 @@ public final class Recorder {
         } finally {
             if (!started) {
                 checkpointPending = false;
+                if (!stopped) {
+                    schedule.failed(tick);
+                }
             }
             addCost(System.nanoTime() - start, false);
         }
     }
 
-    /** Self test: forces slow frames and asks for a checkpoint; see {@link #slowCheckpointTicks()}. */
+    /**
+     * Self test: asks for a checkpoint built under forced slow frames, which the running recording takes whatever its
+     * spacing. It starts at the end of the first tick no other checkpoint is in progress (one in progress would
+     * swallow it); see {@link #slowCheckpointDone()} and {@link #slowCheckpointTicks()}.
+     */
     public void startSlowCheckpointTest() {
-        ChunkCapture.forcedFrameNanos = 100_000_000L;
-        slowCheckpointStart = tick;
+        slowCheckpointWanted = true;
+        slowCheckpointStart = -1;
         slowCheckpointTicks = -1;
-        requestCheckpoint(Minecraft.getInstance());
+    }
+
+    /** Self test: whether the slow checkpoint was handed out. */
+    public boolean slowCheckpointDone() {
+        return slowCheckpointTicks >= 0;
     }
 
     /** Self test: ends the forced slow frames; ticks the checkpoint took under them, or -1 when it did not finish. */
     public int slowCheckpointTicks() {
+        slowCheckpointWanted = false;
         ChunkCapture.forcedFrameNanos = 0L;
         return slowCheckpointTicks;
     }
 
     private void deliverCheckpoint(int at, List<byte[]> records) {
         checkpointPending = false;
-        if (records != null && ChunkCapture.forcedFrameNanos > 0L && slowCheckpointTicks < 0) {
-            slowCheckpointTicks = tick - slowCheckpointStart;
-        }
         if (records == null || stopped) {
             JustReplay.LOGGER.debug("Checkpoint at tick {} dropped (level changed or capture stopped)", at);
+            if (!stopped) {
+                schedule.failed(tick);
+            }
             return;
         }
+        if (slowCheckpointStart >= 0 && at >= slowCheckpointStart && slowCheckpointTicks < 0) {
+            // The first one asked for since the slow test started: that one.
+            slowCheckpointTicks = tick - slowCheckpointStart;
+            ChunkCapture.forcedFrameNanos = 0L;
+        }
+        followOutputs();
+        CheckpointSchedule.Taken taken = schedule.delivered(at);
         Recording r = recording;
-        int interval = recordingCheckpointInterval();
+        ReplayBuffer b = buffer;
+        if (JustReplay.LOGGER.isDebugEnabled()) {
+            String takers = taken.recording() && r != null ? "the recording at its tick " + (at - r.startTick) : "";
+            if (taken.buffer() && b != null) {
+                takers = takers.isEmpty() ? "the buffer" : takers + " and the buffer";
+            }
+            JustReplay.LOGGER.debug("Checkpoint at capture tick {} built in {} ticks, taken by {}", at, tick - at,
+                    takers.isEmpty() ? "no output" : takers);
+        }
         // A recording gets one checkpoint per interval from its own start: none at all when it is shorter.
-        if (r != null && at - r.startTick - r.lastCheckpoint >= interval - interval / 10) {
+        if (taken.recording() && r != null) {
             int relative = at - r.startTick;
-            r.lastCheckpoint = relative;
             Util.ioPool().execute(() -> {
                 try {
                     Checkpoints.write(r.dir, relative, records);
@@ -1183,8 +1217,7 @@ public final class Recorder {
                 }
             });
         }
-        ReplayBuffer b = buffer;
-        if (b != null) {
+        if (taken.buffer() && b != null) {
             b.addCheckpoint(at, records, bufferCheckpointInterval(b.windowTicks()));
         }
     }
