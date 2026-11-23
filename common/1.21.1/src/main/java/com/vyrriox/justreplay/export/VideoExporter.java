@@ -9,14 +9,12 @@ import com.vyrriox.justreplay.replay.Playback;
 import com.vyrriox.justreplay.replay.ReplaySession;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.network.chat.Component;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -78,6 +76,13 @@ public final class VideoExporter {
     private final Process process;
     private final OutputStream stdin;
     private final BlockingQueue<byte[]> queue = new ArrayBlockingQueue<>(6);
+    /**
+     * Frames FFmpeg is done with, used again for the next ones: a 1080p frame is 8 MB, allocating one per frame kept the
+     * garbage collector busy for nothing. Never more frames exist than the queue, the one being written and this pool.
+     */
+    private final BlockingQueue<byte[]> spareFrames = new ArrayBlockingQueue<>(4);
+    /** The picture each frame is read into, made once per export (the render size never changes during one). */
+    private NativeImage readback;
     private final Thread writerThread;
     private final int width;
     private final int height;
@@ -525,11 +530,8 @@ public final class VideoExporter {
             return;
         }
         long readStarted = System.nanoTime();
-        try (NativeImage image = Screenshot.takeScreenshot(target)) {
-            int[] pixels = image.getPixelsRGBA();
-            ByteBuffer bytes = ByteBuffer.allocate(pixels.length * 4).order(ByteOrder.LITTLE_ENDIAN);
-            bytes.asIntBuffer().put(pixels);
-            byte[] frame = bytes.array();
+        try {
+            byte[] frame = readFrame(target);
             readNanos += System.nanoTime() - readStarted;
             readFrames++;
             if (!deliver(frame)) {
@@ -558,6 +560,36 @@ public final class VideoExporter {
         if (reachedEnd || playback.isPaused() && playback.cursor() >= playback.duration()) {
             finish(true);
         }
+    }
+
+    /** A frame array of {@code size} bytes: a spare one FFmpeg is done with, or a new one. */
+    private byte[] frameBuffer(int size) {
+        byte[] frame = spareFrames.poll();
+        return frame != null && frame.length == size ? frame : new byte[size];
+    }
+
+    /**
+     * Reads the frame the window shows, top row first and opaque, as {@code Screenshot.takeScreenshot} gives it: the
+     * same download, then one copy that flips the rows and sets the alpha bytes, instead of a pixel by pixel pass, a
+     * flip and two copies.
+     */
+    private byte[] readFrame(RenderTarget target) {
+        if (readback == null) {
+            readback = new NativeImage(width, height, false);
+        }
+        com.mojang.blaze3d.systems.RenderSystem.bindTexture(target.getColorTextureId());
+        readback.downloadTexture(0, false);
+        int row = width * 4;
+        byte[] frame = frameBuffer(row * height);
+        ByteBuffer pixels = org.lwjgl.system.MemoryUtil.memByteBuffer(
+                ((com.vyrriox.justreplay.mixin.NativeImageAccessor) (Object) readback).justreplay$pixels(), row * height);
+        for (int y = 0; y < height; y++) {
+            pixels.get((height - 1 - y) * row, frame, y * row, row);
+        }
+        for (int i = 3; i < frame.length; i += 4) {
+            frame[i] = (byte) 0xFF;
+        }
+        return frame;
     }
 
     /** Hands a captured frame on: to the frame grab, or to FFmpeg. False when FFmpeg is gone. */
@@ -607,6 +639,7 @@ public final class VideoExporter {
                     break;
                 }
                 stdin.write(frame);
+                spareFrames.offer(frame);
             }
         } catch (IOException | InterruptedException e) {
             failed = true;
@@ -628,6 +661,10 @@ public final class VideoExporter {
         finished = true;
         captureEndNanos = System.nanoTime();
         current = null;
+        if (readback != null) {
+            readback.close();
+            readback = null;
+        }
         com.vyrriox.justreplay.compat.ReplayCompat.onExportEnd();
         Minecraft mc = Minecraft.getInstance();
         try {
