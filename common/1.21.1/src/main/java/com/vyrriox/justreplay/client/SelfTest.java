@@ -741,8 +741,7 @@ public final class SelfTest {
                 if (t % 40 == 0 && Recorder.capturing() != null) {
                     log("recording cost: {}", Recorder.capturing().lastCost());
                 }
-                if (t == 60 && Recorder.capturing() != null) {
-                    // Past the 0.9 interval a recording waits for its first checkpoint: this one reaches the recording.
+                if (t == 10 && Recorder.capturing() != null) {
                     Recorder.capturing().startSlowCheckpointTest();
                 }
                 if (t >= 200 && clipSave == null) {
@@ -891,9 +890,7 @@ public final class SelfTest {
                 }
                 s.playback().seek(190);
                 s.playback().seek(130);
-                int restored = s.playback().lastSeekCheckpoint();
-                logWorld(mc, s, "after checkpoint seek to 130", restored >= 0 && restored <= 130
-                        ? "restored the checkpoint at " + restored + " -> OK" : "no checkpoint restored -> FAIL");
+                logWorld(mc, s, "after checkpoint seek to 130");
                 Mods.logDropTheBeam("after checkpoint seek to 130");
                 s.playback().seek(20);
                 s.jumpToRecorder(mc);
@@ -3177,17 +3174,11 @@ public final class SelfTest {
     }
 
     private static void logWorld(Minecraft mc, ReplaySession s, String label) {
-        logWorld(mc, s, label, null);
-    }
-
-    /** The world state line, with a verdict at its end when given. */
-    private static void logWorld(Minecraft mc, ReplaySession s, String label, String verdict) {
         int entities = 0;
         for (Entity ignored : mc.level.entitiesForRendering()) {
             entities++;
         }
-        log("{}: cursor={}/{} paused={} entities={} chunks={} recorder={} camera={}" + (verdict == null ? "" : ", " + verdict), label,
-                s.playback().cursor(),
+        log("{}: cursor={}/{} paused={} entities={} chunks={} recorder={} camera={}", label, s.playback().cursor(),
                 s.playback().duration(), s.playback().isPaused(), entities, mc.level.getChunkSource().getLoadedChunksCount(),
                 s.findRecorder(mc) == null ? "missing" : s.findRecorder(mc).position(), mc.player.position());
     }

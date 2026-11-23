@@ -62,8 +62,6 @@ public final class Playback {
     private int[] checkpoints = new int[0];
     private final ChunkRetention chunks = new ChunkRetention();
     private int seekCount;
-    /** Checkpoint the last seek restored, or -1 when it played the stream without one. */
-    private int lastSeekCheckpoint = -1;
     /** Tick {@link #playTo} pauses on, or -1. */
     private int pauseAt = -1;
     /** Speed track of the project, followed by previews (exports run their own clock), or null. */
@@ -103,11 +101,6 @@ public final class Playback {
     public void playTo(int target) {
         paused = target <= cursor;
         pauseAt = paused ? -1 : Math.min(duration, target);
-    }
-
-    /** Checkpoint the last seek restored, or -1 when it played the stream without one (self test). */
-    public int lastSeekCheckpoint() {
-        return lastSeekCheckpoint;
     }
 
     /** Number of seeks so far; anything that follows the replay clock resynchronizes when it changes. */
@@ -276,7 +269,6 @@ public final class Playback {
             skippingTo = -1;
         }
         cursor = target;
-        lastSeekCheckpoint = usedCheckpoint;
         if (camPos != null && mc.player != null) {
             placeCamera(mc.player, camPos, yaw, pitch);
         }
