@@ -42,6 +42,9 @@ public final class McpHost {
     private McpHttpServer server;
     private String runningKey;
     private String failedKey;
+    /** Token and port the server runs with: an unchanged setting is told by identity, without building its key. */
+    private String runningToken;
+    private int runningPort;
     private volatile Status status = Status.OFF;
     private volatile String error = "";
     private volatile int port = -1;
@@ -75,15 +78,20 @@ public final class McpHost {
             return;
         }
         String token = config.token.get();
+        int wanted = config.port.get();
+        if (server != null && token == runningToken && wanted == runningPort) {
+            // The usual tick while listening: nothing changed, nothing to allocate.
+            return;
+        }
         if (!McpToken.usable(token)) {
             token = McpToken.generate();
             config.token.set(token);
             JustReplayCore.LOGGER.info("MCP: a new access token was written to the settings ({} section)", McpConfig.SECTION);
         }
-        int wanted = config.port.get();
         String key = wanted + "\n" + token;
         if (server != null) {
             if (key.equals(runningKey)) {
+                runningToken = token;
                 return;
             }
             stopServer();
@@ -111,6 +119,8 @@ public final class McpHost {
         }
         server = created;
         runningKey = key;
+        runningToken = token;
+        runningPort = wanted;
         failedKey = null;
         status = Status.LISTENING;
         error = "";
@@ -123,6 +133,7 @@ public final class McpHost {
         McpHttpServer s = server;
         server = null;
         runningKey = null;
+        runningToken = null;
         queue.close();
         s.stop();
         status = Status.OFF;
