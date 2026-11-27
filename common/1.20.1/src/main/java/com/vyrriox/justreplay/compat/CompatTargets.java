@@ -28,13 +28,17 @@ public final class CompatTargets {
      * class and member the integration names was compiled against it with the classes of both loaders. Armourer's
      * Workshop 3.4.0-beta.3 (its Forge jar, also on NeoForge, and its Fabric jar) and the unofficial Custom NPCs port
      * (Forge builds 20240824 and 20260711, also on NeoForge, and Fabric build 20251214) were checked the same way on
-     * each loader. Epic Fight 20.14.17 is Forge only: it needs Forge 47.4 or later and has no Fabric build.
+     * each loader. Epic Fight 20.14.17 is Forge only: it needs Forge 47.4 or later and has no Fabric build. Elytra
+     * Slot was read from its jars 6.4.4 (Forge, Fabric) and 6.4.0 (its last build marked for NeoForge 1.20.1), Trinkets
+     * from the jar of 3.7.2 (Fabric only).
      */
     private static final Map<String, Set<String>> SUPPORTED = Map.of(
-            "neoforge", Set.of("armourers_workshop", "customnpcs", "geckolib", "curios", "jade", "moreplayermodels"),
-            "fabric", Set.of("armourers_workshop", "customnpcs", "geckolib", "jade", "entityculling"),
-            "forge", Set.of("armourers_workshop", "customnpcs", "geckolib", "curios", "jade", "entityculling", "mts",
-                    "moreplayermodels", "epicfight"));
+            "neoforge", Set.of("armourers_workshop", "customnpcs", "elytraslot", "geckolib", "curios", "jade",
+                    "moreplayermodels"),
+            "fabric", Set.of("armourers_workshop", "customnpcs", "elytraslot", "geckolib", "jade", "entityculling",
+                    "trinkets"),
+            "forge", Set.of("armourers_workshop", "customnpcs", "elytraslot", "geckolib", "curios", "jade", "entityculling",
+                    "mts", "moreplayermodels", "epicfight"));
 
     /**
      * Every integration of this Minecraft version, mod id to the name the log and the settings show, in the order of
@@ -46,6 +50,7 @@ public final class CompatTargets {
             "curios", "Curios",
             "customnpcs", "Custom NPCs",
             "distanthorizons", "Distant Horizons",
+            "elytraslot", "Elytra Slot",
             "entityculling", "Entity Culling",
             "epicfight", "Epic Fight",
             "geckolib", "GeckoLib",
@@ -55,6 +60,7 @@ public final class CompatTargets {
             "moreplayermodels", "More Player Models",
             PLAYER_ANIMATOR, "Player Animator",
             VOICE_CHAT, "Simple Voice Chat",
+            "trinkets", "Trinkets",
             "waterframes", "WaterFrames");
 
     /**
@@ -64,6 +70,7 @@ public final class CompatTargets {
     private static final Map<String, String> MIXIN_OWNERS = names(
             "Armourers", "armourers_workshop",
             "Bobby", "bobby",
+            "ElytraSlot", "elytraslot",
             "EpicFight", "epicfight",
             "GeckoLib", "geckolib",
             "Iris", "iris",

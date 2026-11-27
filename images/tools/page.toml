@@ -69,8 +69,8 @@ icon = "camera"
   icon = "pencil"
   name.en = "Full editor"
   name.fr = "Éditeur complet"
-  text.en = "several cameras cut on a timeline, smooth paths, Simple and Advanced modes, undo with <code>Ctrl+Z</code>."
-  text.fr = "plusieurs caméras coupées sur une timeline, trajectoires fluides, modes Simple et Avancé, annuler avec <code>Ctrl+Z</code>."
+  text.en = "several cameras cut on a timeline, smooth paths, markers to find your way, Simple and Advanced modes, undo with <code>Ctrl+Z</code>."
+  text.fr = "plusieurs caméras coupées sur une timeline, trajectoires fluides, repères pour s'y retrouver, modes Simple et Avancé, annuler avec <code>Ctrl+Z</code>."
 
   [[section.item]]
   icon = "download"
@@ -78,6 +78,13 @@ icon = "camera"
   name.fr = "Export vidéo"
   text.en = "MP4 from 720p to 4K with the mixed sound, shader packs included."
   text.fr = "MP4 de 720p à 4K avec le son mixé, packs de shaders compris."
+
+  [[section.item]]
+  icon = "sparkle"
+  name.en = "AI co-pilot"
+  name.fr = "Copilote IA"
+  text.en = "switch on the MCP server and an assistant on your PC reads your replay, looks at any frame, then edits and exports for you. Local only."
+  text.fr = "activez le serveur MCP et un assistant sur votre PC lit votre replay, regarde n'importe quelle image, puis monte et exporte pour vous. En local seulement."
 
 [[section]]
 id = "films"
@@ -122,8 +129,8 @@ icon = "star"
   icon = "bolt"
   name.en = "Works with your mods"
   name.fr = "Avec vos mods"
-  text.en = "Iris, Distant Horizons, Create, Voice Chat, Emotecraft, WaterFrames, Drop the Beam, Immersive Vehicles, More Player Models, Epic Fight, Armourer's Workshop, Custom NPCs."
-  text.fr = "Iris, Distant Horizons, Create, Voice Chat, Emotecraft, WaterFrames, Drop the Beam, Immersive Vehicles, More Player Models, Epic Fight, Armourer's Workshop, Custom NPCs."
+  text.en = "Iris, Distant Horizons, Create, Voice Chat, Emotecraft, WaterFrames, Drop the Beam, Immersive Vehicles, More Player Models, Epic Fight, Armourer's Workshop, Custom NPCs, Curios, Trinkets."
+  text.fr = "Iris, Distant Horizons, Create, Voice Chat, Emotecraft, WaterFrames, Drop the Beam, Immersive Vehicles, More Player Models, Epic Fight, Armourer's Workshop, Custom NPCs, Curios, Trinkets."
 
 [[section]]
 id = "start"

@@ -66,8 +66,13 @@ public final class McpProbe {
      * @param actors at least one actor of the editor must be there too
      * @param width  width of the video frame asked for; the window frame is asked at {@code width * 4 / 5}
      * @param height height of the video frame
+     * @param worn   items the recording player must wear at {@code tick}, in a vanilla or a mod slot (Curios...): an
+     *               item id, or {@code slot=item} when the slot matters ({@code curios:ring=minecraft:gold_nugget})
      */
-    public record Look(int tick, List<String> types, boolean actors, int width, int height) {
+    public record Look(int tick, List<String> types, boolean actors, int width, int height, List<String> worn) {
+        public Look(int tick, List<String> types, boolean actors, int width, int height) {
+            this(tick, types, actors, width, height, List.of());
+        }
     }
 
     /** A picture a check received, for the game to decode with its own decoder. */
@@ -421,6 +426,23 @@ public final class McpProbe {
             return verdict(list.get("total").getAsInt() + " entities: " + String.join(", ", found), all && recorder[0] != null
                     && (!look.actors() || actors > 0) && list.get("tick").getAsInt() == look.tick());
         });
+        if (!look.worn().isEmpty()) {
+            check(lines, "mcp list_entities items worn by the recording player", () -> {
+                List<String> found = new ArrayList<>();
+                List<String> missing = new ArrayList<>(look.worn());
+                if (recorder[0] != null && recorder[0].has("equipment")) {
+                    for (JsonElement e : recorder[0].getAsJsonArray("equipment")) {
+                        JsonObject item = e.getAsJsonObject();
+                        String worn = item.get("slot").getAsString() + "=" + item.get("item").getAsString();
+                        found.add(worn);
+                        if (!missing.remove(worn)) {
+                            missing.remove(item.get("item").getAsString());
+                        }
+                    }
+                }
+                return verdict(found + (missing.isEmpty() ? "" : ", missing " + missing), recorder[0] != null && missing.isEmpty());
+            });
+        }
         check(lines, "mcp list_entities within 64 blocks of the recording player", () -> {
             JsonObject args = new JsonObject();
             args.addProperty("tick", look.tick());

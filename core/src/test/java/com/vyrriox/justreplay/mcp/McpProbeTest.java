@@ -130,6 +130,27 @@ class McpProbeTest {
     }
 
     @Test
+    void itemsTheRecordingPlayerWearsAreChecked() throws Exception {
+        McpProbe.Observation o = McpProbe.observe(server.port(), token, new McpProbe.Look(100, List.of("minecraft:pig"), true,
+                320, 180, List.of("minecraft:diamond_sword"))).get(60, TimeUnit.SECONDS);
+        assertEquals(11, o.lines().size(), o.lines().toString());
+        String worn = o.lines().get(1);
+        assertTrue(worn.startsWith("mcp list_entities items worn by the recording player: [mainhand=minecraft:diamond_sword]")
+                && worn.endsWith("-> OK"), worn);
+        McpProbe.Observation missing = McpProbe.observe(server.port(), token, new McpProbe.Look(100, List.of("minecraft:pig"), true,
+                320, 180, List.of("minecraft:diamond_sword", "minecraft:elytra"))).get(60, TimeUnit.SECONDS);
+        assertTrue(missing.lines().get(1).contains("missing [minecraft:elytra]") && missing.lines().get(1).endsWith("-> FAIL"),
+                missing.lines().get(1));
+        McpProbe.Observation slot = McpProbe.observe(server.port(), token, new McpProbe.Look(100, List.of("minecraft:pig"), true,
+                320, 180, List.of("mainhand=minecraft:diamond_sword"))).get(60, TimeUnit.SECONDS);
+        assertTrue(slot.lines().get(1).endsWith("-> OK"), slot.lines().get(1));
+        McpProbe.Observation otherSlot = McpProbe.observe(server.port(), token, new McpProbe.Look(100, List.of("minecraft:pig"), true,
+                320, 180, List.of("offhand=minecraft:diamond_sword"))).get(60, TimeUnit.SECONDS);
+        assertTrue(otherSlot.lines().get(1).contains("missing [offhand=minecraft:diamond_sword]")
+                && otherSlot.lines().get(1).endsWith("-> FAIL"), otherSlot.lines().get(1));
+    }
+
+    @Test
     void aWrongAnswerFails() throws Exception {
         List<String> lines = McpProbe.start(server.port(), token,
                 new McpProbe.Expect("replay-1", 3, moment.id, moment.name, "another note")).get(60, TimeUnit.SECONDS);

@@ -15,8 +15,9 @@
 <p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/editor.gif" alt="The replay editor over a recording: camera list, actors, effects, audio tracks and texts, above a timeline" width="800"></p>
 <p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/camera.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Records everything:</strong></span> modded worlds and server resource packs included: <code>F8</code>, or keep the last minutes in memory and save with <code>F7</code>, drop markers with <code>F6</code>.</p>
 <p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/play.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Free replay:</strong></span> fly anywhere, speeds from x0.1 to x8, instant seeking, follow any player or mob.</p>
-<p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/pencil.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Full editor:</strong></span> several cameras cut on a timeline, smooth paths, Simple and Advanced modes, undo with <code>Ctrl+Z</code>.</p>
+<p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/pencil.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Full editor:</strong></span> several cameras cut on a timeline, smooth paths, markers to find your way, Simple and Advanced modes, undo with <code>Ctrl+Z</code>.</p>
 <p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/download.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Video export:</strong></span> MP4 from 720p to 4K with the mixed sound, shader packs included.</p>
+<p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/sparkle.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>AI co-pilot:</strong></span> switch on the MCP server and an assistant on your PC reads your replay, looks at any frame, then edits and exports for you. Local only.</p>
 </div>
 
 <div align="center" style="text-align:center">
@@ -26,7 +27,7 @@
 <p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/note.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Dances on the beat:</strong></span> ten styles, from bounce to hakken, locked to the tempo of your music.</p>
 <p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/sparkle.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Effects:</strong></span> transitions, colour grading, letterbox, slow motion, timelapses and freeze frames, all with keyframes.</p>
 <p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/pin.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Texts and images:</strong></span> titles and stickers anchored to an entity, a block or a point of the world.</p>
-<p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/bolt.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Works with your mods:</strong></span> Iris, Distant Horizons, Create, Voice Chat, Emotecraft, WaterFrames, Drop the Beam, Immersive Vehicles, More Player Models, Epic Fight, Armourer's Workshop, Custom NPCs.</p>
+<p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/bolt.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Works with your mods:</strong></span> Iris, Distant Horizons, Create, Voice Chat, Emotecraft, WaterFrames, Drop the Beam, Immersive Vehicles, More Player Models, Epic Fight, Armourer's Workshop, Custom NPCs, Curios, Trinkets.</p>
 </div>
 
 <div align="center" style="text-align:center">
@@ -53,8 +54,9 @@
 <h3><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/title-features-fr.gif" alt="Ce Qu&#x27;il Fait" width="800"></h3>
 <p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/camera.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Enregistre tout&nbsp;:</strong></span> mondes moddés et packs de ressources du serveur compris, avec <code>F8</code>, ou gardez les dernières minutes en mémoire et sauvez-les avec <code>F7</code>, posez des repères avec <code>F6</code>.</p>
 <p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/play.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Replay libre&nbsp;:</strong></span> volez partout, vitesses de x0,1 à x8, sauts instantanés, suivez n'importe quel joueur ou mob.</p>
-<p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/pencil.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Éditeur complet&nbsp;:</strong></span> plusieurs caméras coupées sur une timeline, trajectoires fluides, modes Simple et Avancé, annuler avec <code>Ctrl+Z</code>.</p>
+<p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/pencil.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Éditeur complet&nbsp;:</strong></span> plusieurs caméras coupées sur une timeline, trajectoires fluides, repères pour s'y retrouver, modes Simple et Avancé, annuler avec <code>Ctrl+Z</code>.</p>
 <p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/download.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Export vidéo&nbsp;:</strong></span> MP4 de 720p à 4K avec le son mixé, packs de shaders compris.</p>
+<p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/sparkle.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Copilote IA&nbsp;:</strong></span> activez le serveur MCP et un assistant sur votre PC lit votre replay, regarde n'importe quelle image, puis monte et exporte pour vous. En local seulement.</p>
 </div>
 
 <div align="center" style="text-align:center">
@@ -63,7 +65,7 @@
 <p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/note.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Danses en rythme&nbsp;:</strong></span> dix styles, du rebond au hakken, calés sur le tempo de votre musique.</p>
 <p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/sparkle.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Effets&nbsp;:</strong></span> transitions, étalonnage, bandes cinéma, ralentis, timelapses et arrêts sur image, le tout avec images clés.</p>
 <p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/pin.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Textes et images&nbsp;:</strong></span> titres et stickers ancrés à une entité, un bloc ou un point du monde.</p>
-<p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/bolt.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Avec vos mods&nbsp;:</strong></span> Iris, Distant Horizons, Create, Voice Chat, Emotecraft, WaterFrames, Drop the Beam, Immersive Vehicles, More Player Models, Epic Fight, Armourer's Workshop, Custom NPCs.</p>
+<p><img src="https://team-arcadia.github.io/images/mods/justreplay/curseforge/icons/bolt.png" alt="" width="32"> <span style="color:#f2542d;font-size:18px"><strong>Avec vos mods&nbsp;:</strong></span> Iris, Distant Horizons, Create, Voice Chat, Emotecraft, WaterFrames, Drop the Beam, Immersive Vehicles, More Player Models, Epic Fight, Armourer's Workshop, Custom NPCs, Curios, Trinkets.</p>
 </div>
 
 <div align="center" style="text-align:center">
