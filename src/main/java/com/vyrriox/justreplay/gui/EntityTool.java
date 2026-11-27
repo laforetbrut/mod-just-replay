@@ -32,12 +32,14 @@ import org.lwjgl.glfw.GLFW;
 /**
  * In-world tools of the Entities tab. PICK selects the recorded entity under the crosshair; MOVE drops the
  * selected entity on the block under the crosshair (the wheel turns it, Ctrl snaps to the block center) and
- * writes its offset keyframe at the play head. A click confirms, Esc or the editor key cancels.
+ * writes its offset keyframe at the play head. The Markers tab uses two more: MARK_ENTITY hands over the entity
+ * under the crosshair (recorded or actor), MARK_POINT the point of the block under it. A click confirms, Esc or the
+ * editor key cancels.
  *
  * @author vyrriox
  */
 public final class EntityTool {
-    public enum Mode { PICK, MOVE }
+    public enum Mode { PICK, MOVE, MARK_ENTITY, MARK_POINT }
 
     private static final float STEP = 15.0F;
     private static final float FINE_STEP = 2.0F;
@@ -50,6 +52,10 @@ public final class EntityTool {
     private float turn;
     private Entity target;
     private ActorPlacement.Spot spot;
+    /** MARK_POINT: the point of the block under the crosshair, or null. */
+    private Vec3 point;
+    private java.util.function.Consumer<Entity> onEntity;
+    private java.util.function.Consumer<Vec3> onPoint;
 
     private EntityTool(EditorScreen editor, ReplaySession session, Mode mode) {
         this.editor = editor;
@@ -80,6 +86,36 @@ public final class EntityTool {
         tool.update();
     }
 
+    /**
+     * Starts a marker tool: MARK_ENTITY gives the entity under the crosshair to {@code onEntity}, MARK_POINT the point
+     * of the block under it to {@code onPoint}, once the click confirms; the editor is open again by then.
+     */
+    public static void startMarker(EditorScreen editor, ReplaySession session, Mode mode, java.util.function.Consumer<Entity> onEntity,
+                                   java.util.function.Consumer<Vec3> onPoint) {
+        if (mode != Mode.MARK_ENTITY && mode != Mode.MARK_POINT) {
+            throw new IllegalArgumentException("Not a marker tool: " + mode);
+        }
+        if (active != null) {
+            active.finish();
+        }
+        EntityTool tool = new EntityTool(editor, session, mode);
+        tool.onEntity = onEntity;
+        tool.onPoint = onPoint;
+        active = tool;
+        Minecraft.getInstance().setScreen(null);
+        tool.update();
+    }
+
+    /** Confirms the running tool as a click does (self-test); true when it finished. */
+    public static boolean confirmForTest() {
+        EntityTool tool = active;
+        if (tool == null) {
+            return false;
+        }
+        tool.confirm();
+        return active == null;
+    }
+
     /** Follows the crosshair; called every frame. */
     private void update() {
         if (ReplaySession.current() != session || !ReplaySession.isRunning() || VideoExporter.isActive()) {
@@ -90,6 +126,12 @@ public final class EntityTool {
         if (mode == Mode.PICK) {
             Entity e = SpectateCamera.pick(mc);
             target = e == null || ActorManager.isActorEntity(e) ? null : e;
+        } else if (mode == Mode.MARK_ENTITY) {
+            // Actors can carry a marker too.
+            target = SpectateCamera.pick(mc);
+        } else if (mode == Mode.MARK_POINT) {
+            net.minecraft.world.phys.BlockHitResult hit = ActorPlacement.crosshair(true);
+            point = hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS ? null : hit.getLocation();
         } else {
             target = EntitiesPanel.selectedEntity();
             spot = ActorPlacement.ground(ActorPlacement.crosshair(false), 0.0F, net.minecraft.client.Minecraft.getInstance().hasControlDown());
@@ -98,7 +140,24 @@ public final class EntityTool {
 
     private void confirm() {
         update();
-        if (active != this || target == null) {
+        if (active != this) {
+            return;
+        }
+        if (mode == Mode.MARK_POINT) {
+            Vec3 picked = point;
+            if (picked != null) {
+                finish();
+                onPoint.accept(picked);
+            }
+            return;
+        }
+        if (target == null) {
+            return;
+        }
+        if (mode == Mode.MARK_ENTITY) {
+            Entity picked = target;
+            finish();
+            onEntity.accept(picked);
             return;
         }
         if (mode == Mode.PICK) {
@@ -190,7 +249,7 @@ public final class EntityTool {
     }
 
     public static void onRenderLevel(Camera camera, PoseStack pose) {
-        if (active == null || active.target == null) {
+        if (active == null || active.target == null && active.point == null) {
             return;
         }
         Minecraft mc = Minecraft.getInstance();
@@ -201,9 +260,13 @@ public final class EntityTool {
         pose.translate(-cam.x, -cam.y, -cam.z);
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
         VertexConsumer lines = buffers.getBuffer(RenderTypes.lines());
-        double half = Math.max(0.2, e.getBbWidth() / 2.0);
-        double height = e.getBbHeight();
-        if (tool.mode == Mode.PICK) {
+        double half = e == null ? 0.15 : Math.max(0.2, e.getBbWidth() / 2.0);
+        double height = e == null ? 0.3 : e.getBbHeight();
+        if (tool.mode == Mode.MARK_POINT) {
+            Vec3 p = tool.point;
+            LineBoxes.box(pose, lines, new AABB(p.x - half, p.y - half, p.z - half, p.x + half, p.y + half, p.z + half), 0.3F, 0.82F, 0.88F, 1.0F);
+            LineBoxes.box(pose, lines, new AABB(p.x - 0.02, p.y, p.z - 0.02, p.x + 0.02, p.y + 2.0, p.z + 0.02), 0.3F, 0.82F, 0.88F, 1.0F);
+        } else if (tool.mode == Mode.PICK || tool.mode == Mode.MARK_ENTITY) {
             float partial = mc.getDeltaTracker().getGameTimeDeltaPartialTick(false);
             Vec3 p = e.getPosition(partial);
             double[] o = EntityEdits.offset(e);
@@ -234,17 +297,27 @@ public final class EntityTool {
         int w = g.guiWidth();
         int cx = w / 2;
         int cy = g.guiHeight() / 2;
-        int color = tool.target != null ? Theme.TEXT : Theme.WARNING;
+        boolean found = tool.mode == Mode.MARK_POINT ? tool.point != null : tool.target != null;
+        int color = found ? Theme.TEXT : Theme.WARNING;
         g.fill(cx - 4, cy, cx + 5, cy + 1, color);
         g.fill(cx, cy - 4, cx + 1, cy + 5, color);
-        String name = tool.target == null ? "-" : EntitiesPanel.labelOf(tool.target);
-        Component title = Component.translatable("justreplay.entities.tool." + (tool.mode == Mode.PICK ? "pick" : "move"), name);
-        Component keys = Component.translatable("justreplay.entities.tool.keys." + (tool.mode == Mode.PICK ? "pick" : "move"));
+        String name = tool.mode == Mode.MARK_POINT
+                ? tool.point == null ? "-" : String.format(java.util.Locale.ROOT, "%.1f %.1f %.1f", tool.point.x, tool.point.y, tool.point.z)
+                : tool.target == null ? "-" : EntitiesPanel.labelOf(tool.target);
+        String key = switch (tool.mode) {
+            case PICK -> "justreplay.entities.tool.pick";
+            case MOVE -> "justreplay.entities.tool.move";
+            case MARK_ENTITY -> "justreplay.marker.tool.entity";
+            case MARK_POINT -> "justreplay.marker.tool.point";
+        };
+        Component title = Component.translatable(key, name);
+        Component keys = Component.translatable(tool.mode == Mode.PICK || tool.mode == Mode.MOVE
+                ? key.replace(".tool.", ".tool.keys.") : "justreplay.marker.tool.keys");
         int boxW = Math.min(w - 16, Math.max(font.width(title) + 30, font.width(keys) + 16));
         int bx = (w - boxW) / 2;
         int by = 8;
         Paint.glass(g, bx, by, boxW, 30, Theme.RADIUS_L);
-        Paint.iconOnText(g, tool.mode == Mode.PICK ? Icon.TARGET : Icon.PIN, bx + 8, by + 7, 9, Theme.ACCENT);
+        Paint.iconOnText(g, tool.mode == Mode.PICK || tool.mode == Mode.MARK_ENTITY ? Icon.TARGET : Icon.PIN, bx + 8, by + 7, 9, Theme.ACCENT);
         g.text(font, Paint.ellipsize(font, title.getString(), boxW - 30), bx + 21, by + 7, Theme.TEXT, false);
         g.text(font, Paint.ellipsize(font, keys.getString(), boxW - 16), bx + 8, by + 19, Theme.TEXT_DIM, false);
     }

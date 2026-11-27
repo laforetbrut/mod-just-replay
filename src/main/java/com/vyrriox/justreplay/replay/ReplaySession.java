@@ -91,6 +91,7 @@ public final class ReplaySession {
         } catch (IllegalArgumentException ignored) {
         }
         this.actorUuid = uuid;
+        com.vyrriox.justreplay.client.SkinTextures.lookup(com.vyrriox.justreplay.client.SkinTextures.source(recorderUuid()));
     }
 
     public static ReplaySession current() {
@@ -138,6 +139,22 @@ public final class ReplaySession {
 
     public ReplayMeta meta() {
         return meta;
+    }
+
+    /** The entity standing for the recording player, or null in replays older than the actor. */
+    @javax.annotation.Nullable
+    public UUID actorUuid() {
+        return actorUuid;
+    }
+
+    /** The profile of the recording player, or null when the replay does not say. */
+    @javax.annotation.Nullable
+    public UUID recorderUuid() {
+        try {
+            return meta.recorderUuid == null || meta.recorderUuid.isEmpty() ? null : UUID.fromString(meta.recorderUuid);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     public ReplayProject project() {
