@@ -2,7 +2,7 @@
 
 ## English
 
-Just Replay 1.2.0 runs on nine targets: Minecraft 1.20.1, 1.21.1 and 26.1.2 on NeoForge, Forge and Fabric.
+Just Replay 1.3.0 runs on nine targets: Minecraft 1.20.1, 1.21.1 and 26.1.2 on NeoForge, Forge and Fabric.
 
 ### Status per target
 
@@ -26,7 +26,7 @@ the production jars have not run with it yet.
 | Forge 1.20.1 | Production: GeckoLib, Jade, Entity Culling: run. Curios: run. Development run: Immersive Vehicles: run. More Player Models 1.20.1.20240409: run. | Armourer's Workshop, Custom NPCs, Epic Fight |
 | Fabric 1.20.1 | Development run: Armourer's Workshop 3.4.0-beta.3: loaded, its hidden armor checks run. | Custom NPCs, Entity Culling, GeckoLib, Jade |
 | NeoForge 26.1.2 | Production: GeckoLib, Iris, Sodium, Jade, Entity Culling: run. Development run: Immersive Vehicles: run; Armourer's Workshop 3.4.0-beta.3: loaded, its hidden armor checks run. | None |
-| Fabric 26.1.2 | Production: GeckoLib, Iris, Sodium, Jade, Entity Culling: run. Development run: Armourer's Workshop 3.4.0-beta.3: loaded, its hidden armor checks run. | None |
+| Fabric 26.1.2 | Production: GeckoLib, Iris, Sodium, Jade, Entity Culling: run. Development run: Armourer's Workshop 3.4.0-beta.3: loaded, its hidden armor checks run. Voxy 0.2.18-beta with Sodium 0.9.1: run with its rendering off (see "Voxy"). | None |
 | Forge 26.1.2 | Production: GeckoLib: run. | None |
 
 On 1.20.1 and 26.1.2 the other integrations are removed: they would need rewriting and could not be tested there.
@@ -164,6 +164,28 @@ Big modpacks mix versions nobody tested together, so every integration has a saf
   Run on the nine targets on 2026-11-20: as expected everywhere (one warning per game, the packet counted 6 or 7
   times in the main replay because of its seeks, once in the buffer clip).
 
+### Voxy (checked, no integration)
+
+Voxy (far terrain LODs, Modrinth `voxy`, all rights reserved) only ships Fabric builds. Among the nine targets only
+Fabric 26.1.2 has one: `voxy-0.2.18-beta-26.1.2.jar` (SHA-1 `a84c1bf8affc584b27cec6308ae4ef5d8fe29afb`), which
+needs Sodium 0.9.1 exactly. Its 1.21.x builds are for 1.21.6 to 1.21.11, none for 1.21.1; nothing for Forge or
+NeoForge.
+
+What the jar does, read from its classes: it picks its LOD database when a world is joined, in the world save
+(`saves/<world>/voxy`) for an integrated server, else `.voxy/saves/<server address>`; it feeds every chunk the
+client loads into it (ingest); it carries mixins for Flashback only (it writes its database path into Flashback's
+metadata). A Just Replay replay plays in the throwaway world `justreplay-session`, so Voxy opens a database there,
+fills it from the replayed chunks, and that database goes away with the world. The player's own LODs are never read
+or written during a replay.
+
+Self test on Fabric 26.1.2 with Voxy and Sodium (2026-11-27): with its rendering on, Voxy crashes the client when
+the test world opens, before any recording, because its compute shaders do not compile in the software renderer
+of the test machine (`Shader compilation failed of type COMPUTE`); nothing to do with Just Replay. With
+`enable_rendering` off in `config/voxy-config.json` (ingest still on): 120 PASS, 0 FAIL, Voxy instances opened and
+closed for the test world and for the replay world, which was deleted afterwards. Not exercised: Voxy's LODs drawn
+in a replay or an export (needs a real GPU), and LODs of the recorded world in replays (Voxy has no API for
+another database, unlike Distant Horizons). No defect seen, so no integration.
+
 ### Known limits
 
 - A block changed in the very tick a recording starts in the middle of a session can be missed: the packet is
@@ -291,7 +313,7 @@ in the exported HUD.
 
 ## Français
 
-Just Replay 1.2.0 tourne sur neuf cibles : Minecraft 1.20.1, 1.21.1 et 26.1.2 sur NeoForge, Forge et Fabric.
+Just Replay 1.3.0 tourne sur neuf cibles : Minecraft 1.20.1, 1.21.1 et 26.1.2 sur NeoForge, Forge et Fabric.
 
 ### État par cible
 
@@ -316,7 +338,7 @@ Forge 1.20.1 ; les jars de production n'ont pas encore tourné avec.
 | Forge 1.20.1 | Production : GeckoLib, Jade, Entity Culling : testés. Curios : testé. Développement : Immersive Vehicles : testé. More Player Models 1.20.1.20240409 : testé. | Armourer's Workshop, Custom NPCs, Epic Fight |
 | Fabric 1.20.1 | Développement : Armourer's Workshop 3.4.0-beta.3 : chargé, ses vérifications d'armure masquée tournent. | Custom NPCs, Entity Culling, GeckoLib, Jade |
 | NeoForge 26.1.2 | Production : GeckoLib, Iris, Sodium, Jade, Entity Culling : testés. Développement : Immersive Vehicles : testé ; Armourer's Workshop 3.4.0-beta.3 : chargé, ses vérifications d'armure masquée tournent. | Aucune |
-| Fabric 26.1.2 | Production : GeckoLib, Iris, Sodium, Jade, Entity Culling : testés. Développement : Armourer's Workshop 3.4.0-beta.3 : chargé, ses vérifications d'armure masquée tournent. | Aucune |
+| Fabric 26.1.2 | Production : GeckoLib, Iris, Sodium, Jade, Entity Culling : testés. Développement : Armourer's Workshop 3.4.0-beta.3 : chargé, ses vérifications d'armure masquée tournent. Voxy 0.2.18-beta avec Sodium 0.9.1 : testé avec son rendu coupé (voir « Voxy »). | Aucune |
 | Forge 26.1.2 | Production : GeckoLib : testé. | Aucune |
 
 En 1.20.1 et 26.1.2, les autres intégrations sont retirées : il faudrait les réécrire et elles n'étaient pas testables.
@@ -615,6 +637,29 @@ Les gros modpacks mélangent des versions que personne n'a testées ensemble, al
   ligne de démarrage, `packet #16383 could not be read` dans la ligne `Replay: N packets skipped (...)`, et le replay
   continue. Passé sur les neuf cibles le 2026-11-20 : conforme partout (un avertissement par jeu, le paquet compté 6
   ou 7 fois dans le replay principal à cause de ses sauts, une fois dans le clip du tampon).
+
+### Voxy (vérifié, sans intégration)
+
+Voxy (terrain lointain en LOD, Modrinth `voxy`, tous droits réservés) ne publie que pour Fabric. Parmi les neuf
+cibles, seule Fabric 26.1.2 a un build : `voxy-0.2.18-beta-26.1.2.jar` (SHA-1
+`a84c1bf8affc584b27cec6308ae4ef5d8fe29afb`), qui exige exactement Sodium 0.9.1. Ses builds 1.21.x vont de 1.21.6 à
+1.21.11, aucun pour 1.21.1 ; rien pour Forge ni NeoForge.
+
+Ce que fait le jar, lu dans ses classes : il choisit sa base de LOD à l'entrée dans un monde, dans la sauvegarde
+(`saves/<monde>/voxy`) pour un serveur intégré, sinon `.voxy/saves/<adresse du serveur>` ; il y verse chaque chunk
+chargé par le client (ingestion) ; ses seuls mixins vers un mod de replay visent Flashback (il écrit le chemin de sa
+base dans les métadonnées de Flashback). Un replay de Just Replay se joue dans le monde jetable `justreplay-session` :
+Voxy y ouvre une base, la remplit avec les chunks rejoués, et cette base disparaît avec le monde. Les LOD du joueur ne
+sont jamais lus ni écrits pendant un replay.
+
+Self test sur Fabric 26.1.2 avec Voxy et Sodium (27/11/2026) : rendu actif, Voxy fait planter le client à
+l'ouverture du monde de test, avant tout enregistrement, car ses shaders de calcul ne compilent pas avec le rendu
+logiciel de la machine de test (`Shader compilation failed of type COMPUTE`) ; Just Replay n'y est pour rien. Avec
+`enable_rendering` coupé dans `config/voxy-config.json` (ingestion toujours active) : 120 PASS, 0 FAIL, instances de
+Voxy ouvertes et fermées pour le monde de test et pour le monde du replay, supprimé ensuite. Non exercé : les LOD de
+Voxy dessinés dans un replay ou un export (il faut un vrai GPU), et les LOD du monde enregistré dans les replays
+(Voxy n'a pas d'API pour une autre base, contrairement à Distant Horizons). Aucun défaut constaté, donc pas
+d'intégration.
 
 ### Limites connues
 
