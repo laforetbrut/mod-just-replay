@@ -1,0 +1,165 @@
+package com.vyrriox.justreplay.mcp;
+
+import com.vyrriox.justreplay.editor.Marker;
+import com.vyrriox.justreplay.editor.ReplayProject;
+import com.vyrriox.justreplay.format.ReplayMeta;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.nio.file.Path;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * The checks of the in-game self test, against a real server and a fake game: all pass on a working server, and a
+ * wrong answer turns its line to FAIL.
+ *
+ * @author vyrriox
+ */
+@Timeout(value = 60, unit = TimeUnit.SECONDS)
+class McpProbeTest {
+    @TempDir
+    Path root;
+
+    private final GameThreadQueue queue = new GameThreadQueue(8);
+    private McpHttpServer server;
+    private Thread game;
+    private volatile boolean running = true;
+    private Marker moment;
+    private final String token = McpToken.generate();
+
+    @BeforeEach
+    void start() throws Exception {
+        ReplayProject project = new ReplayProject();
+        moment = project.addMarker(Marker.instant(30, "SelfTest moment"));
+        moment.note = "Wide shot of the build,\nthen cut to the player";
+        project.addMarker(Marker.range(20, 80, 300, "SelfTest stretch"));
+        project.normalize();
+        McpState state = new McpState();
+        state.replay.open = true;
+        state.replay.replayId = "replay-1";
+        state.replay.tick = 40;
+        McpGame.OpenReplay open = new McpGame.OpenReplay("replay-1", new ReplayMeta(), project, 40, 300);
+        McpGame fake = new McpGame() {
+            @Override
+            public McpState state() {
+                return state;
+            }
+
+            @Override
+            public OpenReplay openReplay() {
+                return open;
+            }
+
+            @Override
+            public Path replaysRoot() {
+                return root;
+            }
+        };
+        McpRegistry registry = McpReadTools.registry(fake);
+        FakeObserver observer = new FakeObserver();
+        McpObserveTools.register(registry, observer);
+        McpControlTools.register(registry, fake, observer, new FakeControl(observer, root, root.resolve("exports")));
+        McpProtocol protocol = new McpProtocol(registry, queue,
+                new McpProtocol.Info("justreplay", "Just Replay", "1.2.0", McpReadTools.INSTRUCTIONS), () -> 5000L);
+        server = new McpHttpServer(protocol, token, List::of);
+        server.start(0);
+        game = new Thread(() -> {
+            while (running) {
+                queue.runPending(5_000_000L);
+                try {
+                    Thread.sleep(5);
+                } catch (InterruptedException e) {
+                    return;
+                }
+            }
+        }, "fake game thread");
+        game.setDaemon(true);
+        game.start();
+    }
+
+    @AfterEach
+    void stop() {
+        server.stop();
+        running = false;
+        game.interrupt();
+    }
+
+    @Test
+    void everyCheckPassesOnAWorkingServer() throws Exception {
+        List<String> lines = McpProbe.start(server.port(), token,
+                new McpProbe.Expect("replay-1", 2, moment.id, moment.name, moment.note)).get(60, TimeUnit.SECONDS);
+        assertEquals(10, lines.size(), lines.toString());
+        for (String line : lines) {
+            assertTrue(line.endsWith("-> OK"), line);
+        }
+    }
+
+    @Test
+    void observationChecksPassAndTheirPicturesDecode() throws Exception {
+        McpProbe.Observation o = McpProbe.observe(server.port(), token,
+                new McpProbe.Look(100, List.of("minecraft:pig", "minecraft:villager"), true, 320, 180)).get(60, TimeUnit.SECONDS);
+        assertEquals(10, o.lines().size(), o.lines().toString());
+        for (String line : o.lines()) {
+            assertTrue(line.endsWith("-> OK"), line);
+        }
+        assertEquals(3, o.pictures().size());
+        for (McpProbe.Picture p : o.pictures()) {
+            java.awt.image.BufferedImage image = javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(p.data()));
+            assertEquals(p.width(), image.getWidth(), p.label());
+            assertEquals(p.height(), image.getHeight(), p.label());
+        }
+        assertEquals(256, o.pictures().get(1).width());
+    }
+
+    @Test
+    void aMissingEntityFailsItsCheck() throws Exception {
+        McpProbe.Observation o = McpProbe.observe(server.port(), token,
+                new McpProbe.Look(100, List.of("minecraft:pig", "minecraft:wither"), true, 320, 180)).get(60, TimeUnit.SECONDS);
+        assertTrue(o.lines().get(0).contains("minecraft:wither x0") && o.lines().get(0).endsWith("-> FAIL"), o.lines().get(0));
+        // A tick past the end fails every check that asks for it.
+        McpProbe.Observation late = McpProbe.observe(server.port(), token,
+                new McpProbe.Look(5000, List.of("minecraft:pig"), true, 320, 180)).get(60, TimeUnit.SECONDS);
+        assertTrue(late.lines().stream().filter(l -> l.endsWith("-> FAIL")).count() >= 8, late.lines().toString());
+    }
+
+    @Test
+    void itemsTheRecordingPlayerWearsAreChecked() throws Exception {
+        McpProbe.Observation o = McpProbe.observe(server.port(), token, new McpProbe.Look(100, List.of("minecraft:pig"), true,
+                320, 180, List.of("minecraft:diamond_sword"))).get(60, TimeUnit.SECONDS);
+        assertEquals(11, o.lines().size(), o.lines().toString());
+        String worn = o.lines().get(1);
+        assertTrue(worn.startsWith("mcp list_entities items worn by the recording player: [mainhand=minecraft:diamond_sword]")
+                && worn.endsWith("-> OK"), worn);
+        McpProbe.Observation missing = McpProbe.observe(server.port(), token, new McpProbe.Look(100, List.of("minecraft:pig"), true,
+                320, 180, List.of("minecraft:diamond_sword", "minecraft:elytra"))).get(60, TimeUnit.SECONDS);
+        assertTrue(missing.lines().get(1).contains("missing [minecraft:elytra]") && missing.lines().get(1).endsWith("-> FAIL"),
+                missing.lines().get(1));
+        McpProbe.Observation slot = McpProbe.observe(server.port(), token, new McpProbe.Look(100, List.of("minecraft:pig"), true,
+                320, 180, List.of("mainhand=minecraft:diamond_sword"))).get(60, TimeUnit.SECONDS);
+        assertTrue(slot.lines().get(1).endsWith("-> OK"), slot.lines().get(1));
+        McpProbe.Observation otherSlot = McpProbe.observe(server.port(), token, new McpProbe.Look(100, List.of("minecraft:pig"), true,
+                320, 180, List.of("offhand=minecraft:diamond_sword"))).get(60, TimeUnit.SECONDS);
+        assertTrue(otherSlot.lines().get(1).contains("missing [offhand=minecraft:diamond_sword]")
+                && otherSlot.lines().get(1).endsWith("-> FAIL"), otherSlot.lines().get(1));
+    }
+
+    @Test
+    void aWrongAnswerFails() throws Exception {
+        List<String> lines = McpProbe.start(server.port(), token,
+                new McpProbe.Expect("replay-1", 3, moment.id, moment.name, "another note")).get(60, TimeUnit.SECONDS);
+        long failed = lines.stream().filter(l -> l.endsWith("-> FAIL")).count();
+        assertEquals(3, failed, lines.toString());
+        assertTrue(lines.stream().anyMatch(l -> l.startsWith("mcp tools/list") && l.endsWith("-> OK")));
+
+        List<String> wrongToken = McpProbe.start(server.port(), McpToken.generate(),
+                new McpProbe.Expect("replay-1", 2, moment.id, moment.name, moment.note)).get(60, TimeUnit.SECONDS);
+        assertTrue(wrongToken.get(0).endsWith("-> FAIL"), wrongToken.get(0));
+    }
+}

@@ -1,6 +1,6 @@
 package com.vyrriox.justreplay.format;
 
-import com.vyrriox.justreplay.JustReplay;
+import com.vyrriox.justreplay.JustReplayCore;
 
 import java.io.IOException;
 import java.nio.file.FileAlreadyExistsException;
@@ -57,7 +57,7 @@ public final class ReplayRename {
             moved = move(dir, folder);
         } catch (InvalidPathException refused) {
             // A Linux game whose file name encoding cannot store the name: plain ASCII then.
-            JustReplay.LOGGER.warn("The file system refuses the replay folder name '{}', using an ASCII one: {}", folder, refused.getMessage());
+            JustReplayCore.LOGGER.warn("The file system refuses the replay folder name '{}', using an ASCII one: {}", folder, refused.getMessage());
             folder = ReplayNames.asciiFolderName(name);
             try {
                 moved = move(dir, folder);
@@ -102,7 +102,7 @@ public final class ReplayRename {
                 // Taken between the check and the move: the next attempt picks the next free name.
             } catch (IOException e) {
                 if (attempt == ATTEMPTS) {
-                    JustReplay.LOGGER.warn("Cannot rename the replay folder {} to {}: {}", dir, free, e.toString());
+                    JustReplayCore.LOGGER.warn("Cannot rename the replay folder {} to {}: {}", dir, free, e.toString());
                     return null;
                 }
                 try {

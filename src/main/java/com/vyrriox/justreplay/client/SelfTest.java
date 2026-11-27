@@ -41,6 +41,11 @@ public final class SelfTest {
     private static final String WORLD = "justreplay-selftest";
 
     private static int step;
+
+    /** Whether this game runs the self test. */
+    public static boolean isEnabled() {
+        return ENABLED;
+    }
     private static Entity hiddenMob;
     /** The slow motion export of the speed track check. */
     private static VideoExporter slowExport;
@@ -52,6 +57,7 @@ public final class SelfTest {
     private static int armorLayerSkippedBefore;
     private static int wait;
     private static int settle;
+    private static int backSeekWaits;
     private static int speedStart;
     private static Path replay;
     /** File the export step writes: its name carries the exported range unless the config keeps the old names. */
@@ -77,6 +83,14 @@ public final class SelfTest {
     private static boolean vehiclePlacedLive;
     /** The recording's first steps ran: the walking step may start a tick or two after recording tick 5. */
     private static boolean startPlaced;
+    private static int recIndicatorStage;
+    /** Checkpoint ticks of the main recording. */
+    private static int[] recordedCheckpoints = new int[0];
+    private static int recFramesMark;
+    private static int recTickMark;
+    private static boolean recIndicatorWas;
+    private static com.vyrriox.justreplay.gui.ScrubScreen scrub;
+    private static int scrubWaits;
     private static int cullSkipped;
     /** Sounds the recording player made itself, heard again while the replay plays (see recordLocalEffect). */
     private static int localBell;
@@ -151,6 +165,35 @@ public final class SelfTest {
     private static final double[] exportClockIris = new double[2];
     private static int galleryIndex;
     private static String galleryName = "";
+    /** Marker renderer counters (level renders, frames with markers, frames an export refused) at a step's start. */
+    private static long[] markerCounters = new long[3];
+    /** MCP server check: its port, the settings to put back after the run, the HTTP checks running off this thread. */
+    private static int mcpPort = -1;
+    private static boolean mcpSaved;
+    private static boolean mcpWasEnabled;
+    private static int mcpOldPort;
+    private static String mcpOldToken = "";
+    private static java.util.concurrent.CompletableFuture<java.util.List<String>> mcpChecks;
+    private static long mcpBadgeBefore;
+    private static boolean mcpListeningAtExport;
+    private static long mcpBadgeExportStart;
+    private static long mcpBadgeExportLast;
+    /** Tick the MCP observation checks look at: the recording player walks there, the villager and the actors are around. */
+    private static final int MCP_OBSERVE_TICK = 60;
+    /** Latest recording tick the stop waits until, for the slow checkpoint to reach the recording's folder. */
+    private static final int CHECKPOINT_WAIT_END = 600;
+    private static java.util.concurrent.CompletableFuture<com.vyrriox.justreplay.mcp.McpProbe.Observation> mcpObserve;
+    /** MCP control checks: the probe driving the buffer clip through MCP only, the markers it must find, a wait count. */
+    private static java.util.concurrent.CompletableFuture<com.vyrriox.justreplay.mcp.McpProbe.Steering> mcpSteer;
+    private static int mcpSteerMarkers;
+    private static int mcpSteerWait;
+    /** Tick the control checks go to in the buffer clip, with room for their export of 100 ticks after it. */
+    private static final int MCP_STEER_TICK = 100;
+    private static int mcpObserveCursor;
+    private static net.minecraft.client.gui.screens.Screen mcpObserveScreen;
+    private static long mcpGrabsBefore;
+    private static long[] markerExportStart = new long[3];
+    private static long[] markerExportLast = new long[3];
     /** Export settings and editor mode of the user, saved at the start and put back at the end of the test. */
     private static int savedCrf = -1;
     private static int savedFps;
@@ -264,6 +307,15 @@ public final class SelfTest {
                 && !(mc.screen instanceof net.minecraft.client.gui.screens.LevelLoadingScreen);
     }
 
+    /**
+     * Tick the MCP control checks go to: 100, or earlier in a short buffer clip, so that the export of 100 ticks they
+     * start after it stays inside the clip.
+     */
+    private static int steerTick(java.nio.file.Path clip) {
+        int duration = ReplayStorage.readMeta(clip).durationTicks;
+        return Math.max(1, Math.min(MCP_STEER_TICK, duration - 101));
+    }
+
     private static void next(int delay) {
         step++;
         wait = delay;
@@ -287,6 +339,7 @@ public final class SelfTest {
     }
 
     private static void restoreUserConfig() {
+        restoreMcpConfig();
         if (savedCrf < 0) {
             return;
         }
@@ -296,6 +349,36 @@ public final class SelfTest {
         com.vyrriox.justreplay.config.JRConfig.EDITOR_MODE.set(savedMode);
         com.vyrriox.justreplay.config.JRConfig.SPEC.save();
         log("restored user export settings: {} fps, CRF {}, {}", savedFps, savedCrf, savedResolution);
+    }
+
+    /** Puts back the MCP settings the run changed: the server goes back off unless the user had it on. */
+    private static void restoreMcpConfig() {
+        if (!mcpSaved) {
+            return;
+        }
+        mcpSaved = false;
+        com.vyrriox.justreplay.config.JRConfig.SPEC.batch(() -> {
+            com.vyrriox.justreplay.config.JRConfig.MCP.enabled.set(mcpWasEnabled);
+            com.vyrriox.justreplay.config.JRConfig.MCP.port.set(mcpOldPort);
+            com.vyrriox.justreplay.config.JRConfig.MCP.token.set(mcpOldToken);
+        });
+        log("restored the MCP settings: server {}", mcpWasEnabled ? "on" : "off");
+    }
+
+    /** A port of 127.0.0.1 nothing listens on right now. */
+    private static int freeLocalPort() throws java.io.IOException {
+        try (java.net.ServerSocket socket = new java.net.ServerSocket(0, 1, java.net.InetAddress.getByName("127.0.0.1"))) {
+            return socket.getLocalPort();
+        }
+    }
+
+    private static boolean localPortOpen(int port) {
+        try (java.net.Socket socket = new java.net.Socket()) {
+            socket.connect(new java.net.InetSocketAddress("127.0.0.1", port), 500);
+            return true;
+        } catch (java.io.IOException e) {
+            return false;
+        }
     }
 
     /** Ends the run: a failed test quits with its reason in the log, it never leaves the game idle. */
@@ -394,6 +477,105 @@ public final class SelfTest {
         log("export window capture with the veil taken={} -> {}", veilShot, veilShot ? "OK" : "FAIL");
     }
 
+    /** Decodes a picture the MCP tools sent with the game's own image library (stb_image) and keeps it for a look. */
+    private static void checkMcpPicture(Minecraft mc, com.vyrriox.justreplay.mcp.McpProbe.Picture picture) {
+        int[] size = null;
+        double spread = 0.0;
+        java.nio.ByteBuffer encoded = org.lwjgl.system.MemoryUtil.memAlloc(picture.data().length);
+        try (org.lwjgl.system.MemoryStack stack = org.lwjgl.system.MemoryStack.stackPush()) {
+            encoded.put(picture.data()).flip();
+            java.nio.IntBuffer w = stack.mallocInt(1);
+            java.nio.IntBuffer h = stack.mallocInt(1);
+            java.nio.IntBuffer channels = stack.mallocInt(1);
+            java.nio.ByteBuffer pixels = org.lwjgl.stb.STBImage.stbi_load_from_memory(encoded, w, h, channels, 3);
+            if (pixels != null) {
+                size = new int[]{w.get(0), h.get(0)};
+                // A picture with nothing on it (all black, one flat colour) has no spread of brightness.
+                double sum = 0.0;
+                double squares = 0.0;
+                int n = size[0] * size[1];
+                for (int i = 0; i < n; i++) {
+                    double luma = 0.299 * (pixels.get(i * 3) & 0xFF) + 0.587 * (pixels.get(i * 3 + 1) & 0xFF) + 0.114 * (pixels.get(i * 3 + 2) & 0xFF);
+                    sum += luma;
+                    squares += luma * luma;
+                }
+                double mean = sum / n;
+                spread = Math.sqrt(Math.max(0.0, squares / n - mean * mean));
+                org.lwjgl.stb.STBImage.stbi_image_free(pixels);
+            }
+        } finally {
+            org.lwjgl.system.MemoryUtil.memFree(encoded);
+        }
+        boolean png = picture.data().length > 0 && (picture.data()[0] & 0xFF) == 0x89;
+        String file = "selftest-mcp-" + picture.label().replace(' ', '-') + (png ? ".png" : ".jpg");
+        try {
+            Path dir = mc.gameDirectory.toPath().resolve("screenshots");
+            Files.createDirectories(dir);
+            Files.write(dir.resolve(file), picture.data());
+        } catch (java.io.IOException e) {
+            log("mcp picture {} could not be saved: {}", file, e.toString());
+        }
+        boolean right = size != null && size[0] == picture.width() && size[1] == picture.height();
+        log("mcp {} decodes with the game's image library at {} (asked {}x{}), brightness spread {}, saved as {} -> {}", picture.label(),
+                size == null ? "nothing (" + org.lwjgl.stb.STBImage.stbi_failure_reason() + ")" : size[0] + "x" + size[1], picture.width(),
+                picture.height(), String.format(java.util.Locale.ROOT, "%.1f", spread), file, right && spread > 3.0 ? "OK" : "FAIL");
+    }
+
+    /** The camera math of the MCP tools against the game's own camera vectors: the look point is the centre, up is up. */
+    private static void checkMcpCameraMath(Minecraft mc) {
+        net.minecraft.client.Camera camera = mc.gameRenderer.getMainCamera();
+        com.vyrriox.justreplay.mcp.McpCamera c = com.vyrriox.justreplay.export.FrameGrab.camera(mc, "current");
+        org.joml.Vector3fc look = camera.forwardVector();
+        org.joml.Vector3fc up = camera.upVector();
+        org.joml.Vector3fc left = camera.leftVector();
+        double[] forward = c.forward();
+        double dot = forward[0] * look.x() + forward[1] * look.y() + forward[2] * look.z();
+        int w = 640;
+        int h = 360;
+        com.vyrriox.justreplay.mcp.McpCamera.Projection centre = c.project(c.x() + 10 * look.x(), c.y() + 10 * look.y(), c.z() + 10 * look.z(), w, h);
+        com.vyrriox.justreplay.mcp.McpCamera.Projection above = c.project(c.x() + 10 * look.x() + up.x(), c.y() + 10 * look.y() + up.y(),
+                c.z() + 10 * look.z() + up.z(), w, h);
+        com.vyrriox.justreplay.mcp.McpCamera.Projection toLeft = c.project(c.x() + 10 * look.x() + left.x(), c.y() + 10 * look.y() + left.y(),
+                c.z() + 10 * look.z() + left.z(), w, h);
+        boolean ok = dot > 0.9999 && Math.abs(centre.screenX() - w / 2.0) < 0.5 && Math.abs(centre.screenY() - h / 2.0) < 0.5
+                && above.screenY() < h / 2.0 - 1 && Math.abs(above.screenX() - w / 2.0) < 0.5 && toLeft.screenX() < w / 2.0 - 1
+                && Math.abs(toLeft.screenY() - h / 2.0) < 0.5;
+        log("mcp camera math matches the game's camera (yaw {}, pitch {}, roll {}): look dot {}, look point at {},{}, up at y {}, left at x {} -> {}",
+                String.format(java.util.Locale.ROOT, "%.1f", c.yaw()), String.format(java.util.Locale.ROOT, "%.1f", c.pitch()), c.roll(),
+                String.format(java.util.Locale.ROOT, "%.6f", dot), String.format(java.util.Locale.ROOT, "%.2f", centre.screenX()),
+                String.format(java.util.Locale.ROOT, "%.2f", centre.screenY()), String.format(java.util.Locale.ROOT, "%.1f", above.screenY()),
+                String.format(java.util.Locale.ROOT, "%.1f", toLeft.screenX()), ok ? "OK" : "FAIL");
+    }
+
+    /** The REC pill switched off mid recording: no frame draws it and the recording goes on; back on, it shows again. */
+    private static void checkRecIndicator(Minecraft mc, int t) {
+        var setting = com.vyrriox.justreplay.config.JRConfig.SHOW_RECORDING_INDICATOR;
+        if (recIndicatorStage == 0 && t >= 30) {
+            recIndicatorStage = 1;
+            recIndicatorWas = setting.get();
+            setting.set(false);
+        } else if (recIndicatorStage == 1 && t >= 32) {
+            // Counted from one tick after the switch: the frame being drawn when it flipped may still show it.
+            recIndicatorStage = 2;
+            recFramesMark = com.vyrriox.justreplay.gui.ReplayHud.recFrames();
+            recTickMark = t;
+        } else if (recIndicatorStage == 2 && t >= 40) {
+            recIndicatorStage = 3;
+            int drawn = com.vyrriox.justreplay.gui.ReplayHud.recFrames() - recFramesMark;
+            shot(mc, "rec-indicator-hidden");
+            log("REC indicator off while recording: drawn on {} frames, recording went on {} ticks -> {}", drawn, t - recTickMark,
+                    drawn == 0 && t > recTickMark && Recorder.active() != null ? "OK" : "FAIL");
+            setting.set(true);
+            recFramesMark = com.vyrriox.justreplay.gui.ReplayHud.recFrames();
+        } else if (recIndicatorStage == 3 && t >= 46) {
+            recIndicatorStage = 4;
+            int drawn = com.vyrriox.justreplay.gui.ReplayHud.recFrames() - recFramesMark;
+            shot(mc, "rec-indicator-shown");
+            log("REC indicator back on: drawn on {} frames -> {}", drawn, drawn > 0 ? "OK" : "FAIL");
+            setting.set(recIndicatorWas);
+        }
+    }
+
     private static void shot(Minecraft mc, String name) {
         Screenshot.grab(mc.gameDirectory, "selftest-" + name + ".png", mc.getMainRenderTarget(), 1, c -> log("screenshot {}", name));
     }
@@ -402,6 +584,7 @@ public final class SelfTest {
         if (!ENABLED) {
             return;
         }
+        SelfTestSkin.tick(mc);
         // The test must not stop when the window loses focus.
         mc.options.pauseOnLostFocus = false;
         if (mc.screen instanceof net.minecraft.client.gui.screens.PauseScreen) {
@@ -504,6 +687,7 @@ public final class SelfTest {
             case 3 -> {
                 // Walk in a circle for ~10 seconds, jumping and swinging.
                 int t = Recorder.active() != null ? Recorder.active().tick() : 0;
+                checkRecIndicator(mc, t);
                 // With Emotecraft the player stands still from tick 40 to 100 to wave (moving stops an emote).
                 boolean emoting = Mods.loaded("emotecraft") && t >= 40 && t < 100;
                 if (t >= 5 && !startPlaced) {
@@ -567,6 +751,7 @@ public final class SelfTest {
                     log("recording cost: {}", Recorder.capturing().lastCost());
                 }
                 if (t == 10 && Recorder.capturing() != null) {
+                    // Built under forced slow frames and kept by the recording: the checkpoint seek below restores it.
                     Recorder.capturing().startSlowCheckpointTest();
                 }
                 if (t >= 200 && clipSave == null) {
@@ -576,15 +761,19 @@ public final class SelfTest {
                         clipSave = java.util.concurrent.CompletableFuture.failedFuture(new IllegalStateException("no buffer"));
                     }
                 }
-                if (t >= 200 && clipSave.isDone()) {
+                if (t >= 200 && clipSave.isDone() && (checkpointWritten() || t >= CHECKPOINT_WAIT_END)) {
                     verifyClip(mc);
                     int slowTicks = Recorder.capturing() != null ? Recorder.capturing().slowCheckpointTicks() : -1;
-                    log("checkpoint under forced slow frames: {} ({} ticks)", slowTicks >= 0 ? "PASS" : "FAIL", slowTicks);
+                    log("checkpoint under forced slow frames: {} ({} ticks, recording stopped at tick {})",
+                            slowTicks >= 0 ? "PASS" : "FAIL", slowTicks, t);
                     replay = Recorder.stop();
+                    int[] checkpoints = com.vyrriox.justreplay.format.Checkpoints.list(replay);
+                    recordedCheckpoints = checkpoints;
                     log("record stopped: {} packets={} stream={} bytes checkpoints={} bytes in {} files", replay,
                             ReplayStorage.readStream(replay).size(), Files.size(replay.resolve(ReplayStorage.STREAM)),
-                            folderSize(replay.resolve(com.vyrriox.justreplay.format.Checkpoints.FOLDER)),
-                            com.vyrriox.justreplay.format.Checkpoints.list(replay).length);
+                            folderSize(replay.resolve(com.vyrriox.justreplay.format.Checkpoints.FOLDER)), checkpoints.length);
+                    log("recording checkpoints at ticks {} -> {}", java.util.Arrays.toString(checkpoints),
+                            checkpoints.length > 0 ? "OK" : "FAIL");
                     Mods.logParkourCombat("recorded");
                     mc.level.disconnect(net.minecraft.network.chat.Component.empty());
                     mc.disconnect(new TitleScreen(), false);
@@ -612,6 +801,8 @@ public final class SelfTest {
                 logWorld(mc, s, "playing");
                 log("mods while playing: {}", Mods.state(mc, s));
                 Mods.checkCurios(mc, s, "at start");
+                SelfTestSkin.check(mc, s, "at start");
+                SelfTestSkin.checkRepair(mc, s);
                 Mods.checkJadeAircraft(mc, "at start");
                 Mods.checkVehicles(mc, "at start");
                 Mods.checkImmersivePaintings("at start");
@@ -641,6 +832,51 @@ public final class SelfTest {
                     // The mod's toggle key, simulated: the next ticks must switch it off again.
                     com.vyrriox.justreplay.compat.EntityCullingCompat.setEnabled(true);
                 }
+                // The scrub key frees the mouse over the timeline, out of the editor: a click there moves the play head.
+                scrub = new com.vyrriox.justreplay.gui.ScrubScreen(s);
+                mc.setScreen(scrub);
+                scrubWaits = 0;
+                go(112, 2);
+            }
+            case 112 -> {
+                ReplaySession s = ReplaySession.current();
+                int w = com.vyrriox.justreplay.gui.ReplayHud.barWidth();
+                if (w <= 0 && ++scrubWaits < 100) {
+                    wait = 2;
+                    return;
+                }
+                int duration = s.playback().duration();
+                int from = s.playback().cursor();
+                int x = com.vyrriox.justreplay.gui.Timeline.xOf(150, com.vyrriox.justreplay.gui.ReplayHud.barX(), w, duration);
+                scrub.seekAt(x);
+                int now = s.playback().cursor();
+                double pixel = (double) duration / Math.max(1, w - 1);
+                boolean open = mc.screen == scrub;
+                log("scrub: timeline under a free mouse (screen open={}, bar {} px), click at x={} moved the play head {} -> {} (target 150, one pixel = {} ticks) -> {}",
+                        open, w, x, from, now, String.format(java.util.Locale.ROOT, "%.1f", pixel),
+                        open && w > 0 && Math.abs(now - 150) <= pixel + 1 ? "OK" : "FAIL");
+                go(113, 3);
+            }
+            case 113 -> {
+                shot(mc, "1d-scrub");
+                mc.setScreen(null);
+                go(114, 3);
+            }
+            case 114 -> {
+                // The recording player's actor, paused and seen from the front: its own skin, not Steve's.
+                ReplaySession s = ReplaySession.current();
+                s.playback().setPaused(true);
+                SelfTestSkin.face(mc, s);
+                go(115, 5);
+            }
+            case 115 -> {
+                if (SelfTestSkin.faced()) {
+                    shot(mc, "1e-actor-skin");
+                }
+                SelfTestSkin.restore(mc);
+                ReplaySession s = ReplaySession.current();
+                s.playback().setPaused(false);
+                // The checks after the forward seek read the world at tick 150 exactly.
                 s.playback().seek(150);
                 go(61, 3);
             }
@@ -657,6 +893,7 @@ public final class SelfTest {
                 logWorld(mc, s, "after forward seek");
                 log("mods after forward seek: {}", Mods.state(mc, s));
                 Mods.checkCurios(mc, s, "after forward seek");
+                SelfTestSkin.check(mc, s, "after forward seek");
                 Mods.checkImmersivePaintings("after forward seek");
                 Mods.checkCulling("after a toggle key press", false);
                 Mods.checkCullingEntities(mc);
@@ -670,8 +907,15 @@ public final class SelfTest {
             }
             case 9 -> {
                 ReplaySession s = ReplaySession.current();
+                // In a big pack a resource reload holds the game for a while after the jump back: the checks below
+                // expect the replay playing on from tick 20, so wait for it to move (two minutes at most).
+                if (s != null && s.playback().cursor() <= 20 && ++backSeekWaits < 480) {
+                    wait = 5;
+                    return;
+                }
                 logWorld(mc, s, "after backward seek");
                 Mods.checkCurios(mc, s, "after backward seek");
+                SelfTestSkin.check(mc, s, "after backward seek");
                 Mods.checkJadeAircraft(mc, "after backward seek");
                 Mods.checkVehicles(mc, "after backward seek");
                 checkForcedFailureDuringReplay(s);
@@ -694,9 +938,15 @@ public final class SelfTest {
                 checkClockRise("speed", s.playback().cursor() - speedStart, clockStartStep, Math.max(1, s.playback().lastStep()),
                         clockGecko, geckoClock(), clockIris, irisClock());
                 s.playback().resetSpeed();
+                // Back to 130, or just after the checkpoint when a slow run (a modpack) built it later than that.
+                int back = recordedCheckpoints.length > 0 && recordedCheckpoints[0] > 120 && recordedCheckpoints[0] < 180
+                        ? recordedCheckpoints[0] + 10 : 130;
                 s.playback().seek(190);
-                s.playback().seek(130);
-                logWorld(mc, s, "after checkpoint seek to 130");
+                s.playback().seek(back);
+                int restored = s.playback().lastSeekCheckpoint();
+                log("checkpoint seek 190 -> {} from {} -> {}", back, restored >= 0 ? "the checkpoint at " + restored : "the start",
+                        restored >= 0 ? "OK" : "FAIL");
+                logWorld(mc, s, "after the checkpoint seek");
                 s.playback().seek(20);
                 s.jumpToRecorder(mc);
                 Vec3 c = p.position();
@@ -1020,19 +1270,21 @@ public final class SelfTest {
                 // Entity edits: hide one recorded living entity, move another (the recording player counts), and check
                 // render and sound gains.
                 ReplaySession s = ReplaySession.current();
-                hiddenMob = null;
-                movedMob = null;
+                // The two closest to the camera, in front of it first: the first ones of the level's list may stand
+                // far away or behind the camera and never be drawn in the frames the check counts.
+                java.util.List<Entity> living = new java.util.ArrayList<>();
                 for (Entity e : mc.level.entitiesForRendering()) {
                     if (e == mc.player || com.vyrriox.justreplay.editor.ActorManager.isActorEntity(e)
                             || !(e instanceof net.minecraft.world.entity.LivingEntity)) {
                         continue;
                     }
-                    if (hiddenMob == null) {
-                        hiddenMob = e;
-                    } else if (movedMob == null) {
-                        movedMob = e;
-                    }
+                    living.add(e);
                 }
+                Vec3 eye = mc.player.getEyePosition();
+                Vec3 look = mc.player.getViewVector(1.0F);
+                living.sort(java.util.Comparator.comparingDouble(e -> viewScore(eye, look, e)));
+                hiddenMob = living.isEmpty() ? null : living.get(0);
+                movedMob = living.size() < 2 ? null : living.get(1);
                 skippedBefore = com.vyrriox.justreplay.editor.EntityEdits.skippedRenders();
                 offsetBefore = com.vyrriox.justreplay.editor.EntityEdits.offsetRenders();
                 if (hiddenMob != null) {
@@ -1089,6 +1341,187 @@ public final class SelfTest {
                 s.project().entityEdits.clear();
                 hiddenMob = null;
                 movedMob = null;
+                go(90, 5);
+            }
+            case 90 -> {
+                // Markers: three made with the model, one pinned in the world by the Spot tool of the Markers tab.
+                ReplaySession s = ReplaySession.current();
+                s.playback().setPaused(true);
+                s.setCameraPath(false);
+                s.playback().seek(40);
+                int duration = s.playback().duration();
+                com.vyrriox.justreplay.editor.Marker moment = s.project().addMarker(com.vyrriox.justreplay.editor.Marker.instant(30, "SelfTest moment"));
+                moment.note = "Wide shot of the build,\nthen cut to the player";
+                com.vyrriox.justreplay.editor.Marker stretch = s.project().addMarker(com.vyrriox.justreplay.editor.Marker.range(20, 80, duration, "SelfTest stretch"));
+                com.vyrriox.justreplay.editor.Marker hero = s.project().addMarker(com.vyrriox.justreplay.editor.Marker.entity(40, com.vyrriox.justreplay.editor.Marker.RECORDER, "Recording player", "SelfTest hero"));
+                hero.note = "Follow this player";
+                hero.color = 0x5BE49B;
+                var backwards = stretch.setRange(80, 20, duration);
+                var pastEnd = stretch.setRange(20, duration + 40, duration);
+                boolean kept = stretch.tick == 20 && stretch.end == 80 && com.vyrriox.justreplay.editor.Marker.RANGE.equals(stretch.type);
+                log("marker ranges refused: 80..20 {}, 20..{} {}, stretch kept at {}..{} -> {}", backwards, duration + 40, pastEnd,
+                        stretch.tick, stretch.end, backwards == com.vyrriox.justreplay.editor.Marker.RangeCheck.EMPTY && pastEnd == com.vyrriox.justreplay.editor.Marker.RangeCheck.PAST_END && kept ? "OK" : "FAIL");
+                s.saveProject();
+                // The camera looks down at the stairs: the Spot tool pins the next marker where the crosshair hits.
+                com.vyrriox.justreplay.replay.Playback.placeCamera(p, new Vec3(stairPos.getX() + 0.5, stairPos.getY() + 4.0, stairPos.getZ() - 3.5), 0.0F, 45.0F);
+                EditorScreen editor = new EditorScreen(s);
+                mc.setScreen(editor);
+                editor.startMarkerToolForTest(false);
+                log("marker tool started: active={} screen={}", com.vyrriox.justreplay.gui.EntityTool.isActive(),
+                        mc.screen == null ? "none" : mc.screen.getClass().getSimpleName());
+                next(15);
+            }
+            case 91 -> {
+                ReplaySession s = ReplaySession.current();
+                boolean confirmed = com.vyrriox.justreplay.gui.EntityTool.confirmForTest();
+                com.vyrriox.justreplay.editor.Marker spot = null;
+                for (com.vyrriox.justreplay.editor.Marker m : s.project().markers) {
+                    if (m.isPoint()) {
+                        spot = m;
+                    }
+                }
+                Vec3 stairs = Vec3.atCenterOf(stairPos);
+                boolean pinned = spot != null && Math.abs(spot.x - stairs.x) < 6 && Math.abs(spot.y - stairs.y) < 6 && Math.abs(spot.z - stairs.z) < 8
+                        && spot.dimension.equals(com.vyrriox.justreplay.editor.MarkerRenderer.dimension()) && spot.tick == s.playback().cursor();
+                log("marker pinned by the Spot tool: confirmed={} screen={} {} -> {}", confirmed,
+                        mc.screen == null ? "none" : mc.screen.getClass().getSimpleName(),
+                        spot == null ? "none" : describeMarkers(java.util.List.of(spot)), pinned ? "OK" : "FAIL");
+                if (spot != null) {
+                    spot.note = "Orbit around the stairs";
+                    s.saveProject();
+                }
+                // What the editor saved is what a new reading of project.json gives back.
+                java.util.List<String> saved = describeMarkers(s.project().markers);
+                java.util.List<String> read = describeMarkers(ReplayStorage.readProject(s.dir()).markers);
+                long made = s.project().markers.stream().filter(m -> m.name.startsWith("SelfTest") || m.isPoint()).count();
+                log("markers read back from project.json: {} -> {}", read, read.equals(saved) && made == 4 ? "OK" : "FAIL");
+                if (mc.screen instanceof EditorScreen e && spot != null) {
+                    e.openMarker(spot.id);
+                }
+                next(10);
+            }
+            case 92 -> {
+                shot(mc, "ui-markers-selected");
+                mc.setScreen(null);
+                // The world shot frames the spot and the recording player, so both markers show.
+                ReplaySession s = ReplaySession.current();
+                Entity recorder = s.findRecorder(mc);
+                com.vyrriox.justreplay.editor.Marker spot = null;
+                for (com.vyrriox.justreplay.editor.Marker m : s.project().markers) {
+                    if (m.isPoint()) {
+                        spot = m;
+                    }
+                }
+                if (recorder != null && spot != null) {
+                    Vec3 at = new Vec3(spot.x, spot.y, spot.z);
+                    Vec3 mid = recorder.position().add(at).scale(0.5);
+                    double span = recorder.position().distanceTo(at);
+                    com.vyrriox.justreplay.replay.Playback.placeCamera(p, mid.add(0, 2.0 + span * 0.35, -(5.0 + span * 0.9)), 0.0F, 22.0F);
+                }
+                markerCounters = com.vyrriox.justreplay.editor.MarkerRenderer.counters();
+                next(20);
+            }
+            case 93 -> {
+                ReplaySession s = ReplaySession.current();
+                long[] now = com.vyrriox.justreplay.editor.MarkerRenderer.counters();
+                log("markers drawn in the world: {} of {} level renders -> {}", now[1] - markerCounters[1], now[0] - markerCounters[0],
+                        now[1] > markerCounters[1] ? "OK" : "FAIL");
+                com.vyrriox.justreplay.editor.Marker hero = null;
+                for (com.vyrriox.justreplay.editor.Marker m : s.project().markers) {
+                    if (m.isEntity()) {
+                        hero = m;
+                    }
+                }
+                Entity followed = hero == null ? null : com.vyrriox.justreplay.editor.MarkerRenderer.entity(s, hero);
+                Entity recorder = s.findRecorder(mc);
+                log("entity marker on the recording player finds it: {} -> {}", followed == null ? "nothing" : followed.position(),
+                        followed != null && followed == recorder ? "OK" : "FAIL");
+                shot(mc, "markers-world");
+                go(95, 5);
+            }
+            case 95 -> {
+                // MCP server: switched on (on a free port) while the replay and its markers are open, then asked over HTTP.
+                mcpSaved = true;
+                mcpWasEnabled = com.vyrriox.justreplay.config.JRConfig.MCP.enabled.get();
+                mcpOldPort = com.vyrriox.justreplay.config.JRConfig.MCP.port.get();
+                mcpOldToken = com.vyrriox.justreplay.config.JRConfig.MCP.token.get();
+                mcpPort = freeLocalPort();
+                com.vyrriox.justreplay.config.JRConfig.MCP.port.set(mcpPort);
+                com.vyrriox.justreplay.config.JRConfig.MCP.enabled.set(true);
+                log("mcp server switched on in the settings, port {}", mcpPort);
+                next(5);
+            }
+            case 96 -> {
+                com.vyrriox.justreplay.mcp.McpHost host = com.vyrriox.justreplay.mcp.McpClient.host();
+                String token = com.vyrriox.justreplay.config.JRConfig.MCP.token.get();
+                boolean listening = host.isListening() && host.port() == mcpPort && localPortOpen(mcpPort);
+                log("mcp server listening on 127.0.0.1:{} with a generated token of {} characters -> {}", host.port(), token.length(),
+                        listening && com.vyrriox.justreplay.mcp.McpToken.usable(token) ? "OK" : "FAIL");
+                ReplaySession s = ReplaySession.current();
+                com.vyrriox.justreplay.editor.Marker moment = null;
+                for (com.vyrriox.justreplay.editor.Marker m : s.project().markers) {
+                    if (m.name.equals("SelfTest moment")) {
+                        moment = m;
+                    }
+                }
+                if (!listening || moment == null) {
+                    log("mcp checks skipped: listening={} marker found={} -> FAIL", listening, moment != null);
+                    go(13, 5);
+                    return;
+                }
+                mcpBadgeBefore = com.vyrriox.justreplay.mcp.McpClient.badgeFrames();
+                mcpChecks = com.vyrriox.justreplay.mcp.McpProbe.start(mcpPort, token, new com.vyrriox.justreplay.mcp.McpProbe.Expect(
+                        s.dir().getFileName().toString(), s.project().markers.size(), moment.id, moment.name, moment.note));
+                next(1);
+            }
+            case 97 -> {
+                // The checks need this thread to keep ticking: every call reaching the game is answered at a client tick.
+                if (!mcpChecks.isDone()) {
+                    return;
+                }
+                for (String line : mcpChecks.join()) {
+                    log(line);
+                }
+                long drawn = com.vyrriox.justreplay.mcp.McpClient.badgeFrames() - mcpBadgeBefore;
+                log("mcp badge drawn in the HUD while listening: {} frames -> {}", drawn, drawn > 0 ? "OK" : "FAIL");
+                shot(mc, "mcp-badge");
+                go(101, 5);
+            }
+            case 101 -> {
+                // MCP observation: the entities of another tick, frames drawn by the export path and by the window, read
+                // back by the game's own decoder; the play head and the screen must be as they were afterwards.
+                ReplaySession s = ReplaySession.current();
+                mcpObserveCursor = s.playback().cursor();
+                mcpObserveScreen = mc.screen;
+                mcpGrabsBefore = com.vyrriox.justreplay.export.FrameGrab.grabbed();
+                log("mcp observation checks start at play head {} on screen {}", mcpObserveCursor, mc.screen == null ? "none"
+                        : mc.screen.getClass().getSimpleName());
+                mcpObserve = com.vyrriox.justreplay.mcp.McpProbe.observe(mcpPort, com.vyrriox.justreplay.config.JRConfig.MCP.token.get(),
+                        new com.vyrriox.justreplay.mcp.McpProbe.Look(MCP_OBSERVE_TICK, java.util.List.of("minecraft:villager", "minecraft:player"),
+                                true, 320, 180));
+                next(1);
+            }
+            case 102 -> {
+                // The frames need this thread to keep ticking and drawing.
+                if (!mcpObserve.isDone()) {
+                    return;
+                }
+                com.vyrriox.justreplay.mcp.McpProbe.Observation o = mcpObserve.join();
+                for (String line : o.lines()) {
+                    log(line);
+                }
+                for (com.vyrriox.justreplay.mcp.McpProbe.Picture picture : o.pictures()) {
+                    checkMcpPicture(mc, picture);
+                }
+                long grabs = com.vyrriox.justreplay.export.FrameGrab.grabbed() - mcpGrabsBefore;
+                log("mcp frames handed over: {} (expected {}) -> {}", grabs, o.pictures().size(), grabs == 3 ? "OK" : "FAIL");
+                ReplaySession s = ReplaySession.current();
+                boolean sameScreen = mc.screen == mcpObserveScreen;
+                log("mcp observation left the replay as it was: play head {} (was {}), same screen={}, export running={} -> {}",
+                        s.playback().cursor(), mcpObserveCursor, sameScreen, VideoExporter.isActive(),
+                        s.playback().cursor() == mcpObserveCursor && sameScreen && !VideoExporter.isActive() ? "OK" : "FAIL");
+                checkMcpCameraMath(mc);
+                shot(mc, "mcp-observe");
                 go(13, 5);
             }
             case 13 -> {
@@ -1104,6 +1537,11 @@ public final class SelfTest {
                 com.vyrriox.justreplay.config.JRConfig.EXPORT_RESOLUTION.set(com.vyrriox.justreplay.export.ExportResolution.FULL_HD_1080);
                 com.vyrriox.justreplay.editor.overlay.OverlayRenderer.resetExportFrames();
                 var error = VideoExporter.start(s, 20, 80, "selftest");
+                markerExportStart = com.vyrriox.justreplay.editor.MarkerRenderer.counters();
+                markerExportLast = markerExportStart;
+                mcpListeningAtExport = com.vyrriox.justreplay.mcp.McpClient.isListening();
+                mcpBadgeExportStart = com.vyrriox.justreplay.mcp.McpClient.badgeFrames();
+                mcpBadgeExportLast = mcpBadgeExportStart;
                 log("export start error={}", error == null ? "none" : error.getString());
                 if (error == null) {
                     Path output = VideoExporter.current().output();
@@ -1114,6 +1552,10 @@ public final class SelfTest {
             }
             case 14 -> {
                 sampleExportClocks();
+                if (VideoExporter.isActive()) {
+                    markerExportLast = com.vyrriox.justreplay.editor.MarkerRenderer.counters();
+                    mcpBadgeExportLast = com.vyrriox.justreplay.mcp.McpClient.badgeFrames();
+                }
                 shotVeil(mc);
                 if (!VideoExporter.isActive()) {
                     next(200);
@@ -1135,6 +1577,52 @@ public final class SelfTest {
                         localAnvil, replaySteps, recorderSteps, localBell > 0 && localAnvil > 0 && recorderSteps > 0 ? "OK" : "FAIL");
                 log("export frames showing overlays: {} ({} overlays in the project)",
                         com.vyrriox.justreplay.editor.overlay.OverlayRenderer.exportFrames(), ReplaySession.current().project().overlays.size());
+                log("markers kept out of the export: {} frames drew markers while exporting, {} frames left them out -> {}",
+                        markerExportLast[1] - markerExportStart[1], markerExportLast[2] - markerExportStart[2],
+                        markerExportLast[1] == markerExportStart[1] && markerExportLast[2] > markerExportStart[2] ? "OK" : "FAIL");
+                go(98, 5);
+            }
+            case 98 -> {
+                long drawn = mcpBadgeExportLast - mcpBadgeExportStart;
+                log("mcp badge kept out of the export: server listening={}, {} frames drew it while exporting -> {}", mcpListeningAtExport,
+                        drawn, mcpListeningAtExport && drawn == 0 ? "OK" : "FAIL");
+                com.vyrriox.justreplay.config.JRConfig.MCP.enabled.set(false);
+                next(5);
+            }
+            case 99 -> {
+                com.vyrriox.justreplay.mcp.McpHost host = com.vyrriox.justreplay.mcp.McpClient.host();
+                boolean stopped = !host.isListening() && mcpPort > 0 && !localPortOpen(mcpPort);
+                log("mcp server stopped when switched off, port {} closed -> {}", mcpPort, stopped ? "OK" : "FAIL");
+                restoreMcpConfig();
+                go(94, 5);
+            }
+            case 94 -> {
+                // Deleting: the spot through the Delete key of the Markers tab, the others by id.
+                ReplaySession s = ReplaySession.current();
+                com.vyrriox.justreplay.editor.Marker spot = null;
+                for (com.vyrriox.justreplay.editor.Marker m : s.project().markers) {
+                    if (m.isPoint()) {
+                        spot = m;
+                    }
+                }
+                EditorScreen editor = new EditorScreen(s);
+                mc.setScreen(editor);
+                if (spot != null) {
+                    editor.deleteMarkerForTest(spot.id);
+                }
+                boolean spotGone = spot != null && s.project().marker(spot.id) == null;
+                int removed = 0;
+                for (com.vyrriox.justreplay.editor.Marker m : new java.util.ArrayList<>(s.project().markers)) {
+                    if (m.name.startsWith("SelfTest") && s.project().removeMarker(m.id)) {
+                        removed++;
+                    }
+                }
+                s.saveProject();
+                java.util.List<com.vyrriox.justreplay.editor.Marker> left = ReplayStorage.readProject(s.dir()).markers;
+                boolean gone = left.stream().noneMatch(m -> m.isPoint() || m.name.startsWith("SelfTest"));
+                log("markers deleted (spot by the Delete key: {}, {} more by id), left in project.json: {} -> {}", spotGone, removed,
+                        left.stream().map(m -> m.name + "@" + m.tick).toList(), spotGone && removed == 3 && gone ? "OK" : "FAIL");
+                mc.setScreen(null);
                 go(72, 5);
             }
             case 72 -> {
@@ -1218,6 +1706,10 @@ public final class SelfTest {
                 }
             }
             case 18 -> {
+                if (mc.getOverlay() != null) {
+                    // The clip's resource packs are loading: leaving now would leave the loading screen up for good.
+                    return;
+                }
                 ReplaySession s = ReplaySession.current();
                 logWorld(mc, s, "buffer clip playing");
                 shot(mc, "6-buffer-clip");
@@ -1227,7 +1719,80 @@ public final class SelfTest {
                 logWorld(mc, s, "buffer clip after backward seek");
                 mc.level.disconnect(net.minecraft.network.chat.Component.empty());
                 mc.disconnect(new TitleScreen(), false);
-                next(60);
+                go(103, 60);
+            }
+            case 103 -> {
+                // MCP control, driven through MCP only: the probe opens the buffer clip from the menu, goes to a tick,
+                // places the view, adds a camera keyframe, an actor and a marker, saves and reads them back, undoes and
+                // redoes, starts an export and cancels it, then closes the replay. The game switches the server on and
+                // checks project.json afterwards.
+                if (!atMenu(mc)) {
+                    if (++mcpSteerWait > 2400) {
+                        log("mcp control checks: the menu never came back (screen {}, loading overlay {}) -> FAIL",
+                                mc.screen == null ? "none" : mc.screen.getClass().getSimpleName(), mc.getOverlay() != null);
+                        go(19, 5);
+                    }
+                    return;
+                }
+                if (clip == null) {
+                    log("mcp control checks skipped: no test replay (the buffer clip was not saved) -> FAIL");
+                    go(19, 5);
+                    return;
+                }
+                ReplayProject before = ReplayStorage.readProject(clip);
+                com.vyrriox.justreplay.format.ReplayMeta clipMeta = ReplayStorage.readMeta(clip);
+                // Markers placed while recording join the project the first time the replay opens.
+                mcpSteerMarkers = before.markers.size() + (before.recordingMarkersImported || clipMeta == null || clipMeta.markers == null
+                        ? 0 : clipMeta.markers.size());
+                Files.deleteIfExists(ReplayStorage.exportRoot().resolve("selftest_mcp.mp4"));
+                mcpSaved = true;
+                mcpWasEnabled = com.vyrriox.justreplay.config.JRConfig.MCP.enabled.get();
+                mcpOldPort = com.vyrriox.justreplay.config.JRConfig.MCP.port.get();
+                mcpOldToken = com.vyrriox.justreplay.config.JRConfig.MCP.token.get();
+                mcpPort = freeLocalPort();
+                com.vyrriox.justreplay.config.JRConfig.MCP.port.set(mcpPort);
+                com.vyrriox.justreplay.config.JRConfig.MCP.enabled.set(true);
+                log("mcp server switched on again for the control checks, port {}", mcpPort);
+                next(5);
+            }
+            case 104 -> {
+                com.vyrriox.justreplay.mcp.McpHost host = com.vyrriox.justreplay.mcp.McpClient.host();
+                if (!host.isListening() || host.port() != mcpPort) {
+                    log("mcp control checks skipped: the server does not listen on port {} -> FAIL", mcpPort);
+                    restoreMcpConfig();
+                    go(19, 5);
+                    return;
+                }
+                log("mcp control checks start on '{}' ({} markers), from the menu", clip.getFileName(), mcpSteerMarkers);
+                mcpSteer = com.vyrriox.justreplay.mcp.McpProbe.steer(mcpPort, com.vyrriox.justreplay.config.JRConfig.MCP.token.get(),
+                        new com.vyrriox.justreplay.mcp.McpProbe.Steer(clip.getFileName().toString(), mcpSteerMarkers, steerTick(clip),
+                                "selftest_mcp"));
+                next(1);
+            }
+            case 105 -> {
+                // The checks need this thread to keep ticking: the replay opens, plays, exports and closes meanwhile.
+                if (!mcpSteer.isDone()) {
+                    return;
+                }
+                com.vyrriox.justreplay.mcp.McpProbe.Steering steering = mcpSteer.join();
+                for (String line : steering.lines()) {
+                    log(line);
+                }
+                ReplayProject saved = ReplayStorage.readProject(clip);
+                ReplayProject.Camera camera = saved.camera(steering.cameraId());
+                boolean keyframe = camera != null && camera.keyframeAt(steering.keyframeTick()) != null;
+                boolean actor = saved.actors.stream().anyMatch(a -> a.id.equals(steering.actorId()));
+                boolean marker = saved.marker(steering.markerId()) != null;
+                log("mcp edits found in project.json: keyframe at tick {}={} actor={} marker={} -> {}", steering.keyframeTick(), keyframe,
+                        actor, marker, keyframe && actor && marker ? "OK" : "FAIL");
+                Path cancelled = steering.exportFile().isEmpty() ? null : ReplayStorage.exportRoot().resolve(steering.exportFile());
+                log("mcp cancelled export left no file: {} -> {}", cancelled == null ? "no export" : cancelled.getFileName(),
+                        cancelled != null && !Files.exists(cancelled) ? "OK" : "FAIL");
+                log("mcp control left the game on the menu: replay open={} -> {}", ReplaySession.current() != null,
+                        ReplaySession.current() == null && atMenu(mc) ? "OK" : "FAIL");
+                com.vyrriox.justreplay.config.JRConfig.MCP.enabled.set(false);
+                restoreMcpConfig();
+                go(19, 5);
             }
             case 19 -> {
                 com.vyrriox.justreplay.config.JRConfig.REPLAY_BUFFER.set(false);
@@ -1522,6 +2087,17 @@ public final class SelfTest {
         if (moved) {
             clip = renamed;
         }
+    }
+
+    /**
+     * Whether the slow checkpoint asked for at recording tick 10 was handed out and the recording's folder holds a
+     * checkpoint (files are written on an IO thread, right after the hand out). True when no recording runs.
+     */
+    private static boolean checkpointWritten() {
+        Recorder capture = Recorder.capturing();
+        Recorder.Recording recording = capture == null ? null : capture.recording();
+        return recording == null || capture.slowCheckpointDone()
+                && com.vyrriox.justreplay.format.Checkpoints.list(recording.dir()).length > 0;
     }
 
     /** Checks the saved instant replay opens like any replay: stream, first packet, checkpoints, duration. */
@@ -1856,12 +2432,15 @@ public final class SelfTest {
                 forcedRan == 0 && warnings == 1 && !forced.on() && playing ? "OK" : "FAIL");
     }
 
-    /** The unreadable packet of the recording was counted as such, and the replay played past it. */
+    /**
+     * The unreadable packet of the recording (tick 70) was counted as such, and the replay went on past it up to the
+     * tick it was sent to (150). It may sit there: a resource reload pauses the game for a moment after the jump.
+     */
     private static void checkUnreadableCounted(ReplaySession s) {
         long read = s.playback().skipped().countOf(com.vyrriox.justreplay.record.SkippedPackets.Stage.READ, UNREADABLE_TYPE);
         int cursor = s.playback().cursor();
         log("unreadable packet: {} x '{} could not be read' so far, replay playing on at tick {} -> {}", read, UNREADABLE_TYPE,
-                cursor, unreadableWritten && read >= 1 && cursor > 150 ? "OK" : "FAIL");
+                cursor, unreadableWritten && read >= 1 && cursor >= 150 ? "OK" : "FAIL");
     }
 
     /** The line the end of the replay logs names the unreadable packet ("Replay: N packets skipped (...)"). */
@@ -1872,8 +2451,27 @@ public final class SelfTest {
         log("skipped packets line at the end of the replay: [{}] -> {}", summary, listed ? "OK" : "FAIL");
     }
 
+    /** Distance from the camera to an entity, plus 1000 when it is not within 45 degrees of the view. */
+    private static double viewScore(Vec3 eye, Vec3 look, Entity e) {
+        Vec3 to = e.position().add(0, e.getBbHeight() / 2.0, 0).subtract(eye);
+        double d = to.length();
+        boolean ahead = d < 1.0E-3 || to.scale(1.0 / d).dot(look) > Math.cos(Math.toRadians(45));
+        return d + (ahead ? 0 : 1000);
+    }
+
+    /** One line per marker: every saved field, so two lists compare field by field. */
+    private static java.util.List<String> describeMarkers(java.util.List<com.vyrriox.justreplay.editor.Marker> markers) {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        for (com.vyrriox.justreplay.editor.Marker m : markers) {
+            out.add(m.id + " " + m.type + " '" + m.name + "' " + m.tick + ".." + m.end
+                    + String.format(java.util.Locale.ROOT, " %.3f %.3f %.3f [%s]", m.x, m.y, m.z, m.dimension)
+                    + " target=" + m.target + " (" + m.targetName + ") #" + Integer.toHexString(m.color) + " note='" + m.note.replace("\n", "|") + "'");
+        }
+        return out;
+    }
+
     private static void checkRecordingMarkers(ReplaySession s) {
-        java.util.List<ReplayProject.Marker> marks = s.project().markers;
+        java.util.List<com.vyrriox.justreplay.editor.Marker> marks = s.project().markers;
         boolean names = marks.size() == 2 && "Marker 1".equals(marks.get(0).name) && "Marker 2".equals(marks.get(1).name);
         boolean ticks = names && marks.get(0).tick >= 59 && marks.get(0).tick <= 64
                 && Math.abs(marks.get(1).tick - marks.get(0).tick - 90) <= 1;

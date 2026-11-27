@@ -323,16 +323,7 @@ final class AudioPanel {
     }
 
     private String nextTrackName() {
-        for (int n = project().audioTracks.size() + 1; ; n++) {
-            String name = "Track " + n;
-            boolean used = false;
-            for (AudioTrack track : project().audioTracks) {
-                used |= name.equals(track.name);
-            }
-            if (!used) {
-                return name;
-            }
-        }
+        return project().nextTrackName();
     }
 
     private void renameTrack() {

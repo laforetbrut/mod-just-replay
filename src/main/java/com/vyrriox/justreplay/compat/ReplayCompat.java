@@ -281,6 +281,17 @@ public final class ReplayCompat {
     }
 
     /**
+     * Items an entity wears in the slots of a mod (Curios), for the MCP observation tools: {@code out} gets the slot name
+     * ({@code curios:head}...) and the stack.
+     */
+    public static void describeWorn(net.minecraft.world.entity.Entity entity,
+                                    java.util.function.BiConsumer<String, net.minecraft.world.item.ItemStack> out) {
+        if (CURIOS.on()) {
+            CURIOS.run("forEachWorn", () -> CuriosCompat.forEachWorn(entity, out));
+        }
+    }
+
+    /**
      * Mod animation state a player is in now (snapshots and checkpoints), written as another client receives it, for
      * the player with this UUID in the replay (the actor for the recording player).
      */
