@@ -441,6 +441,8 @@ public final class SelfTest {
     /** The recording's first steps ran: the walking step may start a tick or two after recording tick 5. */
     private static boolean startPlaced;
     private static int recIndicatorStage;
+    /** Checkpoint ticks of the main recording. */
+    private static int[] recordedCheckpoints = new int[0];
     private static int recFramesMark;
     private static int recTickMark;
     private static boolean recIndicatorWas;
@@ -624,6 +626,7 @@ public final class SelfTest {
         if (!ENABLED) {
             return;
         }
+        SelfTestSkin.tick(mc);
         // The test must not stop when the window loses focus.
         mc.options.pauseOnLostFocus = false;
         if (mc.screen instanceof net.minecraft.client.gui.screens.PauseScreen) {
@@ -880,6 +883,7 @@ public final class SelfTest {
                     SelfTestModState.captureEnd(mc);
                     replay = Recorder.stop();
                     int[] checkpoints = com.vyrriox.justreplay.format.Checkpoints.list(replay);
+                    recordedCheckpoints = checkpoints;
                     log("record stopped: {} packets={} stream={} bytes checkpoints={} bytes in {} files", replay,
                             ReplayStorage.readStream(replay).size(), Files.size(replay.resolve(ReplayStorage.STREAM)),
                             folderSize(replay.resolve(com.vyrriox.justreplay.format.Checkpoints.FOLDER)), checkpoints.length);
@@ -983,8 +987,24 @@ public final class SelfTest {
             case 113 -> {
                 shot(mc, "1d-scrub");
                 mc.setScreen(null);
+                go(114, 3);
+            }
+            case 114 -> {
+                // The recording player's actor, paused and seen from the front: its own skin, not Steve's.
+                ReplaySession s = ReplaySession.current();
+                s.playback().setPaused(true);
+                SelfTestSkin.face(mc, s);
+                go(115, 5);
+            }
+            case 115 -> {
+                if (SelfTestSkin.faced()) {
+                    shot(mc, "1e-actor-skin");
+                }
+                SelfTestSkin.restore(mc);
+                ReplaySession s = ReplaySession.current();
+                s.playback().setPaused(false);
                 // The checks after the forward seek read the world at tick 150 exactly.
-                ReplaySession.current().playback().seek(150);
+                s.playback().seek(150);
                 go(61, 3);
             }
             case 61 -> {
@@ -1035,7 +1055,6 @@ public final class SelfTest {
                 Mods.checkVehicles(mc, "after backward seek");
                 checkForcedFailureDuringReplay(s);
                 shot(mc, "3-seek20");
-                SelfTestSkin.face(mc, s);
                 Mods.faceVehicle(mc);
                 SelfTestModState.face(mc);
                 checkClockBackSeek(clockGecko, geckoClock(), clockEntity, com.vyrriox.justreplay.compat.ReplayCompat.lastGeckoEntityFrameTime());
@@ -1051,9 +1070,6 @@ public final class SelfTest {
                 if (ironsPhase == 0) {
                     if (Mods.loaded("mts")) {
                         shot(mc, "3b-vehicle");
-                    }
-                    if (SelfTestSkin.faced() && !Mods.loaded("mts")) {
-                        shot(mc, "3c-actor-skin");
                     }
                     if (SelfTestModState.faced()) {
                         shot(mc, "3c-mod-state");
@@ -1071,12 +1087,15 @@ public final class SelfTest {
                     wait = 5;
                     return;
                 }
+                // Back to 130, or just after the checkpoint when a slow run (a modpack) built it later than that.
+                int back = recordedCheckpoints.length > 0 && recordedCheckpoints[0] > 120 && recordedCheckpoints[0] < 180
+                        ? recordedCheckpoints[0] + 10 : 130;
                 s.playback().seek(190);
-                s.playback().seek(130);
+                s.playback().seek(back);
                 int restored = s.playback().lastSeekCheckpoint();
-                log("checkpoint seek 190 -> 130 from {} -> {}", restored >= 0 ? "the checkpoint at " + restored : "the start",
+                log("checkpoint seek 190 -> {} from {} -> {}", back, restored >= 0 ? "the checkpoint at " + restored : "the start",
                         restored >= 0 ? "OK" : "FAIL");
-                logWorld(mc, s, "after checkpoint seek to 130");
+                logWorld(mc, s, "after the checkpoint seek");
                 Mods.logDropTheBeam("after checkpoint seek to 130");
                 s.playback().seek(20);
                 s.jumpToRecorder(mc);
