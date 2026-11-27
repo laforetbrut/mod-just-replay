@@ -40,7 +40,10 @@ public abstract class IrisTimerMixin {
             double clock = ReplayCompat.frameClockTicks();
             if (clock >= 0) {
                 double delta = justreplay$lastClock < 0 ? 0 : Math.max(0, clock - justreplay$lastClock);
-                lastFrameTime = Math.max((float) (delta / 20.0), justreplay$MIN_FRAME_TIME);
+                // Right after a shader reload Iris' own wall clock frame time stays, so the pack can settle.
+                if (!com.vyrriox.justreplay.compat.ShaderSettle.settling(System.nanoTime())) {
+                    lastFrameTime = Math.max((float) (delta / 20.0), justreplay$MIN_FRAME_TIME);
+                }
                 frameTimeCounter = (float) ((clock / 20.0) % 3600.0);
             }
             justreplay$lastClock = clock;

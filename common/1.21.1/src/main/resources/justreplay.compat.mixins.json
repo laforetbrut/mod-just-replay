@@ -24,6 +24,7 @@
     "EpicFightPoseMixin",
     "GeckoLibClockMixin",
     "GeckoLibModelMixin",
+    "IrisReloadMixin",
     "IrisTimerMixin",
     "JadeTickMixin",
     "LevelRendererClockMixin",
