@@ -1,6 +1,6 @@
 # Test matrix
 
-Just Replay 1.2.0 (mod id `justreplay`), author / auteur : vyrriox.
+Just Replay 1.3.0 (mod id `justreplay`), author / auteur : vyrriox.
 
 - [English](#english)
 - [Français](#français)
@@ -103,6 +103,9 @@ python3 tools/test_matrix.py --targets neoforge-1.21.1 --mods ~/instances/arcadi
   are remapped through `-PdevMods`; jars that are not mods (the Immersive Vehicles content packs) stay in
   `mods/`. A mod that names its mixin targets in SRG itself, without a refmap (Armourer's Workshop 3.4), still
   stops that client at launch: test it with an installed game.
+- Voxy (`fabric-26.1.2` only) crashes the software renderer of a screenless machine when the world opens (its
+  compute shaders do not compile). Run it once, then set `"enable_rendering": false` in
+  `<target>/run-matrix-<pack>/config/voxy-config.json` and run again: ingest stays on.
 - `neoforge-1.20.1`: its development client cannot remap released jars, so most mods will not load there. Test
   1.20.1 packs on `forge-1.20.1`, or with an installed game.
 - NeoForge and Forge 1.21.1 and 26.1.2 load released jars as they are. Fabric remaps them itself at launch.
@@ -228,6 +231,9 @@ python3 tools/test_matrix.py --targets neoforge-1.21.1 --mods ~/instances/arcadi
   vont dans `devmods/` et sont remappés par `-PdevMods` ; les jars qui ne sont pas des mods (les packs de contenu
   d'Immersive Vehicles) restent dans `mods/`. Un mod qui nomme lui-même ses cibles de mixin en SRG, sans refmap
   (Armourer's Workshop 3.4), arrête quand même ce client au lancement : teste-le avec un jeu installé.
+- Voxy (`fabric-26.1.2` seulement) fait planter le rendu logiciel d'une machine sans écran à l'ouverture du monde
+  (ses shaders de calcul ne compilent pas). Lance une fois, puis mets `"enable_rendering": false` dans
+  `<cible>/run-matrix-<pack>/config/voxy-config.json` et relance : l'ingestion reste active.
 - `neoforge-1.20.1` : son client de développement ne sait pas remapper les jars publiés, donc la plupart des mods
   n'y chargeront pas. Teste les packs 1.20.1 sur `forge-1.20.1`, ou avec un jeu installé.
 - NeoForge et Forge 1.21.1 et 26.1.2 chargent les jars publiés tels quels. Fabric les remappe lui-même au

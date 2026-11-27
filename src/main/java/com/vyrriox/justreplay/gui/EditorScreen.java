@@ -98,7 +98,7 @@ public class EditorScreen extends GlassScreen {
             new SidebarTab("cameras", "justreplay.editor.tab.cameras", Icon.CAMERA, false, true, (s, f) -> s.cameras.build(f)),
             new SidebarTab("characters", "justreplay.editor.tab.characters", Icon.PERSON, true, false, EditorScreen::buildSimpleActors),
             new SidebarTab("actors", "justreplay.editor.tab.actors", Icon.PERSON, false, true, EditorScreen::buildActors),
-            new SidebarTab("scene", "justreplay.editor.tab.scene", Icon.FLAG, false, true, EditorScreen::buildScene),
+            new SidebarTab("scene", "justreplay.editor.tab.scene", Icon.CUT, false, true, EditorScreen::buildScene),
             new SidebarTab("audio", "justreplay.editor.tab.audio", Icon.SPEAKER, false, true, (s, f) -> s.audioPanel.build(f)),
             new SidebarTab("effects", "justreplay.editor.tab.effects", Icon.BOLT, false, true, (s, f) -> {
                 s.effectsPanel.build(f);
@@ -128,6 +128,9 @@ public class EditorScreen extends GlassScreen {
                 "overlays");
         // Recorded entities: hide, move, sound volume; in both modes, before the export tab.
         registerTab(new SidebarTab("entities", "justreplay.editor.tab.entities", Icon.PERSON, true, true, (s, f) -> s.entitiesPanel.build(f)),
+                "export");
+        // Markers of the timeline and the world, in both modes, before the export tab.
+        registerTab(new SidebarTab("markers", "justreplay.editor.tab.markers", Icon.FLAG, true, true, (s, f) -> s.markersPanel.build(f)),
                 "export");
     }
 
@@ -160,6 +163,8 @@ public class EditorScreen extends GlassScreen {
     private final EntitiesPanel entitiesPanel;
     // Texts and images in the world: the tab and the timeline lane.
     private final OverlaysPanel overlaysPanel;
+    // Markers: the tab and the timeline lane.
+    private final MarkersPanel markersPanel;
     private boolean scrubbing;
     private int ghostTick = -1;
     private Object dragging;
@@ -211,6 +216,8 @@ public class EditorScreen extends GlassScreen {
         this.entitiesPanel = new EntitiesPanel(this, session);
         this.overlaysPanel = new OverlaysPanel(this, session);
         this.timeline.overlays = overlaysPanel;
+        this.markersPanel = new MarkersPanel(this, session);
+        this.timeline.markers = markersPanel;
         this.blurBackground = false;
     }
 
@@ -527,6 +534,24 @@ public class EditorScreen extends GlassScreen {
         openTab("overlays");
     }
 
+    /** Selects a marker by id (null for none) and shows it in the Markers tab. */
+    public void openMarker(String id) {
+        MarkersPanel.select(id);
+        openTab("markers");
+    }
+
+    /** Starts the in-world tool of the Spot (or Entity) button of the Markers tab, as a click on it does. */
+    public void startMarkerToolForTest(boolean entity) {
+        openTab("markers");
+        markersPanel.startTool(entity);
+    }
+
+    /** Deletes a marker the way the Delete key does on the Markers tab. */
+    public void deleteMarkerForTest(String id) {
+        openMarker(id);
+        deleteSelected();
+    }
+
     /** Opens a sidebar tab of the current mode (and the sidebar itself). */
     public void openTab(String id) {
         sidebarOpen = true;
@@ -584,6 +609,11 @@ public class EditorScreen extends GlassScreen {
         f.put(left, 0, 2);
         f.put(right, 1, 2);
         f.next(bigH);
+    }
+
+    /** Shows a short feedback line in the open tab, for the panels. */
+    void status(Component text, int color) {
+        setStatus(text, color);
     }
 
     /** Shows a short feedback line in the open tab. */
@@ -705,7 +735,6 @@ public class EditorScreen extends GlassScreen {
             f.space(2);
             f.paragraph(tc("justreplay.editor.simple.more_cameras"), Theme.WARNING);
         }
-        buildMarkers(f);
     }
 
     // ---------------------------------------------------------------- simple mode: characters
@@ -979,34 +1008,7 @@ public class EditorScreen extends GlassScreen {
         return actor.type.startsWith("minecraft:") ? actor.type.substring(10) : actor.type;
     }
 
-    private void buildMarkers(Form f) {
-        f.header(tc("justreplay.editor.markers"), Icon.FLAG);
-        f.paragraph(tc("justreplay.editor.simple.markers.help"), Theme.TEXT_MUTED);
-        f.full(big(tc("justreplay.editor.simple.marker"), Icon.FLAG, tc("justreplay.editor.marker.tip"), b -> addMarker())
-                .style(GlassButton.Style.PRIMARY));
-        markerRows(f);
-    }
-
-    private void markerRows(Form f) {
-        List<ReplayProject.Marker> markers = session.project().markers;
-        if (markers.isEmpty()) {
-            f.paragraph(Component.translatable("justreplay.editor.marker.none", JRKeys.MARKER.getTranslatedKeyMessage()), Theme.TEXT_MUTED);
-        }
-        for (ReplayProject.Marker marker : markers) {
-            f.full(new ListRow(Component.literal(marker.name), b -> session.playback().seek(marker.tick))
-                    .detail(Timeline.formatTicks(marker.tick))
-                    .action(() -> Icon.TRASH, tc("justreplay.editor.marker.delete.tip"), () -> {
-                        session.project().markers.remove(marker);
-                        session.saveProject();
-                        rebuildWidgets();
-                    }).icon(Icon.FLAG).tip(tc("justreplay.editor.marker.row.tip")));
-        }
-    }
-
     private void buildScene(Form f) {
-        f.header(tc("justreplay.editor.markers"), Icon.FLAG);
-        f.full(new GlassButton(tc("justreplay.editor.marker.add"), b -> addMarker()).icon(Icon.PLUS).tip(tc("justreplay.editor.marker.tip")));
-        markerRows(f);
         f.header(tc("justreplay.editor.time.section"), Icon.CUT);
         f.put(new GlassButton(tc("justreplay.editor.time.insert"), b -> rippleTime(false)).icon(Icon.PLUS)
                 .tip(tc("justreplay.editor.time.insert.tip")), 0, 2);
@@ -1168,12 +1170,7 @@ public class EditorScreen extends GlassScreen {
     }
 
     private void addMarker() {
-        int tick = session.playback().cursor();
-        minecraft.setScreen(new TextInputScreen(this, Component.translatable("justreplay.editor.marker"),
-                Component.translatable("justreplay.editor.marker.name"), "Marker " + (session.project().markers.size() + 1), name -> {
-            session.project().markers.add(new ReplayProject.Marker(tick, name));
-            session.saveProject();
-        }));
+        markersPanel.addAtPlayHead();
     }
 
     /** Deletes the selected cut, camera keyframe or actor keyframe, else the markers at the play head. */
@@ -1198,10 +1195,11 @@ public class EditorScreen extends GlassScreen {
             selectedActor.actions.remove(selectedAction);
             selectedAction = null;
             rebuildWidgets();
+        } else if (isTab("markers") && markersPanel.deleteSelected()) {
+            return;
         } else {
             int cursor = session.playback().cursor();
-            session.project().markers.removeIf(m -> Math.abs(m.tick - cursor) <= 2);
-            if (isTab("scene") || isTab("camera")) {
+            if (session.project().markers.removeIf(m -> Math.abs(m.tick - cursor) <= 2) && isTab("markers")) {
                 rebuildWidgets();
             }
         }
@@ -1251,12 +1249,7 @@ public class EditorScreen extends GlassScreen {
         if (selectedActor == null) {
             return;
         }
-        String param = actionType.defaultParam;
-        if (actionType == ActionType.ANIMATION && selectedActor.isModel()) {
-            List<String> animations = ModelLibrary.animations(selectedActor.model);
-            param = animations.isEmpty() ? "" : animations.get(0) + "|once";
-        }
-        param = com.vyrriox.justreplay.editor.ActorManager.moveTargetOrDefault(actionType, param);
+        String param = com.vyrriox.justreplay.editor.ActorManager.defaultActionParam(selectedActor, actionType);
         ReplayProject.ActorAction action = new ReplayProject.ActorAction(session.playback().cursor(), actionType, 0, param);
         selectedActor.actions.add(action);
         selectedActor.sort();
@@ -1367,7 +1360,7 @@ public class EditorScreen extends GlassScreen {
     }
 
     /** Feet height of an actor placed under the camera: the ground within 4 blocks, else the camera height. */
-    private double groundBelow(LocalPlayer p) {
+    public static double groundBelow(LocalPlayer p) {
         Vec3 from = p.position();
         BlockHitResult hit = p.level().clip(new net.minecraft.world.level.ClipContext(from, from.subtract(0, 4, 0),
                 net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, p));
@@ -1458,6 +1451,9 @@ public class EditorScreen extends GlassScreen {
             if (timeline.laneAt(my) == EditorTimeline.Lane.OVERLAYS && overlaysPanel.mouseClicked(timeline, mx, my)) {
                 return true;
             }
+            if (timeline.laneAt(my) == EditorTimeline.Lane.MARKERS && markersPanel.mouseClicked(timeline, mx, my)) {
+                return true;
+            }
             switch (timeline.laneAt(my)) {
                 case CUTS -> {
                     if (clickCuts(project, mx, duration)) {
@@ -1496,14 +1492,6 @@ public class EditorScreen extends GlassScreen {
                                 startDrag(a, a.tick, mx);
                                 return true;
                             }
-                        }
-                    }
-                }
-                case MARKERS -> {
-                    for (ReplayProject.Marker marker : project.markers) {
-                        if (Math.abs(timeline.xOf(marker.tick) - mx) <= 3) {
-                            session.playback().seek(marker.tick);
-                            return true;
                         }
                     }
                 }
@@ -1622,7 +1610,8 @@ public class EditorScreen extends GlassScreen {
 
     @Override
     public boolean mouseDragged(MouseButtonEvent ev_, double dx, double dy) { double mx = ev_.x(); double my = ev_.y(); int button = ev_.button();
-        if (timeline.barDragged(mx) || audioLanes.mouseDragged(timeline, mx, my) || overlaysPanel.mouseDragged(timeline, mx)) {
+        if (timeline.barDragged(mx) || audioLanes.mouseDragged(timeline, mx, my) || overlaysPanel.mouseDragged(timeline, mx)
+                || markersPanel.mouseDragged(timeline, mx)) {
             return true;
         }
         int duration = session.playback().duration();
@@ -1661,7 +1650,7 @@ public class EditorScreen extends GlassScreen {
 
     @Override
     public boolean mouseReleased(MouseButtonEvent ev_) { double mx = ev_.x(); double my = ev_.y(); int button = ev_.button();
-        if (timeline.barReleased() || audioLanes.mouseReleased() || overlaysPanel.mouseReleased()) {
+        if (timeline.barReleased() || audioLanes.mouseReleased() || overlaysPanel.mouseReleased() || markersPanel.mouseReleased()) {
             return true;
         }
         if (dragging != null) {
@@ -1824,7 +1813,7 @@ public class EditorScreen extends GlassScreen {
         Paint.glass(g, 4, dockTop, width - 8, height - 4 - dockTop, Theme.RADIUS_L);
         Playback playback = session.playback();
         timeline.begin(playback.duration(), playback.cursor(), !playback.isPaused() && dragging == null && !scrubbing && !audioLanes.dragging()
-                && !overlaysPanel.dragging());
+                && !overlaysPanel.dragging() && !markersPanel.dragging());
     }
 
     @Override
@@ -1838,7 +1827,7 @@ public class EditorScreen extends GlassScreen {
         g.text(font, timeText, timeX, Paint.textY(dockTop + 4, rowH), Theme.TEXT, false);
         timeline.render(g, font, session, cameras.selectedKey, cameras.selectedCut, selectedActor, selectedActorKey, selectedAction,
                 ghostTick, mouseX, mouseY);
-        if (timeline.contains(mouseX, mouseY) && dragging == null && !scrubbing && !helpOpen && !audioLanes.dragging() && !overlaysPanel.dragging()) {
+        if (timeline.contains(mouseX, mouseY) && dragging == null && !scrubbing && !helpOpen && !audioLanes.dragging() && !overlaysPanel.dragging() && !markersPanel.dragging()) {
             renderTimelineTooltip(g, mouseX, mouseY);
         }
         if (helpOpen) {
@@ -1919,14 +1908,7 @@ public class EditorScreen extends GlassScreen {
                     deferTooltip(tip, mouseX, mouseY);
                 }
             }
-            case MARKERS -> {
-                for (ReplayProject.Marker marker : project.markers) {
-                    if (Math.abs(timeline.xOf(marker.tick) - mouseX) <= 3) {
-                        deferTooltip(Component.literal(marker.name + "  " + Timeline.formatTicks(marker.tick)), mouseX, mouseY);
-                        return;
-                    }
-                }
-            }
+            case MARKERS -> deferTooltip(markersPanel.tooltip(timeline, mouseX), mouseX, mouseY);
             case SPEED -> {
                 Component tip = SpeedPanel.tooltip(timeline, project.speed, mouseX);
                 if (tip != null) {

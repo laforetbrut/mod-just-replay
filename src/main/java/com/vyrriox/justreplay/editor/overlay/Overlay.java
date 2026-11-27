@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 /**
  * A text or an image living in the world of the replay, like a title or a sticker of a video editor. It hangs
@@ -56,6 +57,9 @@ public final class Overlay {
     public static final FxParam ROLL = FxParam.of("roll", -180.0F, 180.0F, 0.0F, 1.0F);
     public static final FxParam OPACITY = FxParam.of("opacity", 0.0F, 1.0F, 1.0F, 0.01F);
     public static final List<FxParam> PARAMS = List.of(OFFSET_X, OFFSET_Y, OFFSET_Z, SCALE, YAW, PITCH, ROLL, OPACITY);
+
+    /** A formatting code of the game: a section sign and a code letter, in any case (as in {@code ChatFormatting}). */
+    private static final Pattern FORMATTING_CODE = Pattern.compile("(?i)\u00a7[0-9A-FK-OR]");
 
     public String id = UUID.randomUUID().toString();
     public String name = "";
@@ -150,8 +154,16 @@ public final class Overlay {
             return image == null || image.isBlank() ? "Image" : image;
         }
         List<String> lines = lines();
-        String first = lines.isEmpty() ? "" : net.minecraft.ChatFormatting.stripFormatting(lines.get(0));
+        String first = lines.isEmpty() ? "" : stripFormatting(lines.get(0));
         return first == null || first.isBlank() ? "Text" : first;
+    }
+
+    /**
+     * The text without its formatting codes, or null for null: the same code as the game's
+     * {@code ChatFormatting.stripFormatting} so that core needs no game class.
+     */
+    static String stripFormatting(String text) {
+        return text == null ? null : FORMATTING_CODE.matcher(text).replaceAll("");
     }
 
     /** Lines of the text, with {@code &} codes turned into Minecraft formatting codes. */

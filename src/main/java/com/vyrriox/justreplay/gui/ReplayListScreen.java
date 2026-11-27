@@ -130,7 +130,7 @@ public class ReplayListScreen extends GlassScreen {
         cardW = (listW - (columns - 1) * GAP) / columns;
 
         int by = height - bottomH + 4;
-        int n = 5;
+        int n = 6;
         int bw = Math.min(96, (listW - (n - 1) * Theme.GAP) / n);
         int bx = listX + (listW - (bw * n + Theme.GAP * (n - 1))) / 2;
         openButton = addRenderableWidget(new GlassButton(bx, by, bw, 16, Component.translatable("justreplay.list.open"), b -> openSelected())
@@ -144,6 +144,10 @@ public class ReplayListScreen extends GlassScreen {
         bx += bw + Theme.GAP;
         addRenderableWidget(new GlassButton(bx, by, bw, 16, Component.translatable("justreplay.list.folder"),
                 b -> Util.getPlatform().openPath(ReplayStorage.root())).icon(Icon.FOLDER));
+        bx += bw + Theme.GAP;
+        // The settings were only reachable from the editor and the loader's mod list (Fabric has none).
+        addRenderableWidget(new GlassButton(bx, by, bw, 16, Component.translatable("justreplay.list.settings"),
+                b -> com.vyrriox.justreplay.platform.ClientPlatform.get().openConfigScreen(this)).icon(Icon.GEAR));
         bx += bw + Theme.GAP;
         addRenderableWidget(new GlassButton(bx, by, bw, 16, CommonComponents.GUI_BACK, b -> onClose()).icon(Icon.CHEVRON_LEFT));
         filter();

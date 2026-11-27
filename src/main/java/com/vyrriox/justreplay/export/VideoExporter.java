@@ -50,6 +50,8 @@ public final class VideoExporter {
     private static final int READY_FRAMES = 5;
     /** Settle frames after which capture starts even if chunks are still building. */
     private static final int MAX_SETTLE_FRAMES = 1200;
+    /** Most warm-up frames of a frame drawn for the MCP tools: chunks are still waited for, a shader pack gets a few. */
+    private static final int GRAB_WARMUP_FRAMES = 10;
     private static VideoExporter current;
 
     private enum Phase {
@@ -81,6 +83,11 @@ public final class VideoExporter {
     private final Process process;
     private final OutputStream stdin;
     private final BlockingQueue<byte[]> queue = new ArrayBlockingQueue<>(6);
+    /**
+     * Frames FFmpeg is done with, used again for the next ones: a 1080p frame is 8 MB, allocating one per frame kept the
+     * garbage collector busy for nothing. Never more frames exist than the queue, the one being written and this pool.
+     */
+    private final BlockingQueue<byte[]> spareFrames = new ArrayBlockingQueue<>(4);
     private final Thread writerThread;
     private final int width;
     private final int height;
@@ -92,7 +99,7 @@ public final class VideoExporter {
     private final int replayDuration;
     private final boolean previousHideGui;
     private final boolean previousPauseOnLostFocus;
-    private final int warmupFrames;
+    private int warmupFrames;
     private final int captureCursor;
     private Phase phase = Phase.PRE_ROLL;
     private int warmedFrames;
@@ -109,6 +116,8 @@ public final class VideoExporter {
     private final java.util.concurrent.CompletableFuture<Boolean> completion = new java.util.concurrent.CompletableFuture<>();
     /** For a still: the PNG the first frame is moved to once the one frame export is done. */
     private Path still;
+    /** Frame drawn for the MCP tools: kept in memory, no FFmpeg, no file. */
+    private FrameGrab grab;
     private volatile boolean failed;
     private volatile boolean cancelled;
     private boolean finished;
@@ -122,6 +131,11 @@ public final class VideoExporter {
     /** Wall clock when the export started, and when its first frame was captured (0 before), for the render veil. */
     private final long startNanos = System.nanoTime();
     private long captureStartNanos;
+    /** When the last frame was captured, for the timing of the log line. */
+    private long captureEndNanos;
+    /** Time spent reading frames back into the arrays handed to FFmpeg, and how many were read. */
+    private long readNanos;
+    private int readFrames;
 
     /** How an export ended: complete, complete but silent because the sound could not be added, or not at all. */
     private enum Outcome {
@@ -137,7 +151,7 @@ public final class VideoExporter {
         this.output = output;
         this.pngSequence = pngSequence;
         this.process = process;
-        this.stdin = process.getOutputStream();
+        this.stdin = process == null ? null : process.getOutputStream();
         this.width = width;
         this.height = height;
         this.outWidth = outWidth;
@@ -198,9 +212,32 @@ public final class VideoExporter {
         return draining;
     }
 
-    /** True when this export saves a single still picture. */
+    /** True when this export saves a single still picture, or draws one frame for the MCP tools. */
     public boolean isStill() {
-        return still != null;
+        return still != null || grab != null;
+    }
+
+    /** True when this export only draws a frame for the MCP tools, written nowhere. */
+    /** True once the export was cancelled. */
+    public boolean isCancelled() {
+        return cancelled;
+    }
+
+    /** Frames per second of the video. */
+    public int fps() {
+        return fps;
+    }
+
+    public boolean isGrab() {
+        return grab != null;
+    }
+
+    /** Capture time and rate, and the whole time with warm-up and encoding, for the log. */
+    private String timing() {
+        double capture = captureStartNanos == 0L || captureEndNanos == 0L ? 0.0 : (captureEndNanos - captureStartNanos) / 1e9;
+        double total = (System.nanoTime() - startNanos) / 1e9;
+        return String.format(java.util.Locale.ROOT, "captured in %.1f s at %.1f fps, read back in %.2f ms a frame, %.1f s in all", capture,
+                capture > 0.0 ? frames / capture : 0.0, readFrames == 0 ? 0.0 : readNanos / 1e6 / readFrames, total);
     }
 
     /** Wall time since the export started, warm-up included. */
@@ -215,7 +252,7 @@ public final class VideoExporter {
 
     /** Name of the file the player gets: the still, the video, or the frame folder. */
     public String shownFileName() {
-        return String.valueOf((still != null ? still : output).getFileName());
+        return grab != null ? "MCP" : String.valueOf((still != null ? still : output).getFileName());
     }
 
     /** Length of the video being made, in seconds: the exported ticks under the speed track. */
@@ -257,7 +294,18 @@ public final class VideoExporter {
         String base = ExportNames.safeName(fileName) + "_still_" + at;
         Path target = ExportNames.firstFree(ReplayStorage.exportRoot(), base, ".png");
         Settings png = new Settings(settings.fps(), settings.crf(), settings.resolution(), settings.width(), settings.height(), true);
-        return begin(session, at, at + 1, base + "_frames", png, target);
+        return begin(session, at, at + 1, base + "_frames", png, target, null);
+    }
+
+    /**
+     * Draws the frame of a tick for the MCP tools the way a video frame is drawn (render size, pre-roll, effects,
+     * letterbox, overlays, the camera path or the camera the grab puts in its place), its pixels kept for the grab
+     * instead of piped to FFmpeg: nothing is written. Returns an error message, or null when it started.
+     */
+    static Component grab(ReplaySession session, FrameGrab grab) {
+        int at = Math.max(0, Math.min(grab.request.tick(), session.playback().duration() - 1));
+        Settings size = new Settings(20, 18, ExportResolution.WINDOW, grab.request.width(), grab.request.height(), false);
+        return begin(session, at, at + 1, "", size, null, grab);
     }
 
     /**
@@ -268,11 +316,12 @@ public final class VideoExporter {
     public static Component start(ReplaySession session, int startTick, int endTick, String fileName, Settings settings,
                                   boolean rangeInName) {
         String base = ExportNames.baseName(fileName, startTick, endTick, session.playback().duration(), rangeInName);
-        return begin(session, startTick, endTick, base, settings, null);
+        return begin(session, startTick, endTick, base, settings, null, null);
     }
 
     /** Starts an export to a safe base name; with a {@code still} path its only frame is moved there once done. */
-    private static Component begin(ReplaySession session, int startTick, int endTick, String base, Settings settings, Path still) {
+    private static Component begin(ReplaySession session, int startTick, int endTick, String base, Settings settings, Path still,
+                                   FrameGrab grab) {
         if (current != null) {
             return Component.translatable("justreplay.export.error.running");
         }
@@ -286,8 +335,8 @@ public final class VideoExporter {
         int fps = settings.fps();
         boolean png = settings.pngSequence();
         // A PNG sequence is a folder named like the video would be, without the extension. Never overwrite an earlier export.
-        Path output = ExportNames.firstFree(ReplayStorage.exportRoot(), base, png ? "" : ".mp4");
-        if (png) {
+        Path output = grab != null ? null : ExportNames.firstFree(ReplayStorage.exportRoot(), base, png ? "" : ".mp4");
+        if (png && grab == null) {
             try {
                 java.nio.file.Files.createDirectories(output);
             } catch (IOException e) {
@@ -305,42 +354,49 @@ public final class VideoExporter {
         int renderWidth = trueSize ? outWidth : windowWidth;
         int renderHeight = trueSize ? outHeight : windowHeight;
         int crf = settings.crf();
-        Process process;
-        try {
-            process = launch(output, png, fps, crf, renderWidth, renderHeight, trueSize ? 0 : outWidth, outHeight);
-        } catch (IOException e) {
-            JustReplay.LOGGER.error("Cannot start ffmpeg", e);
-            deleteOutput(output, png, false);
-            return Component.translatable("justreplay.export.error.ffmpeg", JRConfig.FFMPEG_PATH.get());
+        Process process = null;
+        if (grab == null) {
+            try {
+                process = launch(output, png, fps, crf, renderWidth, renderHeight, trueSize ? 0 : outWidth, outHeight);
+            } catch (IOException e) {
+                JustReplay.LOGGER.error("Cannot start ffmpeg", e);
+                deleteOutput(output, png, false);
+                return Component.translatable("justreplay.export.error.ffmpeg", JRConfig.FFMPEG_PATH.get());
+            }
         }
 
         // The screen stays open until FFmpeg runs for good, so an error can still be shown on it.
         // The render size is changed before the warm-up so shader packs rebuild their pipeline before capture.
         ExportRenderSize.lock();
         if (!ExportRenderSize.apply(renderWidth, renderHeight)) {
-            JustReplay.LOGGER.warn("Cannot render at {}x{}, rendering at window size and scaling with FFmpeg instead", renderWidth, renderHeight);
-            process.destroyForcibly();
-            try {
-                process.waitFor(5, TimeUnit.SECONDS);
-            } catch (InterruptedException ignored) {
-                Thread.currentThread().interrupt();
-            }
+            JustReplay.LOGGER.warn("Cannot render at {}x{}, rendering at window size and scaling {} instead", renderWidth, renderHeight,
+                    grab != null ? "the picture" : "with FFmpeg");
             RenderTarget fallback = mc.getMainRenderTarget();
             renderWidth = fallback.width;
             renderHeight = fallback.height;
-            try {
-                process = launch(output, png, fps, crf, renderWidth, renderHeight, outWidth, outHeight);
-            } catch (IOException e) {
-                JustReplay.LOGGER.error("Cannot start ffmpeg", e);
-                ExportRenderSize.unlock();
-                deleteOutput(output, png, false);
-                return Component.translatable("justreplay.export.error.ffmpeg", JRConfig.FFMPEG_PATH.get());
+            if (grab == null) {
+                process.destroyForcibly();
+                try {
+                    process.waitFor(5, TimeUnit.SECONDS);
+                } catch (InterruptedException ignored) {
+                    Thread.currentThread().interrupt();
+                }
+                try {
+                    process = launch(output, png, fps, crf, renderWidth, renderHeight, outWidth, outHeight);
+                } catch (IOException e) {
+                    JustReplay.LOGGER.error("Cannot start ffmpeg", e);
+                    ExportRenderSize.unlock();
+                    deleteOutput(output, png, false);
+                    return Component.translatable("justreplay.export.error.ffmpeg", JRConfig.FFMPEG_PATH.get());
+                }
             }
         }
 
         boolean previousHideGui = mc.options.hideGui;
         boolean previousPauseOnLostFocus = mc.options.pauseOnLostFocus;
-        mc.getSoundManager().stop(); // live sounds would be heard out of sync; the track is rebuilt offline
+        if (grab == null) {
+            mc.getSoundManager().stop(); // live sounds would be heard out of sync; the track is rebuilt offline
+        }
         mc.options.hideGui = true;
         mc.options.pauseOnLostFocus = false;
         mc.setScreen(null);
@@ -351,17 +407,27 @@ public final class VideoExporter {
         VideoExporter exporter = new VideoExporter(session, startTick, endTick, fps, output, png, process, renderWidth, renderHeight,
                 outWidth, outHeight, previousHideGui, previousPauseOnLostFocus);
         exporter.still = still;
+        exporter.grab = grab;
+        if (grab != null) {
+            exporter.warmupFrames = Math.min(exporter.warmupFrames, GRAB_WARMUP_FRAMES);
+        }
         Playback playback = session.playback();
         exporter.previousCursor = playback.cursor();
         exporter.previousSpeedIndex = playback.speedIndex();
         current = exporter;
         com.vyrriox.justreplay.compat.ReplayCompat.onExportStart();
-        exporter.writerThread.start();
+        if (grab == null) {
+            exporter.writerThread.start();
+        }
         playback.resetSpeed();
         playback.setPaused(false);
         playback.seek(Math.max(0, startTick + 1 - PRE_ROLL_TICKS));
-        JustReplay.LOGGER.info("{} started: {} (ticks {}..{}, rendered at {}x{}{})", still != null ? "Still" : "Export", exporter.describe(),
-                startTick, endTick, renderWidth, renderHeight, renderWidth != outWidth || renderHeight != outHeight ? ", scaled by FFmpeg" : "");
+        if (grab != null) {
+            JustReplay.LOGGER.debug("MCP frame of tick {} started, rendered at {}x{}", startTick, renderWidth, renderHeight);
+        } else {
+            JustReplay.LOGGER.info("{} started: {} (ticks {}..{}, rendered at {}x{}{})", still != null ? "Still" : "Export", exporter.describe(),
+                    startTick, endTick, renderWidth, renderHeight, renderWidth != outWidth || renderHeight != outHeight ? ", scaled by FFmpeg" : "");
+        }
         return null;
     }
 
@@ -457,7 +523,7 @@ public final class VideoExporter {
 
     private void capture(float partialTick) {
         Minecraft mc = Minecraft.getInstance();
-        if (failed || ReplaySession.current() != session) {
+        if (failed || ReplaySession.current() != session || grab != null && grab.abandoned()) {
             finish(false);
             return;
         }
@@ -497,6 +563,12 @@ public final class VideoExporter {
         }
         frames++;
         Camera camera = mc.gameRenderer.getMainCamera();
+        if (grab != null) {
+            // One frame is all a grab needs.
+            grab.saw(FrameGrab.camera(mc, "export"));
+            draining = true; // the frame is still on its way from the GPU
+            return;
+        }
         com.vyrriox.justreplay.client.SelfTest.onExportFrame(mc);
         audio.onFrame(camera.position().x, camera.position().y, camera.position().z, camera.yRot());
         com.vyrriox.justreplay.compat.ReplayCompat.onExportFrame(audio, frames - 1, fps, camera.position().x, camera.position().y,
@@ -544,15 +616,14 @@ public final class VideoExporter {
         try {
             if (!finished && !failed) {
                 byte[] frame;
+                long readStarted = System.nanoTime();
                 try (GpuBuffer.MappedView view = encoder.mapBuffer(staging, true, false)) {
                     frame = flipOpaque(view.data());
                 }
-                // Never block forever: if ffmpeg died the writer stops draining the queue.
-                while (!queue.offer(frame, 100, TimeUnit.MILLISECONDS)) {
-                    if (failed || !process.isAlive()) {
-                        failed = true;
-                        break;
-                    }
+                readNanos += System.nanoTime() - readStarted;
+                readFrames++;
+                if (!deliver(frame)) {
+                    failed = true;
                 }
             }
         } catch (InterruptedException e) {
@@ -572,7 +643,7 @@ public final class VideoExporter {
     /** The texture is bottom row first; FFmpeg wants top row first and an opaque image. */
     private byte[] flipOpaque(ByteBuffer pixels) {
         int rowBytes = width * 4;
-        byte[] frame = new byte[rowBytes * height];
+        byte[] frame = frameBuffer(rowBytes * height);
         for (int y = 0; y < height; y++) {
             pixels.get(y * rowBytes, frame, (height - y - 1) * rowBytes, rowBytes);
         }
@@ -580,6 +651,27 @@ public final class VideoExporter {
             frame[i] = (byte) 0xFF;
         }
         return frame;
+    }
+
+    /** A frame array of {@code size} bytes: a spare one FFmpeg is done with, or a new one. */
+    private byte[] frameBuffer(int size) {
+        byte[] frame = spareFrames.poll();
+        return frame != null && frame.length == size ? frame : new byte[size];
+    }
+
+    /** Hands a captured frame on: to the frame grab, or to FFmpeg. False when FFmpeg is gone. */
+    private boolean deliver(byte[] frame) throws InterruptedException {
+        if (grab != null) {
+            grab.keep(frame, width, height);
+            return true;
+        }
+        // Never block forever: if ffmpeg died the writer stops draining the queue.
+        while (!queue.offer(frame, 100, TimeUnit.MILLISECONDS)) {
+            if (failed || !process.isAlive()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** Pre-roll and settle frames: nothing is captured, chunks build and the world gets in motion. */
@@ -614,6 +706,7 @@ public final class VideoExporter {
                     break;
                 }
                 stdin.write(frame);
+                spareFrames.offer(frame);
             }
         } catch (IOException | InterruptedException e) {
             failed = true;
@@ -633,6 +726,7 @@ public final class VideoExporter {
             return;
         }
         finished = true;
+        captureEndNanos = System.nanoTime();
         current = null;
         // A readback still in flight closes its own buffer when it lands.
         freeReadbackBuffers.forEach(GpuBuffer::close);
@@ -646,6 +740,11 @@ public final class VideoExporter {
         }
         mc.options.hideGui = previousHideGui;
         mc.options.pauseOnLostFocus = previousPauseOnLostFocus;
+        if (grab != null) {
+            // Nothing was written: the grab puts the replay back as it was and hands the picture over.
+            grab.finished(success);
+            return;
+        }
         if (mc.screen == null && mc.level != null) {
             mc.mouseHandler.grabMouse();
         }
@@ -728,7 +827,7 @@ public final class VideoExporter {
                 case DONE_WITHOUT_SOUND -> "finished without sound";
                 case FAILED -> cancelled ? "cancelled" : "failed";
             };
-            JustReplay.LOGGER.info("{} {} ({} frames): {}", still != null ? "Still" : "Export", ended, frames, describe());
+            JustReplay.LOGGER.info("{} {} ({} frames, {}): {}", still != null ? "Still" : "Export", ended, frames, timing(), describe());
         } catch (Throwable t) {
             JustReplay.LOGGER.error("Cannot report the end of the export", t);
         } finally {
