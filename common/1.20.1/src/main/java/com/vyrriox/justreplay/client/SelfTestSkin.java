@@ -22,7 +22,30 @@ import java.util.UUID;
  * @author vyrriox
  */
 final class SelfTestSkin {
+    private static boolean faced;
+
     private SelfTestSkin() {
+    }
+
+    /** Turns the replay camera to the recording player's actor, for a screenshot of its skin. */
+    static void face(Minecraft mc, ReplaySession s) {
+        faced = false;
+        UUID actor = s == null ? null : s.actorUuid();
+        if (actor == null || mc.player == null || mc.level == null) {
+            return;
+        }
+        for (net.minecraft.world.entity.Entity e : mc.level.entitiesForRendering()) {
+            if (actor.equals(e.getUUID())) {
+                mc.player.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, e.getEyePosition());
+                log("skin: camera turned to the actor at {}", e.blockPosition());
+                faced = true;
+                return;
+            }
+        }
+    }
+
+    static boolean faced() {
+        return faced;
     }
 
     private static void log(String message, Object... args) {

@@ -1035,6 +1035,7 @@ public final class SelfTest {
                 Mods.checkVehicles(mc, "after backward seek");
                 checkForcedFailureDuringReplay(s);
                 shot(mc, "3-seek20");
+                SelfTestSkin.face(mc, s);
                 Mods.faceVehicle(mc);
                 SelfTestModState.face(mc);
                 checkClockBackSeek(clockGecko, geckoClock(), clockEntity, com.vyrriox.justreplay.compat.ReplayCompat.lastGeckoEntityFrameTime());
@@ -1050,6 +1051,9 @@ public final class SelfTest {
                 if (ironsPhase == 0) {
                     if (Mods.loaded("mts")) {
                         shot(mc, "3b-vehicle");
+                    }
+                    if (SelfTestSkin.faced() && !Mods.loaded("mts")) {
+                        shot(mc, "3c-actor-skin");
                     }
                     if (SelfTestModState.faced()) {
                         shot(mc, "3c-mod-state");

@@ -900,6 +900,7 @@ public final class SelfTest {
                 Mods.checkVehicles(mc, "after backward seek");
                 checkForcedFailureDuringReplay(s);
                 shot(mc, "3-seek20");
+                SelfTestSkin.face(mc, s);
                 Mods.faceVehicle(mc);
                 checkClockBackSeek(clockGecko, geckoClock(), clockEntity, com.vyrriox.justreplay.compat.ReplayCompat.lastGeckoEntityFrameTime());
                 clockGecko = geckoClock();
@@ -913,6 +914,9 @@ public final class SelfTest {
                 ReplaySession s = ReplaySession.current();
                 if (Mods.loaded("mts")) {
                     shot(mc, "3b-vehicle");
+                }
+                if (SelfTestSkin.faced() && !Mods.loaded("mts")) {
+                    shot(mc, "3c-actor-skin");
                 }
                 log("speed x{}: cursor advanced {} ticks in 10 client ticks", s.playback().speed(), s.playback().cursor() - speedStart);
                 checkClockRise("speed", s.playback().cursor() - speedStart, clockStartStep, Math.max(1, s.playback().lastStep()),
