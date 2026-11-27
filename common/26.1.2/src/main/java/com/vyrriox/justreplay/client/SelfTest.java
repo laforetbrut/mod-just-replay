@@ -294,6 +294,15 @@ public final class SelfTest {
                 && !(mc.screen instanceof net.minecraft.client.gui.screens.LevelLoadingScreen);
     }
 
+    /**
+     * Tick the MCP control checks go to: 100, or earlier in a short buffer clip, so that the export of 100 ticks they
+     * start after it stays inside the clip.
+     */
+    private static int steerTick(java.nio.file.Path clip) {
+        int duration = ReplayStorage.readMeta(clip).durationTicks;
+        return Math.max(1, Math.min(MCP_STEER_TICK, duration - 101));
+    }
+
     private static void next(int delay) {
         step++;
         wait = delay;
@@ -1659,7 +1668,7 @@ public final class SelfTest {
                 }
                 log("mcp control checks start on '{}' ({} markers), from the menu", clip.getFileName(), mcpSteerMarkers);
                 mcpSteer = com.vyrriox.justreplay.mcp.McpProbe.steer(mcpPort, com.vyrriox.justreplay.config.JRConfig.MCP.token.get(),
-                        new com.vyrriox.justreplay.mcp.McpProbe.Steer(clip.getFileName().toString(), mcpSteerMarkers, MCP_STEER_TICK,
+                        new com.vyrriox.justreplay.mcp.McpProbe.Steer(clip.getFileName().toString(), mcpSteerMarkers, steerTick(clip),
                                 "selftest_mcp"));
                 next(1);
             }
