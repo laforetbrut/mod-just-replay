@@ -41,9 +41,12 @@ public final class ReplayProject {
     public String selectedCamera;
     /** Play the recorded voice chat and include it in video exports. */
     public boolean voices = true;
+    /** Markers of the timeline and the world, sorted by tick; see {@link Marker}. */
     public List<Marker> markers = new ArrayList<>();
     /** True once the markers placed while recording ({@code meta.json}) were copied to {@link #markers}. */
     public boolean recordingMarkersImported;
+    /** Draw the markers in the world while editing (never in exports). */
+    public boolean showMarkers = true;
     public List<ActorData> actors = new ArrayList<>();
     /** Music and sound design tracks, mixed over the game sounds. */
     public List<AudioTrack> audioTracks = new ArrayList<>();
@@ -123,6 +126,18 @@ public final class ReplayProject {
 
         public boolean hiddenAt(double time) {
             return hidden && time >= hideFrom && (hideTo < 0 || time <= hideTo);
+        }
+
+        /**
+         * Label of an entity's edit: its type and name for a player or a named entity ({@code player Alex}), its name
+         * otherwise.
+         *
+         * @param typeId entity type id, such as {@code minecraft:player}
+         * @param named  a player, or an entity with a custom name
+         */
+        public static String label(String typeId, String name, boolean named) {
+            String type = typeId == null ? "" : typeId.substring(typeId.indexOf(':') + 1);
+            return named ? type + " " + name : name;
         }
 
         /** True when the edit changes nothing and can be dropped. */
@@ -240,6 +255,8 @@ public final class ReplayProject {
         public String timing = "CONSTANT_SPEED";
         /** Gentle acceleration at the start and deceleration at the end of a constant speed path. */
         public boolean ease = true;
+        /** Path last built from this camera, see {@link CameraPath#of(Camera)}; never saved. */
+        transient CameraPath.Built builtPath;
 
         // STATIC placement (feet position of the free camera); roll and fov are also used by FOLLOW
         public double x, y, z;
@@ -294,6 +311,24 @@ public final class ReplayProject {
 
         public void sort() {
             keyframes.sort(Comparator.comparingInt(k -> k.tick));
+        }
+
+        /** The keyframe at a tick, or null. */
+        public CameraKeyframe keyframeAt(int tick) {
+            for (CameraKeyframe k : keyframes) {
+                if (k.tick == tick) {
+                    return k;
+                }
+            }
+            return null;
+        }
+
+        /** Adds a keyframe, replacing the one already at its tick; true when one was replaced. */
+        public boolean setKeyframe(CameraKeyframe key) {
+            boolean replaced = keyframes.removeIf(k -> k.tick == key.tick);
+            keyframes.add(key);
+            sort();
+            return replaced;
         }
 
         /** Deep copy with a new id. */
@@ -357,19 +392,6 @@ public final class ReplayProject {
         /** True when the picture transition plays at a time. */
         public boolean transitionAt(double time) {
             return transitionType() != TransitionType.CUT && time >= tick && time < tick + transitionTicks;
-        }
-    }
-
-    public static final class Marker {
-        public int tick;
-        public String name = "";
-
-        public Marker() {
-        }
-
-        public Marker(int tick, String name) {
-            this.tick = tick;
-            this.name = name;
         }
     }
 
@@ -506,14 +528,55 @@ public final class ReplayProject {
             keyframes.sort(Comparator.comparingInt(k -> k.tick));
             actions.sort(Comparator.comparingInt(a -> a.tick));
         }
+
+        /** The keyframe at a tick, or null. */
+        public ActorKeyframe keyframeAt(int tick) {
+            for (ActorKeyframe k : keyframes) {
+                if (k.tick == tick) {
+                    return k;
+                }
+            }
+            return null;
+        }
+
+        /** Adds a keyframe at {@code tick}, replacing the one already there; the yaw is brought into [-180, 180). */
+        public ActorKeyframe setKeyframe(int tick, double x, double y, double z, float yaw) {
+            keyframes.removeIf(k -> k.tick == tick);
+            ActorKeyframe key = new ActorKeyframe(tick, x, y, z, (float) CameraPath.wrapDegrees(yaw), 0.0F);
+            keyframes.add(key);
+            sort();
+            return key;
+        }
+
+        /** Adds an action at {@code tick}, replacing the actions of the same type, and of the types {@code replaces}, there. */
+        public ActorAction setAction(int tick, ActionType type, int duration, String param, ActionType... replaces) {
+            actions.removeIf(a -> {
+                if (a.tick != tick) {
+                    return false;
+                }
+                ActionType existing = a.actionType();
+                if (existing == type) {
+                    return true;
+                }
+                for (ActionType r : replaces) {
+                    if (existing == r) {
+                        return true;
+                    }
+                }
+                return false;
+            });
+            ActorAction action = new ActorAction(tick, type, duration, param == null ? "" : param);
+            actions.add(action);
+            sort();
+            return action;
+        }
     }
 
     public void normalize() {
         if (cameras == null) cameras = new ArrayList<>();
         if (cuts == null) cuts = new ArrayList<>();
-        if (markers == null) markers = new ArrayList<>();
+        markers = Marker.normalizeAll(markers);
         if (actors == null) actors = new ArrayList<>();
-        markers.removeIf(m -> m == null);
         actors.removeIf(a -> a == null);
         if (audioTracks == null) audioTracks = new ArrayList<>();
         if (effects == null) effects = new ArrayList<>();
@@ -612,13 +675,48 @@ public final class ReplayProject {
         if (recorded != null) {
             for (com.vyrriox.justreplay.format.ReplayMeta.Marker marker : recorded) {
                 if (marker != null) {
-                    String name = marker.name == null || marker.name.isBlank() ? "Marker " + (markers.size() + 1) : marker.name;
-                    markers.add(new Marker(Math.max(0, marker.tick), name));
+                    String name = marker.name == null || marker.name.isBlank() ? Marker.nextName(markers) : marker.name;
+                    markers.add(Marker.instant(marker.tick, name));
                 }
             }
-            markers.sort(Comparator.comparingInt(m -> m.tick));
+            markers = Marker.normalizeAll(markers);
         }
         return true;
+    }
+
+    // ---------------------------------------------------------------- markers
+
+    /** The marker with this id, or null. */
+    public Marker marker(String id) {
+        if (id == null) {
+            return null;
+        }
+        for (Marker m : markers) {
+            if (id.equals(m.id)) {
+                return m;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Adds a marker: repaired like a loaded one (an id when it has none, a new one when it is taken), then the list
+     * is sorted by tick. Returns the marker.
+     */
+    public Marker addMarker(Marker marker) {
+        markers.add(marker);
+        markers = Marker.normalizeAll(markers);
+        return marker;
+    }
+
+    /** Removes the marker with this id; true when there was one. */
+    public boolean removeMarker(String id) {
+        return id != null && markers.removeIf(m -> id.equals(m.id));
+    }
+
+    /** The first free default marker name. */
+    public String nextMarkerName() {
+        return Marker.nextName(markers);
     }
 
     /** Hides or shows every recorded entity of a type; the list stays sorted and without duplicates. */
@@ -680,6 +778,20 @@ public final class ReplayProject {
             boolean used = false;
             for (Camera camera : cameras) {
                 used |= name.equals(camera.name);
+            }
+            if (!used) {
+                return name;
+            }
+        }
+    }
+
+    /** Next free default audio track name, "Track N". */
+    public String nextTrackName() {
+        for (int n = audioTracks.size() + 1; ; n++) {
+            String name = "Track " + n;
+            boolean used = false;
+            for (com.vyrriox.justreplay.editor.audio.AudioTrack track : audioTracks) {
+                used |= name.equals(track.name);
             }
             if (!used) {
                 return name;

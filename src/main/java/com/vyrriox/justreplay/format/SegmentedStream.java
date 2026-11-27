@@ -97,7 +97,8 @@ public final class SegmentedStream implements Closeable {
         index.writeInt(tick);
         index.writeLong(raw.count);
         gzip = gzip(raw, 1 << 16, true, STREAM_LEVEL);
-        out = new DataOutputStream(gzip);
+        // Buffered: three small writes per packet straight into the deflater were three native calls each.
+        out = new DataOutputStream(new BufferedOutputStream(gzip, 1 << 16));
     }
 
     /**

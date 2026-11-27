@@ -15,6 +15,8 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class CameraController {
     private static double[] lastState;
+    /** Camera put in place of the camera path for a frame of the MCP tools, or null. */
+    private static double[] override;
 
     private CameraController() {
     }
@@ -29,19 +31,39 @@ public final class CameraController {
         return Math.max(0, playback.cursor() - step + partialTick * step);
     }
 
+    /** Roll and field of view of the free camera, or null. */
+    private static double[] lens;
+
+    /**
+     * Holds the camera at {@code state} (as a camera keyframe gives it: position of the feet, yaw, pitch, roll and
+     * field of view) at every frame, in place of the camera path, until {@link #clearOverride}.
+     */
+    public static void override(double[] state) {
+        override = state == null ? null : state.clone();
+    }
+
+    public static void clearOverride() {
+        override = null;
+    }
+
     public static void onRenderFrame(float partialTick) {
         lastState = null;
         ReplaySession session = ReplaySession.current();
         Minecraft mc = Minecraft.getInstance();
-        if (session == null || !ReplaySession.isRunning() || !session.isCameraPathActive() || mc.player == null) {
+        if (session == null || !ReplaySession.isRunning() || override == null && !session.isCameraPathActive() || mc.player == null) {
             return;
         }
-        double time = frameTime(session, partialTick);
-        double[] state = CameraRig.sampleProject(session.project(), time, partialTick, true);
-        // A picture transition reached without its outgoing frame shows the outgoing camera for one frame.
-        double[] outgoing = com.vyrriox.justreplay.editor.fx.FxEngine.outgoingState(session.project(), time, partialTick);
-        if (outgoing != null) {
-            state = outgoing;
+        double[] state;
+        if (override != null) {
+            state = override;
+        } else {
+            double time = frameTime(session, partialTick);
+            state = CameraRig.sampleProject(session.project(), time, partialTick, true);
+            // A picture transition reached without its outgoing frame shows the outgoing camera for one frame.
+            double[] outgoing = com.vyrriox.justreplay.editor.fx.FxEngine.outgoingState(session.project(), time, partialTick);
+            if (outgoing != null) {
+                state = outgoing;
+            }
         }
         if (state == null) {
             return;
@@ -52,10 +74,33 @@ public final class CameraController {
     }
 
     public static Float roll() {
-        return lastState == null ? null : (float) lastState[5];
+        if (lastState != null) {
+            return (float) lastState[5];
+        }
+        return lens != null && lensShown() ? (float) lens[0] : null;
     }
 
     public static Double fov() {
-        return lastState == null ? null : lastState[6];
+        if (lastState != null) {
+            return lastState[6];
+        }
+        return lens != null && lensShown() ? lens[1] : null;
+    }
+
+    /**
+     * Gives the free camera of the replay a roll and a field of view (MCP's set_camera), held until the replay closes
+     * or another lens is given; the camera path and an entity viewed through keep their own.
+     */
+    public static void lens(double roll, double fov) {
+        lens = new double[]{roll, fov};
+    }
+
+    public static void clearLens() {
+        lens = null;
+    }
+
+    private static boolean lensShown() {
+        ReplaySession session = ReplaySession.current();
+        return session != null && ReplaySession.isRunning() && !session.spectate().isActive();
     }
 }
