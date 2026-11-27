@@ -130,9 +130,8 @@ final class EntitiesPanel {
     }
 
     static String labelOf(Entity entity) {
-        String type = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).getPath();
-        String name = entity.getName().getString();
-        return entity instanceof Player || entity.hasCustomName() ? type + " " + name : name;
+        return ReplayProject.EntityEdit.label(BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).toString(), entity.getName().getString(),
+                entity instanceof Player || entity.hasCustomName());
     }
 
     static ReplayProject.EntityEdit ensureEdit(ReplaySession session, Entity entity) {

@@ -2,7 +2,7 @@ package com.vyrriox.justreplay.format;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.vyrriox.justreplay.JustReplay;
+import com.vyrriox.justreplay.JustReplayCore;
 import com.vyrriox.justreplay.editor.ReplayProject;
 import com.vyrriox.justreplay.platform.Platform;
 
@@ -38,18 +38,18 @@ public final class ReplayStorage {
     }
 
     public static Path root() {
-        return ensure(Platform.get().gameDir().resolve(JustReplay.MOD_ID).resolve("replays"));
+        return ensure(Platform.get().gameDir().resolve(JustReplayCore.MOD_ID).resolve("replays"));
     }
 
     public static Path exportRoot() {
-        return ensure(Platform.get().gameDir().resolve(JustReplay.MOD_ID).resolve("exports"));
+        return ensure(Platform.get().gameDir().resolve(JustReplayCore.MOD_ID).resolve("exports"));
     }
 
     private static Path ensure(Path dir) {
         try {
             Files.createDirectories(dir);
         } catch (IOException e) {
-            JustReplay.LOGGER.error("Cannot create folder {}", dir, e);
+            JustReplayCore.LOGGER.error("Cannot create folder {}", dir, e);
         }
         return dir;
     }
@@ -58,8 +58,13 @@ public final class ReplayStorage {
     }
 
     public static List<Entry> list() {
+        return list(root());
+    }
+
+    /** The replays saved in {@code root}, newest first. */
+    public static List<Entry> list(Path root) {
         List<Entry> result = new ArrayList<>();
-        try (Stream<Path> dirs = Files.list(root())) {
+        try (Stream<Path> dirs = Files.list(root)) {
             dirs.filter(Files::isDirectory).forEach(dir -> {
                 if (dir.getFileName().toString().endsWith(".tmp") || !Files.exists(dir.resolve(STREAM))) {
                     return;
@@ -72,7 +77,7 @@ public final class ReplayStorage {
                 result.add(new Entry(dir, readMeta(dir), size));
             });
         } catch (IOException e) {
-            JustReplay.LOGGER.error("Cannot list replays", e);
+            JustReplayCore.LOGGER.error("Cannot list replays", e);
         }
         result.sort(Comparator.comparingLong((Entry e) -> e.meta().startedAt).reversed());
         return result;
@@ -103,9 +108,9 @@ public final class ReplayStorage {
             try {
                 Files.move(file, bad, StandardCopyOption.REPLACE_EXISTING);
                 lastProjectBackup = bad;
-                JustReplay.LOGGER.warn("Unreadable {} moved to {}", file, bad);
+                JustReplayCore.LOGGER.warn("Unreadable {} moved to {}", file, bad);
             } catch (IOException e) {
-                JustReplay.LOGGER.error("Cannot move the unreadable {} aside", file, e);
+                JustReplayCore.LOGGER.error("Cannot move the unreadable {} aside", file, e);
             }
         }
         if (project == null) {
@@ -144,7 +149,7 @@ public final class ReplayStorage {
             if (packets.isEmpty()) {
                 throw damaged;
             }
-            JustReplay.LOGGER.warn("Replay stream in {} is damaged ({}), keeping {} packets", dir, damaged.toString(), packets.size());
+            JustReplayCore.LOGGER.warn("Replay stream in {} is damaged ({}), keeping {} packets", dir, damaged.toString(), packets.size());
         }
         return packets;
     }
@@ -156,7 +161,7 @@ public final class ReplayStorage {
         try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
             return GSON.fromJson(reader, type);
         } catch (Exception e) {
-            JustReplay.LOGGER.error("Cannot read {}", file, e);
+            JustReplayCore.LOGGER.error("Cannot read {}", file, e);
             return null;
         }
     }
@@ -180,7 +185,7 @@ public final class ReplayStorage {
                 Files.deleteIfExists(tmp);
             }
         } catch (IOException e) {
-            JustReplay.LOGGER.error("Cannot write {}", file, e);
+            JustReplayCore.LOGGER.error("Cannot write {}", file, e);
         }
     }
 
