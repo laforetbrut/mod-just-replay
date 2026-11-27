@@ -315,9 +315,24 @@ public final class ReplayCompat {
         MORE_PLAYER_MODELS.run("writeLiveChanges", () -> MorePlayerModelsCompat.writeLiveChanges(mc, player, actorUuid, out));
     }
 
+    /**
+     * Items an entity wears in the slots of a mod (Curios, Trinkets), for the MCP observation tools: {@code out} gets the
+     * slot name ({@code curios:head}, {@code trinkets:chest/cape}...) and the stack.
+     */
+    public static void describeWorn(net.minecraft.world.entity.Entity entity,
+                                    java.util.function.BiConsumer<String, net.minecraft.world.item.ItemStack> out) {
+        if (CURIOS.on()) {
+            CURIOS.run("forEachWorn", () -> CuriosCompat.forEachWorn(entity, out));
+        }
+        if (TRINKETS.on()) {
+            TRINKETS.run("forEachWorn", () -> TrinketsCompat.forEachWorn(entity, out));
+        }
+    }
+
     /** Mod definitions the entity state depends on (snapshots and checkpoints), written before any entity. */
     public static void writeDefinitions(java.util.function.Consumer<Packet<?>> out) {
         CURIOS.run("writeDefinitions", () -> CuriosCompat.writeDefinitions(out));
+        TRINKETS.run("writeDefinitions", () -> TrinketsCompat.writeDefinitions(out));
     }
 
     /**
@@ -326,9 +341,10 @@ public final class ReplayCompat {
      */
     public static void writePlayerState(net.minecraft.world.entity.player.Player player, java.util.UUID target,
                                         java.util.function.Consumer<Packet<?>> out) {
-        // Curios, Armourer's Workshop and Epic Fight key their state by entity id, which the actor shares with the
-        // recording player. More Player Models keys it by UUID.
+        // Curios, Trinkets, Armourer's Workshop and Epic Fight key their state by entity id, which the actor shares
+        // with the recording player. More Player Models keys it by UUID.
         CURIOS.run("writeCurrent", () -> CuriosCompat.writeCurrent(player, out));
+        TRINKETS.run("writeCurrent", () -> TrinketsCompat.writeCurrent(player, out));
         MORE_PLAYER_MODELS.run("writeCurrent", () -> MorePlayerModelsCompat.writeCurrent(player, target, out));
         ARMOURERS_WORKSHOP.run("writeCurrent", () -> ArmourersWorkshopCompat.writeCurrent(player, out));
         EPIC_FIGHT.run("writeCurrent", () -> EpicFightCompat.writeCurrent(player, out));
@@ -344,6 +360,9 @@ public final class ReplayCompat {
         }
         if (CURIOS.on()) {
             CURIOS.run("writeCurrent", () -> CuriosCompat.writeCurrent(entity, out));
+        }
+        if (TRINKETS.on()) {
+            TRINKETS.run("writeCurrent", () -> TrinketsCompat.writeCurrent(entity, out));
         }
         if (IMMERSIVE_VEHICLES.on()) {
             IMMERSIVE_VEHICLES.run("writeCurrent", () -> ImmersiveVehiclesCompat.writeCurrent(entity, out));
@@ -362,6 +381,7 @@ public final class ReplayCompat {
     public static void writeActorForm(net.minecraft.world.entity.player.Player player, java.util.UUID target,
                                       java.util.function.Consumer<Packet<?>> out) {
         CURIOS.run("writeCurrent", () -> CuriosCompat.writeCurrent(player, out));
+        TRINKETS.run("writeCurrent", () -> TrinketsCompat.writeCurrent(player, out));
         MORE_PLAYER_MODELS.run("writeActorForm", () -> MorePlayerModelsCompat.writeActorForm(player, target, out));
         ARMOURERS_WORKSHOP.run("writeCurrent", () -> ArmourersWorkshopCompat.writeCurrent(player, out));
         EPIC_FIGHT.run("writeCurrent", () -> EpicFightCompat.writeCurrent(player, out));

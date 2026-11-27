@@ -41,6 +41,11 @@ public final class SelfTest {
     private static final String WORLD = "justreplay-selftest";
 
     private static int step;
+
+    /** Whether this game runs the self test. */
+    public static boolean isEnabled() {
+        return ENABLED;
+    }
     private static Entity hiddenMob;
     /** The slow motion export of the speed track check. */
     private static VideoExporter slowExport;
@@ -52,6 +57,7 @@ public final class SelfTest {
     private static int armorLayerSkippedBefore;
     private static int wait;
     private static int settle;
+    private static int backSeekWaits;
     private static int speedStart;
     /** Pause and slow motion: an entity the freeze must hold, and what is read before and after. */
     private static Entity heldEntity;
@@ -94,6 +100,14 @@ public final class SelfTest {
     private static String cameraLook;
     private static int ringWaits;
     private static boolean ringRebuilt;
+    private static volatile boolean ringReloaded;
+    private static int ringSettle;
+    /** Before the recording: 0 the server runs the first commands, 1 the ring, 2 the server again, 3 a second for the client. */
+    private static int settlePhase;
+    private static boolean modsGiven;
+    private static volatile boolean serverAnswered;
+    private static boolean serverAsked;
+    private static int serverWaits;
     private static int cullSkipped;
     /** Sounds the recording player made itself, heard again while the replay plays (see recordLocalEffect). */
     private static int localBell;
@@ -347,6 +361,44 @@ public final class SelfTest {
                 && !(mc.screen instanceof net.minecraft.client.gui.screens.ReceivingLevelScreen);
     }
 
+    /**
+     * True once the integrated server has run everything sent to it so far: a task queued behind the commands of the
+     * self test has come back. A datapack reload holds the server thread for many seconds in a big pack, and the
+     * commands sent meanwhile would run after the recording they prepare. Asked again at each call that follows a true
+     * answer; gives up after two minutes.
+     */
+    private static boolean serverCaughtUp(Minecraft mc) {
+        net.minecraft.client.server.IntegratedServer server = mc.getSingleplayerServer();
+        if (server == null) {
+            return true;
+        }
+        if (!serverAsked) {
+            serverAsked = true;
+            serverAnswered = false;
+            serverWaits = 0;
+            server.execute(() -> serverAnswered = true);
+            return false;
+        }
+        serverWaits++;
+        if (!serverAnswered && serverWaits < 480) {
+            return false;
+        }
+        if (serverWaits > 12 || !serverAnswered) {
+            log("integrated server caught up after {} ticks{}", serverWaits * 5, serverAnswered ? "" : " (no answer, going on)");
+        }
+        serverAsked = false;
+        return true;
+    }
+
+    /**
+     * Tick the MCP control checks go to: 100, or earlier in a short buffer clip, so that the export of 100 ticks they
+     * start after it stays inside the clip.
+     */
+    private static int steerTick(java.nio.file.Path clip) {
+        int duration = ReplayStorage.readMeta(clip).durationTicks;
+        return Math.max(1, Math.min(MCP_STEER_TICK, duration - 101));
+    }
+
     private static void next(int delay) {
         step++;
         wait = delay;
@@ -441,6 +493,14 @@ public final class SelfTest {
     private static boolean vehiclePlacedLive;
     /** The recording's first steps ran: the walking step may start a tick or two after recording tick 5. */
     private static boolean startPlaced;
+    private static int recIndicatorStage;
+    /** Checkpoint ticks of the main recording. */
+    private static int[] recordedCheckpoints = new int[0];
+    private static int recFramesMark;
+    private static int recTickMark;
+    private static boolean recIndicatorWas;
+    private static com.vyrriox.justreplay.gui.ScrubScreen scrub;
+    private static int scrubWaits;
 
     /**
      * Called by the export right after a frame is captured, before the veil goes over it: the rendered camera must be
@@ -582,6 +642,35 @@ public final class SelfTest {
                 String.format(java.util.Locale.ROOT, "%.1f", toLeft.screenX()), ok ? "OK" : "FAIL");
     }
 
+    /** The REC pill switched off mid recording: no frame draws it and the recording goes on; back on, it shows again. */
+    private static void checkRecIndicator(Minecraft mc, int t) {
+        var setting = com.vyrriox.justreplay.config.JRConfig.SHOW_RECORDING_INDICATOR;
+        if (recIndicatorStage == 0 && t >= 30) {
+            recIndicatorStage = 1;
+            recIndicatorWas = setting.get();
+            setting.set(false);
+        } else if (recIndicatorStage == 1 && t >= 32) {
+            // Counted from one tick after the switch: the frame being drawn when it flipped may still show it.
+            recIndicatorStage = 2;
+            recFramesMark = com.vyrriox.justreplay.gui.ReplayHud.recFrames();
+            recTickMark = t;
+        } else if (recIndicatorStage == 2 && t >= 40) {
+            recIndicatorStage = 3;
+            int drawn = com.vyrriox.justreplay.gui.ReplayHud.recFrames() - recFramesMark;
+            shot(mc, "rec-indicator-hidden");
+            log("REC indicator off while recording: drawn on {} frames, recording went on {} ticks -> {}", drawn, t - recTickMark,
+                    drawn == 0 && t > recTickMark && Recorder.active() != null ? "OK" : "FAIL");
+            setting.set(true);
+            recFramesMark = com.vyrriox.justreplay.gui.ReplayHud.recFrames();
+        } else if (recIndicatorStage == 3 && t >= 46) {
+            recIndicatorStage = 4;
+            int drawn = com.vyrriox.justreplay.gui.ReplayHud.recFrames() - recFramesMark;
+            shot(mc, "rec-indicator-shown");
+            log("REC indicator back on: drawn on {} frames -> {}", drawn, drawn > 0 ? "OK" : "FAIL");
+            setting.set(recIndicatorWas);
+        }
+    }
+
     private static void shot(Minecraft mc, String name) {
         Screenshot.grab(mc.gameDirectory, "selftest-" + name + ".png", mc.getMainRenderTarget(), c -> log("screenshot {}", name));
     }
@@ -590,6 +679,7 @@ public final class SelfTest {
         if (!ENABLED) {
             return;
         }
+        SelfTestSkin.tick(mc);
         // The test must not stop when the window loses focus.
         mc.options.pauseOnLostFocus = false;
         if (mc.screen instanceof net.minecraft.client.gui.screens.PauseScreen) {
@@ -669,8 +759,37 @@ public final class SelfTest {
                 }
             }
             case 2 -> {
-                if (Mods.ringPending(mc)) {
+                // Everything sent so far must have run on the server and reached the client before the recording.
+                if (settlePhase == 0 || settlePhase == 2) {
+                    if (!serverCaughtUp(mc)) {
+                        wait = 5;
+                        return;
+                    }
+                    settlePhase++;
+                }
+                if (settlePhase == 1) {
+                    if (Mods.ringPending(mc)) {
+                        wait = 5;
+                        return;
+                    }
+                    settlePhase = 2;
                     wait = 5;
+                    return;
+                }
+                if (settlePhase == 3 && !modsGiven) {
+                    // Entities and worn items of mods with no integration of their own, put there before the recording:
+                    // only its snapshot has them. Once the server ran the reloads of the ring: a reload still under
+                    // way syncs the Curios of the player again and empties them on the client. Then the server again.
+                    modsGiven = true;
+                    SelfTestModState.prepare(p);
+                    Mods.giveRing(mc);
+                    settlePhase = 2;
+                    wait = 5;
+                    return;
+                }
+                if (settlePhase == 3) {
+                    settlePhase = 4;
+                    wait = 20;
                     return;
                 }
                 p.connection.sendCommand("summon minecraft:pig ~4 ~ ~2");
@@ -694,11 +813,13 @@ public final class SelfTest {
             case 3 -> {
                 // Walk in a circle for ~10 seconds, jumping and swinging.
                 int t = Recorder.active() != null ? Recorder.active().tick() : 0;
+                checkRecIndicator(mc, t);
                 if (t >= 5 && !startPlaced) {
                     // Placed once the recording runs: a block changed in the same tick as the start could be missed.
                     startPlaced = true;
                     Mods.place(mc, p, modsBase);
                     lookBefore = Mods.look(p);
+                    SelfTestModState.captureStart(mc);
                 }
                 if (t == LOOK_CHANGE_TICK) {
                     // The server answers the recording player under its own UUID: the recording must name its actor.
@@ -774,6 +895,7 @@ public final class SelfTest {
                             slowTicks >= 0 ? "PASS" : "FAIL", slowTicks, t);
                     replay = Recorder.stop();
                     int[] checkpoints = com.vyrriox.justreplay.format.Checkpoints.list(replay);
+                    recordedCheckpoints = checkpoints;
                     log("record stopped: {} packets={} stream={} bytes checkpoints={} bytes in {} files", replay,
                             ReplayStorage.readStream(replay).size(), Files.size(replay.resolve(ReplayStorage.STREAM)),
                             folderSize(replay.resolve(com.vyrriox.justreplay.format.Checkpoints.FOLDER)), checkpoints.length);
@@ -805,6 +927,9 @@ public final class SelfTest {
                 logWorld(mc, s, "playing");
                 log("mods while playing: {}", Mods.state(mc, s));
                 Mods.checkCurios(mc, s, "at start");
+                SelfTestSkin.check(mc, s, "at start");
+                SelfTestSkin.checkRepair(mc, s);
+                SelfTestModState.check(mc, s, "at start");
                 cameraLook = Mods.look(mc.player);
                 Mods.checkLook(mc, s, "at start");
                 Mods.checkLookGuards(mc);
@@ -827,9 +952,15 @@ public final class SelfTest {
                 startFreezeCheck(mc, p);
                 clockGecko = geckoClock();
                 clockIris = irisClock();
+                SelfTestModState.hideChest(mc, s);
                 go(60, 40);
             }
             case 60 -> {
+                if (SelfTestModState.waitingForFrames(mc)) {
+                    wait = 5;
+                    return;
+                }
+                SelfTestModState.checkHiddenChest(mc, ReplaySession.current(), () -> shot(mc, "1c-chest-hidden"));
                 // 40 more ticks paused: the clocks read while rendering must not have moved.
                 checkClockHeld(clockGecko, geckoClock(), clockIris, irisClock());
                 endFreezeCheck(mc, p);
@@ -849,6 +980,51 @@ public final class SelfTest {
                     // The mod's toggle key, simulated: the next ticks must switch it off again.
                     com.vyrriox.justreplay.compat.EntityCullingCompat.setEnabled(true);
                 }
+                // The scrub key frees the mouse over the timeline, out of the editor: a click there moves the play head.
+                scrub = new com.vyrriox.justreplay.gui.ScrubScreen(s);
+                mc.setScreen(scrub);
+                scrubWaits = 0;
+                go(112, 2);
+            }
+            case 112 -> {
+                ReplaySession s = ReplaySession.current();
+                int w = com.vyrriox.justreplay.gui.ReplayHud.barWidth();
+                if (w <= 0 && ++scrubWaits < 100) {
+                    wait = 2;
+                    return;
+                }
+                int duration = s.playback().duration();
+                int from = s.playback().cursor();
+                int x = com.vyrriox.justreplay.gui.Timeline.xOf(150, com.vyrriox.justreplay.gui.ReplayHud.barX(), w, duration);
+                scrub.seekAt(x);
+                int now = s.playback().cursor();
+                double pixel = (double) duration / Math.max(1, w - 1);
+                boolean open = mc.screen == scrub;
+                log("scrub: timeline under a free mouse (screen open={}, bar {} px), click at x={} moved the play head {} -> {} (target 150, one pixel = {} ticks) -> {}",
+                        open, w, x, from, now, String.format(java.util.Locale.ROOT, "%.1f", pixel),
+                        open && w > 0 && Math.abs(now - 150) <= pixel + 1 ? "OK" : "FAIL");
+                go(113, 3);
+            }
+            case 113 -> {
+                shot(mc, "1d-scrub");
+                mc.setScreen(null);
+                go(114, 3);
+            }
+            case 114 -> {
+                // The recording player's actor, paused and seen from the front: its own skin, not Steve's.
+                ReplaySession s = ReplaySession.current();
+                s.playback().setPaused(true);
+                SelfTestSkin.face(mc, s);
+                go(115, 5);
+            }
+            case 115 -> {
+                if (SelfTestSkin.faced()) {
+                    shot(mc, "1e-actor-skin");
+                }
+                SelfTestSkin.restore(mc);
+                ReplaySession s = ReplaySession.current();
+                s.playback().setPaused(false);
+                // The checks after the forward seek read the world at tick 150 exactly.
                 s.playback().seek(150);
                 go(61, 3);
             }
@@ -867,6 +1043,8 @@ public final class SelfTest {
                 logWorld(mc, s, "after forward seek");
                 log("mods after forward seek: {}", Mods.state(mc, s));
                 Mods.checkCurios(mc, s, "after forward seek");
+                SelfTestSkin.check(mc, s, "after forward seek");
+                SelfTestModState.check(mc, s, "after forward seek");
                 Mods.checkLook(mc, s, "after forward seek");
                 Mods.checkCulling("after a toggle key press", false);
                 Mods.checkCullingEntities(mc);
@@ -875,13 +1053,23 @@ public final class SelfTest {
                 shot(mc, "2-seek150");
                 clockGecko = geckoClock();
                 clockEntity = com.vyrriox.justreplay.compat.ReplayCompat.lastGeckoEntityFrameTime();
+                SelfTestModState.clearTrinketSlots();
                 s.playback().seek(20);
                 next(30);
             }
             case 9 -> {
                 ReplaySession s = ReplaySession.current();
+                // In a big pack a resource reload holds the game for a while after the jump back: the checks below
+                // expect the replay playing on from tick 20, so wait for it to move (two minutes at most).
+                if (s != null && s.playback().cursor() <= 20 && ++backSeekWaits < 480) {
+                    wait = 5;
+                    return;
+                }
                 logWorld(mc, s, "after backward seek");
                 Mods.checkCurios(mc, s, "after backward seek");
+                SelfTestSkin.check(mc, s, "after backward seek");
+                SelfTestModState.checkTrinketSlots();
+                SelfTestModState.check(mc, s, "after backward seek");
                 Mods.checkLook(mc, s, "after backward seek");
                 Mods.checkJade("after backward seek");
                 Mods.checkVehicles(mc, "after backward seek");
@@ -905,12 +1093,15 @@ public final class SelfTest {
                 checkClockRise("speed", s.playback().cursor() - speedStart, clockStartStep, Math.max(1, s.playback().lastStep()),
                         clockGecko, geckoClock(), clockIris, irisClock());
                 s.playback().resetSpeed();
+                // Back to 130, or just after the checkpoint when a slow run (a modpack) built it later than that.
+                int back = recordedCheckpoints.length > 0 && recordedCheckpoints[0] > 120 && recordedCheckpoints[0] < 180
+                        ? recordedCheckpoints[0] + 10 : 130;
                 s.playback().seek(190);
-                s.playback().seek(130);
+                s.playback().seek(back);
                 int restored = s.playback().lastSeekCheckpoint();
-                log("checkpoint seek 190 -> 130 from {} -> {}", restored >= 0 ? "the checkpoint at " + restored : "the start",
+                log("checkpoint seek 190 -> {} from {} -> {}", back, restored >= 0 ? "the checkpoint at " + restored : "the start",
                         restored >= 0 ? "OK" : "FAIL");
-                logWorld(mc, s, "after checkpoint seek to 130");
+                logWorld(mc, s, "after the checkpoint seek");
                 s.playback().seek(20);
                 s.jumpToRecorder(mc);
                 Vec3 c = p.position();
@@ -1455,7 +1646,7 @@ public final class SelfTest {
                         : mc.screen.getClass().getSimpleName());
                 mcpObserve = com.vyrriox.justreplay.mcp.McpProbe.observe(mcpPort, com.vyrriox.justreplay.config.JRConfig.MCP.token.get(),
                         new com.vyrriox.justreplay.mcp.McpProbe.Look(MCP_OBSERVE_TICK, java.util.List.of("minecraft:villager", "minecraft:player"),
-                                true, 320, 180));
+                                true, 320, 180, Mods.mcpWorn()));
                 next(1);
             }
             case 102 -> {
@@ -1722,7 +1913,7 @@ public final class SelfTest {
                 }
                 log("mcp control checks start on '{}' ({} markers), from the menu", clip.getFileName(), mcpSteerMarkers);
                 mcpSteer = com.vyrriox.justreplay.mcp.McpProbe.steer(mcpPort, com.vyrriox.justreplay.config.JRConfig.MCP.token.get(),
-                        new com.vyrriox.justreplay.mcp.McpProbe.Steer(clip.getFileName().toString(), mcpSteerMarkers, MCP_STEER_TICK,
+                        new com.vyrriox.justreplay.mcp.McpProbe.Steer(clip.getFileName().toString(), mcpSteerMarkers, steerTick(clip),
                                 "selftest_mcp"));
                 next(1);
             }
@@ -2607,8 +2798,14 @@ public final class SelfTest {
             if (loaded("waterframes")) {
                 testVideo(mc);
             }
+        }
+
+        /**
+         * A ring worn before the recording starts: it must reach the snapshot, the actor and every checkpoint. Given
+         * before the server catch-up that precedes the recording, so a slow server cannot run it after the start.
+         */
+        static void giveRing(Minecraft mc) {
             if (loaded("curios")) {
-                // A ring worn before the recording starts: it must reach the snapshot, the actor and every checkpoint.
                 net.minecraft.world.item.Item ring = ringItem();
                 if (ring == null) {
                     log("curios: no ring item in the pack, check skipped");
@@ -2650,13 +2847,14 @@ public final class SelfTest {
                 log("curios: cannot write the ring datapack: {}", e.toString());
                 return;
             }
-            ringWaits = 40;
+            ringWaits = 480;
             log("curios: no ring item in the pack, using the test datapack");
             mc.player.connection.sendCommand("reload");
         }
 
         /**
-         * True while the ring is not ready, for ten seconds at most. Curios' reload keeps an inventory without handlers
+         * True while the ring is not ready, for two minutes at most (a reload is slow in a big pack). Curios' reload
+         * keeps an inventory without handlers
          * empty (its readTag returns on an empty list), and the player joined before the datapack existed. Once the
          * reload has reached the client, the server rebuilds the handlers of the player and a second reload syncs them.
          */
@@ -2674,39 +2872,66 @@ public final class SelfTest {
                 java.util.UUID id = mc.player.getUUID();
                 server.execute(() -> {
                     com.vyrriox.justreplay.compat.CuriosCompat.rebuildSlots(server.getPlayerList().getPlayer(id));
-                    mc.execute(() -> {
-                        if (mc.player != null) {
-                            mc.player.connection.sendCommand("reload");
-                        }
-                    });
+                    // Items put on before this reload is over are emptied by it (seen on Forge 1.20.1): wait for its end.
+                    server.reloadResources(server.getPackRepository().getSelectedIds()).whenComplete((done, error) -> ringReloaded = true);
                 });
                 return true;
             }
+            if (server != null && !ringReloaded) {
+                return ringWaits > 0;
+            }
+            if (ringSettle < 20) {
+                // The slots of the reload reach the client a moment after it ends on the server.
+                ringSettle++;
+                return ringWaits > 0;
+            }
+            // Other mods give the player slots of their own: the ring slot itself must be there.
             int slots = com.vyrriox.justreplay.compat.CuriosCompat.slotTypes(mc.player);
-            if (slots > 0 || ringWaits <= 0) {
-                log("curios: slot types on the player before recording={} -> {}", slots, slots > 0 ? "OK" : "FAIL");
+            boolean ring = com.vyrriox.justreplay.compat.CuriosCompat.hasSlotType(mc.player, "ring");
+            if (ring || ringWaits <= 0) {
+                log("curios: slot types on the player before recording={}, ring slot {} -> {}", slots, ring ? "there" : "missing",
+                        ring ? "OK" : "FAIL");
                 ringWaits = 0;
                 return false;
             }
             return true;
         }
 
-        /** Curios worn by the recording player, expected 1: tells a lost ring apart from one the replay lost. */
+        /**
+         * What the MCP observation must list on the recording player beyond its vanilla slots: the Curios ring given
+         * above, then the items of the other installed mods ({@link SelfTestModState}).
+         */
+        static java.util.List<String> mcpWorn() {
+            java.util.List<String> out = new java.util.ArrayList<>();
+            net.minecraft.world.item.Item ring = ringItem();
+            if (loaded("curios") && curiosGiven && ring != null) {
+                out.add("curios:ring=" + net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(ring));
+            }
+            out.addAll(SelfTestModState.mcpWorn());
+            return out;
+        }
+
+        /**
+         * Curios worn by the recording player: the ring, and what the mod state probes put in Curios slots. Tells a lost
+         * ring apart from one the replay lost.
+         */
         static void checkRecordingCurios(LocalPlayer p) {
             if (loaded("curios") && curiosGiven) {
                 int worn = com.vyrriox.justreplay.compat.CuriosCompat.wornCount(p);
-                log("curios while recording: worn stacks on the player={} -> {}", worn, worn == 1 ? "OK" : "FAIL");
+                int expected = 1 + SelfTestModState.curiosWorn();
+                log("curios while recording: worn stacks on the player={} of {} -> {}", worn, expected, worn == expected ? "OK" : "FAIL");
             }
         }
 
-        /** Curios worn by the recording player's actor in the replay, expected 1; skipped when Curios or the ring is absent. */
+        /** Curios worn by the recording player's actor in the replay: the ring and the curios of the mod state probes. */
         static void checkCurios(Minecraft mc, ReplaySession s, String label) {
             if (!loaded("curios") || !curiosGiven) {
                 log("curios {}: skipped", label);
                 return;
             }
             int worn = com.vyrriox.justreplay.compat.CuriosCompat.wornCount(s.findRecorder(mc));
-            log("curios {}: worn stacks on the actor={} -> {}", label, worn, worn == 1 ? "OK" : "FAIL");
+            int expected = 1 + SelfTestModState.curiosWorn();
+            log("curios {}: worn stacks on the actor={} of {} -> {}", label, worn, expected, worn == expected ? "OK" : "FAIL");
         }
 
         /** More Player Models: scales every part of the test player with the mod's own command; nothing when it is absent. */

@@ -445,6 +445,10 @@ public final class Playback {
         float camYaw = liveRespawn ? mc.player.getYRot() : 0;
         float camPitch = liveRespawn ? mc.player.getXRot() : 0;
         Object camDimension = liveRespawn ? mc.level.dimension() : null;
+        if (packet instanceof net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket info && ReplaySession.current() != null) {
+            packet = (Packet<? super ClientGamePacketListener>) com.vyrriox.justreplay.client.SkinTextures.repair(info,
+                    ReplaySession.current().actorUuid(), ReplaySession.current().recorderUuid());
+        }
         dispatching = true;
         dispatchTick = recorded.tick();
         try {

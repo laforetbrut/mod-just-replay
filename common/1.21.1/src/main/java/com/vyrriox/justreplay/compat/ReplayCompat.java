@@ -485,9 +485,28 @@ public final class ReplayCompat {
         }
     }
 
+    /**
+     * Items an entity wears in the slots of a mod (Curios, Accessories, Trinkets), for the MCP observation tools:
+     * {@code out} gets the slot name ({@code curios:head}, {@code accessories:hat}, {@code trinkets:chest/cape}...) and
+     * the stack.
+     */
+    public static void describeWorn(net.minecraft.world.entity.Entity entity,
+                                    java.util.function.BiConsumer<String, net.minecraft.world.item.ItemStack> out) {
+        if (CURIOS.on()) {
+            CURIOS.run("forEachWorn", () -> CuriosCompat.forEachWorn(entity, out));
+        }
+        if (ACCESSORIES.on()) {
+            ACCESSORIES.run("forEachWorn", () -> AccessoriesCompat.forEachWorn(entity, out));
+        }
+        if (TRINKETS.on()) {
+            TRINKETS.run("forEachWorn", () -> TrinketsCompat.forEachWorn(entity, out));
+        }
+    }
+
     /** Mod definitions the entity state depends on (snapshots and checkpoints), written before any entity. */
     public static void writeDefinitions(java.util.function.Consumer<Packet<?>> out) {
         CURIOS.run("writeDefinitions", () -> CuriosCompat.writeDefinitions(out));
+        TRINKETS.run("writeDefinitions", () -> TrinketsCompat.writeDefinitions(out));
     }
 
     /**
@@ -506,6 +525,7 @@ public final class ReplayCompat {
         EPIC_FIGHT.run("writeCurrent", () -> EpicFightCompat.writeCurrent(player, out));
         CURIOS.run("writeCurrent", () -> CuriosCompat.writeCurrent(player, out));
         ACCESSORIES.run("writeCurrent", () -> AccessoriesCompat.writeCurrent(player, out));
+        TRINKETS.run("writeCurrent", () -> TrinketsCompat.writeCurrent(player, out));
         IRONS_SPELLS.run("writeCurrent", () -> IronsSpellsCompat.writeCurrent(player, out));
     }
 
@@ -525,6 +545,9 @@ public final class ReplayCompat {
         }
         if (ACCESSORIES.on()) {
             ACCESSORIES.run("writeCurrent", () -> AccessoriesCompat.writeCurrent(entity, out));
+        }
+        if (TRINKETS.on()) {
+            TRINKETS.run("writeCurrent", () -> TrinketsCompat.writeCurrent(entity, out));
         }
         if (IRONS_SPELLS.on()) {
             IRONS_SPELLS.run("writeCurrent", () -> IronsSpellsCompat.writeCurrent(entity, out));
@@ -558,6 +581,7 @@ public final class ReplayCompat {
         EPIC_FIGHT.run("writeCurrent", () -> EpicFightCompat.writeCurrent(player, out));
         CURIOS.run("writeCurrent", () -> CuriosCompat.writeCurrent(player, out));
         ACCESSORIES.run("writeCurrent", () -> AccessoriesCompat.writeCurrent(player, out));
+        TRINKETS.run("writeCurrent", () -> TrinketsCompat.writeCurrent(player, out));
         IRONS_SPELLS.run("writeCurrent", () -> IronsSpellsCompat.writeCurrent(player, out));
     }
 

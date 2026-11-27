@@ -29,6 +29,8 @@ public final class JRKeys {
     public static final KeyMapping PLAY_PAUSE = key("play_pause", GLFW.GLFW_KEY_J);
     public static final KeyMapping SEEK_BACK = key("seek_back", GLFW.GLFW_KEY_LEFT);
     public static final KeyMapping SEEK_FORWARD = key("seek_forward", GLFW.GLFW_KEY_RIGHT);
+    /** Frees the mouse over the playback timeline, without the editor. */
+    public static final KeyMapping SCRUB = key("scrub", GLFW.GLFW_KEY_B);
     public static final KeyMapping SPEED_UP = key("speed_up", GLFW.GLFW_KEY_UP);
     public static final KeyMapping SPEED_DOWN = key("speed_down", GLFW.GLFW_KEY_DOWN);
     public static final KeyMapping CAMERA_KEYFRAME = key("camera_keyframe", GLFW.GLFW_KEY_K);
@@ -55,7 +57,7 @@ public final class JRKeys {
     }
 
     public static void register(java.util.function.Consumer<KeyMapping> registrar) {
-        for (KeyMapping key : new KeyMapping[]{RECORD, EDITOR, PLAY_PAUSE, SEEK_BACK, SEEK_FORWARD, SPEED_UP, SPEED_DOWN,
+        for (KeyMapping key : new KeyMapping[]{RECORD, EDITOR, PLAY_PAUSE, SEEK_BACK, SEEK_FORWARD, SCRUB, SPEED_UP, SPEED_DOWN,
                 CAMERA_KEYFRAME, CAMERA_PATH, MARKER, TOGGLE_HUD, RECORDER_VIEW, STOP_SPECTATING, SAVE_BUFFER, RECORD_NEXT,
                 RECORDING_MARKER}) {
             registrar.accept(key);

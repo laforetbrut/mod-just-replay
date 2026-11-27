@@ -446,6 +446,11 @@ public final class JustReplayClient {
         while (JRKeys.SEEK_FORWARD.consumeClick()) {
             playback.seek(playback.cursor() + step);
         }
+        while (JRKeys.SCRUB.consumeClick()) {
+            if (mc.screen == null) {
+                mc.setScreen(new com.vyrriox.justreplay.gui.ScrubScreen(session));
+            }
+        }
         while (JRKeys.SPEED_UP.consumeClick()) {
             playback.changeSpeed(1);
         }
@@ -511,7 +516,7 @@ public final class JustReplayClient {
     }
 
     private static void consumeAll() {
-        for (var key : new net.minecraft.client.KeyMapping[]{JRKeys.EDITOR, JRKeys.PLAY_PAUSE, JRKeys.SEEK_BACK, JRKeys.SEEK_FORWARD,
+        for (var key : new net.minecraft.client.KeyMapping[]{JRKeys.EDITOR, JRKeys.PLAY_PAUSE, JRKeys.SEEK_BACK, JRKeys.SEEK_FORWARD, JRKeys.SCRUB,
                 JRKeys.SPEED_UP, JRKeys.SPEED_DOWN, JRKeys.CAMERA_KEYFRAME, JRKeys.CAMERA_PATH, JRKeys.MARKER, JRKeys.TOGGLE_HUD,
                 JRKeys.RECORDER_VIEW, JRKeys.STOP_SPECTATING}) {
             while (key.consumeClick()) {

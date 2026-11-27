@@ -2,7 +2,9 @@ package com.vyrriox.justreplay.compat;
 
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.item.ItemStack;
 
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /**
@@ -21,6 +23,13 @@ public final class CuriosCompat {
 
     public static int slotTypes(Entity entity) {
         return -1;
+    }
+
+    public static boolean hasSlotType(Entity entity, String slot) {
+        return false;
+    }
+
+    static void forEachWorn(Entity entity, BiConsumer<String, ItemStack> out) {
     }
 
     public static void rebuildSlots(Entity entity) {

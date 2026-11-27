@@ -32,6 +32,13 @@ public final class ReplayHud {
     private static float shownSpeed = -1;
     private static String speedText = "";
     private static long hintBuilt;
+    /** Where the timeline of the playback pill was drawn last frame (width 0: not drawn), for {@link ScrubScreen}. */
+    private static int barX;
+    /** Frames that drew the REC pill, for the self test. */
+    private static int recFrames;
+    private static int barY;
+    private static int barW;
+    private static int barH;
     private static String hintText = "";
 
     private ReplayHud() {
@@ -52,7 +59,10 @@ public final class ReplayHud {
         com.vyrriox.justreplay.mcp.McpClient.renderBadge(g, font, badgeX, 6);
 
         ReplaySession session = ReplaySession.current();
-        if (session == null || !ReplaySession.isRunning() || !session.isHudVisible() || mc.screen instanceof EditorScreen) {
+        barW = 0;
+        // The free mouse of the scrub screen needs the timeline even when it was hidden.
+        boolean scrubbing = mc.screen instanceof ScrubScreen;
+        if (session == null || !ReplaySession.isRunning() || !(session.isHudVisible() || scrubbing) || mc.screen instanceof EditorScreen) {
             return;
         }
         int width = g.guiWidth();
@@ -88,6 +98,10 @@ public final class ReplayHud {
         right -= 8;
         if (right - cx > 20) {
             Timeline.renderCompact(g, cx, y + 4, right - cx, 9, session);
+            barX = cx;
+            barY = y + 4;
+            barW = right - cx;
+            barH = 9;
         }
 
         int used = x;
@@ -110,7 +124,12 @@ public final class ReplayHud {
     }
 
     /** Draws the REC pill and returns its width. */
+    public static int recFrames() {
+        return recFrames;
+    }
+
     private static int renderRec(GuiGraphics g, Font font, int tick) {
+        recFrames++;
         if (tick != recTick) {
             recTick = tick;
             recText = "REC  " + Timeline.formatTicks(tick);
@@ -124,7 +143,23 @@ public final class ReplayHud {
         return w;
     }
 
-    private static String time(int cursor, int duration) {
+    public static int barX() {
+        return barX;
+    }
+
+    public static int barY() {
+        return barY;
+    }
+
+    public static int barWidth() {
+        return barW;
+    }
+
+    public static int barHeight() {
+        return barH;
+    }
+
+    static String time(int cursor, int duration) {
         if (cursor != shownCursor || duration != shownDuration) {
             shownCursor = cursor;
             shownDuration = duration;
@@ -149,12 +184,25 @@ public final class ReplayHud {
             StringBuilder b = new StringBuilder();
             append(b, JRKeys.EDITOR, "justreplay.hud.hint.editor");
             append(b, JRKeys.PLAY_PAUSE, "justreplay.hud.hint.play");
+            appendPair(b, JRKeys.SEEK_BACK, JRKeys.SEEK_FORWARD, "justreplay.hud.hint.seek");
+            append(b, JRKeys.SCRUB, "justreplay.hud.hint.scrub");
             append(b, JRKeys.CAMERA_KEYFRAME, "justreplay.hud.hint.keyframe");
             append(b, JRKeys.CAMERA_PATH, "justreplay.hud.hint.path");
             append(b, JRKeys.TOGGLE_HUD, "justreplay.hud.hint.hide");
             hintText = b.toString();
         }
         return hintText;
+    }
+
+    private static void appendPair(StringBuilder b, KeyMapping first, KeyMapping second, String label) {
+        if (first.isUnbound() || second.isUnbound()) {
+            return;
+        }
+        if (!b.isEmpty()) {
+            b.append("   ");
+        }
+        b.append(first.getTranslatedKeyMessage().getString()).append('/').append(second.getTranslatedKeyMessage().getString())
+                .append(' ').append(Component.translatable(label).getString());
     }
 
     private static void append(StringBuilder b, KeyMapping key, String label) {

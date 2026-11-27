@@ -41,6 +41,11 @@ public final class SelfTest {
     private static final String WORLD = "justreplay-selftest";
 
     private static int step;
+
+    /** Whether this game runs the self test. */
+    public static boolean isEnabled() {
+        return ENABLED;
+    }
     private static Entity hiddenMob;
     /** The slow motion export of the speed track check. */
     private static VideoExporter slowExport;
@@ -52,6 +57,7 @@ public final class SelfTest {
     private static int armorLayerSkippedBefore;
     private static int wait;
     private static int settle;
+    private static int backSeekWaits;
     private static int speedStart;
     private static Path replay;
     /** File the export step writes: its name carries the exported range unless the config keeps the old names. */
@@ -77,6 +83,14 @@ public final class SelfTest {
     private static boolean vehiclePlacedLive;
     /** The recording's first steps ran: the walking step may start a tick or two after recording tick 5. */
     private static boolean startPlaced;
+    private static int recIndicatorStage;
+    /** Checkpoint ticks of the main recording. */
+    private static int[] recordedCheckpoints = new int[0];
+    private static int recFramesMark;
+    private static int recTickMark;
+    private static boolean recIndicatorWas;
+    private static com.vyrriox.justreplay.gui.ScrubScreen scrub;
+    private static int scrubWaits;
     private static int cullSkipped;
     /** Sounds the recording player made itself, heard again while the replay plays (see recordLocalEffect). */
     private static int localBell;
@@ -291,6 +305,15 @@ public final class SelfTest {
                 && !(mc.screen instanceof net.minecraft.client.gui.screens.ProgressScreen)
                 && !(mc.screen instanceof net.minecraft.client.gui.screens.LevelLoadingScreen)
                 && !(mc.screen instanceof net.minecraft.client.gui.screens.LevelLoadingScreen);
+    }
+
+    /**
+     * Tick the MCP control checks go to: 100, or earlier in a short buffer clip, so that the export of 100 ticks they
+     * start after it stays inside the clip.
+     */
+    private static int steerTick(java.nio.file.Path clip) {
+        int duration = ReplayStorage.readMeta(clip).durationTicks;
+        return Math.max(1, Math.min(MCP_STEER_TICK, duration - 101));
     }
 
     private static void next(int delay) {
@@ -524,6 +547,35 @@ public final class SelfTest {
                 String.format(java.util.Locale.ROOT, "%.1f", toLeft.screenX()), ok ? "OK" : "FAIL");
     }
 
+    /** The REC pill switched off mid recording: no frame draws it and the recording goes on; back on, it shows again. */
+    private static void checkRecIndicator(Minecraft mc, int t) {
+        var setting = com.vyrriox.justreplay.config.JRConfig.SHOW_RECORDING_INDICATOR;
+        if (recIndicatorStage == 0 && t >= 30) {
+            recIndicatorStage = 1;
+            recIndicatorWas = setting.get();
+            setting.set(false);
+        } else if (recIndicatorStage == 1 && t >= 32) {
+            // Counted from one tick after the switch: the frame being drawn when it flipped may still show it.
+            recIndicatorStage = 2;
+            recFramesMark = com.vyrriox.justreplay.gui.ReplayHud.recFrames();
+            recTickMark = t;
+        } else if (recIndicatorStage == 2 && t >= 40) {
+            recIndicatorStage = 3;
+            int drawn = com.vyrriox.justreplay.gui.ReplayHud.recFrames() - recFramesMark;
+            shot(mc, "rec-indicator-hidden");
+            log("REC indicator off while recording: drawn on {} frames, recording went on {} ticks -> {}", drawn, t - recTickMark,
+                    drawn == 0 && t > recTickMark && Recorder.active() != null ? "OK" : "FAIL");
+            setting.set(true);
+            recFramesMark = com.vyrriox.justreplay.gui.ReplayHud.recFrames();
+        } else if (recIndicatorStage == 3 && t >= 46) {
+            recIndicatorStage = 4;
+            int drawn = com.vyrriox.justreplay.gui.ReplayHud.recFrames() - recFramesMark;
+            shot(mc, "rec-indicator-shown");
+            log("REC indicator back on: drawn on {} frames -> {}", drawn, drawn > 0 ? "OK" : "FAIL");
+            setting.set(recIndicatorWas);
+        }
+    }
+
     private static void shot(Minecraft mc, String name) {
         Screenshot.grab(mc.gameDirectory, "selftest-" + name + ".png", mc.getMainRenderTarget(), 1, c -> log("screenshot {}", name));
     }
@@ -532,6 +584,7 @@ public final class SelfTest {
         if (!ENABLED) {
             return;
         }
+        SelfTestSkin.tick(mc);
         // The test must not stop when the window loses focus.
         mc.options.pauseOnLostFocus = false;
         if (mc.screen instanceof net.minecraft.client.gui.screens.PauseScreen) {
@@ -634,6 +687,7 @@ public final class SelfTest {
             case 3 -> {
                 // Walk in a circle for ~10 seconds, jumping and swinging.
                 int t = Recorder.active() != null ? Recorder.active().tick() : 0;
+                checkRecIndicator(mc, t);
                 // With Emotecraft the player stands still from tick 40 to 100 to wave (moving stops an emote).
                 boolean emoting = Mods.loaded("emotecraft") && t >= 40 && t < 100;
                 if (t >= 5 && !startPlaced) {
@@ -714,6 +768,7 @@ public final class SelfTest {
                             slowTicks >= 0 ? "PASS" : "FAIL", slowTicks, t);
                     replay = Recorder.stop();
                     int[] checkpoints = com.vyrriox.justreplay.format.Checkpoints.list(replay);
+                    recordedCheckpoints = checkpoints;
                     log("record stopped: {} packets={} stream={} bytes checkpoints={} bytes in {} files", replay,
                             ReplayStorage.readStream(replay).size(), Files.size(replay.resolve(ReplayStorage.STREAM)),
                             folderSize(replay.resolve(com.vyrriox.justreplay.format.Checkpoints.FOLDER)), checkpoints.length);
@@ -746,6 +801,8 @@ public final class SelfTest {
                 logWorld(mc, s, "playing");
                 log("mods while playing: {}", Mods.state(mc, s));
                 Mods.checkCurios(mc, s, "at start");
+                SelfTestSkin.check(mc, s, "at start");
+                SelfTestSkin.checkRepair(mc, s);
                 Mods.checkJadeAircraft(mc, "at start");
                 Mods.checkVehicles(mc, "at start");
                 Mods.checkImmersivePaintings("at start");
@@ -775,6 +832,51 @@ public final class SelfTest {
                     // The mod's toggle key, simulated: the next ticks must switch it off again.
                     com.vyrriox.justreplay.compat.EntityCullingCompat.setEnabled(true);
                 }
+                // The scrub key frees the mouse over the timeline, out of the editor: a click there moves the play head.
+                scrub = new com.vyrriox.justreplay.gui.ScrubScreen(s);
+                mc.setScreen(scrub);
+                scrubWaits = 0;
+                go(112, 2);
+            }
+            case 112 -> {
+                ReplaySession s = ReplaySession.current();
+                int w = com.vyrriox.justreplay.gui.ReplayHud.barWidth();
+                if (w <= 0 && ++scrubWaits < 100) {
+                    wait = 2;
+                    return;
+                }
+                int duration = s.playback().duration();
+                int from = s.playback().cursor();
+                int x = com.vyrriox.justreplay.gui.Timeline.xOf(150, com.vyrriox.justreplay.gui.ReplayHud.barX(), w, duration);
+                scrub.seekAt(x);
+                int now = s.playback().cursor();
+                double pixel = (double) duration / Math.max(1, w - 1);
+                boolean open = mc.screen == scrub;
+                log("scrub: timeline under a free mouse (screen open={}, bar {} px), click at x={} moved the play head {} -> {} (target 150, one pixel = {} ticks) -> {}",
+                        open, w, x, from, now, String.format(java.util.Locale.ROOT, "%.1f", pixel),
+                        open && w > 0 && Math.abs(now - 150) <= pixel + 1 ? "OK" : "FAIL");
+                go(113, 3);
+            }
+            case 113 -> {
+                shot(mc, "1d-scrub");
+                mc.setScreen(null);
+                go(114, 3);
+            }
+            case 114 -> {
+                // The recording player's actor, paused and seen from the front: its own skin, not Steve's.
+                ReplaySession s = ReplaySession.current();
+                s.playback().setPaused(true);
+                SelfTestSkin.face(mc, s);
+                go(115, 5);
+            }
+            case 115 -> {
+                if (SelfTestSkin.faced()) {
+                    shot(mc, "1e-actor-skin");
+                }
+                SelfTestSkin.restore(mc);
+                ReplaySession s = ReplaySession.current();
+                s.playback().setPaused(false);
+                // The checks after the forward seek read the world at tick 150 exactly.
                 s.playback().seek(150);
                 go(61, 3);
             }
@@ -791,6 +893,7 @@ public final class SelfTest {
                 logWorld(mc, s, "after forward seek");
                 log("mods after forward seek: {}", Mods.state(mc, s));
                 Mods.checkCurios(mc, s, "after forward seek");
+                SelfTestSkin.check(mc, s, "after forward seek");
                 Mods.checkImmersivePaintings("after forward seek");
                 Mods.checkCulling("after a toggle key press", false);
                 Mods.checkCullingEntities(mc);
@@ -804,8 +907,15 @@ public final class SelfTest {
             }
             case 9 -> {
                 ReplaySession s = ReplaySession.current();
+                // In a big pack a resource reload holds the game for a while after the jump back: the checks below
+                // expect the replay playing on from tick 20, so wait for it to move (two minutes at most).
+                if (s != null && s.playback().cursor() <= 20 && ++backSeekWaits < 480) {
+                    wait = 5;
+                    return;
+                }
                 logWorld(mc, s, "after backward seek");
                 Mods.checkCurios(mc, s, "after backward seek");
+                SelfTestSkin.check(mc, s, "after backward seek");
                 Mods.checkJadeAircraft(mc, "after backward seek");
                 Mods.checkVehicles(mc, "after backward seek");
                 checkForcedFailureDuringReplay(s);
@@ -828,12 +938,15 @@ public final class SelfTest {
                 checkClockRise("speed", s.playback().cursor() - speedStart, clockStartStep, Math.max(1, s.playback().lastStep()),
                         clockGecko, geckoClock(), clockIris, irisClock());
                 s.playback().resetSpeed();
+                // Back to 130, or just after the checkpoint when a slow run (a modpack) built it later than that.
+                int back = recordedCheckpoints.length > 0 && recordedCheckpoints[0] > 120 && recordedCheckpoints[0] < 180
+                        ? recordedCheckpoints[0] + 10 : 130;
                 s.playback().seek(190);
-                s.playback().seek(130);
+                s.playback().seek(back);
                 int restored = s.playback().lastSeekCheckpoint();
-                log("checkpoint seek 190 -> 130 from {} -> {}", restored >= 0 ? "the checkpoint at " + restored : "the start",
+                log("checkpoint seek 190 -> {} from {} -> {}", back, restored >= 0 ? "the checkpoint at " + restored : "the start",
                         restored >= 0 ? "OK" : "FAIL");
-                logWorld(mc, s, "after checkpoint seek to 130");
+                logWorld(mc, s, "after the checkpoint seek");
                 s.playback().seek(20);
                 s.jumpToRecorder(mc);
                 Vec3 c = p.position();
@@ -1652,7 +1765,7 @@ public final class SelfTest {
                 }
                 log("mcp control checks start on '{}' ({} markers), from the menu", clip.getFileName(), mcpSteerMarkers);
                 mcpSteer = com.vyrriox.justreplay.mcp.McpProbe.steer(mcpPort, com.vyrriox.justreplay.config.JRConfig.MCP.token.get(),
-                        new com.vyrriox.justreplay.mcp.McpProbe.Steer(clip.getFileName().toString(), mcpSteerMarkers, MCP_STEER_TICK,
+                        new com.vyrriox.justreplay.mcp.McpProbe.Steer(clip.getFileName().toString(), mcpSteerMarkers, steerTick(clip),
                                 "selftest_mcp"));
                 next(1);
             }

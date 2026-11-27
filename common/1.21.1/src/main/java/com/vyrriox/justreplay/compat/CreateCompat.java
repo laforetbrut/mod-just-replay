@@ -2,7 +2,10 @@ package com.vyrriox.justreplay.compat;
 
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
+import com.vyrriox.justreplay.editor.ArmorSlots;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
 
 import java.util.Set;
 
@@ -18,6 +21,9 @@ import java.util.Set;
  *     keeps those packets for the whole connection and writes them again in every snapshot and checkpoint.</li>
  *     <li>Contraptions are entities with complex spawn data: the recorder's spawn cache already keeps their original
  *     spawn packets for snapshots and checkpoints, and block entity data travels in the chunk packets.</li>
+ *     <li>A backtank worn in the chest slot (and what extends it, such as the jetpack of Create Jetpack) has its tank
+ *     drawn by a layer of Create's own, which the hidden armor hooks of the vanilla layers never see: an optional mixin
+ *     skips that layer while the replay hides the chestplate of the entity drawn.</li>
  * </ul>
  *
  * @author vyrriox
@@ -31,7 +37,29 @@ public final class CreateCompat {
             ResourceLocation.fromNamespaceAndPath("create", "remove_train"),
             ResourceLocation.fromNamespaceAndPath("create", "track_graph_roll_call"));
 
+    private static int backtankSkipped;
+
     private CreateCompat() {
+    }
+
+    /**
+     * Render hook of the tank Create draws for a worn backtank: true to skip it, when the running replay hides this
+     * entity's chestplate.
+     */
+    public static boolean hidesBacktank(LivingEntity entity) {
+        return Integrations.CREATE.on() && Integrations.CREATE.test("hidesBacktank", () -> {
+            if (!ArmorSlots.hides(entity, EquipmentSlot.CHEST)) {
+                return false;
+            }
+            backtankSkipped++;
+            ArmorSlots.countSkipped();
+            return true;
+        });
+    }
+
+    /** How many times the tank of a backtank was skipped since the game started (self test). */
+    public static int backtankSkipped() {
+        return backtankSkipped;
     }
 
     /** True for a packet a snapshot must replay because the server sent it only once (see the class comment). */

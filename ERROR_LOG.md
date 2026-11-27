@@ -424,3 +424,59 @@
 **Root cause:** Not found: the loop is the game's own chunk unload on stop (not the replay host, HostChunkMapMixin does not apply). It happened once in four runs of the same code and did not come back in the next run.
 **Fix:** The run was stopped with 'loop.py stop'; the next self test passed that point in 20 s. Thread dumps kept in the task 507 folder (travail/logs/threads-hang*.txt).
 **Prevention:** When a self test stalls after 'record stopped', take 'jcmd <pid> Thread.print' before stopping it, and note whether the server thread is in stopServer; a second occurrence is worth a guard like HostChunkMapMixin for the recording world.
+
+## [2026-11-27 17:34] — Self test: commands of a big pack ran after the recording
+**Context:** Self test of NeoForge 1.21.1 with a lot of 22 mods (Create, Steam 'n' Rails, KubeJS, CosmeticArmours), task 508.
+**Error:** mod state: no easy_npc:humanoid on the client when the recording started -> FAIL, and curios while recording: worn stacks on the player=0 -> FAIL; the server logged the summon 17 s after the command, once the recording was over.
+**Root cause:** The self test reloads datapacks for its Curios ring. MinecraftServer.reloadResources holds the server thread (17 s in that lot) and the chat commands queued meanwhile run after it, while the self test counted 60 client ticks and started recording.
+**Fix:** SelfTest.serverCaughtUp: a task queued on the integrated server behind the commands must come back before the recording (asked twice, around the ring), two minutes at most; the ring wait went from 10 seconds to two minutes.
+**Prevention:** In the self test, never time a server side effect by client ticks: wait for an answer of the server.
+
+## [2026-11-27 17:34] — Self test: curios put on before the ring were wiped
+**Context:** Mod state probes of the self test with Elytra Slot and Curios 9.6.0 on NeoForge 1.21.1, task 508.
+**Error:** mod state: minecraft:elytra worn by the recording player when the recording started: false -> FAIL, though the server logged Replaced slot back for Dev with [Elytra].
+**Root cause:** The ring setup rebuilds the Curios handlers of the player (ICuriosItemHandler.reset through CuriosCompat.rebuildSlots) after its first reload, which drops what the player wears. The probes put their items on before that. The ring wait also ended on any slot (slots > 0), and other mods give the player slots.
+**Fix:** SelfTestModState.prepare runs once ringPending is over; ringPending waits for the ring slot itself (CuriosCompat.hasSlotType); the ring count expects the ring plus the curios of the probes.
+**Prevention:** In the self test, whatever is worn in a Curios slot goes on after the ring rebuild.
+
+## [2026-11-27 17:34] — Mod pass stuck on the mod loading error screen
+**Context:** tools/test_matrix.py --mods with Curios 9.6.0 on the default NeoForge 21.1.221 development client, task 508.
+**Error:** Mod curios requires neoforge 21.1.265 or above. The client stays open on the error screen and the matrix waits for its time out.
+**Root cause:** Curios 9.6.0 raised its NeoForge floor to 21.1.265; a client stopped on the mod loading screen never closes by itself.
+**Fix:** -P neo_version=21.1.265 for every pass that holds Curios 9.6.0; the pass runner of the task ends a game whose log shows a mod loading error (the Java process whose working folder is the game folder).
+**Prevention:** Before a pass, read the neoforge versionRange in neoforge.mods.toml of each jar; a minute after its start, grep the game log for requires.
+
+## [2026-11-27 17:34] — Self test: play head and frame checks under a resource reload
+**Context:** Self test with Create 6.0.10 installed (NeoForge 21.1.265, software rendering), task 508.
+**Error:** compat safety net: 300 hook calls on Simple Voice Chat during the replay, 0 ran, 1 warning(s), replay playing on at tick 20 -> FAIL; the screenshot of the hidden chestplate check showed the Mojang loading screen.
+**Root cause:** With a big mod the resource reload that follows the opening of a replay, and a jump back, lasts longer than the fixed waits of the self test. The game is paused under the loading overlay: the play head stays at 20 and no world frame is drawn.
+**Fix:** Step 9 waits, two minutes at most, until the play head leaves tick 20; SelfTestModState.waitingForFrames waits until no overlay is up, then two seconds of frames, before the hidden chestplate check and its screenshot.
+**Prevention:** A self test check on frames or on the play head first waits for mc.getOverlay() == null.
+
+## [2026-11-27 17:34] — Fabric 1.20.1 build broken by a method added to CuriosCompat
+**Context:** MCP worn items (CuriosCompat.forEachWorn) and the ring slot check (hasSlotType), task 508.
+**Error:** fabric-1.20.1: error: cannot find symbol, method forEachWorn(Entity,BiConsumer<String,ItemStack>), location: class CuriosCompat. The eight other targets compile.
+**Root cause:** fabric-1.20.1 leaves the common CuriosCompat out (Forge network and capability classes) and compiles a stand-in from fabric-1.20.1/src/main/java instead. The new methods were added to the common class only.
+**Fix:** hasSlotType and forEachWorn added to the stand-in.
+**Prevention:** A method added to common/1.20.1 CuriosCompat goes into the Fabric stand-in in the same commit; build fabric-1.20.1 before any self test batch.
+
+## [2026-11-27 17:34] — Hidden chestplate left the slot elytra and the Create backtank on the player
+**Context:** Hidden armor with Elytra Slot 9.0.2 and Create 6.0.10 with Create Jetpack 5.2.1 on NeoForge 1.21.1, task 508.
+**Error:** With the chestplate of an actor hidden, the elytra of the Curios back slot and the tank of a jetpack were still drawn (control pass with both hooks off: elytra slot and create backtank skipped 0 times -> FAIL).
+**Root cause:** Both mods draw from render layers of their own (ElytraSlotLayer, BacktankArmorLayer) that read the worn item themselves. The hidden armor hooks sit on the vanilla armor and elytra layers and never see them.
+**Fix:** Optional mixins ElytraSlotHiddenMixin and CreateBacktankHiddenMixin cancel those layers while ArmorSlots.hides(entity, CHEST).
+**Prevention:** When a mod of the pack draws armor or wings from its own layer, hook that layer; the self test hides the chestplate with such an item worn and counts the skipped draws.
+
+## [2026-11-27 17:34] — Self test: MCP export range past the end of a short buffer clip
+**Context:** MCP control checks of the self test on the instant replay clip, NeoForge 1.21.1 with Elytra Slot, task 508.
+**Error:** mcp start_export: tool error: 'to' 200 is outside the replay (0 to 168 ticks), then four follow-up FAIL lines.
+**Root cause:** The checks go to tick 100 and export 100 ticks after it; the buffer clip ends where the recording stopped, which a slow pack moves earlier.
+**Fix:** SelfTest.steerTick: tick 100, or the clip length minus 101 when the clip is shorter (all three versions).
+**Prevention:** A self test step that works on a saved clip takes its ticks from the clip meta, never from constants.
+
+## [2026-11-27 17:35] — Self test: curios given during a ring reload emptied on Forge 1.20.1
+**Context:** Elytra Slot pass on Forge 1.20.1 (Curios 5.14.1), task 508.
+**Error:** mod state: minecraft:elytra worn ... false -> FAIL and curios while recording: worn stacks on the player=0 of 1 -> FAIL, though the server logged both items put on.
+**Root cause:** The items were given as soon as the client saw the ring slot, while the second reload of the ring setup was still running on the server; its Curios resync reached the client after the item syncs and emptied the inventory.
+**Fix:** The items go on only after the server caught up with the reloads (settle phase 3, modsGiven), then the server is waited for again.
+**Prevention:** Never put on Curios items while a datapack reload of the self test may still be running on the server.

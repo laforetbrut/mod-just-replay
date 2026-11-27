@@ -151,10 +151,11 @@ final class ReplayObserver implements McpObserver {
             for (EquipmentSlot slot : EquipmentSlot.values()) {
                 ItemStack stack = living.getItemBySlot(slot);
                 if (!stack.isEmpty()) {
-                    m.equipment.add(new McpEntity.Item(slot.getName(), BuiltInRegistries.ITEM.getKey(stack.getItem()).toString(),
-                            stack.getCount(), stack.getHoverName().getString()));
+                    m.equipment.add(item(slot.getName(), stack));
                 }
             }
+            // Hats, backpacks, wings and the like worn in the slots of a mod (Curios).
+            com.vyrriox.justreplay.compat.ReplayCompat.describeWorn(living, (slot, stack) -> m.equipment.add(item(slot, stack)));
         }
         Entity vehicle = e.getVehicle();
         m.vehicle = vehicle == null ? McpEntity.NONE : vehicle.getId();
@@ -162,6 +163,11 @@ final class ReplayObserver implements McpObserver {
             m.passengers.add(passenger.getId());
         }
         return m;
+    }
+
+    private static McpEntity.Item item(String slot, ItemStack stack) {
+        return new McpEntity.Item(slot, BuiltInRegistries.ITEM.getKey(stack.getItem()).toString(), stack.getCount(),
+                stack.getHoverName().getString());
     }
 
     /**

@@ -22,6 +22,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /**
@@ -135,6 +136,53 @@ public final class CuriosCompat {
         } catch (Throwable t) {
             ReplayCompat.warnOnce("curios.count", "Cannot read the Curios of " + entity, t);
             return -1;
+        }
+    }
+
+    /**
+     * Hands every stack an entity wears in a Curios slot to {@code out}, named {@code curios:<slot>}, with {@code #<n>}
+     * from the second place of a slot on and {@code /cosmetic} for its cosmetic places (the MCP observation tools).
+     * Nothing when Curios is absent or gives the entity no inventory.
+     */
+    static void forEachWorn(Entity entity, BiConsumer<String, ItemStack> out) throws ReflectiveOperationException {
+        Reflect r = reflect();
+        if (r == null || !(entity instanceof LivingEntity living)) {
+            return;
+        }
+        Map<?, ?> curios = curios(r, living);
+        if (curios == null) {
+            return;
+        }
+        for (Map.Entry<?, ?> slot : curios.entrySet()) {
+            String name = "curios:" + slot.getKey();
+            forEachStack(r, r.getStacks.invoke(slot.getValue()), name, out);
+            forEachStack(r, r.getCosmeticStacks.invoke(slot.getValue()), name + "/cosmetic", out);
+        }
+    }
+
+    private static void forEachStack(Reflect r, Object stacks, String name, BiConsumer<String, ItemStack> out)
+            throws ReflectiveOperationException {
+        int slots = (int) r.getSlots.invoke(stacks);
+        for (int i = 0; i < slots; i++) {
+            ItemStack stack = (ItemStack) r.getStackInSlot.invoke(stacks, i);
+            if (!stack.isEmpty()) {
+                out.accept(i == 0 ? name : name + "#" + (i + 1), stack);
+            }
+        }
+    }
+
+    /** True when an entity has a handler for this slot type now (false when Curios is absent or has no inventory for it). */
+    public static boolean hasSlotType(Entity entity, String slot) {
+        Reflect r = reflect();
+        if (r == null || !(entity instanceof LivingEntity living)) {
+            return false;
+        }
+        try {
+            Map<?, ?> curios = curios(r, living);
+            return curios != null && curios.containsKey(slot);
+        } catch (Throwable t) {
+            ReplayCompat.warnOnce("curios.count", "Cannot read the Curios of " + entity, t);
+            return false;
         }
     }
 

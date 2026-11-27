@@ -219,6 +219,8 @@ public final class Recorder {
         GameProfile profile = Minecraft.getInstance().getGameProfile();
         this.localUuid = profile.getId();
         this.actorUuid = UUID.nameUUIDFromBytes(("justreplay:actor:" + profile.getId()).getBytes(StandardCharsets.UTF_8));
+        // The actor needs the signed skin of its player: asked now, long before the first actor spawn.
+        com.vyrriox.justreplay.client.SkinTextures.lookup(com.vyrriox.justreplay.client.SkinTextures.source(localUuid));
     }
 
     // ---------------------------------------------------------------- queries
@@ -1495,6 +1497,7 @@ public final class Recorder {
         PlayerInfo info = listener.getPlayerInfo(source.getId());
         GameProfile actorProfile = new GameProfile(actorUuid, source.getName());
         actorProfile.getProperties().putAll((info != null ? info.getProfile() : source).getProperties());
+        com.vyrriox.justreplay.client.SkinTextures.fill(actorProfile.getProperties(), com.vyrriox.justreplay.client.SkinTextures.source(localUuid), 0L);
         write(listener, PlayerInfoPackets.build(listener, List.of(
                 new PlayerInfoPackets.Info(actorUuid, actorProfile, GameType.SURVIVAL, false, 0, null))), out);
         write(listener, new ClientboundAddEntityPacket(player.getId(), actorUuid, player.getX(), player.getY(), player.getZ(),
