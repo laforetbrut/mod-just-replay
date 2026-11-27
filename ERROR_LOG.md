@@ -154,6 +154,7 @@
 **Root cause:** javac builds a synthetic constructor for an anonymous class and names its parameters from the superclass; here those names clashed with the ones in the patched Minecraft classes on the CI machine. The exact difference with the local machine was not established.
 **Fix:** a named `NoEntityClip` class with an explicit constructor. The tag was not moved, and the behaviour is the same.
 **Prevention:** run the CI matrix on the release commit before tagging, through a pull request or a manual workflow run.
+**Recurred:** 2026-11-22 21:53, 2026-11-22, task 504: the MCP title badge, an anonymous AbstractWidget, failed the same way on the pull request CI only; a named TitleBadge class with its own constructor fixed it
 
 ## [2026-11-05 21:30] — Curios worn items dropped in a replay when a datapack supplies the slots (1.20.1)
 **Context:** production self test on Forge 1.20.1 with Curios 5.14.1 and the test ring datapack.
@@ -360,3 +361,122 @@
 **Root cause:** Step 2 starts the recording then waits next(5); step 3 first runs at recording tick 6, so its if (t == 5) block (Mods.place, first look read) was dead code on every version
 **Fix:** Run that block once from tick 5 on: if (t >= 5 && !startPlaced) with a static flag, in the three SelfTest.java
 **Prevention:** In a self-test step driven by the recorder tick, never test t == N for the first ticks of a step; use t >= N with a once flag, and log a line from the block so its absence shows
+
+## [2026-11-20 11:58] — CI Forge 1.21.1 fails to provision JDK 8
+**Context:** CI of pull request 24 and of the tag v1.2.0 (build job forge-1.21.1, ForgeGradle 7)
+**Error:** Failed to provision JDK 8 / JavaProvisionerException: Failed to provision Disco download: OpenJDK8U-jdk_x64_linux_hotspot_8u514b01.tar.gz
+**Root cause:** ForgeGradle 7 downloads a JDK 8 through the Disco API on a fresh runner; the download fails now and then on the runner network. Not in the code: the same commit builds locally and on the rerun.
+**Fix:** gh run rerun <run id> --failed: the job passed on the rerun both times.
+**Prevention:** A forge-1.21.1 or forge-26.1.2 CI job red on 'Failed to provision JDK 8' is rerun, never fixed in the code and never a reason to retag.
+
+## [2026-11-21 11:37] — Self test entity edits check failed on a far-away mob
+**Context:** Test matrix of the markers work (Forge 26.1.2 self test, run-matrix folder)
+**Error:** SELFTEST entity edits: skipped renders 8 -> OK, offset renders 0 -> FAIL (moved mob: a cow at x=-80.5 z=-42.5)
+**Root cause:** Step 57 hid and moved the first two living entities of the level's list; the second one stood far from the camera, out of view, so it was never drawn and the offset render count stayed at 0
+**Fix:** Step 57 sorts the living entities by distance to the camera, those within 45 degrees of the view first (viewScore), and takes the two closest
+**Prevention:** A self test check that counts renders picks its entity near the camera and in view, never by list order
+
+## [2026-11-22 20:33] — java.net.http header() adds a second value, the server reads the first
+**Context:** Unit test of the MCP HTTP server: a helper built every request with Content-Type application/json, then let a test pass its own headers through HttpRequest.Builder.header() to check that a text/plain body gets 415
+**Error:** expected: <415> but was: <200> in McpHttpServerTest.malformedMessagesGetJsonRpcErrors
+**Root cause:** HttpRequest.Builder.header(name, value) appends a value; the request carried both Content-Type values and the JDK HttpServer's Headers.getFirst() returned application/json, so the server saw a valid request
+**Fix:** The helper uses HttpRequest.Builder.setHeader() for the headers a test overrides
+**Prevention:** In java.net.http test helpers, override defaults with setHeader(), never header(); a header test must check the request it really sent (one value per name)
+
+## [2026-11-22 23:17] — MCP video frames all black in the self test
+**Context:** Task 505: render_frame draws one frame through the video export (VideoExporter.grab, start..start+1) on the self-test replay, whose project has fadeIn 10 and fadeOut 10
+**Error:** selftest-mcp-video-frame.jpg and selftest-mcp-free-camera.jpg decoded at the right size but flat black (brightness spread 0.0); the window frame (ui=true) was fine
+**Root cause:** FxEngine.fadeAmount takes the export range from VideoExporter.current(): a one frame export is all fade in, so its only frame is 100 percent black
+**Fix:** fadeAmount ignores an exporter that isGrab() and uses the range of the preview (cut track or camera path), as the whole edit would fade
+**Prevention:** Anything keyed on VideoExporter.current() (range, progress, fades) must ask isGrab() first: an MCP frame is an export of one frame that is not the start of a video
+
+## [2026-11-22 23:17] — Self test unreadable packet check flaky at tick 150
+**Context:** Task 505: NeoForge 1.21.1 self test, step 8 checks the replay went on past the unreadable packet written at tick 70, 30 ticks after seek(150)
+**Error:** unreadable packet: 1 x 'packet #16383 could not be read' so far, replay playing on at tick 150 -> FAIL
+**Root cause:** A resource reload (server pack set of the replay) started right at the jump; its loading overlay pauses the game, so the cursor sat on 150 for the 30 ticks and the check wanted cursor > 150
+**Fix:** The check accepts cursor >= 150: reaching the jump target after tick 70 already proves the replay went past the packet
+**Prevention:** A self test check on the cursor after a jump must not assume the replay ticks meanwhile: a loading overlay or a freeze holds it; compare with the jump target, not past it
+
+## [2026-11-23 01:18] — MCP track of the recording player frozen on 26.1.2
+**Context:** Task 505 matrix: get_entity_track of the recording player over ticks 20 to 60, read from Entity.getPositionCodec().getBase() after each jump
+**Error:** 9 samples, 0.0 blocks walked -> FAIL on NeoForge, Forge and Fabric 26.1.2 only; 10.72 blocks on the six 1.20.1 and 1.21.1 targets
+**Root cause:** In 26.1.2 ClientPacketListener.handleTeleportEntity only sets the interpolation target (setValuesFromPositionPacket); it no longer moves the codec base, and the recording player is moved by teleport packets, so the base stayed at its spawn
+**Fix:** ReplayObserver 26.1.2 reads the active InterpolationHandler target, else Entity.position(); 1.20.1 and 1.21.1 keep the codec base (their teleport handler sets it)
+**Prevention:** On 26.1.2 the last recorded position of an entity is getInterpolation().position() while interpolating, never the codec base; check a position reader against an entity moved by teleports (the recording player)
+
+## [2026-11-23 03:00] — Loading screen stuck after leaving a replay during its resource reload
+**Context:** Task 506: NeoForge 1.21.1 self test, new MCP control steps after the buffer clip; step 18 leaves the clip 3 s after it opened
+**Error:** mcp control checks: the menu never came back -> FAIL; debug.log: the reload started when the clip opened (server pack) never created its atlases, mc.getOverlay() stayed set for 60 s
+**Root cause:** The replay applies its server resource packs right after it starts, which reloads resources behind the loading overlay. Leaving then calls Minecraft.disconnect, which drops the render thread's queued tasks (dropAllTasks), most likely the reload's main thread stage with them: the reload never ends and the overlay stays up. A player cannot leave under the overlay, code can (self test, scene jobs, MCP close_replay).
+**Fix:** McpController: open_replay counts a replay as open once it ran 20 ticks with no overlay, close_replay refuses while an overlay is up; self test step 18 waits for the overlay to go before leaving the clip.
+**Prevention:** Never leave a world from code while mc.getOverlay() is set; wait for the reload to finish first.
+
+## [2026-11-23 06:24] — Self test checkpoint seek never restores a checkpoint in xvfb
+**Context:** Task 507, measuring seeks: the step 'after checkpoint seek to 130' of the self test, run in xvfb on NeoForge 1.21.1.
+**Error:** The recording has 'checkpoints=0 bytes in 0 files' and the debug log shows 'Seek 190 -> 130 ... from the start': the step logs a world state but no checkpoint was ever restored.
+**Root cause:** In software rendering every frame is slower than 25 ms, so each checkpoint takes tens of ticks to build; with a 60 tick interval one is nearly always pending, new requests are skipped while pending, the forced slow checkpoint asked at recording tick 10 is earlier than the 0.9 interval a recording waits for, and the last regular one is dropped at the stop. Moving the slow one to tick 60, then retrying it until no checkpoint is pending, still gave 0 files and made the slow check fail (-1 ticks).
+**Fix:** Both attempts reverted (f698d51, 90fc4ba); the self test is unchanged. The gap is reported to the owner: on a machine with fast frames the recording gets its checkpoints and the step restores one. Solved in task 514: the slow checkpoint starts once no other is in progress, the recording takes it whatever its spacing (`CheckpointSchedule.Calendar.force`), the stop waits for its file, and the step fails when the seek did not restore a checkpoint (`Playback.lastSeekCheckpoint`).
+**Prevention:** A self test step named after a code path must assert that the path ran (here: Playback used a checkpoint), not only log the state after it; check the debug line 'Seek A -> B took ... after the checkpoint at C' when touching checkpoints.
+
+## [2026-11-23 06:24] — Self test world spins in Saving worlds after the recording
+**Context:** Task 507, self test on NeoForge 1.21.1 in xvfb, right after 'record stopped' leaves the recording world.
+**Error:** The log stops at '[Server thread] Saving worlds' for 5 minutes; a thread dump shows the server thread RUNNABLE in MinecraftServer.stopServer -> ServerChunkCache.tick -> ChunkMap.processUnloads -> CompletableFuture UniRun.tryFire, 265 s of CPU, the client in Minecraft.disconnect waiting for it.
+**Root cause:** Not found: the loop is the game's own chunk unload on stop (not the replay host, HostChunkMapMixin does not apply). It happened once in four runs of the same code and did not come back in the next run.
+**Fix:** The run was stopped with 'loop.py stop'; the next self test passed that point in 20 s. Thread dumps kept in the task 507 folder (travail/logs/threads-hang*.txt).
+**Prevention:** When a self test stalls after 'record stopped', take 'jcmd <pid> Thread.print' before stopping it, and note whether the server thread is in stopServer; a second occurrence is worth a guard like HostChunkMapMixin for the recording world.
+
+## [2026-11-27 17:34] — Self test: commands of a big pack ran after the recording
+**Context:** Self test of NeoForge 1.21.1 with a lot of 22 mods (Create, Steam 'n' Rails, KubeJS, CosmeticArmours), task 508.
+**Error:** mod state: no easy_npc:humanoid on the client when the recording started -> FAIL, and curios while recording: worn stacks on the player=0 -> FAIL; the server logged the summon 17 s after the command, once the recording was over.
+**Root cause:** The self test reloads datapacks for its Curios ring. MinecraftServer.reloadResources holds the server thread (17 s in that lot) and the chat commands queued meanwhile run after it, while the self test counted 60 client ticks and started recording.
+**Fix:** SelfTest.serverCaughtUp: a task queued on the integrated server behind the commands must come back before the recording (asked twice, around the ring), two minutes at most; the ring wait went from 10 seconds to two minutes.
+**Prevention:** In the self test, never time a server side effect by client ticks: wait for an answer of the server.
+
+## [2026-11-27 17:34] — Self test: curios put on before the ring were wiped
+**Context:** Mod state probes of the self test with Elytra Slot and Curios 9.6.0 on NeoForge 1.21.1, task 508.
+**Error:** mod state: minecraft:elytra worn by the recording player when the recording started: false -> FAIL, though the server logged Replaced slot back for Dev with [Elytra].
+**Root cause:** The ring setup rebuilds the Curios handlers of the player (ICuriosItemHandler.reset through CuriosCompat.rebuildSlots) after its first reload, which drops what the player wears. The probes put their items on before that. The ring wait also ended on any slot (slots > 0), and other mods give the player slots.
+**Fix:** SelfTestModState.prepare runs once ringPending is over; ringPending waits for the ring slot itself (CuriosCompat.hasSlotType); the ring count expects the ring plus the curios of the probes.
+**Prevention:** In the self test, whatever is worn in a Curios slot goes on after the ring rebuild.
+
+## [2026-11-27 17:34] — Mod pass stuck on the mod loading error screen
+**Context:** tools/test_matrix.py --mods with Curios 9.6.0 on the default NeoForge 21.1.221 development client, task 508.
+**Error:** Mod curios requires neoforge 21.1.265 or above. The client stays open on the error screen and the matrix waits for its time out.
+**Root cause:** Curios 9.6.0 raised its NeoForge floor to 21.1.265; a client stopped on the mod loading screen never closes by itself.
+**Fix:** -P neo_version=21.1.265 for every pass that holds Curios 9.6.0; the pass runner of the task ends a game whose log shows a mod loading error (the Java process whose working folder is the game folder).
+**Prevention:** Before a pass, read the neoforge versionRange in neoforge.mods.toml of each jar; a minute after its start, grep the game log for requires.
+
+## [2026-11-27 17:34] — Self test: play head and frame checks under a resource reload
+**Context:** Self test with Create 6.0.10 installed (NeoForge 21.1.265, software rendering), task 508.
+**Error:** compat safety net: 300 hook calls on Simple Voice Chat during the replay, 0 ran, 1 warning(s), replay playing on at tick 20 -> FAIL; the screenshot of the hidden chestplate check showed the Mojang loading screen.
+**Root cause:** With a big mod the resource reload that follows the opening of a replay, and a jump back, lasts longer than the fixed waits of the self test. The game is paused under the loading overlay: the play head stays at 20 and no world frame is drawn.
+**Fix:** Step 9 waits, two minutes at most, until the play head leaves tick 20; SelfTestModState.waitingForFrames waits until no overlay is up, then two seconds of frames, before the hidden chestplate check and its screenshot.
+**Prevention:** A self test check on frames or on the play head first waits for mc.getOverlay() == null.
+
+## [2026-11-27 17:34] — Fabric 1.20.1 build broken by a method added to CuriosCompat
+**Context:** MCP worn items (CuriosCompat.forEachWorn) and the ring slot check (hasSlotType), task 508.
+**Error:** fabric-1.20.1: error: cannot find symbol, method forEachWorn(Entity,BiConsumer<String,ItemStack>), location: class CuriosCompat. The eight other targets compile.
+**Root cause:** fabric-1.20.1 leaves the common CuriosCompat out (Forge network and capability classes) and compiles a stand-in from fabric-1.20.1/src/main/java instead. The new methods were added to the common class only.
+**Fix:** hasSlotType and forEachWorn added to the stand-in.
+**Prevention:** A method added to common/1.20.1 CuriosCompat goes into the Fabric stand-in in the same commit; build fabric-1.20.1 before any self test batch.
+
+## [2026-11-27 17:34] — Hidden chestplate left the slot elytra and the Create backtank on the player
+**Context:** Hidden armor with Elytra Slot 9.0.2 and Create 6.0.10 with Create Jetpack 5.2.1 on NeoForge 1.21.1, task 508.
+**Error:** With the chestplate of an actor hidden, the elytra of the Curios back slot and the tank of a jetpack were still drawn (control pass with both hooks off: elytra slot and create backtank skipped 0 times -> FAIL).
+**Root cause:** Both mods draw from render layers of their own (ElytraSlotLayer, BacktankArmorLayer) that read the worn item themselves. The hidden armor hooks sit on the vanilla armor and elytra layers and never see them.
+**Fix:** Optional mixins ElytraSlotHiddenMixin and CreateBacktankHiddenMixin cancel those layers while ArmorSlots.hides(entity, CHEST).
+**Prevention:** When a mod of the pack draws armor or wings from its own layer, hook that layer; the self test hides the chestplate with such an item worn and counts the skipped draws.
+
+## [2026-11-27 17:34] — Self test: MCP export range past the end of a short buffer clip
+**Context:** MCP control checks of the self test on the instant replay clip, NeoForge 1.21.1 with Elytra Slot, task 508.
+**Error:** mcp start_export: tool error: 'to' 200 is outside the replay (0 to 168 ticks), then four follow-up FAIL lines.
+**Root cause:** The checks go to tick 100 and export 100 ticks after it; the buffer clip ends where the recording stopped, which a slow pack moves earlier.
+**Fix:** SelfTest.steerTick: tick 100, or the clip length minus 101 when the clip is shorter (all three versions).
+**Prevention:** A self test step that works on a saved clip takes its ticks from the clip meta, never from constants.
+
+## [2026-11-27 17:35] — Self test: curios given during a ring reload emptied on Forge 1.20.1
+**Context:** Elytra Slot pass on Forge 1.20.1 (Curios 5.14.1), task 508.
+**Error:** mod state: minecraft:elytra worn ... false -> FAIL and curios while recording: worn stacks on the player=0 of 1 -> FAIL, though the server logged both items put on.
+**Root cause:** The items were given as soon as the client saw the ring slot, while the second reload of the ring setup was still running on the server; its Curios resync reached the client after the item syncs and emptied the inventory.
+**Fix:** The items go on only after the server caught up with the reloads (settle phase 3, modsGiven), then the server is waited for again.
+**Prevention:** Never put on Curios items while a datapack reload of the self test may still be running on the server.

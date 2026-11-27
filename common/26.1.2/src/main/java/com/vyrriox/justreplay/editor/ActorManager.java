@@ -548,6 +548,19 @@ public final class ActorManager {
     }
 
     /**
+     * The parameter the editor gives a new action of {@code type}: the first animation of a model actor (played once)
+     * for ANIMATION, where the camera stands for WALK_TO and RUN_TO, the type's own default otherwise.
+     */
+    public static String defaultActionParam(ReplayProject.ActorData actor, ActionType type) {
+        String param = type.defaultParam;
+        if (type == ActionType.ANIMATION && actor.isModel()) {
+            List<String> animations = com.vyrriox.justreplay.editor.model.ModelLibrary.animations(actor.model);
+            param = animations.isEmpty() ? "" : animations.get(0) + "|once";
+        }
+        return moveTargetOrDefault(type, param);
+    }
+
+    /**
      * The destination for a WALK_TO / RUN_TO added without one: where the camera stands now. Returns the param
      * unchanged for any other action or when a destination is already set.
      */

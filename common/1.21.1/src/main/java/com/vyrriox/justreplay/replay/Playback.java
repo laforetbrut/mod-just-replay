@@ -62,6 +62,8 @@ public final class Playback {
     private int[] checkpoints = new int[0];
     private final ChunkRetention chunks = new ChunkRetention();
     private int seekCount;
+    /** Checkpoint the last seek restored, or -1 when it played the stream without one. */
+    private int lastSeekCheckpoint = -1;
     /** Tick {@link #playTo} pauses on, or -1. */
     private int pauseAt = -1;
     /** Speed track of the project, followed by previews (exports run their own clock), or null. */
@@ -106,6 +108,11 @@ public final class Playback {
     /** Number of seeks so far; anything that follows the replay clock resynchronizes when it changes. */
     public int seekCount() {
         return seekCount;
+    }
+
+    /** Tick of the checkpoint the last seek restored, or -1 when it played the stream without one. */
+    public int lastSeekCheckpoint() {
+        return lastSeekCheckpoint;
     }
 
     /** Recorded ticks played during the last client tick (0 when paused). */
@@ -231,6 +238,9 @@ public final class Playback {
      */
     public void seek(int target) {
         target = Math.max(0, Math.min(duration, target));
+        long seekStarted = System.nanoTime();
+        int seekFrom = cursor;
+        int usedCheckpoint = -1;
         seekCount++;
         pauseAt = -1;
         holdTicks = 0;
@@ -252,6 +262,7 @@ public final class Playback {
                 if (checkpoint >= 0 && (backward || checkpoint > cursor)) {
                     restored = restoreCheckpoint(mc, checkpoint);
                     JustReplay.LOGGER.debug("Seek to {} from checkpoint {}: {}", target, checkpoint, restored);
+                    usedCheckpoint = restored ? checkpoint : -1;
                 }
             }
             if (!restored && backward) {
@@ -265,10 +276,16 @@ public final class Playback {
             skippingTo = -1;
         }
         cursor = target;
+        lastSeekCheckpoint = usedCheckpoint;
         if (camPos != null && mc.player != null) {
             placeCamera(mc.player, camPos, yaw, pitch);
         }
         applyTickRate(mc);
+        if (JustReplay.LOGGER.isDebugEnabled()) {
+            JustReplay.LOGGER.debug("Seek {} -> {} took {} ms, {} stream packets{}", seekFrom, target,
+                    String.format(java.util.Locale.ROOT, "%.1f", (System.nanoTime() - seekStarted) / 1e6), handledInLastFlush,
+                    usedCheckpoint >= 0 ? " after the checkpoint at " + usedCheckpoint : backward ? " from the start" : "");
+        }
     }
 
     /** Latest checkpoint at or before a tick, or -1. */
@@ -433,6 +450,10 @@ public final class Playback {
         float camYaw = liveRespawn ? mc.player.getYRot() : 0;
         float camPitch = liveRespawn ? mc.player.getXRot() : 0;
         Object camDimension = liveRespawn ? mc.level.dimension() : null;
+        if (packet instanceof net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket info && ReplaySession.current() != null) {
+            packet = (Packet<? super ClientGamePacketListener>) com.vyrriox.justreplay.client.SkinTextures.repair(info,
+                    ReplaySession.current().actorUuid(), ReplaySession.current().recorderUuid());
+        }
         dispatching = true;
         dispatchTick = recorded.tick();
         try {

@@ -3,24 +3,24 @@
 # Just Replay
 
 Record, replay and edit your Minecraft sessions, with a cinematic editor and video export.
-Version 1.2.0, client side. Minecraft 1.20.1, 1.21.1 and 26.1.2 on NeoForge, Forge and Fabric. Author: vyrriox.
+Version 1.3.0, client side. Minecraft 1.20.1, 1.21.1 and 26.1.2 on NeoForge, Forge and Fabric. Author: vyrriox.
 License: Apache-2.0.
 
 ## English
 
 ### Supported targets
 
-Pick the jar of your Minecraft version and loader: `justreplay-<loader>-<minecraft version>-1.2.0.jar`. On Fabric,
+Pick the jar of your Minecraft version and loader: `justreplay-<loader>-<minecraft version>-1.3.0.jar`. On Fabric,
 Fabric API is needed. A recording opens only on the Minecraft version and the loader it was made on.
 
 | Target | Integrations enabled |
 |---|---|
-| NeoForge 1.21.1 | Accessories, Armourer's Workshop, Better Combat, Bobby, Create, Create Aeronautics, Curios, Custom NPCs, Distant Horizons, Drop the Beam, Emotecraft, Entity Culling, Epic Fight, Exposure, GeckoLib, Immersive Aircraft, Immersive Paintings, Immersive Vehicles, Iris, Iron's Spellbooks, Jade, More Player Models, Morph, ParCool, Pehkui, Player Animator, Sable, Simulated, WaterFrames |
-| Fabric 1.21.1 | Accessories, Armourer's Workshop, Better Combat, Bobby, Custom NPCs, Distant Horizons, Emotecraft, Entity Culling, Exposure, GeckoLib, Immersive Aircraft, Immersive Paintings, Iris, Jade, Pehkui, Player Animator, Sable, WaterFrames |
+| NeoForge 1.21.1 | Accessories, Armourer's Workshop, Better Combat, Bobby, Create, Create Aeronautics, Curios, Custom NPCs, Distant Horizons, Drop the Beam, Elytra Slot, Emotecraft, Entity Culling, Epic Fight, Exposure, GeckoLib, Immersive Aircraft, Immersive Paintings, Immersive Vehicles, Iris, Iron's Spellbooks, Jade, More Player Models, Morph, ParCool, Pehkui, Player Animator, Sable, Simulated, WaterFrames |
+| Fabric 1.21.1 | Accessories, Armourer's Workshop, Better Combat, Bobby, Custom NPCs, Distant Horizons, Elytra Slot, Emotecraft, Entity Culling, Exposure, GeckoLib, Immersive Aircraft, Immersive Paintings, Iris, Jade, Pehkui, Player Animator, Sable, Trinkets, WaterFrames |
 | Forge 1.21.1 | Entity Culling, GeckoLib |
-| NeoForge 1.20.1 | Armourer's Workshop, Curios, Custom NPCs, GeckoLib, Jade, More Player Models |
-| Forge 1.20.1 | Armourer's Workshop, Curios, Custom NPCs, Entity Culling, Epic Fight, GeckoLib, Immersive Vehicles, Jade, More Player Models |
-| Fabric 1.20.1 | Armourer's Workshop, Custom NPCs, Entity Culling, GeckoLib, Jade |
+| NeoForge 1.20.1 | Armourer's Workshop, Curios, Custom NPCs, Elytra Slot, GeckoLib, Jade, More Player Models |
+| Forge 1.20.1 | Armourer's Workshop, Curios, Custom NPCs, Elytra Slot, Entity Culling, Epic Fight, GeckoLib, Immersive Vehicles, Jade, More Player Models |
+| Fabric 1.20.1 | Armourer's Workshop, Custom NPCs, Elytra Slot, Entity Culling, GeckoLib, Jade, Trinkets |
 | NeoForge 26.1.2 | Armourer's Workshop, Entity Culling, GeckoLib, Immersive Vehicles, Iris, Jade |
 | Fabric 26.1.2 | Armourer's Workshop, Entity Culling, GeckoLib, Iris, Jade |
 | Forge 26.1.2 | GeckoLib |
@@ -47,6 +47,16 @@ see [When an integration fails](docs/COMPATIBILITY.md#when-an-integration-fails)
 - **Markers while recording**: press **F6** while recording, or with the instant replay buffer on, to drop a
   marker on a big moment. Markers land on the timeline the first time the replay opens, clips of the buffer
   keep theirs.
+- **Markers in the editor**: the Markers tab pins a named note on a moment, a stretch of time, a spot of the
+  world or an entity, in the colour you pick. Drag them on the timeline; spots and entities show in the world
+  while you edit, never in exports. They live in `project.json` with a stable id, for a person or a tool that
+  edits the replay after you: see [docs/MARKERS.md](docs/MARKERS.md).
+- **MCP server for AI assistants**: switch it on in the settings and an AI assistant on your computer (Claude
+  Code or any MCP client) can read what the mod is doing, your replays, the edit of a replay and its markers with
+  their notes, look at the replay itself (any frame as a picture, every entity of any tick, the world and its
+  blocks), and drive it: play, edit everything the editor edits, place markers, record and export, through the
+  editor's own save and undo. Local only (127.0.0.1) with an access token, a Read only switch, and deleting files
+  off unless you allow it; an MCP badge shows while it listens. See [docs/MCP.md](docs/MCP.md).
 - **Server resource packs**: packs a server pushed (before or during the recording) are applied when the replay
   plays, from the game's cache of server packs, and removed when it closes. `serverResourcePacks` can also
   download a missing pack, or turn them off.
@@ -144,7 +154,8 @@ see [When an integration fails](docs/COMPATIBILITY.md#when-an-integration-fails)
 | unbound | Record the next minutes, then stop |
 | G | Replay editor |
 | J | Play / pause |
-| Left / Right | Seek backward / forward |
+| Left / Right | Seek backward / forward (the step is `seekStepSeconds` in the settings) |
+| B | Free the mouse on the timeline: click or drag it to move the play head, B or Esc to get the camera back |
 | Up / Down | Faster / slower |
 | K | Add a keyframe to the selected path camera |
 | O | Preview through the cut track (or the selected camera) |
@@ -152,6 +163,13 @@ see [When an integration fails](docs/COMPATIBILITY.md#when-an-integration-fails)
 | M | Add a marker |
 | H | Show / hide the timeline |
 | V | Jump to the recording player |
+
+While a replay plays, the timeline at the bottom shows these keys; every key can be changed in Options, Controls,
+Just Replay.
+
+**Hide the REC indicator.** Turn off **Show the REC indicator (top left)** in the Just Replay settings (Settings
+button of the replay list, the mod list of your loader, or the editor). Recording goes on, nothing is drawn, so
+OBS captures stay clean. F1 hides it too, with the rest of the HUD.
 
 ### Where are the files
 
@@ -213,6 +231,7 @@ folder (`run/`). The file lists steps run in order:
 | `open` | `replay` (folder of `justreplay/replays/`; left out, the last recording of this job), `delay` (seconds after it starts, 5) |
 | `shots` | `ticks` (list, required), `prefix` (`scene`): one screenshot per tick in `screenshots/<prefix>-<tick>.png`. The replay plays the second before each tick, so mobs move and particles show as in an export |
 | `export` | `start`, `end` (ticks, required), `name` (`scene`), `resolution` (`window`, `720p`, `1080p`, `1440p`, `2160p`; `1080p`) or `width` and `height`, `fps` (10 to 240, 60), `crf` (0 to 51, 16), `format` (`mp4` or `png`, `mp4`) |
+| `editor` | `tick` (play head; left out, it stays where it is), `seconds` (10), `play` (`false`), `cameraPath` (`false`), `tab` (an editor tab): keeps the editor open that long, then logs the frame rate and the render thread time per second, to compare two builds on the same replay |
 | `quit` | none; the game also quits after the last step |
 
 Durations are in seconds and can be fractional. Shots and exports follow the camera path of the replay's
@@ -238,25 +257,25 @@ step n/m: <reason>` and the game quits; a full run logs `SCENE job finished`. Th
 
 Apache License 2.0, see `LICENSE` and `NOTICE`. The jar bundles no third-party code. FFmpeg is an external
 program you install yourself; Just Replay only starts it for video export. Optional integrations (Simple
-Voice Chat, Distant Horizons, Emotecraft, ParCool, Better Combat, Morph, Pehkui, Custom NPCs, Armourer's Workshop, Epic Fight, WaterFrames, Create, Sable, Create Aeronautics, Drop the Beam, Bobby, Iris, GeckoLib, Curios, Iron's Spellbooks, Entity Culling, Exposure, Accessories, Jade, Immersive Paintings, Immersive Aircraft, Immersive Vehicles, More Player Models) work through those mods'
+Voice Chat, Distant Horizons, Emotecraft, ParCool, Better Combat, Morph, Pehkui, Custom NPCs, Armourer's Workshop, Epic Fight, WaterFrames, Create, Sable, Create Aeronautics, Drop the Beam, Bobby, Iris, GeckoLib, Curios, Iron's Spellbooks, Entity Culling, Exposure, Accessories, Jade, Immersive Paintings, Immersive Aircraft, Immersive Vehicles, More Player Models, Elytra Slot, Trinkets) work through those mods'
 classes and APIs and include none of their code. Not affiliated with Mojang or Microsoft.
 
 ## Français
 
 ### Cibles prises en charge
 
-Choisir le jar de sa version de Minecraft et de son loader : `justreplay-<loader>-<version de minecraft>-1.2.0.jar`.
+Choisir le jar de sa version de Minecraft et de son loader : `justreplay-<loader>-<version de minecraft>-1.3.0.jar`.
 Sur Fabric, Fabric API est nécessaire. Un enregistrement ne s'ouvre que sur la version de Minecraft et le loader où
 il a été fait.
 
 | Cible | Intégrations actives |
 |---|---|
-| NeoForge 1.21.1 | Accessories, Armourer's Workshop, Better Combat, Bobby, Create, Create Aeronautics, Curios, Custom NPCs, Distant Horizons, Drop the Beam, Emotecraft, Entity Culling, Epic Fight, Exposure, GeckoLib, Immersive Aircraft, Immersive Paintings, Immersive Vehicles, Iris, Iron's Spellbooks, Jade, More Player Models, Morph, ParCool, Pehkui, Player Animator, Sable, Simulated, WaterFrames |
-| Fabric 1.21.1 | Accessories, Armourer's Workshop, Better Combat, Bobby, Custom NPCs, Distant Horizons, Emotecraft, Entity Culling, Exposure, GeckoLib, Immersive Aircraft, Immersive Paintings, Iris, Jade, Pehkui, Player Animator, Sable, WaterFrames |
+| NeoForge 1.21.1 | Accessories, Armourer's Workshop, Better Combat, Bobby, Create, Create Aeronautics, Curios, Custom NPCs, Distant Horizons, Drop the Beam, Elytra Slot, Emotecraft, Entity Culling, Epic Fight, Exposure, GeckoLib, Immersive Aircraft, Immersive Paintings, Immersive Vehicles, Iris, Iron's Spellbooks, Jade, More Player Models, Morph, ParCool, Pehkui, Player Animator, Sable, Simulated, WaterFrames |
+| Fabric 1.21.1 | Accessories, Armourer's Workshop, Better Combat, Bobby, Custom NPCs, Distant Horizons, Elytra Slot, Emotecraft, Entity Culling, Exposure, GeckoLib, Immersive Aircraft, Immersive Paintings, Iris, Jade, Pehkui, Player Animator, Sable, Trinkets, WaterFrames |
 | Forge 1.21.1 | Entity Culling, GeckoLib |
-| NeoForge 1.20.1 | Armourer's Workshop, Curios, Custom NPCs, GeckoLib, Jade, More Player Models |
-| Forge 1.20.1 | Armourer's Workshop, Curios, Custom NPCs, Entity Culling, Epic Fight, GeckoLib, Immersive Vehicles, Jade, More Player Models |
-| Fabric 1.20.1 | Armourer's Workshop, Custom NPCs, Entity Culling, GeckoLib, Jade |
+| NeoForge 1.20.1 | Armourer's Workshop, Curios, Custom NPCs, Elytra Slot, GeckoLib, Jade, More Player Models |
+| Forge 1.20.1 | Armourer's Workshop, Curios, Custom NPCs, Elytra Slot, Entity Culling, Epic Fight, GeckoLib, Immersive Vehicles, Jade, More Player Models |
+| Fabric 1.20.1 | Armourer's Workshop, Custom NPCs, Elytra Slot, Entity Culling, GeckoLib, Jade, Trinkets |
 | NeoForge 26.1.2 | Armourer's Workshop, Entity Culling, GeckoLib, Immersive Vehicles, Iris, Jade |
 | Fabric 26.1.2 | Armourer's Workshop, Entity Culling, GeckoLib, Iris, Jade |
 | Forge 26.1.2 | GeckoLib |
@@ -284,6 +303,18 @@ ignoré : voir [Quand une intégration échoue](docs/COMPATIBILITY.md#quand-une-
 - **Repères pendant l'enregistrement** : **F6** pendant un enregistrement, ou avec le tampon des dernières
   minutes, pose un repère sur un moment fort. Les repères arrivent sur la timeline à la première ouverture du
   replay, et les clips du tampon gardent les leurs.
+- **Repères dans l'éditeur** : l'onglet Markers attache une note nommée à un moment, une plage de temps, un
+  point du monde ou une entité, dans la couleur choisie. Ils se tirent sur la timeline ; points et entités
+  s'affichent dans le monde pendant le montage, jamais dans les exports. Ils sont sauvés dans `project.json`
+  avec un identifiant stable, pour la personne ou l'outil qui monte le replay après toi : voir
+  [docs/MARKERS.md](docs/MARKERS.md).
+- **Serveur MCP pour les assistants IA** : active-le dans les réglages et un assistant IA de ton ordinateur
+  (Claude Code ou tout client MCP) peut lire ce que fait le mod, tes replays, le montage d'un replay et ses
+  repères avec leurs notes, regarder le replay lui-même (n'importe quelle frame en image, toutes les entités de
+  n'importe quel tick, le monde et ses blocs), et le piloter : lire, monter tout ce que monte l'éditeur, poser des
+  repères, enregistrer et exporter, par la sauvegarde et l'annulation de l'éditeur. Local seulement (127.0.0.1) avec
+  un jeton d'accès, un interrupteur lecture seule, et la suppression de fichiers coupée tant que tu ne l'autorises
+  pas ; un badge MCP s'affiche tant qu'il écoute. Voir [docs/MCP.md](docs/MCP.md).
 - **Packs de ressources du serveur** : les packs poussés par un serveur (avant ou pendant l'enregistrement) sont
   appliqués à la lecture, depuis le cache des packs de serveur du jeu, et retirés à la fermeture.
   `serverResourcePacks` peut aussi télécharger un pack manquant, ou les couper.
@@ -391,6 +422,13 @@ ignoré : voir [Quand une intégration échoue](docs/COMPATIBILITY.md#quand-une-
 ### Touches
 
 Voir le tableau de la section anglaise. Toutes les touches se changent dans Options, Contrôles, Just Replay.
+Pendant la lecture, la barre du bas rappelle les touches. **B** libère la souris sur la barre de lecture : un clic
+ou un glisser déplace la tête de lecture sans ouvrir l'éditeur, B ou Échap rend la caméra. Gauche / Droite sautent
+en arrière / en avant (pas réglé par `seekStepSeconds`).
+
+**Masquer l'indicateur REC.** Désactive **Show the REC indicator (top left)** dans les réglages de Just Replay
+(bouton Settings de la liste des replays, liste des mods du chargeur, ou éditeur). L'enregistrement continue, rien
+n'est dessiné : les captures OBS restent propres. F1 le masque aussi, avec le reste de l'interface.
 
 ### Fichiers
 
@@ -442,6 +480,7 @@ La propriété Gradle `-Pjob` règle la propriété JVM `justreplay.job` ; un ch
 | `open` | `replay` (dossier de `justreplay/replays/` ; absent, le dernier enregistrement de la tâche), `delay` (secondes après le démarrage, 5) |
 | `shots` | `ticks` (liste, obligatoire), `prefix` (`scene`) : une capture par tick dans `screenshots/<prefix>-<tick>.png`. Le replay joue la seconde qui précède chaque tick, pour que les mobs bougent et que les particules s'affichent comme dans un export |
 | `export` | `start`, `end` (ticks, obligatoires), `name` (`scene`), `resolution` (`window`, `720p`, `1080p`, `1440p`, `2160p` ; `1080p`) ou `width` et `height`, `fps` (10 à 240, 60), `crf` (0 à 51, 16), `format` (`mp4` ou `png`, `mp4`) |
+| `editor` | `tick` (tête de lecture ; absent, elle ne bouge pas), `seconds` (10), `play` (`false`), `cameraPath` (`false`), `tab` (un onglet de l'éditeur) : garde l'éditeur ouvert ce temps-là, puis écrit dans le journal la fréquence d'images et le temps du fil de rendu par seconde, pour comparer deux builds sur le même replay |
 | `quit` | aucun ; le jeu se ferme aussi après la dernière étape |
 
 Les durées sont en secondes et peuvent être décimales. Les captures et les exports suivent le chemin de caméra
@@ -468,5 +507,5 @@ Chaque étape est écrite dans le log avec le préfixe `SCENE`, pour qu'un outil
 
 Licence Apache 2.0, voir `LICENSE` et `NOTICE`. Le jar n'embarque aucun code tiers. FFmpeg est un programme
 externe que tu installes toi-même ; Just Replay ne fait que le lancer pour l'export vidéo. Les intégrations
-optionnelles (Simple Voice Chat, Distant Horizons, Emotecraft, ParCool, Better Combat, Morph, Pehkui, Custom NPCs, Armourer's Workshop, Epic Fight, WaterFrames, Create, Sable, Create Aeronautics, Drop the Beam, Bobby, Iris, GeckoLib, Curios, Iron's Spellbooks, Entity Culling, Exposure, Accessories, Jade, Immersive Paintings, Immersive Aircraft, Immersive Vehicles, More Player Models) passent par les
+optionnelles (Simple Voice Chat, Distant Horizons, Emotecraft, ParCool, Better Combat, Morph, Pehkui, Custom NPCs, Armourer's Workshop, Epic Fight, WaterFrames, Create, Sable, Create Aeronautics, Drop the Beam, Bobby, Iris, GeckoLib, Curios, Iron's Spellbooks, Entity Culling, Exposure, Accessories, Jade, Immersive Paintings, Immersive Aircraft, Immersive Vehicles, More Player Models, Elytra Slot, Trinkets) passent par les
 classes et API de ces mods et n'incluent aucun de leur code. Projet non affilié à Mojang ou Microsoft.

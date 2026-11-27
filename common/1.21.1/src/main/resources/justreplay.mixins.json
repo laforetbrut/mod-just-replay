@@ -5,6 +5,7 @@
   "compatibilityLevel": "JAVA_21",
   "client": [
     "ConnectionMixin",
+    "NativeImageAccessor",
     "ConnectionAccessor",
     "KeyMappingAccessor",
     "LevelWeatherAccessor",

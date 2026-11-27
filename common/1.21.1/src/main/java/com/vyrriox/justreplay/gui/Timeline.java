@@ -71,9 +71,14 @@ public final class Timeline {
             int color = PathRenderer.cameraColor(project.cameras.indexOf(project.camera(cut.camera)));
             g.fill(seg[0], y, Math.max(seg[0] + 1, seg[1] - 1), y + 2, Theme.withAlpha(color, 0xE6));
         }
-        for (ReplayProject.Marker marker : project.markers) {
+        for (com.vyrriox.justreplay.editor.Marker marker : project.markers) {
             int mx = xOf(marker.tick, x, width, duration);
-            g.fill(mx, trackY, mx + 1, trackY + trackH, MARKER_COLOR);
+            int color = 0xFF000000 | marker.color;
+            if (marker.isRange()) {
+                int ex = xOf(marker.end, x, width, duration);
+                g.fill(mx, trackY + trackH - 1, Math.max(mx + 1, ex), trackY + trackH, Theme.withAlpha(color, 0xB3));
+            }
+            g.fill(mx, trackY, mx + 1, trackY + trackH, color);
         }
         ReplayProject.Camera camera = project.selected();
         if (camera != null) {

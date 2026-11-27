@@ -55,6 +55,7 @@ public final class JustReplayClient {
         SelfTest.tick(mc);
         SceneRecorder.tick(mc);
         com.vyrriox.justreplay.compat.ReplayCompat.clientTick(mc);
+        com.vyrriox.justreplay.mcp.McpClient.tick(mc);
     }
 
     public static void onTickPre() {
@@ -118,6 +119,7 @@ public final class JustReplayClient {
 
     public static void onRenderFramePost(float partialTick) {
         VideoExporter.onFrameRendered(partialTick);
+        com.vyrriox.justreplay.export.FrameGrab.onFrameRendered();
     }
 
     /** Spectator flying widens the view; keyframes store the configured FOV, so keep the camera at exactly that. */
@@ -145,8 +147,7 @@ public final class JustReplayClient {
         if (VideoExporter.isActive() && Minecraft.getInstance().level != null) {
             // Esc cancels the export; any other screen would be burnt into the video.
             if (screen instanceof PauseScreen) {
-                VideoExporter.cancel();
-                toast("justreplay.export.cancelled", "");
+                cancelExport();
             } else if (screen != null) {
                 return true;
             }
@@ -208,6 +209,8 @@ public final class JustReplayClient {
             addWidget.accept(new GlassButton(x, y, 72, 20, Component.translatable("justreplay.button.replays"),
                     b -> mc.setScreen(new ReplayListScreen(title))).icon(Icon.FILM).iconColor(Theme.ACCENT)
                     .tip(Component.translatable("justreplay.button.replays.tip")));
+            // Shows on the menu that the MCP server listens; draws nothing otherwise.
+            addWidget.accept(com.vyrriox.justreplay.mcp.McpClient.titleBadge());
         } else if (screen instanceof PauseScreen pause && pause.showsPauseMenu()) {
             if (ReplaySession.isRunning()) {
                 addWidget.accept(new GlassButton(4, 4, 110, 20, Component.translatable("justreplay.button.editor"),
@@ -236,16 +239,47 @@ public final class JustReplayClient {
             return;
         }
         if (Recorder.isRecording()) {
-            Path saved = Recorder.stop();
-            if (saved != null) {
-                toast(Recorder.lastStopIncomplete() ? "justreplay.toast.incomplete" : "justreplay.toast.saved", saved.getFileName().toString());
+            stopRecording(true);
+        } else {
+            startRecording(0);
+        }
+    }
+
+    /**
+     * Starts recording as the record keys do, for {@code ticks} (0: until stopped), with their toast. False when the
+     * recording could not start.
+     */
+    public static boolean startRecording(int ticks) {
+        boolean started = ticks > 0 ? Recorder.startTimed(ticks) : Recorder.startManual();
+        if (!started) {
+            toast("justreplay.toast.failed", "");
+        } else if (ticks > 0) {
+            toast(Component.translatable("justreplay.toast.next_started", ticks / 1200), null);
+        } else {
+            toast("justreplay.toast.started", "");
+        }
+        return started;
+    }
+
+    /**
+     * Stops the recording as the record key does: its toast and, with {@code offerName}, the naming window. Returns
+     * the saved folder, or null when nothing was recording.
+     */
+    public static Path stopRecording(boolean offerName) {
+        Path saved = Recorder.stop();
+        if (saved != null) {
+            toast(Recorder.lastStopIncomplete() ? "justreplay.toast.incomplete" : "justreplay.toast.saved", saved.getFileName().toString());
+            if (offerName) {
                 offerName(saved);
             }
-        } else if (Recorder.startManual()) {
-            toast("justreplay.toast.started", "");
-        } else {
-            toast("justreplay.toast.failed", "");
         }
+        return saved;
+    }
+
+    /** Cancels the running export as Escape does, with its toast. */
+    public static void cancelExport() {
+        VideoExporter.cancel();
+        toast("justreplay.export.cancelled", "");
     }
 
     private static void toast(String key, String detail) {
@@ -283,20 +317,31 @@ public final class JustReplayClient {
 
     /** Saves the instant replay buffer off the client thread; the toast follows when the files are written. */
     private static void saveBuffer(Minecraft mc) {
+        saveBuffer(mc, true);
+    }
+
+    /**
+     * Saves the instant replay buffer as its key does, off the client thread, with its toasts and, with
+     * {@code offerName}, the naming window. The future gives the folder once written; null when nothing can be saved
+     * now (the buffer is off, a replay is open or a save is running).
+     */
+    public static java.util.concurrent.CompletableFuture<Path> saveBuffer(Minecraft mc, boolean offerName) {
         if (ReplaySession.current() != null || savingBuffer) {
-            return;
+            return null;
         }
         var saving = Recorder.saveBuffer();
         if (saving == null) {
             toast(Component.translatable("justreplay.toast.buffer_off"), Component.translatable("justreplay.toast.buffer_off.hint"));
-            return;
+            return null;
         }
         savingBuffer = true;
+        java.util.concurrent.CompletableFuture<Path> done = new java.util.concurrent.CompletableFuture<>();
         saving.whenComplete((saved, error) -> mc.execute(() -> {
             savingBuffer = false;
             if (error != null || saved == null) {
                 JustReplay.LOGGER.warn("Cannot save the replay buffer: {}", String.valueOf(error));
                 toast("justreplay.toast.buffer_failed", "");
+                done.completeExceptionally(error != null ? error : new IllegalStateException("the buffer gave no replay"));
                 return;
             }
             float minutes = saved.durationTicks() / 1200.0F;
@@ -305,8 +350,12 @@ public final class JustReplayClient {
                     : String.format(java.util.Locale.ROOT, "%.1f", minutes);
             toast(Component.translatable("justreplay.toast.buffer_saved", length),
                     Component.literal(saved.dir().getFileName().toString()));
-            ReplayNaming.offer(saved.dir());
+            if (offerName) {
+                ReplayNaming.offer(saved.dir());
+            }
+            done.complete(saved.dir());
         }));
+        return done;
     }
 
     /** The recording marker key: a marker in the running recording and the buffer, shown by a small toast. */
@@ -336,12 +385,7 @@ public final class JustReplayClient {
             toggleRecording();
             return;
         }
-        int minutes = JRConfig.NEXT_MINUTES.get();
-        if (Recorder.startTimed(minutes * 1200)) {
-            toast(Component.translatable("justreplay.toast.next_started", minutes), null);
-        } else {
-            toast("justreplay.toast.failed", "");
-        }
+        startRecording(JRConfig.NEXT_MINUTES.get() * 1200);
     }
 
     private static void toast(Component title, Component detail) {
@@ -402,6 +446,11 @@ public final class JustReplayClient {
         while (JRKeys.SEEK_FORWARD.consumeClick()) {
             playback.seek(playback.cursor() + step);
         }
+        while (JRKeys.SCRUB.consumeClick()) {
+            if (mc.screen == null) {
+                mc.setScreen(new com.vyrriox.justreplay.gui.ScrubScreen(session));
+            }
+        }
         while (JRKeys.SPEED_UP.consumeClick()) {
             playback.changeSpeed(1);
         }
@@ -422,7 +471,7 @@ public final class JustReplayClient {
         }
         while (JRKeys.MARKER.consumeClick()) {
             int tick = playback.cursor();
-            session.project().markers.add(new ReplayProject.Marker(tick, "Marker " + (session.project().markers.size() + 1)));
+            session.project().addMarker(com.vyrriox.justreplay.editor.Marker.instant(tick, session.project().nextMarkerName()));
             session.saveProject();
         }
         while (JRKeys.CAMERA_KEYFRAME.consumeClick()) {
@@ -434,8 +483,7 @@ public final class JustReplayClient {
                     continue;
                 }
                 int tick = playback.cursor();
-                camera.keyframes.removeIf(k -> k.tick == tick);
-                camera.keyframes.add(new ReplayProject.CameraKeyframe(tick, p.getX(), p.getY(), p.getZ(),
+                camera.setKeyframe(new ReplayProject.CameraKeyframe(tick, p.getX(), p.getY(), p.getZ(),
                         p.getYRot(), p.getXRot(), 0, mc.options.fov().get()));
                 session.saveProject();
                 toast("justreplay.toast.keyframe", camera.name + "  " + com.vyrriox.justreplay.gui.Timeline.formatTicks(tick));
@@ -468,7 +516,7 @@ public final class JustReplayClient {
     }
 
     private static void consumeAll() {
-        for (var key : new net.minecraft.client.KeyMapping[]{JRKeys.EDITOR, JRKeys.PLAY_PAUSE, JRKeys.SEEK_BACK, JRKeys.SEEK_FORWARD,
+        for (var key : new net.minecraft.client.KeyMapping[]{JRKeys.EDITOR, JRKeys.PLAY_PAUSE, JRKeys.SEEK_BACK, JRKeys.SEEK_FORWARD, JRKeys.SCRUB,
                 JRKeys.SPEED_UP, JRKeys.SPEED_DOWN, JRKeys.CAMERA_KEYFRAME, JRKeys.CAMERA_PATH, JRKeys.MARKER, JRKeys.TOGGLE_HUD,
                 JRKeys.RECORDER_VIEW, JRKeys.STOP_SPECTATING}) {
             while (key.consumeClick()) {

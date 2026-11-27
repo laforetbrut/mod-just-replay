@@ -436,12 +436,10 @@ public final class CameraPanel {
             return;
         }
         int tick = session.playback().cursor();
-        camera.keyframes.removeIf(k -> k.tick == tick);
         float roll = selectedKey != null ? selectedKey.roll : 0;
         float fov = selectedKey != null ? selectedKey.fov : mc().options.fov().get();
         ReplayProject.CameraKeyframe key = keyframeAtView(tick, roll, fov);
-        camera.keyframes.add(key);
-        camera.sort();
+        camera.setKeyframe(key);
         selectedKey = key;
         screen.clearActorKey();
         session.saveProject();

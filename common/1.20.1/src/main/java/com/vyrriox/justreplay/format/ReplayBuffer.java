@@ -29,7 +29,9 @@ import java.util.zip.GZIPOutputStream;
  * checkpoint still needed to cover the window, or the start of the buffer itself while it is younger than the
  * window. Everything older than that anchor is dropped as time passes, so memory stays bounded by the window.
  * <p>
- * All the work runs on a dedicated low priority thread; callers only enqueue.
+ * All the work runs on a dedicated low priority thread; callers only enqueue. Packets reach that thread in batches,
+ * like {@link ReplayWriter} hands them over: waking it for every packet was most of what recording cost the network
+ * thread. Every other call hands the batch over first, so the order of all calls is kept.
  *
  * @author vyrriox
  */
@@ -58,8 +60,15 @@ public final class ReplayBuffer {
     private static final long LOG_INTERVAL_MS = 60_000L;
 
     private final ExecutorService executor;
+    private final int startTick;
     private volatile int windowTicks;
     private volatile boolean closed;
+    /** Packets not handed to the buffer thread yet, guarded by {@code this}. */
+    private int[] batchTicks = new int[64];
+    private byte[][] batchData = new byte[64][];
+    private int batchSize;
+    private int batchBytes;
+    private int batchFirstTick;
 
     // ---------------------------------------------------------------- buffer thread state
     private final List<Anchor> anchors = new ArrayList<>();
@@ -79,6 +88,7 @@ public final class ReplayBuffer {
      * @param windowTicks length kept in memory
      */
     public ReplayBuffer(int startTick, int windowTicks) {
+        this.startTick = startTick;
         this.windowTicks = Math.max(20, windowTicks);
         this.lastTick = startTick;
         anchors.add(new Anchor(startTick - 1, null));
@@ -88,6 +98,11 @@ public final class ReplayBuffer {
             t.setPriority(Thread.MIN_PRIORITY);
             return t;
         });
+    }
+
+    /** Tick of the first packet the buffer receives, where its checkpoint calendar starts. */
+    public int startTick() {
+        return startTick;
     }
 
     public int windowTicks() {
@@ -102,7 +117,43 @@ public final class ReplayBuffer {
 
     /** Appends a packet; ticks never go back. */
     public void write(int tick, byte[] data) {
-        run(() -> append(tick, data));
+        if (closed) {
+            return;
+        }
+        synchronized (this) {
+            if (batchSize == batchTicks.length) {
+                batchTicks = java.util.Arrays.copyOf(batchTicks, batchSize * 2);
+                batchData = java.util.Arrays.copyOf(batchData, batchSize * 2);
+            }
+            if (batchSize == 0) {
+                batchFirstTick = tick;
+            }
+            batchTicks[batchSize] = tick;
+            batchData[batchSize] = data;
+            batchSize++;
+            batchBytes += data.length;
+            if (batchSize >= ReplayWriter.BATCH_PACKETS || batchBytes >= ReplayWriter.BATCH_BYTES
+                    || tick - batchFirstTick >= ReplayWriter.BATCH_TICKS) {
+                handOff();
+            }
+        }
+    }
+
+    /** Gives the queued packets to the buffer thread, in order. Caller holds {@code this}. */
+    private void handOff() {
+        if (batchSize == 0) {
+            return;
+        }
+        int[] ticks = java.util.Arrays.copyOf(batchTicks, batchSize);
+        byte[][] data = java.util.Arrays.copyOf(batchData, batchSize);
+        java.util.Arrays.fill(batchData, 0, batchSize, null);
+        batchSize = 0;
+        batchBytes = 0;
+        submit(() -> {
+            for (int i = 0; i < ticks.length; i++) {
+                append(ticks[i], data[i]);
+            }
+        });
     }
 
     /**
@@ -241,7 +292,15 @@ public final class ReplayBuffer {
         executor.shutdown();
     }
 
+    /** Runs a task on the buffer thread after every packet written so far. */
     private boolean run(Runnable task) {
+        synchronized (this) {
+            handOff();
+            return submit(task);
+        }
+    }
+
+    private boolean submit(Runnable task) {
         if (closed) {
             return false;
         }
