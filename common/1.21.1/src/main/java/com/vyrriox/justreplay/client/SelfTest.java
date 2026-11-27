@@ -95,6 +95,8 @@ public final class SelfTest {
     private static String cameraLook;
     private static int ringWaits;
     private static boolean ringRebuilt;
+    private static volatile boolean ringReloaded;
+    private static int ringSettle;
     /** Before the recording: 0 the server runs the first commands, 1 the ring, 2 the server again, 3 a second for the client. */
     private static int settlePhase;
     private static boolean modsGiven;
@@ -2887,13 +2889,18 @@ public final class SelfTest {
                 java.util.UUID id = mc.player.getUUID();
                 server.execute(() -> {
                     com.vyrriox.justreplay.compat.CuriosCompat.rebuildSlots(server.getPlayerList().getPlayer(id));
-                    mc.execute(() -> {
-                        if (mc.player != null) {
-                            mc.player.connection.sendCommand("reload");
-                        }
-                    });
+                    // Items put on before this reload is over are emptied by it (seen on Forge 1.20.1): wait for its end.
+                    server.reloadResources(server.getPackRepository().getSelectedIds()).whenComplete((done, error) -> ringReloaded = true);
                 });
                 return true;
+            }
+            if (server != null && !ringReloaded) {
+                return ringWaits > 0;
+            }
+            if (ringSettle < 20) {
+                // The slots of the reload reach the client a moment after it ends on the server.
+                ringSettle++;
+                return ringWaits > 0;
             }
             // Other mods give the player slots of their own: the ring slot itself must be there.
             int slots = com.vyrriox.justreplay.compat.CuriosCompat.slotTypes(mc.player);
