@@ -47,7 +47,7 @@ public final class TimeShift {
         if (p.cutsEnd >= 0) {
             p.cutsEnd = s.clamp(p.cutsEnd);
         }
-        s.points(p.markers, m -> m.tick, (m, t) -> m.tick = t);
+        markers(s, p.markers);
         for (ReplayProject.ActorData actor : p.actors) {
             s.points(actor.keyframes, k -> k.tick, (k, t) -> k.tick = t);
             s.points(actor.skinChanges, c -> c.tick, (c, t) -> c.tick = t);
@@ -99,6 +99,27 @@ public final class TimeShift {
             s.points(list, k -> k.tick, (k, t) -> k.tick = t);
         }
         keys.values().removeIf(List::isEmpty);
+    }
+
+    /**
+     * Moves the markers. A range across the tick keeps its start and grows or shrinks by its end, keeping at least one
+     * tick; one inside a removed range goes with it.
+     */
+    private static void markers(Shift s, List<Marker> markers) {
+        Iterator<Marker> it = markers.iterator();
+        while (it.hasNext()) {
+            Marker m = it.next();
+            int last = m.lastTick();
+            if (s.remove && m.tick >= s.at && last < s.at + s.n) {
+                it.remove();
+                continue;
+            }
+            boolean range = m.isRange();
+            m.tick = s.clamp(m.tick);
+            if (range) {
+                m.end = Math.max(m.tick + 1, s.clamp(last));
+            }
+        }
     }
 
     private static void actions(Shift s, List<ReplayProject.ActorAction> actions) {
