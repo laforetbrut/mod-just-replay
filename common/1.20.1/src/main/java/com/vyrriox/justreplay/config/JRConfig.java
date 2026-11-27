@@ -78,7 +78,8 @@ public final class JRConfig {
         AUTO_RECORD_SINGLEPLAYER = recording.bool("autoRecordSingleplayer", false,
                 "Start recording automatically when opening a singleplayer world.");
         SHOW_RECORDING_INDICATOR = recording.bool("showRecordingIndicator", true,
-                "Show the REC indicator while recording.");
+                "Show the REC indicator in the top left corner while recording. Off: the recording goes on with nothing on screen,"
+                        + " so screen captures (OBS) stay clean.");
         CAPTURE_EXTRA_CHUNKS = recording.bool("captureExtraChunks", true,
                 "Also record the chunks the client has beyond the server view distance (cached chunks of mods" + "\n"
                         + "such as Bobby), a few per tick, so replays show the whole render distance.");
