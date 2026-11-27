@@ -112,21 +112,34 @@ public final class ReplayNaming {
             // Same as Skip: the replay keeps the name it was saved under.
             return;
         }
+        rename(pending.dir(), name);
+    }
+
+    /**
+     * Renames a saved replay as the window does: off the client thread, one rename at a time so two of them never
+     * pick the same folder, never over another replay, with the window's toast. The future gives the result.
+     */
+    public static java.util.concurrent.CompletableFuture<ReplayRename.Result> rename(Path dir, String name) {
+        Minecraft mc = Minecraft.getInstance();
+        java.util.concurrent.CompletableFuture<ReplayRename.Result> renamed = new java.util.concurrent.CompletableFuture<>();
         RENAMING.incrementAndGet();
         RENAMER.execute(() -> {
             ReplayRename.Result result = null;
             try {
-                result = ReplayRename.apply(pending.dir(), name);
-                JustReplay.LOGGER.info("Replay {} renamed to '{}' in {} ({})", pending.dir().getFileName(), result.name(),
+                result = ReplayRename.apply(dir, name);
+                JustReplay.LOGGER.info("Replay {} renamed to '{}' in {} ({})", dir.getFileName(), result.name(),
                         result.dir().getFileName(), result.status());
+                renamed.complete(result);
             } catch (Throwable t) {
-                JustReplay.LOGGER.error("Cannot rename the replay {}", pending.dir(), t);
+                JustReplay.LOGGER.error("Cannot rename the replay {}", dir, t);
+                renamed.completeExceptionally(t);
             } finally {
                 RENAMING.decrementAndGet();
             }
             ReplayRename.Result done = result;
             mc.execute(() -> toast(done));
         });
+        return renamed;
     }
 
     private static void toast(ReplayRename.Result result) {
@@ -146,7 +159,7 @@ public final class ReplayNaming {
     }
 
     /** Self test: whether a rename is still running. */
-    static boolean renaming() {
+    public static boolean renaming() {
         return RENAMING.get() > 0;
     }
 }

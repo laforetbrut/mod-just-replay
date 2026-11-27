@@ -189,35 +189,13 @@ public final class ActorPlacement {
 
     /** Adds a keyframe at {@code tick}, replacing the one already there. */
     public static ReplayProject.ActorKeyframe keyframe(ReplayProject.ActorData actor, int tick, double x, double y, double z, float yaw) {
-        actor.keyframes.removeIf(k -> k.tick == tick);
-        ReplayProject.ActorKeyframe key = new ReplayProject.ActorKeyframe(tick, x, y, z, Mth.wrapDegrees(yaw), 0.0F);
-        actor.keyframes.add(key);
-        actor.sort();
-        return key;
+        return actor.setKeyframe(tick, x, y, z, yaw);
     }
 
     /** Adds an action at {@code tick}, replacing actions of the same types there. */
     public static ReplayProject.ActorAction action(ReplayProject.ActorData actor, int tick, ActionType type, int duration, String param,
                                                    ActionType... replaces) {
-        actor.actions.removeIf(a -> {
-            if (a.tick != tick) {
-                return false;
-            }
-            ActionType existing = a.actionType();
-            if (existing == type) {
-                return true;
-            }
-            for (ActionType r : replaces) {
-                if (existing == r) {
-                    return true;
-                }
-            }
-            return false;
-        });
-        ReplayProject.ActorAction action = new ReplayProject.ActorAction(tick, type, duration, param == null ? "" : param);
-        actor.actions.add(action);
-        actor.sort();
-        return action;
+        return actor.setAction(tick, type, duration, param, replaces);
     }
 
     /** Writes a placement at {@code tick}: the keyframe, and the walk, sit or sleep action it implies. */
