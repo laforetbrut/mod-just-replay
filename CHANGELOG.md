@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-27
+
 ### Added
 - **Markers in the editor**: the new Markers tab pins a named note on a moment, a stretch of time, a spot of the world or an entity, in the colour you like. Drag them along the timeline; spots and entities show up in the world while you edit, never in your videos. Each one keeps a stable id in `project.json`, ready for whoever edits the replay next. Older projects open just like before. See `docs/MARKERS.md`.
 - **MCP server for AI assistants**: switch it on in the settings and an AI assistant on your computer can read what Just Replay is up to: the recording, the replay you watch or edit, your saved replays, the edit (cameras, actors, actions, audio, effects, overlays) and the markers with their notes. Local only (your computer, never the network), an access token on every request, web pages turned away, and an MCP badge while it listens. See `docs/MCP.md`.
