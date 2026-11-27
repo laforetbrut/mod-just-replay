@@ -92,6 +92,7 @@ public final class SelfTest {
     private static boolean ringRebuilt;
     /** Before the recording: 0 the server runs the first commands, 1 the ring, 2 the server again, 3 a second for the client. */
     private static int settlePhase;
+    private static boolean modsGiven;
     private static volatile boolean serverAnswered;
     private static boolean serverAsked;
     private static int serverWaits;
@@ -674,8 +675,15 @@ public final class SelfTest {
                         wait = 5;
                         return;
                     }
+                    settlePhase = 2;
+                    wait = 5;
+                    return;
+                }
+                if (settlePhase == 3 && !modsGiven) {
                     // Entities and worn items of mods with no integration of their own, put there before the recording:
-                    // only its snapshot has them. After the ring, whose slot rebuild empties the Curios of the player.
+                    // only its snapshot has them. Once the server ran the reloads of the ring: a reload still under
+                    // way syncs the Curios of the player again and empties them on the client. Then the server again.
+                    modsGiven = true;
                     SelfTestModState.prepare(p);
                     Mods.giveRing(mc);
                     settlePhase = 2;
