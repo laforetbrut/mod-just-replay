@@ -2,7 +2,7 @@
 
 ## English
 
-Just Replay 1.2.0 runs on nine targets: Minecraft 1.20.1, 1.21.1 and 26.1.2 on NeoForge, Forge and Fabric.
+Just Replay 1.3.0 runs on nine targets: Minecraft 1.20.1, 1.21.1 and 26.1.2 on NeoForge, Forge and Fabric.
 
 ### Status per target
 
@@ -26,7 +26,7 @@ the production jars have not run with it yet.
 | Forge 1.20.1 | Production: GeckoLib, Jade, Entity Culling: run. Curios: run. Development run: Immersive Vehicles: run. More Player Models 1.20.1.20240409: run. | Armourer's Workshop, Custom NPCs, Epic Fight |
 | Fabric 1.20.1 | Development run: Armourer's Workshop 3.4.0-beta.3: loaded, its hidden armor checks run. | Custom NPCs, Entity Culling, GeckoLib, Jade |
 | NeoForge 26.1.2 | Production: GeckoLib, Iris, Sodium, Jade, Entity Culling: run. Development run: Immersive Vehicles: run; Armourer's Workshop 3.4.0-beta.3: loaded, its hidden armor checks run. | None |
-| Fabric 26.1.2 | Production: GeckoLib, Iris, Sodium, Jade, Entity Culling: run. Development run: Armourer's Workshop 3.4.0-beta.3: loaded, its hidden armor checks run. | None |
+| Fabric 26.1.2 | Production: GeckoLib, Iris, Sodium, Jade, Entity Culling: run. Development run: Armourer's Workshop 3.4.0-beta.3: loaded, its hidden armor checks run. Voxy 0.2.18-beta with Sodium 0.9.1: run with its rendering off (see "Voxy"). | None |
 | Forge 26.1.2 | Production: GeckoLib: run. | None |
 
 On 1.20.1 and 26.1.2 the other integrations are removed: they would need rewriting and could not be tested there.
@@ -95,6 +95,9 @@ Every integration is optional: it is reached by reflection or by optional mixins
 | **Immersive Vehicles** | A vehicle, a seat or an Immersive Vehicles block reaches the client as an empty shell that asks the server for its data once. Snapshots and checkpoints write that data as the server answers, and its requests to the replay host are blocked. The mod draws all its vehicles through one invisible entity that must follow the local player: a replay gets its own, that follows the camera, and recorded ones no longer draw. | Run on NeoForge 1.21.1 and Forge 1.20.1 with Immersive Vehicles 24.0.0 and its Official Content Pack, and on NeoForge 26.1.2 with Immersive Vehicles 24.0.0-26.1 and the R.A.G.E 3.0 beta 2 pack (the official pack has no 26.1 build): a car placed before the recording has its data at the start of a replay and after a backward seek. NeoForge 26.1.2 in a development client only. Forge 1.20.1 in a development client only, the mod remapped by `-PdevMods`. Driving and physics during a replay not checked by a human. |
 | **More Player Models** (Noppes, Forge build for 1.20.1; unofficial NeoForge 1.21.1 port) | A player's look (body proportions, added parts, entity model, skin URL, name, animation) is NBT the server sends once, five seconds after a client starts tracking the player, then on each change; every message names its player by UUID (in the 1.21.1 port, one typed payload per message, rewritten through its own codec). They are recorded as they are, and the ones about the recording player (the server sends a player its own look) are written for its actor. Snapshots and checkpoints write the look and the back item of every player, the actor's at each spawn. On a server without the mod no packet carries a look (each client reads its own files and the mod's web service): during a capture the looks, and the recording player's animations, are written as they change. During a replay the mod's requests to the replay host are dropped, its editor stays closed, its web service is not asked, and a recorded look that names the viewer's own UUID is dropped, since the mod would save it as the viewer's own. The parts the mod adds and its back item follow hidden body parts; hidden armor works as on a vanilla player. | 1.20.1: read against the jar of build 1.20.1.20240409 (Forge, the same file NeoForge 47.1 loads). Every class, member and mixin target was checked against it with the classes of Forge and NeoForge 1.20.1. Run in a Forge 1.20.1 development client (2026-11-20). NeoForge 1.21.1: Noppes made no build, the integration follows the unofficial port `kaan-mpm.jar` (mod id `moreplayermodels`, version 1.21.1.20261109-cat-scale, nested in the CurseForge bundle kaanstyle 1.0.15, needs NeoForge 21.1.250 or later), checked against that jar and run in a development client (2026-11-20). No build for Fabric, Forge 1.21.1 or 26.1.2: off there. |
 | **Bobby** | Bobby reports itself disabled while a replay runs (no cached chunks, nothing saved). | Unchanged. |
+| **Elytra Slot** | An elytra worn in Elytra Slot's own slot (Curios `back` on Forge and NeoForge, Trinkets `chest/cape` on Fabric) is skipped while the chestplate of the actor is hidden, like a vanilla elytra. | Run with 0 FAIL (2026-11-27): NeoForge 1.21.1 (Elytra Slot 9.0.2, Curios 9.6.0, Caelus 7.0.1, NeoForge 21.1.265), Fabric 1.21.1 (9.0.1, Trinkets 3.10.0), Fabric 1.20.1 (6.4.4, Trinkets 3.7.2), Forge 1.20.1 (6.4.4, Curios 5.14.1, Caelus 3.2.0). NeoForge 1.20.1: read only. No build for 26.1.2. |
+| **Trinkets** (Fabric 1.20.1 and 1.21.1) | What players and mobs wear in Trinkets slots is written into snapshots and checkpoints, and listed by MCP (`trinkets:<group>/<slot>`). | Run (Trinkets 3.7.2 and 3.10.0): worn at the start and after both seeks, listed by MCP. |
+| **Create** backtank, **Create Jetpack** | The tank of a backtank and the jetpack are skipped while the chestplate of the actor is hidden. | Run on NeoForge 1.21.1 (Create 6.0.10, Create Jetpack 5.2.1, NeoForge 21.1.265). A pass with the integration off in the config failed both checks, as it should. |
 | **Drop the Beam** | Lights, beams, moving heads, haze and particles follow the level game time and need nothing. Everything that follows a song (music, light desk cues, video screens, sound reactive signals) follows the server clock as `ServerClock` estimates it. **Clock:** the recorded `clock_pong` packets plus a clock sample the recorder writes every 2 s (a pong carrying a marker, with the server instant the recording client estimated) map each recorded tick to the server instant; they are read ahead in the background when a replay opens and while playing. During a replay `ServerClock` answers with that mapping at the frame's replay time (cursor and partial tick): it stops with the replay, follows its speed and jumps with seeks. Recorded pongs never reach Drop the Beam; its pings and requests are not sent to the replay host; its "pause with the single-player game" logic is off during a replay. **Recording:** the latest music state, mix and layers per turntable, song offers and analyses, shows per desk, features and libraries are kept per connection and written into every snapshot and checkpoint, so a recording started mid-session plays the music already running. **Live audio:** fed silence while the replay is paused, away from x1 (songs are rendered at their natural pitch) or its game sounds are muted; its volume follows the project's game volume and ducking. **Export:** its audio thread renders nothing during an export; every voice is rendered offline for each frame with the clock pinned to that frame, attenuated (linear to its range, jukebox volume) and panned relative to the camera, then mixed as a game sound (game volume, mute, ducking). **Song starts:** `DropTheBeamCompat.songStartTicks()` gives the replay tick (with decimals) where each song is heard from its start, and each repeat of a song looping on its own; they are logged as `Drop the Beam: turntable ... starts "title" at replay tick ...`. | Compiled against Drop the Beam 0.1.0 sources, not yet tested in game. |
 
 ### Hidden armor (every target)
@@ -163,6 +166,28 @@ Big modpacks mix versions nobody tested together, so every integration has a saf
   `packet #16383 could not be read` in the `Replay: N packets skipped (...)` line, and the replay plays on.
   Run on the nine targets on 2026-11-20: as expected everywhere (one warning per game, the packet counted 6 or 7
   times in the main replay because of its seeks, once in the buffer clip).
+
+### Voxy (checked, no integration)
+
+Voxy (far terrain LODs, Modrinth `voxy`, all rights reserved) only ships Fabric builds. Among the nine targets only
+Fabric 26.1.2 has one: `voxy-0.2.18-beta-26.1.2.jar` (SHA-1 `a84c1bf8affc584b27cec6308ae4ef5d8fe29afb`), which
+needs Sodium 0.9.1 exactly. Its 1.21.x builds are for 1.21.6 to 1.21.11, none for 1.21.1; nothing for Forge or
+NeoForge.
+
+What the jar does, read from its classes: it picks its LOD database when a world is joined, in the world save
+(`saves/<world>/voxy`) for an integrated server, else `.voxy/saves/<server address>`; it feeds every chunk the
+client loads into it (ingest); it carries mixins for Flashback only (it writes its database path into Flashback's
+metadata). A Just Replay replay plays in the throwaway world `justreplay-session`, so Voxy opens a database there,
+fills it from the replayed chunks, and that database goes away with the world. The player's own LODs are never read
+or written during a replay.
+
+Self test on Fabric 26.1.2 with Voxy and Sodium (2026-11-27): with its rendering on, Voxy crashes the client when
+the test world opens, before any recording, because its compute shaders do not compile in the software renderer
+of the test machine (`Shader compilation failed of type COMPUTE`); nothing to do with Just Replay. With
+`enable_rendering` off in `config/voxy-config.json` (ingest still on): 120 PASS, 0 FAIL, Voxy instances opened and
+closed for the test world and for the replay world, which was deleted afterwards. Not exercised: Voxy's LODs drawn
+in a replay or an export (needs a real GPU), and LODs of the recorded world in replays (Voxy has no API for
+another database, unlike Distant Horizons). No defect seen, so no integration.
 
 ### Known limits
 
@@ -291,7 +316,7 @@ in the exported HUD.
 
 ## Français
 
-Just Replay 1.2.0 tourne sur neuf cibles : Minecraft 1.20.1, 1.21.1 et 26.1.2 sur NeoForge, Forge et Fabric.
+Just Replay 1.3.0 tourne sur neuf cibles : Minecraft 1.20.1, 1.21.1 et 26.1.2 sur NeoForge, Forge et Fabric.
 
 ### État par cible
 
@@ -316,7 +341,7 @@ Forge 1.20.1 ; les jars de production n'ont pas encore tourné avec.
 | Forge 1.20.1 | Production : GeckoLib, Jade, Entity Culling : testés. Curios : testé. Développement : Immersive Vehicles : testé. More Player Models 1.20.1.20240409 : testé. | Armourer's Workshop, Custom NPCs, Epic Fight |
 | Fabric 1.20.1 | Développement : Armourer's Workshop 3.4.0-beta.3 : chargé, ses vérifications d'armure masquée tournent. | Custom NPCs, Entity Culling, GeckoLib, Jade |
 | NeoForge 26.1.2 | Production : GeckoLib, Iris, Sodium, Jade, Entity Culling : testés. Développement : Immersive Vehicles : testé ; Armourer's Workshop 3.4.0-beta.3 : chargé, ses vérifications d'armure masquée tournent. | Aucune |
-| Fabric 26.1.2 | Production : GeckoLib, Iris, Sodium, Jade, Entity Culling : testés. Développement : Armourer's Workshop 3.4.0-beta.3 : chargé, ses vérifications d'armure masquée tournent. | Aucune |
+| Fabric 26.1.2 | Production : GeckoLib, Iris, Sodium, Jade, Entity Culling : testés. Développement : Armourer's Workshop 3.4.0-beta.3 : chargé, ses vérifications d'armure masquée tournent. Voxy 0.2.18-beta avec Sodium 0.9.1 : testé avec son rendu coupé (voir « Voxy »). | Aucune |
 | Forge 26.1.2 | Production : GeckoLib : testé. | Aucune |
 
 En 1.20.1 et 26.1.2, les autres intégrations sont retirées : il faudrait les réécrire et elles n'étaient pas testables.
@@ -402,6 +427,17 @@ fait rien quand le mod est absent. Le code se trouve dans `com.vyrriox.justrepla
   plus ancien, base absente ou plus grosse que `distantHorizonsMaxCopyMb`), le rendu des LOD est coupé comme
   avant. Compilé, pas encore testé en jeu.
 - **Bobby** : désactivé pendant un replay (inchangé).
+- **Elytra Slot** : une élytre portée dans l'emplacement d'Elytra Slot (Curios `back` sur Forge et NeoForge, Trinkets
+  `chest/cape` sur Fabric) est sautée quand le plastron de l'acteur est masqué, comme une élytre vanilla. Testé avec
+  0 FAIL (27/11/2026) : NeoForge 1.21.1 (Elytra Slot 9.0.2, Curios 9.6.0, Caelus 7.0.1, NeoForge 21.1.265), Fabric
+  1.21.1 (9.0.1, Trinkets 3.10.0), Fabric 1.20.1 (6.4.4, Trinkets 3.7.2), Forge 1.20.1 (6.4.4, Curios 5.14.1, Caelus
+  3.2.0). NeoForge 1.20.1 : seulement lu. Pas de build en 26.1.2.
+- **Trinkets** (Fabric 1.20.1 et 1.21.1) : ce que portent joueurs et mobs dans les emplacements Trinkets est écrit
+  dans les instantanés et les points de reprise, et listé par MCP (`trinkets:<groupe>/<emplacement>`). Testé
+  (Trinkets 3.7.2 et 3.10.0) : porté au début et après les deux seeks, listé par MCP.
+- **Réservoir Create**, **Create Jetpack** : le réservoir d'un backtank et le jetpack sont sautés quand le plastron de
+  l'acteur est masqué. Testé sur NeoForge 1.21.1 (Create 6.0.10, Create Jetpack 5.2.1, NeoForge 21.1.265). Une passe
+  avec l'intégration coupée dans la config a échoué aux deux contrôles, comme prévu.
 - **Drop the Beam** : les lumières, faisceaux, lyres, brouillard et particules suivent le temps de jeu du niveau
   et n'ont besoin de rien. Tout ce qui suit un morceau (musique, cues de la console lumière, écrans vidéo, signaux
   réactifs au son) suit l'horloge du serveur estimée par `ServerClock`. Les paquets `clock_pong` enregistrés et un
@@ -615,6 +651,29 @@ Les gros modpacks mélangent des versions que personne n'a testées ensemble, al
   ligne de démarrage, `packet #16383 could not be read` dans la ligne `Replay: N packets skipped (...)`, et le replay
   continue. Passé sur les neuf cibles le 2026-11-20 : conforme partout (un avertissement par jeu, le paquet compté 6
   ou 7 fois dans le replay principal à cause de ses sauts, une fois dans le clip du tampon).
+
+### Voxy (vérifié, sans intégration)
+
+Voxy (terrain lointain en LOD, Modrinth `voxy`, tous droits réservés) ne publie que pour Fabric. Parmi les neuf
+cibles, seule Fabric 26.1.2 a un build : `voxy-0.2.18-beta-26.1.2.jar` (SHA-1
+`a84c1bf8affc584b27cec6308ae4ef5d8fe29afb`), qui exige exactement Sodium 0.9.1. Ses builds 1.21.x vont de 1.21.6 à
+1.21.11, aucun pour 1.21.1 ; rien pour Forge ni NeoForge.
+
+Ce que fait le jar, lu dans ses classes : il choisit sa base de LOD à l'entrée dans un monde, dans la sauvegarde
+(`saves/<monde>/voxy`) pour un serveur intégré, sinon `.voxy/saves/<adresse du serveur>` ; il y verse chaque chunk
+chargé par le client (ingestion) ; ses seuls mixins vers un mod de replay visent Flashback (il écrit le chemin de sa
+base dans les métadonnées de Flashback). Un replay de Just Replay se joue dans le monde jetable `justreplay-session` :
+Voxy y ouvre une base, la remplit avec les chunks rejoués, et cette base disparaît avec le monde. Les LOD du joueur ne
+sont jamais lus ni écrits pendant un replay.
+
+Self test sur Fabric 26.1.2 avec Voxy et Sodium (27/11/2026) : rendu actif, Voxy fait planter le client à
+l'ouverture du monde de test, avant tout enregistrement, car ses shaders de calcul ne compilent pas avec le rendu
+logiciel de la machine de test (`Shader compilation failed of type COMPUTE`) ; Just Replay n'y est pour rien. Avec
+`enable_rendering` coupé dans `config/voxy-config.json` (ingestion toujours active) : 120 PASS, 0 FAIL, instances de
+Voxy ouvertes et fermées pour le monde de test et pour le monde du replay, supprimé ensuite. Non exercé : les LOD de
+Voxy dessinés dans un replay ou un export (il faut un vrai GPU), et les LOD du monde enregistré dans les replays
+(Voxy n'a pas d'API pour une autre base, contrairement à Distant Horizons). Aucun défaut constaté, donc pas
+d'intégration.
 
 ### Limites connues
 

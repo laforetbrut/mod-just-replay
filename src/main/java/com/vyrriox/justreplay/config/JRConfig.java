@@ -3,6 +3,7 @@ package com.vyrriox.justreplay.config;
 import com.vyrriox.justreplay.compat.CompatSwitches;
 import com.vyrriox.justreplay.compat.CompatTargets;
 import com.vyrriox.justreplay.export.ExportResolution;
+import com.vyrriox.justreplay.mcp.McpConfig;
 import com.vyrriox.justreplay.platform.Platform;
 
 import java.nio.file.Files;
@@ -44,6 +45,8 @@ public final class JRConfig {
     public static final ConfigFile.EnumValue<ExportResolution> EXPORT_RESOLUTION;
     public static final ConfigFile.BoolValue EXPORT_RANGE_IN_NAME;
     public static final ConfigFile.EnumValue<EditorMode> EDITOR_MODE;
+    /** The local MCP server, off until switched on. */
+    public static final McpConfig MCP;
     /** One switch per integration, by mod id (see {@link CompatSwitches}, which reads them before the game starts). */
     public static final Map<String, ConfigFile.BoolValue> COMPAT;
 
@@ -75,7 +78,8 @@ public final class JRConfig {
         AUTO_RECORD_SINGLEPLAYER = recording.bool("autoRecordSingleplayer", false,
                 "Start recording automatically when opening a singleplayer world.");
         SHOW_RECORDING_INDICATOR = recording.bool("showRecordingIndicator", true,
-                "Show the REC indicator while recording.");
+                "Show the REC indicator in the top left corner while recording. Off: the recording goes on with nothing on screen,"
+                        + " so screen captures (OBS) stay clean.");
         CAPTURE_EXTRA_CHUNKS = recording.bool("captureExtraChunks", true,
                 "Also record the chunks the client has beyond the server view distance (cached chunks of mods" + "\n"
                         + "such as Bobby), a few per tick, so replays show the whole render distance.");
@@ -146,6 +150,7 @@ public final class JRConfig {
         EDITOR_MODE = editor.enumeration("mode", EditorMode.SIMPLE,
                 "SIMPLE shows the essentials of the replay editor with big controls; ADVANCED shows every tool." + "\n"
                         + "Switching keeps all the work done in either mode.");
+        MCP = McpConfig.define(SPEC);
         ConfigFile.Section compat = SPEC.section(CompatSwitches.SECTION,
                 "Integrations with other mods, one switch per mod id. An integration that fails turns itself off until the" + "\n"
                         + "next start and says so in the log; set it to false here to keep it off. Changes apply at the next start.");

@@ -234,7 +234,8 @@ public final class FxEngine {
         }
         int start, end;
         VideoExporter exporter = VideoExporter.current();
-        if (exporter != null) {
+        // A frame drawn for the MCP tools is not the start of a video: it fades as the whole edit would.
+        if (exporter != null && !exporter.isGrab()) {
             start = exporter.startTick();
             end = exporter.endTick();
         } else if (!project.cuts.isEmpty()) {
